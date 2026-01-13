@@ -8,7 +8,7 @@ const createCategorySchema = Joi.object({
 const updateCategorySchema = Joi.object({
     name: Joi.string().trim().optional(),
     image: Joi.string().optional().allow(null, ""),
-    isDisable:Joi.boolean().optional()
+    isDisable: Joi.boolean().optional()
 }).min(1); // At least one field must be provided
 
 const categoryListSchema = Joi.object({

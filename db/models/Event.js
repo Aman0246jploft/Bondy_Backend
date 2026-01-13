@@ -8,9 +8,9 @@ const eventSchema = new mongoose.Schema(
       ref: "Category",
     },
     posterImage: { type: [String] },
-    tags: { type: [String] },
     shortdesc: { type: String },
     longdesc: { type: String },
+    tags: { type: [String] },
     venueName: { type: String },
     venueAddress: {
       type: {
