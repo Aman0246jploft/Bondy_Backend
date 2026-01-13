@@ -9,6 +9,7 @@ const {
   apiSuccessRes,
   generateOTP,
   verifyPassword,
+  BACKEND_URL,
 } = require("../../utils/globalFunction");
 const { signToken } = require("../../utils/jwtTokenUtils");
 const {
@@ -17,6 +18,7 @@ const {
   otpVerificationSchema,
   resendOtpSchema,
   loginInitSchema,
+  updateUserSchema,
 } = require("../services/validations/userValidation");
 const validateRequest = require("../../middlewares/validateRequest");
 const perApiLimiter = require("../../middlewares/rateLimiter");
@@ -544,6 +546,75 @@ const resendLoginOtp = async (req, res) => {
   }
 };
 
+// Update User Profile
+const updateUserProfile = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+
+    if (req.user.roleId === roleId.SUPER_ADMIN) {
+      return apiErrorRes(
+        HTTP_STATUS.FORBIDDEN,
+        res,
+        constantsMessage.SUPER_ADMIN_UPDATE_NOT_ALLOWED
+      );
+    }
+
+    const { email, location, ...updateData } = req.body;
+
+    // Check if email already exists (if email is being updated)
+    if (email) {
+      const existingUser = await User.findOne({
+        email,
+        isDeleted: false,
+        _id: { $ne: userId },
+      });
+      if (existingUser) {
+        return apiErrorRes(
+          HTTP_STATUS.BAD_REQUEST,
+          res,
+          constantsMessage.EMAIL_ALREADY_EXISTS
+        );
+      }
+      updateData.email = email;
+    }
+
+    // Handle location update
+    if (location) {
+      updateData.location = {
+        type: "Point",
+        coordinates: [location.longitude, location.latitude],
+        city: location.city,
+        country: location.country,
+      };
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(userId, updateData, {
+      new: true,
+    }).lean();
+
+    if (!updatedUser) {
+      return apiErrorRes(
+        HTTP_STATUS.NOT_FOUND,
+        res,
+        constantsMessage.USER_NOT_FOUND
+      );
+    }
+    if (updatedUser.profileImage) {
+      updatedUser.profileImage = `${BACKEND_URL}/${updatedUser.profileImage}`;
+    }
+
+    return apiSuccessRes(
+      HTTP_STATUS.OK,
+      res,
+      constantsMessage.PROFILE_UPDATED,
+      { user: updatedUser }
+    );
+  } catch (error) {
+    console.error("Error in updateUserProfile:", error);
+    return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
+  }
+};
+
 router.post(
   "/customer/signup",
   perApiLimiter(),
@@ -611,6 +682,13 @@ router.post(
   perApiLimiter(),
   validateRequest(loginInitSchema), // Reuse schema as it has email & password
   adminLogin
+);
+
+router.post(
+  "/update-profile",
+  perApiLimiter(),
+  validateRequest(updateUserSchema),
+  updateUserProfile
 );
 
 module.exports = router;

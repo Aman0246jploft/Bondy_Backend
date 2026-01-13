@@ -40,10 +40,28 @@ const resendOtpSchema = Joi.object({
     email: Joi.string().email().required()
 });
 
+const updateUserSchema = Joi.object({
+    firstName: Joi.string().trim().optional(),
+    lastName: Joi.string().trim().optional(),
+    profileImage: Joi.string().optional(),
+    gender: Joi.string().optional(),
+    email: Joi.string().email().optional(),
+    dob: Joi.date().optional(),
+    bio: Joi.string().optional(),
+    categories: Joi.array().items(Joi.string()).optional(),
+    location: Joi.object({
+        latitude: Joi.number().required(),
+        longitude: Joi.number().required(),
+        city: Joi.string().optional(),
+        country: Joi.string().optional()
+    }).optional()
+});
+
 module.exports = {
     customerSignupSchema,
     organizerSignupSchema,
     otpVerificationSchema,
     resendOtpSchema,
-    loginInitSchema
+    loginInitSchema,
+    updateUserSchema
 };

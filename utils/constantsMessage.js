@@ -56,6 +56,9 @@ module.exports = Object.freeze({
     CATEGORY_NOT_FOUND: "Category not found.",
     CATEGORY_NAME_DUPLICATE: "Category with this name already exists.",
     CATEGORY_UPDATED: "Category updated successfully.",
-    CATEGORY_DELETED: "Category deleted successfully."
+    CATEGORY_DELETED: "Category deleted successfully.",
+    PROFILE_UPDATED: "Profile updated successfully.",
+    SUPER_ADMIN_UPDATE_NOT_ALLOWED: "Updating super admin profile is not allowed."
+
 });
 
