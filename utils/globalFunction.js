@@ -81,6 +81,23 @@ const toObjectId = (id) => {
   }
 };
 const BACKEND_URL = process.env.BACKEND_URL;
+
+const isValidUrl = (url) => {
+  try {
+    new URL(url);
+    return true;
+  } catch (err) {
+    return false;
+  }
+};
+
+const formatResponseUrl = (url) => {
+  if (!url) return url;
+
+  if (isValidUrl(url)) return url;
+
+  return `${process.env.BACKEND_URL}/${url.replace(/^\/+/, "")}`;
+};
 module.exports = {
   resultDb,
   generateOTP,
@@ -89,5 +106,6 @@ module.exports = {
   generateKey,
   verifyPassword,
   toObjectId,
-  BACKEND_URL
+  BACKEND_URL,
+  formatResponseUrl
 };

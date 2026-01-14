@@ -23,6 +23,8 @@ const eventSchema = new mongoose.Schema(
         type: [Number], // [longitude, latitude]
         required: true,
       },
+      city: String,
+      country: String,
     },
     startDate: { type: Date, required: true },
     endDate: { type: Date, required: true },
@@ -70,6 +72,11 @@ const eventSchema = new mongoose.Schema(
       default: false,
     },
 
+    status: {
+      type: String,
+      enum: ["Upcoming", "Live", "Past"],
+      default: "Upcoming"
+    },
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
@@ -88,5 +95,29 @@ eventSchema.set("toJSON", {
     return ret;
   },
 });
+
+
+
+eventSchema.pre("save", function (next) {
+  const now = new Date();
+
+  // ❌ Block creating past events
+  if (this.endDate < now) {
+    return next(new Error("You cannot create an event in the past"));
+  }
+
+  // ✅ Auto-manage status
+  if (now < this.startDate) {
+    this.status = "Upcoming";
+  } else if (now >= this.startDate && now <= this.endDate) {
+    this.status = "Live";
+  }
+
+  next();
+});
+
+
+
+
 
 module.exports = mongoose.model("Event", eventSchema);
