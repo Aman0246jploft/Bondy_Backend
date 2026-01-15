@@ -107,5 +107,5 @@ module.exports = {
   verifyPassword,
   toObjectId,
   BACKEND_URL,
-  formatResponseUrl
+  formatResponseUrl,
 };

@@ -1,67 +1,69 @@
 const Joi = require("joi");
 
 const customerSignupSchema = Joi.object({
-    email: Joi.string().email().required(),
-    countryCode: Joi.string().required(),
-    contactNumber: Joi.string().required(),
-    password: Joi.string().min(6).required(),
-    confirmPassword: Joi.string().valid(Joi.ref('password')).required().strict()
+  email: Joi.string().email().required(),
+  countryCode: Joi.string().required(),
+  contactNumber: Joi.string().required(),
+  password: Joi.string().min(6).required(),
+  confirmPassword: Joi.string().valid(Joi.ref("password")).required().strict(),
 });
 
 const organizerSignupSchema = Joi.object({
-    firstName: Joi.string().required(),
-    lastName: Joi.string().required(),
-    email: Joi.string().email().required(),
-    countryCode: Joi.string().required(),
-    contactNumber: Joi.string().required(),
-    password: Joi.string().min(6).required(),
-    confirmPassword: Joi.string().valid(Joi.ref('password')).required().strict(),
-    businessType: Joi.string().required(),
-    acceptTerms: Joi.boolean().valid(true).required(),
-    documents: Joi.array().items(
-        Joi.object({
-            file: Joi.string().required(),
-            // status will be set to pending by default in backend
-        })
-    ).optional()
+  firstName: Joi.string().required(),
+  lastName: Joi.string().required(),
+  email: Joi.string().email().required(),
+  countryCode: Joi.string().required(),
+  contactNumber: Joi.string().required(),
+  password: Joi.string().min(6).required(),
+  confirmPassword: Joi.string().valid(Joi.ref("password")).required().strict(),
+  businessType: Joi.string().required(),
+  acceptTerms: Joi.boolean().valid(true).required(),
+  documents: Joi.array()
+    .items(
+      Joi.object({
+        file: Joi.string().required(),
+        // status will be set to pending by default in backend
+      })
+    )
+    .optional(),
 });
 
 const loginInitSchema = Joi.object({
-    email: Joi.string().email().required(),
-    password: Joi.string().required()
+  email: Joi.string().email().required(),
+  password: Joi.string().required(),
 });
 
 const otpVerificationSchema = Joi.object({
-    email: Joi.string().email().required(),
-    otp: Joi.string().length(5).required()
+  email: Joi.string().email().required(),
+  otp: Joi.string().length(5).required(),
 });
 
 const resendOtpSchema = Joi.object({
-    email: Joi.string().email().required()
+  email: Joi.string().email().required(),
 });
 
 const updateUserSchema = Joi.object({
-    firstName: Joi.string().trim().optional(),
-    lastName: Joi.string().trim().optional(),
-    profileImage: Joi.string().optional(),
-    gender: Joi.string().optional(),
-    email: Joi.string().email().optional(),
-    dob: Joi.date().optional(),
-    bio: Joi.string().optional(),
-    categories: Joi.array().items(Joi.string()).optional(),
-    location: Joi.object({
-        latitude: Joi.number().required(),
-        longitude: Joi.number().required(),
-        city: Joi.string().optional(),
-        country: Joi.string().optional()
-    }).optional()
+  firstName: Joi.string().trim().optional(),
+  lastName: Joi.string().trim().optional(),
+  profileImage: Joi.string().optional(),
+  gender: Joi.string().optional(),
+  email: Joi.string().email().optional(),
+  dob: Joi.date().optional(),
+  bio: Joi.string().optional(),
+  categories: Joi.array().items(Joi.string()).optional(),
+  location: Joi.object({
+    latitude: Joi.number().required(),
+    longitude: Joi.number().required(),
+    city: Joi.string().optional(),
+    country: Joi.string().optional(),
+  }).optional(),
 });
 
 module.exports = {
-    customerSignupSchema,
-    organizerSignupSchema,
-    otpVerificationSchema,
-    resendOtpSchema,
-    loginInitSchema,
-    updateUserSchema
+  customerSignupSchema,
+  organizerSignupSchema,
+  otpVerificationSchema,
+  resendOtpSchema,
+  loginInitSchema,
+  updateUserSchema,
 };

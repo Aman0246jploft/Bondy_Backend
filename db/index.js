@@ -19,4 +19,10 @@ module.exports = {
   Category: require("./models/Category"),
   Event: require("./models/Event"),
   Course: require("./models/Course"),
+  Follow: require("./models/Follow"),
+  Block: require("./models/Block"),
+  Report: require("./models/ReportUser"),
+  Verification: require("./models/userVerification"),
+  Tax: require("./models/Tax"),
+  PromoCode: require("./models/PromoCode"),
 };

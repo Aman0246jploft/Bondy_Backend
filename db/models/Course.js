@@ -11,11 +11,11 @@ const scheduleSchema = new mongoose.Schema(
       required: true,
     },
     startTime: {
-      type: String, // e.g. "09:00 AM"
+      type: String, // e.g. "09:00"
       required: true,
     },
     endTime: {
-      type: String, // e.g. "01:00 PM"
+      type: String, // e.g. "01:00"
       required: true,
     },
     totalSeats: {
@@ -55,6 +55,9 @@ const courseSchema = new mongoose.Schema(
         type: [Number], // [longitude, latitude]
         required: true,
       },
+      city: { type: String },
+      country: { type: String },
+
     },
     shortdesc: { type: String },
     schedules: {
