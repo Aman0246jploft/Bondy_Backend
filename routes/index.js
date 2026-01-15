@@ -7,5 +7,6 @@ module.exports = {
     follow: require('./controller/controllerFollow'),
     block: require('./controller/controllerBlock'),
     report: require('./controller/controllerReport'),
-    verification: require('./controller/controllerVerification')
+    verification: require('./controller/controllerVerification'),
+    booking: require('./controller/controllerBooking')
 }
