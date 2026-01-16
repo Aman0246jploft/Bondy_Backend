@@ -62,6 +62,20 @@ const transactionSchema = new mongoose.Schema(
         isCheckedIn: {
             type: Boolean,
             default: false
+        },
+        checkedInQty: {
+            type: Number,
+            default: 0,
+            min: 0,
+        },
+        checkedInAt: {
+            type: Date,
+            default: null,
+        },
+        checkedInBy: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User",
+            default: null,
         }
     },
     {

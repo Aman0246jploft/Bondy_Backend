@@ -13,6 +13,7 @@ const createEventSchema = Joi.object({
         longitude: Joi.number().required(),
         city: Joi.string().required(),
         country: Joi.string().required(),
+        address: Joi.string().required(),
     }).required(),
     startDate: Joi.date().required(),
     endDate: Joi.date().required(),

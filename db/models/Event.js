@@ -25,6 +25,7 @@ const eventSchema = new mongoose.Schema(
       },
       city: String,
       country: String,
+      address: String,
     },
     startDate: { type: Date, required: true },
     endDate: { type: Date, required: true },
@@ -76,6 +77,11 @@ const eventSchema = new mongoose.Schema(
       type: String,
       enum: ["Upcoming", "Live", "Past"],
       default: "Upcoming"
+    },
+    totalAttendees: {
+      type: Number,
+      default: 0,
+      min: 0,
     },
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,

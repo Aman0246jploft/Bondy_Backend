@@ -57,7 +57,7 @@ const courseSchema = new mongoose.Schema(
       },
       city: { type: String },
       country: { type: String },
-
+      address: { type: String },
     },
     shortdesc: { type: String },
     schedules: {

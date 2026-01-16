@@ -1,4 +1,5 @@
 const express = require("express");
+const mongoose = require("mongoose");
 const router = express.Router();
 const { Attendee, Event, Transaction, User } = require("../../db");
 const CONSTANTS = require("../../utils/constants");
@@ -43,6 +44,7 @@ const checkInSchema = Joi.object({
 
 const scanQRSchema = Joi.object({
   qrCodeData: Joi.string().required(),
+  eventId: Joi.string().optional(), // Required for User profile scans
 });
 
 // 1. Create Attendees for a Transaction
@@ -357,25 +359,95 @@ const getAttendeeByTicket = async (req, res) => {
 // 6. Scan QR Code and Check-in (Organizer Only)
 const scanQRAndCheckIn = async (req, res) => {
   try {
-    const { qrCodeData } = req.body;
-    const userId = req.user.userId;
+    const { qrCodeData, eventId } = req.body;
+    const organizerId = req.user.userId;
 
-    // Find Attendee by QR Code
-    const attendee = await Attendee.findOne({ qrCodeData })
-      .populate("eventId")
-      .populate("userId", "firstName lastName email profileImage")
-      .populate("transactionId", "bookingId totalAmount");
-
-    if (!attendee) {
+    if (!qrCodeData) {
       return apiErrorRes(
-        HTTP_STATUS.NOT_FOUND,
+        HTTP_STATUS.BAD_REQUEST,
         res,
-        "Invalid QR code - Ticket not found"
+        "QR code data is required"
       );
     }
 
+    let attendee = null;
+    let transaction = null;
+    let event = null;
+
+    // Determine if it's a Transaction QR, Attendee QR, or User ID QR
+    if (qrCodeData.startsWith("TICKET-")) {
+      // Case 1: Transaction QR
+      const parts = qrCodeData.split("-");
+      const transactionId = parts[1];
+
+      transaction = await Transaction.findById(transactionId)
+        .populate("eventId")
+        .populate("userId", "firstName lastName email profileImage");
+
+      if (!transaction) {
+        return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Transaction not found");
+      }
+      event = transaction.eventId;
+    } else if (qrCodeData.startsWith("ATTENDEE-")) {
+      // Case 2: Individual Attendee QR
+      attendee = await Attendee.findOne({ qrCodeData })
+        .populate("eventId")
+        .populate("userId", "firstName lastName email profileImage")
+        .populate("transactionId", "bookingId totalAmount status");
+
+      if (!attendee) {
+        return apiErrorRes(
+          HTTP_STATUS.NOT_FOUND,
+          res,
+          "Individual ticket not found"
+        );
+      }
+      event = attendee.eventId;
+      transaction = attendee.transactionId;
+    } else if (mongoose.Types.ObjectId.isValid(qrCodeData)) {
+      // Case 3: User ID Scan (Profile QR)
+      if (!eventId) {
+        return apiErrorRes(
+          HTTP_STATUS.BAD_REQUEST,
+          res,
+          "eventId is required for User profile scans"
+        );
+      }
+
+      event = await Event.findById(eventId);
+      if (!event) {
+        return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Event not found");
+      }
+
+      // Find an active paid transaction for this user and event
+      transaction = await Transaction.findOne({
+        userId: qrCodeData,
+        eventId: eventId,
+        status: "PAID",
+      }).populate("userId", "firstName lastName email profileImage");
+
+      if (!transaction) {
+        return apiErrorRes(
+          HTTP_STATUS.NOT_FOUND,
+          res,
+          "No paid booking found for this user for this event"
+        );
+      }
+    } else {
+      return apiErrorRes(
+        HTTP_STATUS.BAD_REQUEST,
+        res,
+        "Invalid QR code format"
+      );
+    }
+
+    // --- Common Validations ---
+    if (!event) {
+      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Event not found");
+    }
+
     // Verify Event Ownership
-    if (attendee.eventId.createdBy.toString() !== userId) {
+    if (event.createdBy.toString() !== organizerId) {
       return apiErrorRes(
         HTTP_STATUS.FORBIDDEN,
         res,
@@ -383,22 +455,49 @@ const scanQRAndCheckIn = async (req, res) => {
       );
     }
 
-    const event = attendee.eventId;
-    const now = new Date();
+    // Check if PAID
+    if (transaction && transaction.status !== "PAID") {
+      return apiErrorRes(
+        HTTP_STATUS.BAD_REQUEST,
+        res,
+        "Transaction is not PAID"
+      );
+    }
 
-    // ✅ Check if event has expired
+    // Check if already checked in
+    if (transaction && transaction.isCheckedIn && !attendee) {
+      return apiErrorRes(
+        HTTP_STATUS.BAD_REQUEST,
+        res,
+        `Booking already used - Checked in at ${transaction.checkedInAt}`,
+        {
+          validationStatus: "ALREADY_CHECKED_IN",
+          checkedInAt: transaction.checkedInAt,
+          buyer: transaction.userId,
+        }
+      );
+    }
+
+    if (attendee && attendee.isCheckedIn) {
+      return apiErrorRes(
+        HTTP_STATUS.BAD_REQUEST,
+        res,
+        `Ticket already used - Checked in at ${attendee.checkedInAt}`,
+        {
+          validationStatus: "ALREADY_CHECKED_IN",
+          checkedInAt: attendee.checkedInAt,
+        }
+      );
+    }
+
+    const now = new Date();
+    // Check if event has expired
     if (now > new Date(event.endDate)) {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
         "Event has expired - Check-in not allowed",
         {
-          attendee: {
-            firstName: attendee.firstName,
-            lastName: attendee.lastName,
-            email: attendee.email,
-            ticketNumber: attendee.ticketNumber,
-          },
           event: {
             eventTitle: event.eventTitle,
             endDate: event.endDate,
@@ -409,85 +508,114 @@ const scanQRAndCheckIn = async (req, res) => {
       );
     }
 
-    // ✅ Check if event hasn't started yet (optional - you can allow early check-in)
-    if (now < new Date(event.startDate)) {
-      // You can choose to allow or disallow early check-in
-      // For now, we'll allow it but return a warning
-      const hoursUntilStart = Math.ceil(
-        (new Date(event.startDate) - now) / (1000 * 60 * 60)
-      );
+    // --- Perform Check-in ---
+    if (!attendee) {
+      // Case: Transaction-level Check-in (via TICKET- QR or User ID QR)
+      let currentAttendees = await Attendee.find({
+        transactionId: transaction._id,
+      });
 
-      // If you want to block early check-in, uncomment this:
-      // return apiErrorRes(
-      //     HTTP_STATUS.BAD_REQUEST,
-      //     res,
-      //     `Event hasn't started yet - Starts in ${hoursUntilStart} hours`,
-      //     {
-      //         validationStatus: "EVENT_NOT_STARTED",
-      //     }
-      // );
-    }
-
-    // ✅ Check if already checked in
-    if (attendee.isCheckedIn) {
-      const checkedInTime = new Date(attendee.checkedInAt);
-      const timeAgo = Math.floor((now - checkedInTime) / (1000 * 60)); // minutes ago
-
-      return apiErrorRes(
-        HTTP_STATUS.BAD_REQUEST,
-        res,
-        `Ticket already used - Checked in ${timeAgo} minutes ago`,
-        {
-          attendee: {
-            firstName: attendee.firstName,
-            lastName: attendee.lastName,
-            email: attendee.email,
-            ticketNumber: attendee.ticketNumber,
+      if (currentAttendees.length === 0) {
+        // Auto-create attendees if none exist
+        const attendeeDocs = [];
+        for (let i = 0; i < transaction.qty; i++) {
+          const ticketNumber = generateTicketNumber(
+            transaction.eventId._id || transaction.eventId,
+            i + 1
+          );
+          attendeeDocs.push({
+            transactionId: transaction._id,
+            eventId: transaction.eventId._id || transaction.eventId,
+            userId: transaction.userId._id || transaction.userId,
+            firstName: transaction.userId.firstName,
+            lastName: transaction.userId.lastName,
+            email: transaction.userId.email,
+            ticketNumber,
+            qrCodeData: "",
             isCheckedIn: true,
-            checkedInAt: attendee.checkedInAt,
-          },
-          event: {
-            eventTitle: event.eventTitle,
-          },
-          validationStatus: "ALREADY_CHECKED_IN",
+            checkedInAt: now,
+            checkedInBy: organizerId,
+          });
         }
-      );
+        const created = await Attendee.insertMany(attendeeDocs);
+        for (let doc of created) {
+          doc.qrCodeData = generateAttendeeQRData(doc.ticketNumber, doc._id);
+          await doc.save();
+        }
+        currentAttendees = created;
+      } else {
+        // Mark all existing ones for this transaction as checked in
+        await Attendee.updateMany(
+          { transactionId: transaction._id, isCheckedIn: false },
+          {
+            $set: {
+              isCheckedIn: true,
+              checkedInAt: now,
+              checkedInBy: organizerId,
+            },
+          }
+        );
+        currentAttendees = await Attendee.find({
+          transactionId: transaction._id,
+        });
+      }
+
+      // Mark transaction as checked in
+      transaction.isCheckedIn = true;
+      transaction.checkedInAt = now;
+      transaction.checkedInBy = organizerId;
+      await transaction.save();
+
+      return apiSuccessRes(HTTP_STATUS.OK, res, "✅ Check-in successful", {
+        type: "TRANSACTION",
+        attendees: currentAttendees.map((a) => ({
+          firstName: a.firstName,
+          lastName: a.lastName,
+          ticketNumber: a.ticketNumber,
+        })),
+        event: {
+          eventTitle: event.eventTitle,
+        },
+        bookingId: transaction.bookingId,
+        qty: transaction.qty,
+        validationStatus: "SUCCESS",
+      });
+    } else {
+      // Case: Individual Attendee Check-in (via ATTENDEE- QR)
+      attendee.isCheckedIn = true;
+      attendee.checkedInAt = now;
+      attendee.checkedInBy = organizerId;
+      await attendee.save();
+
+      // Check if all attendees for this transaction are checked in
+      const totalAttendees = await Attendee.countDocuments({
+        transactionId: transaction._id,
+      });
+      const checkedInCount = await Attendee.countDocuments({
+        transactionId: transaction._id,
+        isCheckedIn: true,
+      });
+
+      if (totalAttendees === checkedInCount) {
+        transaction.isCheckedIn = true;
+        transaction.checkedInAt = now;
+        transaction.checkedInBy = organizerId;
+        await transaction.save();
+      }
+
+      return apiSuccessRes(HTTP_STATUS.OK, res, "✅ Check-in successful", {
+        type: "ATTENDEE",
+        attendee: {
+          firstName: attendee.firstName,
+          lastName: attendee.lastName,
+          ticketNumber: attendee.ticketNumber,
+        },
+        event: {
+          eventTitle: event.eventTitle,
+        },
+        validationStatus: "SUCCESS",
+      });
     }
-
-    // ✅ All validations passed - Perform check-in
-    attendee.isCheckedIn = true;
-    attendee.checkedInAt = new Date();
-    attendee.checkedInBy = userId;
-    await attendee.save();
-
-    return apiSuccessRes(HTTP_STATUS.OK, res, "✅ Check-in successful", {
-      attendee: {
-        _id: attendee._id,
-        firstName: attendee.firstName,
-        lastName: attendee.lastName,
-        email: attendee.email,
-        contactNumber: attendee.contactNumber,
-        ticketNumber: attendee.ticketNumber,
-        isCheckedIn: attendee.isCheckedIn,
-        checkedInAt: attendee.checkedInAt,
-      },
-      event: {
-        eventTitle: event.eventTitle,
-        venueName: event.venueName,
-        startDate: event.startDate,
-        endDate: event.endDate,
-      },
-      transaction: {
-        bookingId: attendee.transactionId.bookingId,
-        totalAmount: attendee.transactionId.totalAmount,
-      },
-      buyer: {
-        firstName: attendee.userId.firstName,
-        lastName: attendee.userId.lastName,
-        email: attendee.userId.email,
-      },
-      validationStatus: "SUCCESS",
-    });
   } catch (error) {
     console.error("Error in scanQRAndCheckIn:", error);
     return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
@@ -501,15 +629,20 @@ router.post(
   validateRequest(createAttendeesSchema),
   createAttendees
 );
+
 router.get("/event/:eventId", perApiLimiter(), getEventAttendees);
+
 router.get("/my-attendees", perApiLimiter(), getMyAttendees);
+
 router.post(
   "/check-in",
   perApiLimiter(),
   validateRequest(checkInSchema),
   checkInAttendee
 );
+
 router.get("/ticket/:ticketNumber", perApiLimiter(), getAttendeeByTicket);
+
 router.post(
   "/scan-qr",
   perApiLimiter(),

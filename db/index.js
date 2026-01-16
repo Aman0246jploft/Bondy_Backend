@@ -26,5 +26,4 @@ module.exports = {
   Verification: require("./models/userVerification"),
   Tax: require("./models/Tax"),
   PromoCode: require("./models/PromoCode"),
-  Attendee: require("./models/Attendee"),
 };

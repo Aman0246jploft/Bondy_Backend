@@ -20,7 +20,15 @@ const confirmPaymentSchema = Joi.object({
   }),
 });
 
+const scanQRCodeSchema = Joi.object({
+  qrCodeData: Joi.string().required().messages({
+    "string.empty": "QR code data is required",
+    "any.required": "QR code data is required",
+  }),
+});
+
 module.exports = {
   initiateBookingSchema,
   confirmPaymentSchema,
+  scanQRCodeSchema,
 };

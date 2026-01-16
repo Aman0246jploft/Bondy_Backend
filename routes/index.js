@@ -9,5 +9,5 @@ module.exports = {
     report: require('./controller/controllerReport'),
     verification: require('./controller/controllerVerification'),
     booking: require('./controller/controllerBooking'),
-    attendee: require('./controller/controllerAttendee')
+    course: require('./controller/controllerCourse')
 }
