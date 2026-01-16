@@ -9,6 +9,13 @@ const categorySchema = new mongoose.Schema(
       lowercase: true,
     },
 
+    type: {
+      type: String,
+      enum: ["event", "course"],
+      required: true,
+      lowercase: true,
+    },
+
     image: {
       type: String,
       default: null,

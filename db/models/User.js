@@ -82,6 +82,7 @@ const UserSchema = new Schema(
       coordinates: [Number], // [lng, lat]
       city: String,
       country: String,
+      address: String,
     },
     language: {
       type: String,

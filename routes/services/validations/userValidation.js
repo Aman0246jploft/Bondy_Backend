@@ -56,6 +56,7 @@ const updateUserSchema = Joi.object({
     longitude: Joi.number().required(),
     city: Joi.string().optional(),
     country: Joi.string().optional(),
+    address: Joi.string().trim().optional(),
   }).optional(),
 });
 

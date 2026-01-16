@@ -8,5 +8,6 @@ module.exports = {
     block: require('./controller/controllerBlock'),
     report: require('./controller/controllerReport'),
     verification: require('./controller/controllerVerification'),
-    booking: require('./controller/controllerBooking')
+    booking: require('./controller/controllerBooking'),
+    attendee: require('./controller/controllerAttendee')
 }

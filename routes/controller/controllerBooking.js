@@ -4,13 +4,22 @@ const { User, Event, Transaction, Tax, PromoCode } = require("../../db");
 const CONSTANTS = require("../../utils/constants");
 const constantsMessage = require("../../utils/constantsMessage");
 const HTTP_STATUS = require("../../utils/statusCode");
-const { apiErrorRes, apiSuccessRes } = require("../../utils/globalFunction");
+const {
+  apiErrorRes,
+  apiSuccessRes,
+  formatResponseUrl,
+} = require("../../utils/globalFunction");
 const {
   initiateBookingSchema,
   confirmPaymentSchema,
 } = require("../services/validations/bookingValidation");
 const validateRequest = require("../../middlewares/validateRequest");
 const perApiLimiter = require("../../middlewares/rateLimiter");
+
+// Helper to round amount to 2 decimal places
+const roundToTwo = (num) => {
+  return Math.round((num + Number.EPSILON) * 100) / 100;
+};
 
 // Helper to generate unique QR string
 const generateQRData = (transactionId, userId) => {
@@ -39,7 +48,7 @@ const initiateBooking = async (req, res) => {
     }
 
     // Calculate Base Price
-    const basePrice = event.ticketPrice * qty;
+    const basePrice = roundToTwo(event.ticketPrice * qty);
     let finalAmount = basePrice;
     let discountAmount = 0;
     let taxAmount = 0;
@@ -49,7 +58,6 @@ const initiateBooking = async (req, res) => {
       const code = await PromoCode.findOne({
         code: discountCode,
         active: true,
-        isDeleted: false,
       });
 
       if (!code) {
@@ -80,9 +88,9 @@ const initiateBooking = async (req, res) => {
       }
 
       if (code.discountType === "percentage") {
-        discountAmount = (basePrice * code.discountValue) / 100;
+        discountAmount = roundToTwo((basePrice * code.discountValue) / 100);
       } else {
-        discountAmount = code.discountValue;
+        discountAmount = roundToTwo(code.discountValue);
       }
 
       // Ensure discount doesn't exceed total
@@ -93,21 +101,22 @@ const initiateBooking = async (req, res) => {
 
     // Apply Taxes
     // Fetch all active taxes
-    const taxes = await Tax.find({ active: true, isDeleted: false });
+    const taxes = await Tax.find({ active: true });
     const appliedTaxIds = [];
 
     taxes.forEach((tax) => {
       let taxVal = 0;
       if (tax.type === "percentage") {
-        taxVal = (finalAmount * tax.value) / 100; // Tax usually on discounted price? Or base? Assuming discounted for now.
+        taxVal = roundToTwo((finalAmount * tax.value) / 100); // Tax usually on discounted price? Or base? Assuming discounted for now.
       } else {
-        taxVal = tax.value;
+        taxVal = roundToTwo(tax.value);
       }
       taxAmount += taxVal;
       appliedTaxIds.push(tax._id);
     });
 
-    finalAmount += taxAmount;
+    taxAmount = roundToTwo(taxAmount);
+    finalAmount = roundToTwo(finalAmount + taxAmount);
 
     // Generate Booking ID (e.g., BNDY-782392)
     const bookingId = `BNDY-${Math.floor(100000 + Math.random() * 900000)}`;
@@ -166,74 +175,103 @@ const calculateBooking = async (req, res) => {
     }
 
     // Calculate Base Price
-    const basePrice = event.ticketPrice * qty;
+    const basePrice = roundToTwo(event.ticketPrice * qty);
     let finalAmount = basePrice;
     let discountAmount = 0;
     let taxAmount = 0;
 
     // Apply Discount Code
+    // if (discountCode) {
+    //   const code = await PromoCode.findOne({
+    //     code: discountCode,
+    //     active: true,
+    //   });
+
+    //   if (!code) {
+    //     return apiErrorRes(
+    //       HTTP_STATUS.BAD_REQUEST,
+    //       res,
+    //       "Invalid discount code"
+    //     );
+    //   }
+
+    //   // Check validity dates
+    //   const now = new Date();
+    //   if (now < code.validFrom || now > code.validUntil) {
+    //     return apiErrorRes(
+    //       HTTP_STATUS.BAD_REQUEST,
+    //       res,
+    //       "Discount code expired"
+    //     );
+    //   }
+
+    //   // Check usage limits
+    //   if (code.maxUsage > 0 && code.usedCount >= code.maxUsage) {
+    //     return apiErrorRes(
+    //       HTTP_STATUS.BAD_REQUEST,
+    //       res,
+    //       "Discount code usage limit exceeded"
+    //     );
+    //   }
+
+    //   if (code.discountType === "percentage") {
+    //     discountAmount = roundToTwo((basePrice * code.discountValue) / 100);
+    //   } else {
+    //     discountAmount = roundToTwo(code.discountValue);
+    //   }
+
+    //   // Ensure discount doesn't exceed total
+    //   if (discountAmount > basePrice) discountAmount = basePrice;
+
+    //   finalAmount -= discountAmount;
+    // }
+    // Apply Discount Code (optional)
     if (discountCode) {
       const code = await PromoCode.findOne({
         code: discountCode,
         active: true,
-        isDeleted: false,
       });
 
-      if (!code) {
-        return apiErrorRes(
-          HTTP_STATUS.BAD_REQUEST,
-          res,
-          "Invalid discount code"
-        );
-      }
-
-      // Check validity dates
       const now = new Date();
-      if (now < code.validFrom || now > code.validUntil) {
-        return apiErrorRes(
-          HTTP_STATUS.BAD_REQUEST,
-          res,
-          "Discount code expired"
-        );
+
+      const isValidCoupon =
+        code &&
+        now >= code.validFrom &&
+        now <= code.validUntil &&
+        !(code.maxUsage > 0 && code.usedCount >= code.maxUsage);
+
+      if (isValidCoupon) {
+        if (code.discountType === "percentage") {
+          discountAmount = roundToTwo((basePrice * code.discountValue) / 100);
+        } else {
+          discountAmount = roundToTwo(code.discountValue);
+        }
+
+        // Ensure discount doesn't exceed base price
+        if (discountAmount > basePrice) discountAmount = basePrice;
+
+        finalAmount -= discountAmount;
       }
-
-      // Check usage limits
-      if (code.maxUsage > 0 && code.usedCount >= code.maxUsage) {
-        return apiErrorRes(
-          HTTP_STATUS.BAD_REQUEST,
-          res,
-          "Discount code usage limit exceeded"
-        );
-      }
-
-      if (code.discountType === "percentage") {
-        discountAmount = (basePrice * code.discountValue) / 100;
-      } else {
-        discountAmount = code.discountValue;
-      }
-
-      // Ensure discount doesn't exceed total
-      if (discountAmount > basePrice) discountAmount = basePrice;
-
-      finalAmount -= discountAmount;
+      // ❌ If coupon is invalid → do nothing, continue without discount
     }
 
     // Apply Taxes
-    const taxes = await Tax.find({ active: true, isDeleted: false });
+    const taxes = await Tax.find({ active: true });
     const appliedTaxes = [];
 
     taxes.forEach((tax) => {
       let taxVal = 0;
       if (tax.type === "percentage") {
-        taxVal = (finalAmount * tax.value) / 100;
+        taxVal = roundToTwo((finalAmount * tax.value) / 100);
       } else {
-        taxVal = tax.value;
+        taxVal = roundToTwo(tax.value);
       }
       taxAmount += taxVal;
       appliedTaxes.push({ ...tax.toObject(), calculatedAmount: taxVal });
     });
 
-    finalAmount += taxAmount;
+    taxAmount = roundToTwo(taxAmount);
+    finalAmount = roundToTwo(finalAmount + taxAmount);
 
     return apiSuccessRes(
       HTTP_STATUS.OK,
@@ -309,12 +347,34 @@ const confirmPayment = async (req, res) => {
       );
     }
 
+    /* ------------ FORMAT RESPONSE URLs (ALL ARRAYS) ------------ */
+
+    const transactionObj = transaction.toObject();
+    const event = transactionObj.eventId;
+
+    if (event) {
+      event.posterImage = Array.isArray(event.posterImage)
+        ? event.posterImage.map((e) => formatResponseUrl(e))
+        : [];
+      console.log("Event after formatting posterImage:", event.posterImage);
+
+      event.mediaLinks = Array.isArray(event.mediaLinks)
+        ? event.mediaLinks.map((link) => formatResponseUrl(link))
+        : [];
+
+      event.shortTeaserVideo = Array.isArray(event.shortTeaserVideo)
+        ? event.shortTeaserVideo.map((video) => formatResponseUrl(video))
+        : [];
+    }
+
+    /* ----------------------------------------------------------- */
+
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
       "Payment successful. Ticket Booked.",
       {
-        transaction,
+        transaction: transactionObj,
       }
     );
   } catch (error) {

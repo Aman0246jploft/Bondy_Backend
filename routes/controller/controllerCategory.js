@@ -21,11 +21,15 @@ const {
 // Create Category
 const createCategory = async (req, res) => {
   try {
-    const { name, image } = req.body;
+    const { name, type, image } = req.body;
     const lowerCaseName = name.toLowerCase().trim();
+    const lowerCaseType = type.toLowerCase().trim();
 
-    // Check if category exists (including soft-deleted)
-    const existingCategory = await Category.findOne({ name: lowerCaseName });
+    // Check if category exists with same name AND type (including soft-deleted)
+    const existingCategory = await Category.findOne({
+      name: lowerCaseName,
+      type: lowerCaseType
+    });
 
     if (existingCategory) {
       if (existingCategory.isDeleted) {
@@ -44,7 +48,7 @@ const createCategory = async (req, res) => {
         return apiErrorRes(
           HTTP_STATUS.BAD_REQUEST,
           res,
-          constantsMessage.CATEGORY_ALREADY_EXISTS
+          `Category with name "${name}" already exists for type "${type}"`
         );
       }
     }
@@ -52,6 +56,7 @@ const createCategory = async (req, res) => {
     // Create new category
     const newCategory = new Category({
       name: lowerCaseName,
+      type: lowerCaseType,
       image: image || null,
     });
 
@@ -72,11 +77,18 @@ const createCategory = async (req, res) => {
 // Get Category List with Pagination
 const getCategoryList = async (req, res) => {
   try {
-    const { page = 1, limit = 10, search } = req.query;
+    const { page = 1, limit = 10, search, type } = req.query;
     const pageNum = parseInt(page);
     const limitNum = parseInt(limit);
 
     const query = { isDeleted: false };
+
+    // Filter by type if provided
+    if (type) {
+      query.type = type.toLowerCase();
+    }
+
+    // Search by name if provided
     if (search) {
       query.name = { $regex: search, $options: "i" };
     }
@@ -116,7 +128,7 @@ const getCategoryList = async (req, res) => {
 const updateCategory = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, image, isDisable } = req.body;
+    const { name, type, image, isDisable } = req.body;
 
     const category = await Category.findOne({ _id: id, isDeleted: false });
     if (!category) {
@@ -127,11 +139,15 @@ const updateCategory = async (req, res) => {
       );
     }
 
-    if (name) {
-      const lowerCaseName = name.toLowerCase().trim();
-      // Check for duplicate name excluding current category
+    // If updating name or type, check for duplicates
+    if (name || type) {
+      const checkName = name ? name.toLowerCase().trim() : category.name;
+      const checkType = type ? type.toLowerCase().trim() : category.type;
+
+      // Check for duplicate name + type combination excluding current category
       const existingName = await Category.findOne({
-        name: lowerCaseName,
+        name: checkName,
+        type: checkType,
         _id: { $ne: id },
         isDeleted: false,
       });
@@ -140,10 +156,16 @@ const updateCategory = async (req, res) => {
         return apiErrorRes(
           HTTP_STATUS.BAD_REQUEST,
           res,
-          constantsMessage.CATEGORY_NAME_DUPLICATE
+          `Category with name "${checkName}" already exists for type "${checkType}"`
         );
       }
-      category.name = lowerCaseName;
+
+      if (name) {
+        category.name = checkName;
+      }
+      if (type) {
+        category.type = checkType;
+      }
     }
 
     if (image !== undefined) {

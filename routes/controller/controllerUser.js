@@ -585,6 +585,7 @@ const updateUserProfile = async (req, res) => {
         coordinates: [location.longitude, location.latitude],
         city: location.city,
         country: location.country,
+        address: location.address,
       };
     }
 
