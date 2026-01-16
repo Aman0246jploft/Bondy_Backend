@@ -28,7 +28,7 @@ const createCategory = async (req, res) => {
     // Check if category exists with same name AND type (including soft-deleted)
     const existingCategory = await Category.findOne({
       name: lowerCaseName,
-      type: lowerCaseType
+      type: lowerCaseType,
     });
 
     if (existingCategory) {
@@ -171,7 +171,6 @@ const updateCategory = async (req, res) => {
     if (image !== undefined) {
       category.image = image;
     }
-
     if (isDisable !== undefined) {
       category.isDisable = isDisable;
     }

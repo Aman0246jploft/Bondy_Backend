@@ -1,6 +1,13 @@
 const express = require("express");
 const router = express.Router();
-const { User } = require("../../db");
+const {
+  User,
+  Event,
+  Course,
+  Transaction,
+  Follow,
+  Verification,
+} = require("../../db");
 const CONSTANTS = require("../../utils/constants");
 const constantsMessage = require("../../utils/constantsMessage");
 const HTTP_STATUS = require("../../utils/statusCode");
@@ -10,6 +17,7 @@ const {
   generateOTP,
   verifyPassword,
   BACKEND_URL,
+  formatResponseUrl,
 } = require("../../utils/globalFunction");
 const { signToken } = require("../../utils/jwtTokenUtils");
 const {
@@ -616,6 +624,192 @@ const updateUserProfile = async (req, res) => {
   }
 };
 
+const getUserProfileById = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    // Find user with populated categories
+    const user = await User.findById(userId)
+      .populate("categories", "name type image")
+      .lean();
+
+    if (!user || user.isDeleted) {
+      return apiErrorRes(
+        HTTP_STATUS.NOT_FOUND,
+        res,
+        constantsMessage.USER_NOT_FOUND
+      );
+    }
+
+    // Get verification data
+    const verification = await Verification.findOne({ user: userId }).lean();
+
+    // Calculate totalAttended (unique events where user has checked in)
+    const attendedEvents = await Transaction.distinct("eventId", {
+      userId: userId,
+      status: "PAID",
+      checkedInQty: { $gt: 0 },
+    });
+    const totalAttended = attendedEvents.length;
+
+    // Calculate totalInterests (categories count)
+    const totalInterests = user.categories?.length || 0;
+
+    // Format categories with names
+    const categories = (user.categories || []).map((cat) => ({
+      _id: cat._id,
+      name: cat.name,
+      type: cat.type,
+      image: cat.image ? formatResponseUrl(cat.image) : null,
+    }));
+
+    // Format profile image
+    const profileImage = user.profileImage
+      ? formatResponseUrl(user.profileImage)
+      : null;
+
+    // Base profile data (common for all users)
+    const profileData = {
+      _id: user._id,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      profileImage: profileImage,
+      bio: user.bio,
+      categories: categories,
+      totalAttended: totalAttended,
+      totalInterests: totalInterests,
+      verification: verification || null,
+    };
+
+    // If user is organizer, add additional data
+    if (user.roleId === roleId.ORGANISER) {
+      // Add location
+      profileData.location = user.location || null;
+
+      // Calculate totalFollowers
+      const totalFollowers = await Follow.countDocuments({
+        toUser: userId,
+      });
+      profileData.totalFollowers = totalFollowers;
+
+      // Calculate totalEventsHosted
+      const totalEventsHosted = await Event.countDocuments({
+        createdBy: userId,
+      });
+      profileData.totalEventsHosted = totalEventsHosted;
+
+      // Get all events created by this organizer
+      const events = await Event.find({
+        createdBy: userId,
+      })
+        .populate("eventCategory", "name")
+        .sort({ startDate: -1 })
+        .lean();
+
+      // Get all courses created by this organizer
+      const courses = await Course.find({
+        createdBy: userId,
+      })
+        .populate("courseCategory", "name")
+        .sort({ createdAt: -1 })
+        .lean();
+
+      const now = new Date();
+
+      // Separate events into next and past
+      const nextEvents = [];
+      const pastEvents = [];
+
+      events.forEach((event) => {
+        const eventObj = { ...event };
+
+        // Format poster images
+        if (Array.isArray(eventObj.posterImage)) {
+          eventObj.posterImage = eventObj.posterImage.map((img) =>
+            formatResponseUrl(img)
+          );
+        }
+
+        // Format media links
+        if (Array.isArray(eventObj.mediaLinks)) {
+          eventObj.mediaLinks = eventObj.mediaLinks.map((link) =>
+            formatResponseUrl(link)
+          );
+        }
+
+        // Format teaser videos
+        if (Array.isArray(eventObj.shortTeaserVideo)) {
+          eventObj.shortTeaserVideo = eventObj.shortTeaserVideo.map((video) =>
+            formatResponseUrl(video)
+          );
+        }
+
+        if (new Date(event.endDate) >= now) {
+          nextEvents.push(eventObj);
+        } else {
+          pastEvents.push(eventObj);
+        }
+      });
+
+      // Separate courses into next and past (based on schedules)
+      const nextCourses = [];
+      const pastCourses = [];
+
+      courses.forEach((course) => {
+        const courseObj = { ...course };
+
+        // Format poster images
+        if (Array.isArray(courseObj.posterImage)) {
+          courseObj.posterImage = courseObj.posterImage.map((img) =>
+            formatResponseUrl(img)
+          );
+        }
+
+        // Check if course has any future schedules
+        const hasFutureSchedule =
+          course.schedules &&
+          course.schedules.some(
+            (schedule) => new Date(schedule.endDate) >= now
+          );
+
+        if (
+          hasFutureSchedule ||
+          !course.schedules ||
+          course.schedules.length === 0
+        ) {
+          // If no schedules or has future schedules, consider it next
+          nextCourses.push(courseObj);
+        } else {
+          // All schedules are past
+          pastCourses.push(courseObj);
+        }
+      });
+
+      profileData.events = {
+        next: nextEvents,
+        past: pastEvents,
+      };
+
+      profileData.courses = {
+        next: nextCourses,
+        past: pastCourses,
+      };
+    }
+
+    return apiSuccessRes(
+      HTTP_STATUS.OK,
+      res,
+      "User profile fetched successfully",
+      {
+        profile: profileData,
+      }
+    );
+  } catch (error) {
+    console.error("Error in getUserProfileById:", error);
+    return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
+  }
+};
+
 router.post(
   "/customer/signup",
   perApiLimiter(),
@@ -691,5 +885,8 @@ router.post(
   validateRequest(updateUserSchema),
   updateUserProfile
 );
+
+// Get User Profile By ID
+router.get("/profile/:userId", perApiLimiter(), getUserProfileById);
 
 module.exports = router;

@@ -682,17 +682,17 @@ const getEventAttendeesList = async (req, res) => {
     if (status === "checked-in") {
       filter.checkedInQty = { $gt: 0 };
     } else if (status === "not-checked-in") {
-      filter.$or = [
-        { checkedInQty: { $exists: false } },
-        { checkedInQty: 0 },
-      ];
+      filter.$or = [{ checkedInQty: { $exists: false } }, { checkedInQty: 0 }];
     } else if (status === "fully-checked-in") {
       // This will be handled in the code below
     }
 
     // Get all paid transactions for this event
     const transactions = await Transaction.find(filter)
-      .populate("userId", "firstName lastName email profileImage contactNumber countryCode")
+      .populate(
+        "userId",
+        "firstName lastName email profileImage contactNumber countryCode"
+      )
       .populate("checkedInBy", "firstName lastName email")
       .sort({ createdAt: -1 });
 
@@ -737,11 +737,11 @@ const getEventAttendeesList = async (req, res) => {
           checkedInAt: transaction.checkedInAt,
           checkedInBy: checkedInByUser
             ? {
-              _id: checkedInByUser._id,
-              firstName: checkedInByUser.firstName,
-              lastName: checkedInByUser.lastName,
-              email: checkedInByUser.email,
-            }
+                _id: checkedInByUser._id,
+                firstName: checkedInByUser.firstName,
+                lastName: checkedInByUser.lastName,
+                email: checkedInByUser.email,
+              }
             : null,
         },
         bookingDate: transaction.createdAt,
@@ -807,10 +807,7 @@ const getEventAttendeeStats = async (req, res) => {
 
     // Calculate statistics
     const totalBookings = transactions.length;
-    const totalTicketsSold = transactions.reduce(
-      (sum, t) => sum + t.qty,
-      0
-    );
+    const totalTicketsSold = transactions.reduce((sum, t) => sum + t.qty, 0);
     const totalTicketsCheckedIn = transactions.reduce(
       (sum, t) => sum + (t.checkedInQty || 0),
       0
@@ -826,41 +823,36 @@ const getEventAttendeeStats = async (req, res) => {
       (t) => (t.checkedInQty || 0) === 0
     ).length;
 
-    return apiSuccessRes(
-      HTTP_STATUS.OK,
-      res,
-      "Attendee statistics fetched",
-      {
-        event: {
-          _id: event._id,
-          eventTitle: event.eventTitle,
-          startDate: event.startDate,
-          endDate: event.endDate,
-          totalTickets: event.totalTickets,
-          ticketQtyAvailable: event.ticketQtyAvailable,
-        },
-        statistics: {
-          totalAttendees: event.totalAttendees || 0,
-          totalBookings,
-          totalTicketsSold,
-          totalTicketsCheckedIn,
-          totalTicketsPending,
-          fullyCheckedInBookings,
-          partiallyCheckedInBookings,
-          notCheckedInBookings,
-        },
-        transactions: transactions.map((t) => ({
-          _id: t._id,
-          bookingId: t.bookingId,
-          userId: t.userId,
-          qty: t.qty,
-          checkedInQty: t.checkedInQty || 0,
-          isFullyCheckedIn: (t.checkedInQty || 0) >= t.qty,
-          checkedInAt: t.checkedInAt,
-          createdAt: t.createdAt,
-        })),
-      }
-    );
+    return apiSuccessRes(HTTP_STATUS.OK, res, "Attendee statistics fetched", {
+      event: {
+        _id: event._id,
+        eventTitle: event.eventTitle,
+        startDate: event.startDate,
+        endDate: event.endDate,
+        totalTickets: event.totalTickets,
+        ticketQtyAvailable: event.ticketQtyAvailable,
+      },
+      statistics: {
+        totalAttendees: event.totalAttendees || 0,
+        totalBookings,
+        totalTicketsSold,
+        totalTicketsCheckedIn,
+        totalTicketsPending,
+        fullyCheckedInBookings,
+        partiallyCheckedInBookings,
+        notCheckedInBookings,
+      },
+      transactions: transactions.map((t) => ({
+        _id: t._id,
+        bookingId: t.bookingId,
+        userId: t.userId,
+        qty: t.qty,
+        checkedInQty: t.checkedInQty || 0,
+        isFullyCheckedIn: (t.checkedInQty || 0) >= t.qty,
+        checkedInAt: t.checkedInAt,
+        createdAt: t.createdAt,
+      })),
+    });
   } catch (error) {
     console.error("Error in getEventAttendeeStats:", error);
     return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);

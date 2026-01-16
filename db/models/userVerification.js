@@ -43,7 +43,6 @@ const verificationSchema = new mongoose.Schema(
         default: "pending",
       },
       date: Date,
-      region: String,
       documents: [documentSchema],
     },
     contactVerification: {
@@ -53,7 +52,6 @@ const verificationSchema = new mongoose.Schema(
         default: "pending",
       },
       date: Date,
-      region: String,
     },
     payoutVerification: {
       status: {
@@ -62,7 +60,6 @@ const verificationSchema = new mongoose.Schema(
         default: "pending",
       },
       date: Date,
-      region: String,
       documents: [documentSchema],
     },
     businessVerification: {
@@ -72,7 +69,6 @@ const verificationSchema = new mongoose.Schema(
         default: "pending",
       },
       date: Date,
-      region: String,
       documents: [documentSchema],
     },
   },
