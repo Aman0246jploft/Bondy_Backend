@@ -7,6 +7,7 @@ const {
   Tax,
   PromoCode,
   Course,
+  GlobalSetting,
 } = require("../../db");
 const CONSTANTS = require("../../utils/constants");
 const constantsMessage = require("../../utils/constantsMessage");
@@ -393,7 +394,7 @@ const confirmPayment = async (req, res) => {
         if (
           scheduleCheck &&
           scheduleCheck.totalSeats - scheduleCheck.totalAttendees <
-            transaction.qty
+          transaction.qty
         ) {
           transaction.status = "REFUND_INITIATED";
           await transaction.save();
@@ -408,11 +409,43 @@ const confirmPayment = async (req, res) => {
       }
     }
 
+    // Calculate Commission and Earnings
+    let commissionPercentage = 0;
+
+    const globalConfig = await GlobalSetting.findOne({
+      key: "COMMISSION_CONFIG",
+    });
+    if (globalConfig && globalConfig.value) {
+      if (transaction.bookingType === "EVENT") {
+        commissionPercentage = globalConfig.value.eventCommission || 0;
+      } else {
+        commissionPercentage = globalConfig.value.courseCommission || 0;
+      }
+    }
+
+    const netBasePrice = transaction.basePrice - transaction.discountAmount;
+
+    const commissionAmount = roundToTwo(
+      netBasePrice * (commissionPercentage / 100)
+    );
+    const organizerEarning = roundToTwo(netBasePrice - commissionAmount);
+
     // Update Transaction to PAID
     transaction.status = "PAID";
     transaction.paymentId = `MOCK_PAY_${Date.now()}`;
     transaction.qrCodeData = generateQRData(transaction._id, userId);
+    transaction.commissionAmount = commissionAmount;
+    transaction.organizerEarning = organizerEarning;
     await transaction.save();
+
+    // Update Organizer Earning Status
+    const organizerId = item.createdBy;
+    await User.findByIdAndUpdate(organizerId, {
+      $inc: {
+        totalEarnings: organizerEarning,
+        payoutBalance: organizerEarning,
+      },
+    });
 
     if (transaction.discountCode) {
       await PromoCode.updateOne(
@@ -681,7 +714,7 @@ const getEventAttendeesList = async (req, res) => {
     // Check if user is the organizer or admin
     if (
       event.createdBy.toString() !== userId.toString() &&
-      req.user.roleId !== 1 // SUPER_ADMIN
+      req.user.roleId !== roleId.SUPER_ADMIN // SUPER_ADMIN
     ) {
       return apiErrorRes(
         HTTP_STATUS.FORBIDDEN,
@@ -755,11 +788,11 @@ const getEventAttendeesList = async (req, res) => {
           checkedInAt: transaction.checkedInAt,
           checkedInBy: checkedInByUser
             ? {
-                _id: checkedInByUser._id,
-                firstName: checkedInByUser.firstName,
-                lastName: checkedInByUser.lastName,
-                email: checkedInByUser.email,
-              }
+              _id: checkedInByUser._id,
+              firstName: checkedInByUser.firstName,
+              lastName: checkedInByUser.lastName,
+              email: checkedInByUser.email,
+            }
             : null,
         },
         bookingDate: transaction.createdAt,
@@ -806,7 +839,7 @@ const getEventAttendeeStats = async (req, res) => {
     // Check if user is the organizer or admin
     if (
       event.createdBy.toString() !== userId.toString() &&
-      req.user.roleId !== 1 // SUPER_ADMIN
+      req.user.roleId !== roleId.SUPER_ADMIN // SUPER_ADMIN
     ) {
       return apiErrorRes(
         HTTP_STATUS.FORBIDDEN,

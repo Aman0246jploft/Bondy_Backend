@@ -185,9 +185,8 @@ const getNotificationList = async (payload) => {
       { $limit: limit },
     ];
 
-    const groupedNotifications = await Notification.aggregate(
-      aggregationPipeline
-    );
+    const groupedNotifications =
+      await Notification.aggregate(aggregationPipeline);
 
     // Total count calculation, without skip and limit.
     const totalGroupsPipeline = [

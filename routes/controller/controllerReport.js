@@ -4,6 +4,10 @@ const { Report } = require("../../db");
 const HTTP_STATUS = require("../../utils/statusCode");
 const { apiErrorRes, apiSuccessRes } = require("../../utils/globalFunction");
 const perApiLimiter = require("../../middlewares/rateLimiter");
+const validateRequest = require("../../middlewares/validateRequest");
+const {
+  reportUserSchema,
+} = require("../services/validations/adminValidations");
 
 // Create Report
 const createReport = async (req, res) => {
@@ -82,11 +86,6 @@ const listReports = async (req, res) => {
     );
   }
 };
-
-const validateRequest = require("../../middlewares/validateRequest");
-const {
-  reportUserSchema,
-} = require("../services/validations/adminValidations");
 
 router.post(
   "/create",

@@ -59,6 +59,14 @@ const transactionSchema = new mongoose.Schema(
             type: Number,
             required: true,
         },
+        commissionAmount: {
+            type: Number,
+            default: 0,
+        },
+        organizerEarning: {
+            type: Number,
+            default: 0,
+        },
         discountCode: {
             type: String,
             default: null,

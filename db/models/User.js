@@ -140,6 +140,21 @@ const UserSchema = new Schema(
       type: Date,
       default: null,
     },
+    bankDetails: {
+      accountName: { type: String, default: null },
+      accountNumber: { type: String, default: null },
+      bankName: { type: String, default: null },
+      ifscCode: { type: String, default: null },
+      swiftCode: { type: String, default: null },
+    },
+    totalEarnings: {
+      type: Number,
+      default: 0,
+    },
+    payoutBalance: {
+      type: Number,
+      default: 0,
+    },
   },
   {
     timestamps: true,

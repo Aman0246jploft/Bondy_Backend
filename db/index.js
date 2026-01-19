@@ -26,4 +26,6 @@ module.exports = {
   Verification: require("./models/userVerification"),
   Tax: require("./models/Tax"),
   PromoCode: require("./models/PromoCode"),
+  Payout: require("./models/Payout"),
+  GlobalSetting: require("./models/GlobalSetting"),
 };

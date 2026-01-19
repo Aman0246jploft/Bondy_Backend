@@ -10,4 +10,6 @@ module.exports = {
   verification: require("./controller/controllerVerification"),
   booking: require("./controller/controllerBooking"),
   course: require("./controller/controllerCourse"),
+  payout: require("./controller/controllerPayout"),
+  globalsetting: require("./controller/controllerGlobalSetting"),
 };
