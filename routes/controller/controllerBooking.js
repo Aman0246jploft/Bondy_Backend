@@ -339,7 +339,10 @@ const confirmPayment = async (req, res) => {
     // Verify availability and reduce inventory atomically
     if (transaction.bookingType === "EVENT") {
       const updatedEvent = await Event.findOneAndUpdate(
-        { _id: transaction.eventId._id, ticketQtyAvailable: { $gte: transaction.qty } },
+        {
+          _id: transaction.eventId._id,
+          ticketQtyAvailable: { $gte: transaction.qty },
+        },
         { $inc: { ticketQtyAvailable: -transaction.qty } },
         { new: true }
       );
@@ -361,19 +364,24 @@ const confirmPayment = async (req, res) => {
           schedules: {
             $elemMatch: {
               _id: transaction.scheduleId,
-              $expr: { $gte: [{ $subtract: ["$totalSeats", "$totalAttendees"] }, transaction.qty] }
-            }
-          }
+              $expr: {
+                $gte: [
+                  { $subtract: ["$totalSeats", "$totalAttendees"] },
+                  transaction.qty,
+                ],
+              },
+            },
+          },
         },
         { $inc: { "schedules.$[elem].totalAttendees": transaction.qty } },
         {
           arrayFilters: [{ "elem._id": transaction.scheduleId }],
-          new: true
+          new: true,
         }
       );
 
       // Note: $expr with $subtract inside $elemMatch can be tricky in some Mongo versions.
-      // A more robust way if $expr fails is to just check totalAttendees directly if we know totalSeats doesn't change often, 
+      // A more robust way if $expr fails is to just check totalAttendees directly if we know totalSeats doesn't change often,
       // but let's try the more precise one first. Wait, schedules are subdocs, so we can't easily $subtract across fields in a filter without $expr.
       // Re-evaluating: The correct atomic way to check "seats available" is to know the totalSeats.
 
@@ -382,7 +390,11 @@ const confirmPayment = async (req, res) => {
         const courseCheck = await Course.findById(transaction.courseId._id);
         const scheduleCheck = courseCheck?.schedules.id(transaction.scheduleId);
 
-        if (scheduleCheck && (scheduleCheck.totalSeats - scheduleCheck.totalAttendees < transaction.qty)) {
+        if (
+          scheduleCheck &&
+          scheduleCheck.totalSeats - scheduleCheck.totalAttendees <
+            transaction.qty
+        ) {
           transaction.status = "REFUND_INITIATED";
           await transaction.save();
           return apiSuccessRes(
@@ -743,11 +755,11 @@ const getEventAttendeesList = async (req, res) => {
           checkedInAt: transaction.checkedInAt,
           checkedInBy: checkedInByUser
             ? {
-              _id: checkedInByUser._id,
-              firstName: checkedInByUser.firstName,
-              lastName: checkedInByUser.lastName,
-              email: checkedInByUser.email,
-            }
+                _id: checkedInByUser._id,
+                firstName: checkedInByUser.firstName,
+                lastName: checkedInByUser.lastName,
+                email: checkedInByUser.email,
+              }
             : null,
         },
         bookingDate: transaction.createdAt,
