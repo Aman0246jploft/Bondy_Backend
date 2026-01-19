@@ -1,9 +1,18 @@
 const Joi = require("joi");
 
 const initiateBookingSchema = Joi.object({
-  eventId: Joi.string().required().messages({
+  eventId: Joi.string().optional().messages({
     "string.empty": "Event ID is required",
-    "any.required": "Event ID is required",
+  }),
+  courseId: Joi.string().optional().messages({
+    "string.empty": "Course ID is required",
+  }),
+  scheduleId: Joi.string().when("courseId", {
+    is: Joi.exist(),
+    then: Joi.required(),
+    otherwise: Joi.optional(),
+  }).messages({
+    "any.required": "Schedule ID is required for course booking",
   }),
   qty: Joi.number().integer().min(1).required().messages({
     "number.base": "Quantity must be a number",
@@ -11,7 +20,7 @@ const initiateBookingSchema = Joi.object({
     "any.required": "Quantity is required",
   }),
   discountCode: Joi.string().allow(null, "").optional(),
-});
+}).or("eventId", "courseId");
 
 const confirmPaymentSchema = Joi.object({
   transactionId: Joi.string().required().messages({

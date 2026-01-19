@@ -649,5 +649,4 @@ router.post(
   validateRequest(scanQRSchema),
   scanQRAndCheckIn
 );
-
 module.exports = router;

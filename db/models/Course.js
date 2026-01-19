@@ -1,40 +1,38 @@
 const mongoose = require("mongoose");
 
-const scheduleSchema = new mongoose.Schema(
-  {
-    startDate: {
-      type: Date,
-      required: true,
-    },
-    endDate: {
-      type: Date,
-      required: true,
-    },
-    startTime: {
-      type: String, // e.g. "09:00"
-      required: true,
-    },
-    endTime: {
-      type: String, // e.g. "01:00"
-      required: true,
-    },
-    totalSeats: {
-      type: Number,
-      required: true,
-      min: 1,
-    },
-    price: {
-      type: Number,
-      required: true,
-      min: 0,
-    },
-    isFull: {
-      type: Boolean,
-      default: false,
-    },
+const scheduleSchema = new mongoose.Schema({
+  startDate: {
+    type: Date,
+    required: true,
   },
-  { _id: false }
-);
+  endDate: {
+    type: Date,
+    required: true,
+  },
+  startTime: {
+    type: String, // e.g. "09:00"
+    required: true,
+  },
+  endTime: {
+    type: String, // e.g. "01:00"
+    required: true,
+  },
+  totalSeats: {
+    type: Number,
+    required: true,
+    min: 1,
+  },
+  price: {
+    type: Number,
+    required: true,
+    min: 0,
+  },
+  totalAttendees: {
+    type: Number,
+    default: 0,
+    min: 0,
+  },
+});
 
 const courseSchema = new mongoose.Schema(
   {

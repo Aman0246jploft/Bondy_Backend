@@ -10,7 +10,28 @@ const transactionSchema = new mongoose.Schema(
         eventId: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "Event",
+            required: function () {
+                return this.bookingType === "EVENT";
+            },
+        },
+        courseId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Course",
+            required: function () {
+                return this.bookingType === "COURSE";
+            },
+        },
+        scheduleId: {
+            type: String, // ID of the schedule in the Course
+            required: function () {
+                return this.bookingType === "COURSE";
+            },
+        },
+        bookingType: {
+            type: String,
+            enum: ["EVENT", "COURSE"],
             required: true,
+            default: "EVENT",
         },
         bookingId: {
             type: String,
@@ -50,7 +71,7 @@ const transactionSchema = new mongoose.Schema(
         ],
         status: {
             type: String,
-            enum: ["PENDING", "PAID", "FAILED", "CANCELLED"],
+            enum: ["PENDING", "PAID", "FAILED", "CANCELLED", "REFUND_INITIATED"],
             default: "PENDING",
         },
         paymentId: {

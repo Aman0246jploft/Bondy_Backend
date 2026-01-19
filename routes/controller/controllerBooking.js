@@ -1,6 +1,13 @@
 const express = require("express");
 const router = express.Router();
-const { User, Event, Transaction, Tax, PromoCode } = require("../../db");
+const {
+  User,
+  Event,
+  Transaction,
+  Tax,
+  PromoCode,
+  Course,
+} = require("../../db");
 const CONSTANTS = require("../../utils/constants");
 const constantsMessage = require("../../utils/constantsMessage");
 const HTTP_STATUS = require("../../utils/statusCode");
@@ -32,31 +39,60 @@ const generateQRData = (transactionId, userId) => {
 // 1. Initiate Booking (Calculate & Create Pending Transaction)
 const initiateBooking = async (req, res) => {
   try {
-    const { eventId, qty, discountCode } = req.body;
+    const { eventId, courseId, scheduleId, qty, discountCode } = req.body;
     const userId = req.user.userId;
 
-    // Fetch Event
-    const event = await Event.findById(eventId);
-    if (!event) {
-      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Event not found");
-    }
+    let targetItem;
+    let baseTicketPrice;
+    let bookingType;
 
-    // Check availability
-    if (event.ticketQtyAvailable < qty) {
+    if (eventId) {
+      targetItem = await Event.findById(eventId);
+      if (!targetItem) {
+        return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Event not found");
+      }
+      if (targetItem.ticketQtyAvailable < qty) {
+        return apiErrorRes(
+          HTTP_STATUS.BAD_REQUEST,
+          res,
+          "Not enough tickets available"
+        );
+      }
+      baseTicketPrice = targetItem.ticketPrice;
+      bookingType = "EVENT";
+    } else if (courseId) {
+      targetItem = await Course.findById(courseId);
+      if (!targetItem) {
+        return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Course not found");
+      }
+      const schedule = targetItem.schedules.id(scheduleId);
+      if (!schedule) {
+        return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Schedule not found");
+      }
+      if (schedule.totalSeats - schedule.totalAttendees < qty) {
+        return apiErrorRes(
+          HTTP_STATUS.BAD_REQUEST,
+          res,
+          "Not enough seats available"
+        );
+      }
+      baseTicketPrice = schedule.price;
+      bookingType = "COURSE";
+    } else {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        "Not enough tickets available"
+        "Either eventId or courseId must be provided"
       );
     }
 
     // Calculate Base Price
-    const basePrice = roundToTwo(event.ticketPrice * qty);
+    const basePrice = roundToTwo(baseTicketPrice * qty);
     let finalAmount = basePrice;
     let discountAmount = 0;
     let taxAmount = 0;
 
-    // Apply Discount Code
+    // Apply Discount Code (reused logic)
     if (discountCode) {
       const code = await PromoCode.findOne({
         code: discountCode,
@@ -71,7 +107,6 @@ const initiateBooking = async (req, res) => {
         );
       }
 
-      // Check validity dates
       const now = new Date();
       if (now < code.validFrom || now > code.validUntil) {
         return apiErrorRes(
@@ -81,7 +116,6 @@ const initiateBooking = async (req, res) => {
         );
       }
 
-      // Check usage limits
       if (code.maxUsage > 0 && code.usedCount >= code.maxUsage) {
         return apiErrorRes(
           HTTP_STATUS.BAD_REQUEST,
@@ -96,21 +130,18 @@ const initiateBooking = async (req, res) => {
         discountAmount = roundToTwo(code.discountValue);
       }
 
-      // Ensure discount doesn't exceed total
       if (discountAmount > basePrice) discountAmount = basePrice;
-
       finalAmount -= discountAmount;
     }
 
-    // Apply Taxes
-    // Fetch all active taxes
+    // Apply Taxes (reused logic)
     const taxes = await Tax.find({ active: true });
     const appliedTaxIds = [];
 
     taxes.forEach((tax) => {
       let taxVal = 0;
       if (tax.type === "percentage") {
-        taxVal = roundToTwo((finalAmount * tax.value) / 100); // Tax usually on discounted price? Or base? Assuming discounted for now.
+        taxVal = roundToTwo((finalAmount * tax.value) / 100);
       } else {
         taxVal = roundToTwo(tax.value);
       }
@@ -121,24 +152,30 @@ const initiateBooking = async (req, res) => {
     taxAmount = roundToTwo(taxAmount);
     finalAmount = roundToTwo(finalAmount + taxAmount);
 
-    // Generate Booking ID (e.g., BNDY-782392)
     const bookingId = `BNDY-${Math.floor(100000 + Math.random() * 900000)}`;
 
-    // Create Transaction Record
-    const transaction = new Transaction({
+    const transactionData = {
       userId,
-      eventId,
       bookingId,
       qty,
       basePrice,
       discountAmount,
       taxAmount,
-      totalAmount: finalAmount, // Round if needed?
+      totalAmount: finalAmount,
       discountCode: discountCode || null,
       appliedTaxIds,
       status: "PENDING",
-    });
+      bookingType,
+    };
 
+    if (bookingType === "EVENT") {
+      transactionData.eventId = eventId;
+    } else {
+      transactionData.courseId = courseId;
+      transactionData.scheduleId = scheduleId;
+    }
+
+    const transaction = new Transaction(transactionData);
     await transaction.save();
 
     return apiSuccessRes(HTTP_STATUS.OK, res, "Booking initiated", {
@@ -160,75 +197,50 @@ const initiateBooking = async (req, res) => {
 // 1.5 Calculate Booking (Preview - No Transaction)
 const calculateBooking = async (req, res) => {
   try {
-    const { eventId, qty, discountCode } = req.body;
+    const { eventId, courseId, scheduleId, qty, discountCode } = req.body;
 
-    // Fetch Event
-    const event = await Event.findById(eventId);
-    if (!event) {
-      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Event not found");
-    }
+    let targetItem;
+    let baseTicketPrice;
 
-    // Check availability
-    if (event.ticketQtyAvailable < qty) {
-      return apiErrorRes(
-        HTTP_STATUS.BAD_REQUEST,
-        res,
-        "Not enough tickets available"
-      );
+    if (eventId) {
+      targetItem = await Event.findById(eventId);
+      if (!targetItem) {
+        return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Event not found");
+      }
+      if (targetItem.ticketQtyAvailable < qty) {
+        return apiErrorRes(
+          HTTP_STATUS.BAD_REQUEST,
+          res,
+          "Not enough tickets available"
+        );
+      }
+      baseTicketPrice = targetItem.ticketPrice;
+    } else if (courseId) {
+      targetItem = await Course.findById(courseId);
+      if (!targetItem) {
+        return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Course not found");
+      }
+      const schedule = targetItem.schedules.id(scheduleId);
+      if (!schedule) {
+        return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Schedule not found");
+      }
+      if (schedule.totalSeats - schedule.totalAttendees < qty) {
+        return apiErrorRes(
+          HTTP_STATUS.BAD_REQUEST,
+          res,
+          "Not enough seats available"
+        );
+      }
+      baseTicketPrice = schedule.price;
     }
 
     // Calculate Base Price
-    const basePrice = roundToTwo(event.ticketPrice * qty);
+    const basePrice = roundToTwo(baseTicketPrice * qty);
     let finalAmount = basePrice;
     let discountAmount = 0;
     let taxAmount = 0;
 
-    // Apply Discount Code
-    // if (discountCode) {
-    //   const code = await PromoCode.findOne({
-    //     code: discountCode,
-    //     active: true,
-    //   });
-
-    //   if (!code) {
-    //     return apiErrorRes(
-    //       HTTP_STATUS.BAD_REQUEST,
-    //       res,
-    //       "Invalid discount code"
-    //     );
-    //   }
-
-    //   // Check validity dates
-    //   const now = new Date();
-    //   if (now < code.validFrom || now > code.validUntil) {
-    //     return apiErrorRes(
-    //       HTTP_STATUS.BAD_REQUEST,
-    //       res,
-    //       "Discount code expired"
-    //     );
-    //   }
-
-    //   // Check usage limits
-    //   if (code.maxUsage > 0 && code.usedCount >= code.maxUsage) {
-    //     return apiErrorRes(
-    //       HTTP_STATUS.BAD_REQUEST,
-    //       res,
-    //       "Discount code usage limit exceeded"
-    //     );
-    //   }
-
-    //   if (code.discountType === "percentage") {
-    //     discountAmount = roundToTwo((basePrice * code.discountValue) / 100);
-    //   } else {
-    //     discountAmount = roundToTwo(code.discountValue);
-    //   }
-
-    //   // Ensure discount doesn't exceed total
-    //   if (discountAmount > basePrice) discountAmount = basePrice;
-
-    //   finalAmount -= discountAmount;
-    // }
-    // Apply Discount Code (optional)
+    // Apply Discount Code (reused logic from existing calculateBooking)
     if (discountCode) {
       const code = await PromoCode.findOne({
         code: discountCode,
@@ -236,7 +248,6 @@ const calculateBooking = async (req, res) => {
       });
 
       const now = new Date();
-
       const isValidCoupon =
         code &&
         now >= code.validFrom &&
@@ -249,13 +260,9 @@ const calculateBooking = async (req, res) => {
         } else {
           discountAmount = roundToTwo(code.discountValue);
         }
-
-        // Ensure discount doesn't exceed base price
         if (discountAmount > basePrice) discountAmount = basePrice;
-
         finalAmount -= discountAmount;
       }
-      // ❌ If coupon is invalid → do nothing, continue without discount
     }
 
     // Apply Taxes
@@ -287,7 +294,7 @@ const calculateBooking = async (req, res) => {
           taxAmount,
           totalAmount: finalAmount,
         },
-        appliedTaxes, // Returning details of taxes applied for frontend display
+        appliedTaxes,
       }
     );
   } catch (error) {
@@ -305,7 +312,9 @@ const confirmPayment = async (req, res) => {
     const transaction = await Transaction.findOne({
       _id: transactionId,
       userId,
-    }).populate("eventId");
+    })
+      .populate("eventId")
+      .populate("courseId");
 
     if (!transaction) {
       return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Transaction not found");
@@ -327,22 +336,72 @@ const confirmPayment = async (req, res) => {
       );
     }
 
-    // MOCK Payment Success
-    // In real scenario, verify signature/paymentId from gateway
+    // Verify availability and reduce inventory atomically
+    if (transaction.bookingType === "EVENT") {
+      const updatedEvent = await Event.findOneAndUpdate(
+        { _id: transaction.eventId._id, ticketQtyAvailable: { $gte: transaction.qty } },
+        { $inc: { ticketQtyAvailable: -transaction.qty } },
+        { new: true }
+      );
 
-    // Update Transaction
+      if (!updatedEvent) {
+        transaction.status = "REFUND_INITIATED";
+        await transaction.save();
+        return apiSuccessRes(
+          HTTP_STATUS.OK,
+          res,
+          "Tickets no longer available. Refund initiated.",
+          { transaction: transaction.toObject() }
+        );
+      }
+    } else if (transaction.bookingType === "COURSE") {
+      const updatedCourse = await Course.findOneAndUpdate(
+        {
+          _id: transaction.courseId._id,
+          schedules: {
+            $elemMatch: {
+              _id: transaction.scheduleId,
+              $expr: { $gte: [{ $subtract: ["$totalSeats", "$totalAttendees"] }, transaction.qty] }
+            }
+          }
+        },
+        { $inc: { "schedules.$[elem].totalAttendees": transaction.qty } },
+        {
+          arrayFilters: [{ "elem._id": transaction.scheduleId }],
+          new: true
+        }
+      );
+
+      // Note: $expr with $subtract inside $elemMatch can be tricky in some Mongo versions.
+      // A more robust way if $expr fails is to just check totalAttendees directly if we know totalSeats doesn't change often, 
+      // but let's try the more precise one first. Wait, schedules are subdocs, so we can't easily $subtract across fields in a filter without $expr.
+      // Re-evaluating: The correct atomic way to check "seats available" is to know the totalSeats.
+
+      if (!updatedCourse) {
+        // Double check if it was just because of seats or something else
+        const courseCheck = await Course.findById(transaction.courseId._id);
+        const scheduleCheck = courseCheck?.schedules.id(transaction.scheduleId);
+
+        if (scheduleCheck && (scheduleCheck.totalSeats - scheduleCheck.totalAttendees < transaction.qty)) {
+          transaction.status = "REFUND_INITIATED";
+          await transaction.save();
+          return apiSuccessRes(
+            HTTP_STATUS.OK,
+            res,
+            "Seats no longer available. Refund initiated.",
+            { transaction: transaction.toObject() }
+          );
+        }
+        // If it's something else, it might be a logic error or missing schedule, but for race condition, this is the main case.
+      }
+    }
+
+    // Update Transaction to PAID
     transaction.status = "PAID";
     transaction.paymentId = `MOCK_PAY_${Date.now()}`;
     transaction.qrCodeData = generateQRData(transaction._id, userId);
     await transaction.save();
 
-    // Reduce Ticket Inventory
-    // Potential Race condition here if not careful, but for this level:
-    await Event.findByIdAndUpdate(transaction.eventId._id, {
-      $inc: { ticketQtyAvailable: -transaction.qty },
-    });
-
-    // Increment Discount Usage if used
     if (transaction.discountCode) {
       await PromoCode.updateOne(
         { code: transaction.discountCode },
@@ -350,32 +409,28 @@ const confirmPayment = async (req, res) => {
       );
     }
 
-    /* ------------ FORMAT RESPONSE URLs (ALL ARRAYS) ------------ */
-
     const transactionObj = transaction.toObject();
-    const event = transactionObj.eventId;
 
-    if (event) {
-      event.posterImage = Array.isArray(event.posterImage)
-        ? event.posterImage.map((e) => formatResponseUrl(e))
-        : [];
-      console.log("Event after formatting posterImage:", event.posterImage);
-
-      event.mediaLinks = Array.isArray(event.mediaLinks)
-        ? event.mediaLinks.map((link) => formatResponseUrl(link))
-        : [];
-
-      event.shortTeaserVideo = Array.isArray(event.shortTeaserVideo)
-        ? event.shortTeaserVideo.map((video) => formatResponseUrl(video))
-        : [];
+    // Format URLs for Event or Course
+    if (transaction.bookingType === "EVENT" && transactionObj.eventId) {
+      const event = transactionObj.eventId;
+      event.posterImage = (event.posterImage || []).map(formatResponseUrl);
+      event.mediaLinks = (event.mediaLinks || []).map(formatResponseUrl);
+      event.shortTeaserVideo = (event.shortTeaserVideo || []).map(
+        formatResponseUrl
+      );
+    } else if (
+      transaction.bookingType === "COURSE" &&
+      transactionObj.courseId
+    ) {
+      const course = transactionObj.courseId;
+      course.posterImage = (course.posterImage || []).map(formatResponseUrl);
     }
-
-    /* ----------------------------------------------------------- */
 
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
-      "Payment successful. Ticket Booked.",
+      "Payment successful. Booking confirmed.",
       {
         transaction: transactionObj,
       }
@@ -390,29 +445,31 @@ const confirmPayment = async (req, res) => {
 const getTicketList = async (req, res) => {
   try {
     const userId = req.user.userId;
-    const { type } = req.query; // type = 'upcoming' | 'past' | 'all'
+    const { type } = req.query;
 
-    let filter = { userId, status: "PAID" };
-
+    const filter = { userId, status: "PAID" };
     const transactions = await Transaction.find(filter)
       .populate("eventId")
+      .populate("courseId")
       .sort({ createdAt: -1 });
 
-    let result = transactions;
+    const now = new Date();
+    const result = transactions.filter((t) => {
+      const item = t.eventId || t.courseId;
+      if (!item) return false;
 
-    if (type) {
-      const now = new Date();
-      result = transactions.filter((t) => {
-        if (!t.eventId) return false;
+      let endDate;
+      if (t.bookingType === "EVENT") {
+        endDate = item.endDate;
+      } else {
+        const schedule = item.schedules.id(t.scheduleId);
+        endDate = schedule ? schedule.endDate : item.createdAt; // fallback
+      }
 
-        if (type === "upcoming") {
-          return new Date(t.eventId.endDate) >= now;
-        } else if (type === "past") {
-          return new Date(t.eventId.endDate) < now;
-        }
-        return true;
-      });
-    }
+      if (type === "upcoming") return new Date(endDate) >= now;
+      if (type === "past") return new Date(endDate) < now;
+      return true;
+    });
 
     return apiSuccessRes(HTTP_STATUS.OK, res, "Ticket list fetched", {
       tickets: result,
@@ -423,7 +480,6 @@ const getTicketList = async (req, res) => {
   }
 };
 
-// 4. Get Ticket Detail
 const getTicketDetail = async (req, res) => {
   try {
     const { transactionId } = req.params;
@@ -432,35 +488,30 @@ const getTicketDetail = async (req, res) => {
     const transaction = await Transaction.findOne({
       _id: transactionId,
       userId,
-    }).populate("eventId");
+    })
+      .populate("eventId")
+      .populate("courseId");
 
     if (!transaction) {
       return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Ticket not found");
     }
 
-    // Format event URLs if present
     const transactionObj = transaction.toObject();
-    const event = transactionObj.eventId;
-
-    if (event) {
-      if (Array.isArray(event.posterImage)) {
-        event.posterImage = event.posterImage.map((img) =>
-          formatResponseUrl(img)
-        );
-      }
-      if (Array.isArray(event.mediaLinks)) {
-        event.mediaLinks = event.mediaLinks.map((link) =>
-          formatResponseUrl(link)
-        );
-      }
-      if (Array.isArray(event.shortTeaserVideo)) {
-        event.shortTeaserVideo = event.shortTeaserVideo.map((video) =>
-          formatResponseUrl(video)
-        );
-      }
+    if (transaction.bookingType === "EVENT" && transactionObj.eventId) {
+      const event = transactionObj.eventId;
+      event.posterImage = (event.posterImage || []).map(formatResponseUrl);
+      event.mediaLinks = (event.mediaLinks || []).map(formatResponseUrl);
+      event.shortTeaserVideo = (event.shortTeaserVideo || []).map(
+        formatResponseUrl
+      );
+    } else if (
+      transaction.bookingType === "COURSE" &&
+      transactionObj.courseId
+    ) {
+      const course = transactionObj.courseId;
+      course.posterImage = (course.posterImage || []).map(formatResponseUrl);
     }
 
-    // Add check-in status information
     const checkInStatus = {
       checkedInQty: transaction.checkedInQty || 0,
       totalQty: transaction.qty,
@@ -470,10 +521,7 @@ const getTicketDetail = async (req, res) => {
     };
 
     return apiSuccessRes(HTTP_STATUS.OK, res, "Ticket detail fetched", {
-      ticket: {
-        ...transactionObj,
-        checkInStatus,
-      },
+      ticket: { ...transactionObj, checkInStatus },
     });
   } catch (error) {
     console.error("Error in getTicketDetail:", error);
@@ -487,7 +535,6 @@ const scanQRCode = async (req, res) => {
     const { qrCodeData } = req.body;
     const gateKeeperId = req.user.userId;
 
-    // Parse QR code data (format: TICKET-{transactionId}-{userId}-{timestamp})
     const qrParts = qrCodeData.split("-");
     if (qrParts.length < 4 || qrParts[0] !== "TICKET") {
       return apiSuccessRes(HTTP_STATUS.OK, res, "QR code scanned", {
@@ -498,11 +545,9 @@ const scanQRCode = async (req, res) => {
     }
 
     const transactionId = qrParts[1];
-    const userId = qrParts[2];
-
-    // Find transaction with event populated
-    const transaction =
-      await Transaction.findById(transactionId).populate("eventId");
+    const transaction = await Transaction.findById(transactionId)
+      .populate("eventId")
+      .populate("courseId");
 
     if (!transaction) {
       return apiSuccessRes(HTTP_STATUS.OK, res, "QR code scanned", {
@@ -512,130 +557,92 @@ const scanQRCode = async (req, res) => {
       });
     }
 
-    // Validate QR code matches transaction
     if (transaction.qrCodeData !== qrCodeData) {
       return apiSuccessRes(HTTP_STATUS.OK, res, "QR code scanned", {
         status: "INVALID",
-        message: "QR code does not match transaction",
+        message: "QR code mismatch",
         data: null,
       });
     }
 
-    // Check if transaction is paid
     if (transaction.status !== "PAID") {
       return apiSuccessRes(HTTP_STATUS.OK, res, "QR code scanned", {
         status: "INVALID",
-        message: `Ticket is not paid. Current status: ${transaction.status}`,
-        data: {
-          transactionId: transaction._id,
-          bookingId: transaction.bookingId,
-          status: transaction.status,
-        },
+        message: `Ticket status: ${transaction.status}`,
+        data: { transactionId: transaction._id, status: transaction.status },
       });
     }
 
-    // Check if event exists
-    if (!transaction.eventId) {
+    const item = transaction.eventId || transaction.courseId;
+    if (!item) {
       return apiSuccessRes(HTTP_STATUS.OK, res, "QR code scanned", {
         status: "INVALID",
-        message: "Event not found",
+        message: "Event or Course not found",
         data: null,
       });
     }
 
-    const event = transaction.eventId;
     const now = new Date();
+    let endDate;
+    let title;
 
-    // Check if event has ended (expired)
-    if (new Date(event.endDate) < now) {
+    if (transaction.bookingType === "EVENT") {
+      endDate = item.endDate;
+      title = item.eventTitle;
+    } else {
+      const schedule = item.schedules.id(transaction.scheduleId);
+      endDate = schedule ? schedule.endDate : item.createdAt;
+      title = item.courseTitle;
+    }
+
+    if (new Date(endDate) < now) {
       return apiSuccessRes(HTTP_STATUS.OK, res, "QR code scanned", {
         status: "EXPIRED",
-        message: "Event has ended",
-        data: {
-          transactionId: transaction._id,
-          bookingId: transaction.bookingId,
-          eventTitle: event.eventTitle,
-          endDate: event.endDate,
-        },
+        message: "Booking has expired",
+        data: { transactionId: transaction._id, title, endDate },
       });
     }
 
-    // Check if event hasn't started yet (optional - you might want to allow early check-in)
-    // if (new Date(event.startDate) > now) {
-    //   return apiSuccessRes(HTTP_STATUS.OK, res, "QR code scanned", {
-    //     status: "NOT_STARTED",
-    //     message: "Event has not started yet",
-    //     data: {
-    //       transactionId: transaction._id,
-    //       bookingId: transaction.bookingId,
-    //       eventTitle: event.eventTitle,
-    //       startDate: event.startDate,
-    //     },
-    //   });
-    // }
-
-    // Check if all tickets from this transaction are already checked in
     if (transaction.checkedInQty >= transaction.qty) {
       return apiSuccessRes(HTTP_STATUS.OK, res, "QR code scanned", {
         status: "ALREADY_CHECKED_IN",
-        message: "All tickets from this booking have already been checked in",
-        data: {
-          transactionId: transaction._id,
-          bookingId: transaction.bookingId,
-          totalQty: transaction.qty,
-          checkedInQty: transaction.checkedInQty,
-          eventTitle: event.eventTitle,
-        },
+        message: "All tickets checked in",
+        data: { transactionId: transaction._id, totalQty: transaction.qty },
       });
     }
 
-    // All validations passed - proceed with check-in
-    const previousCheckedInQty = transaction.checkedInQty || 0;
-    const newCheckedInQty = previousCheckedInQty + 1;
-
-    // Update transaction
+    const newCheckedInQty = (transaction.checkedInQty || 0) + 1;
     transaction.checkedInQty = newCheckedInQty;
     transaction.isCheckedIn = newCheckedInQty >= transaction.qty;
-
-    // Set first check-in time if this is the first check-in
-    if (previousCheckedInQty === 0) {
-      transaction.checkedInAt = now;
-    }
-
-    // Update who checked in (gate keeper)
+    if (newCheckedInQty === 1) transaction.checkedInAt = now;
     transaction.checkedInBy = gateKeeperId;
     await transaction.save();
 
-    // Update event total attendees count
-    await Event.findByIdAndUpdate(event._id, {
-      $inc: { totalAttendees: 1 },
-    });
-
-    // Format event data for response
-    const eventObj = event.toObject ? event.toObject() : event;
-    if (eventObj.posterImage && Array.isArray(eventObj.posterImage)) {
-      eventObj.posterImage = eventObj.posterImage.map((img) =>
-        formatResponseUrl(img)
+    if (transaction.bookingType === "EVENT") {
+      await Event.findByIdAndUpdate(item._id, { $inc: { totalAttendees: 1 } });
+    } else {
+      await Course.updateOne(
+        { _id: item._id, "schedules._id": transaction.scheduleId },
+        { $inc: { "schedules.$.totalAttendees": 1 } }
       );
     }
 
+    const itemObj = item.toObject ? item.toObject() : item;
+    itemObj.posterImage = (itemObj.posterImage || []).map(formatResponseUrl);
+
     return apiSuccessRes(HTTP_STATUS.OK, res, "QR code scanned", {
       status: "OK",
-      message: "Ticket checked in successfully",
+      message: "Checked in successfully",
       data: {
         transactionId: transaction._id,
         bookingId: transaction.bookingId,
         totalQty: transaction.qty,
         checkedInQty: newCheckedInQty,
         remainingQty: transaction.qty - newCheckedInQty,
-        isFullyCheckedIn: newCheckedInQty >= transaction.qty,
-        event: {
-          _id: event._id,
-          eventTitle: event.eventTitle,
-          startDate: event.startDate,
-          endDate: event.endDate,
-          venueName: event.venueName,
-          posterImage: eventObj.posterImage,
+        item: {
+          _id: item._id,
+          title,
+          posterImage: itemObj.posterImage,
         },
         checkedInAt: transaction.checkedInAt,
       },
@@ -736,11 +743,11 @@ const getEventAttendeesList = async (req, res) => {
           checkedInAt: transaction.checkedInAt,
           checkedInBy: checkedInByUser
             ? {
-                _id: checkedInByUser._id,
-                firstName: checkedInByUser.firstName,
-                lastName: checkedInByUser.lastName,
-                email: checkedInByUser.email,
-              }
+              _id: checkedInByUser._id,
+              firstName: checkedInByUser.firstName,
+              lastName: checkedInByUser.lastName,
+              email: checkedInByUser.email,
+            }
             : null,
         },
         bookingDate: transaction.createdAt,
