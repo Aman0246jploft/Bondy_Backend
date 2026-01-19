@@ -27,7 +27,7 @@ const createPromoCodeSchema = Joi.object({
     maxUsage: Joi.number().default(0),
     validFrom: Joi.date().required(),
     validUntil: Joi.date().required(),
-    active: Joi.boolean().default(true),
+    active: Joi.boolean().default(true),    
 });
 
 const updatePromoCodeSchema = Joi.object({

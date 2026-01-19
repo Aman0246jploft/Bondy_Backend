@@ -501,9 +501,8 @@ const scanQRCode = async (req, res) => {
     const userId = qrParts[2];
 
     // Find transaction with event populated
-    const transaction = await Transaction.findById(transactionId).populate(
-      "eventId"
-    );
+    const transaction =
+      await Transaction.findById(transactionId).populate("eventId");
 
     if (!transaction) {
       return apiSuccessRes(HTTP_STATUS.OK, res, "QR code scanned", {

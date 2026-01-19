@@ -37,6 +37,7 @@ const {
 } = require("../services/serviceRedis");
 const { roleId } = require("../../utils/Role");
 const { upload, storeImage } = require("../../utils/cloudinary");
+const checkRole = require("../../middlewares/checkRole");
 
 // Customer Signup - Step 1: Init
 const customerSignupInit = async (req, res) => {
@@ -810,6 +811,135 @@ const getUserProfileById = async (req, res) => {
   }
 };
 
+const userList = async (req, res) => {
+  try {
+    const {
+      page = 1,
+      limit = 10,
+      isDisable,
+      isDeleted,
+      roleId,
+      search,
+      sortBy = "createdAt",
+      sortOrder = "desc",
+    } = req.query;
+
+    const filter = {};
+
+    // Enable / Disable filter
+    if (isDisable !== undefined) {
+      filter.isDisable = isDisable === "true";
+    }
+
+    // Deleted / Not deleted
+    if (isDeleted !== undefined) {
+      filter.isDeleted = isDeleted === "true";
+    } else {
+      filter.isDeleted = false; // default behavior
+    }
+
+    // Role filter
+    if (roleId) {
+      filter.roleId = Number(roleId);
+    }
+
+    // Keyword search
+    if (search) {
+      filter.$or = [
+        { firstName: { $regex: search, $options: "i" } },
+        { lastName: { $regex: search, $options: "i" } },
+        { email: { $regex: search, $options: "i" } },
+        { contactNumber: { $regex: search, $options: "i" } },
+      ];
+    }
+
+    const skip = (Number(page) - 1) * Number(limit);
+
+    const sort = {
+      [sortBy]: sortOrder === "asc" ? 1 : -1,
+    };
+
+    const [users, total] = await Promise.all([
+      User.find(filter).sort(sort).skip(skip).limit(Number(limit)).lean(),
+      User.countDocuments(filter),
+    ]);
+
+    return apiSuccessRes(
+      HTTP_STATUS.OK,
+      res,
+      "User list fetched successfully",
+      {
+        users,
+        total,
+        page: Number(page),
+        limit: Number(limit),
+        totalPages: Math.ceil(total / limit),
+      }
+    );
+  } catch (error) {
+    console.error("Error in userList:", error);
+    return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
+  }
+};
+
+const toggleUserDisable = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { isDisable } = req.body;
+
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      { isDisable },
+      { new: true }
+    );
+
+    if (!updatedUser) {
+      return apiErrorRes(
+        HTTP_STATUS.NOT_FOUND,
+        res,
+        constantsMessage.USER_NOT_FOUND
+      );
+    }
+
+    return apiSuccessRes(
+      HTTP_STATUS.OK,
+      res,
+      `User ${isDisable ? "disabled" : "enabled"} successfully`,
+      { user: updatedUser }
+    );
+  } catch (error) {
+    console.error("Error in toggleUserDisable:", error);
+    return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
+  }
+};
+
+const deleteUser = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      { isDeleted: true },
+      { new: true }
+    );
+
+    if (!updatedUser) {
+      return apiErrorRes(
+        HTTP_STATUS.NOT_FOUND,
+        res,
+        constantsMessage.USER_NOT_FOUND
+      );
+    }
+
+    return apiSuccessRes(HTTP_STATUS.OK, res, "User deleted successfully", {
+      user: updatedUser,
+    });
+  } catch (error) {
+    console.error("Error in deleteUser:", error);
+    return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
+  }
+};
+
 router.post(
   "/customer/signup",
   perApiLimiter(),
@@ -885,6 +1015,14 @@ router.post(
   validateRequest(updateUserSchema),
   updateUserProfile
 );
+
+router.get("/userList", checkRole([roleId.SUPER_ADMIN]), userList);
+router.patch(
+  "/toggle-disable/:userId",
+  checkRole([roleId.SUPER_ADMIN]),
+  toggleUserDisable
+);
+router.delete("/delete/:userId", checkRole([roleId.SUPER_ADMIN]), deleteUser);
 
 // Get User Profile By ID
 router.get("/profile/:userId", perApiLimiter(), getUserProfileById);
