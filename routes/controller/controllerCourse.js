@@ -44,7 +44,7 @@ const createCourse = async (req, res) => {
     // Format poster image URLs if any
     if (Array.isArray(course.posterImage)) {
       course.posterImage = course.posterImage.map((img) =>
-        formatResponseUrl(img)
+        formatResponseUrl(img),
       );
     }
 
@@ -55,7 +55,8 @@ const createCourse = async (req, res) => {
     console.error("Error in createCourse:", error);
     return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
   }
-}; const getCourses = async (req, res) => {
+};
+const getCourses = async (req, res) => {
   try {
     const {
       filter = "all",
@@ -80,7 +81,7 @@ const createCourse = async (req, res) => {
 
     let query = {
       // Ensure at least one schedule ends in the future (not fully past)
-      schedules: { $elemMatch: { endDate: { $gte: now } } }
+      schedules: { $elemMatch: { endDate: { $gte: now } } },
     };
 
     // Apply category filter if provided
@@ -120,7 +121,11 @@ const createCourse = async (req, res) => {
 
       case "nearYou":
         if (!latitude || !longitude) {
-          return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.LOCATION_REQUIRED);
+          return apiErrorRes(
+            HTTP_STATUS.BAD_REQUEST,
+            res,
+            constantsMessage.LOCATION_REQUIRED,
+          );
         }
         // $nearSphere works on top-level venueAddress
         query["venueAddress"] = {
@@ -148,15 +153,15 @@ const createCourse = async (req, res) => {
 
         query.schedules = {
           $elemMatch: {
-            startDate: { $gte: startOfWeek, $lte: endOfWeek }
-          }
+            startDate: { $gte: startOfWeek, $lte: endOfWeek },
+          },
         };
         break;
 
       case "thisWeekend":
         const friday = new Date(now);
         friday.setDate(now.getDate() - now.getDay() + 5);
-        // Adjust if today is past Friday? 
+        // Adjust if today is past Friday?
         // Simpler logic: This coming weekend relative to 'now'
         // If today is Sunday, 'This Weekend' covers it.
         // Let's use strict current week's Sat/Sun.
@@ -169,18 +174,25 @@ const createCourse = async (req, res) => {
 
         query.schedules = {
           $elemMatch: {
-            startDate: { $gte: saturday, $lte: sunday }
-          }
+            startDate: { $gte: saturday, $lte: sunday },
+          },
         };
         break;
 
       case "thisYear":
         const startOfYear = new Date(new Date().getFullYear(), 0, 1);
-        const endOfYear = new Date(new Date().getFullYear(), 11, 31, 23, 59, 59);
+        const endOfYear = new Date(
+          new Date().getFullYear(),
+          11,
+          31,
+          23,
+          59,
+          59,
+        );
         query.schedules = {
           $elemMatch: {
-            startDate: { $gte: startOfYear, $lte: endOfYear }
-          }
+            startDate: { $gte: startOfYear, $lte: endOfYear },
+          },
         };
         break;
     }
@@ -235,10 +247,14 @@ const createCourse = async (req, res) => {
         course.posterImage = course.posterImage.map(formatResponseUrl);
       }
       if (course.courseCategory && course.courseCategory.image) {
-        course.courseCategory.image = formatResponseUrl(course.courseCategory.image);
+        course.courseCategory.image = formatResponseUrl(
+          course.courseCategory.image,
+        );
       }
       if (course.createdBy && course.createdBy.profileImage) {
-        course.createdBy.profileImage = formatResponseUrl(course.createdBy.profileImage);
+        course.createdBy.profileImage = formatResponseUrl(
+          course.createdBy.profileImage,
+        );
       }
 
       // Calculate Duration
@@ -246,15 +262,15 @@ const createCourse = async (req, res) => {
       // Assuming all schedules have same duration for the course usually.
       let duration = null;
       if (course.schedules && course.schedules.length > 0) {
-        // Pick the first schedule that matches the filter criteria? 
+        // Pick the first schedule that matches the filter criteria?
         // Or just the first one generally. Let's pick the first one.
         const sched = course.schedules[0];
         if (sched.startTime && sched.endTime) {
           // Parse HH:mm
-          const [startH, startM] = sched.startTime.split(':').map(Number);
-          const [endH, endM] = sched.endTime.split(':').map(Number);
+          const [startH, startM] = sched.startTime.split(":").map(Number);
+          const [endH, endM] = sched.endTime.split(":").map(Number);
 
-          let diffMins = (endH * 60 + endM) - (startH * 60 + startM);
+          let diffMins = endH * 60 + endM - (startH * 60 + startM);
           if (diffMins < 0) diffMins += 24 * 60; // Handle overnight?
 
           if (diffMins > 0) {
@@ -273,9 +289,9 @@ const createCourse = async (req, res) => {
       let acquiredSeats = 0;
 
       if (course.schedules && Array.isArray(course.schedules)) {
-        course.schedules.forEach(schedule => {
-          totalSeats += (schedule.totalSeats || 0);
-          acquiredSeats += (schedule.totalAttendees || 0);
+        course.schedules.forEach((schedule) => {
+          totalSeats += schedule.totalSeats || 0;
+          acquiredSeats += schedule.totalAttendees || 0;
         });
       }
 
@@ -296,7 +312,6 @@ const createCourse = async (req, res) => {
       coursesPerPage: Number(limit),
       courses: formattedCourses,
     });
-
   } catch (error) {
     console.error("Error in getCourses:", error);
     return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
@@ -306,12 +321,7 @@ const createCourse = async (req, res) => {
 // Admin List API
 const getCoursesAdmin = async (req, res) => {
   try {
-    const {
-      categoryId,
-      search,
-      page = 1,
-      limit = 10,
-    } = req.query;
+    const { categoryId, search, page = 1, limit = 10 } = req.query;
 
     const skip = (page - 1) * limit;
     let query = {};
@@ -346,10 +356,14 @@ const getCoursesAdmin = async (req, res) => {
         course.posterImage = course.posterImage.map(formatResponseUrl);
       }
       if (course.courseCategory && course.courseCategory.image) {
-        course.courseCategory.image = formatResponseUrl(course.courseCategory.image);
+        course.courseCategory.image = formatResponseUrl(
+          course.courseCategory.image,
+        );
       }
       if (course.createdBy && course.createdBy.profileImage) {
-        course.createdBy.profileImage = formatResponseUrl(course.createdBy.profileImage);
+        course.createdBy.profileImage = formatResponseUrl(
+          course.createdBy.profileImage,
+        );
       }
 
       // Calculate Duration
@@ -357,9 +371,9 @@ const getCoursesAdmin = async (req, res) => {
       if (course.schedules && course.schedules.length > 0) {
         const sched = course.schedules[0];
         if (sched.startTime && sched.endTime) {
-          const [startH, startM] = sched.startTime.split(':').map(Number);
-          const [endH, endM] = sched.endTime.split(':').map(Number);
-          let diffMins = (endH * 60 + endM) - (startH * 60 + startM);
+          const [startH, startM] = sched.startTime.split(":").map(Number);
+          const [endH, endM] = sched.endTime.split(":").map(Number);
+          let diffMins = endH * 60 + endM - (startH * 60 + startM);
           if (diffMins < 0) diffMins += 24 * 60;
 
           if (diffMins > 0) {
@@ -377,9 +391,9 @@ const getCoursesAdmin = async (req, res) => {
       let totalSeats = 0;
       let acquiredSeats = 0;
       if (course.schedules && Array.isArray(course.schedules)) {
-        course.schedules.forEach(schedule => {
-          totalSeats += (schedule.totalSeats || 0);
-          acquiredSeats += (schedule.totalAttendees || 0);
+        course.schedules.forEach((schedule) => {
+          totalSeats += schedule.totalSeats || 0;
+          acquiredSeats += schedule.totalAttendees || 0;
         });
       }
       course.totalSeats = totalSeats;
@@ -396,7 +410,6 @@ const getCoursesAdmin = async (req, res) => {
       coursesPerPage: Number(limit),
       courses: formattedCourses,
     });
-
   } catch (error) {
     console.error("Error in getCoursesAdmin:", error);
     return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
@@ -408,7 +421,7 @@ router.post(
   perApiLimiter(),
   checkRole([roleId.ORGANISER]),
   validateRequest(createCourseSchema),
-  createCourse
+  createCourse,
 );
 
 // Get Courses with Filters
@@ -416,7 +429,7 @@ router.get(
   "/list",
   perApiLimiter(),
   validateRequest(getCoursesSchema),
-  getCourses
+  getCourses,
 );
 
 router.get(
@@ -424,7 +437,7 @@ router.get(
   perApiLimiter(),
   checkRole([roleId.SUPER_ADMIN]),
   validateRequest(getCoursesSchema),
-  getCoursesAdmin
+  getCoursesAdmin,
 );
 
 module.exports = router;
