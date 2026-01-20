@@ -50,7 +50,7 @@ const customerSignupInit = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        constantsMessage.EMAIL_ALREADY_EXISTS
+        constantsMessage.EMAIL_ALREADY_EXISTS,
       );
     }
 
@@ -64,7 +64,7 @@ const customerSignupInit = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        constantsMessage.CONTACT_ALREADY_EXISTS
+        constantsMessage.CONTACT_ALREADY_EXISTS,
       );
     }
 
@@ -82,7 +82,7 @@ const customerSignupInit = async (req, res) => {
       HTTP_STATUS.OK,
       res,
       constantsMessage.OTP_SENT_SUCCESS,
-      { otp }
+      { otp },
     ); // Sending OTP in response for dev
   } catch (error) {
     console.error("Error in customerSignupInit:", error);
@@ -101,7 +101,7 @@ const customerSignupVerify = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        constantsMessage.INVALID_OR_EXPIRED_OTP
+        constantsMessage.INVALID_OR_EXPIRED_OTP,
       );
     }
 
@@ -111,7 +111,7 @@ const customerSignupVerify = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        constantsMessage.SESSION_EXPIRED_REGISTER
+        constantsMessage.SESSION_EXPIRED_REGISTER,
       );
     }
 
@@ -142,7 +142,7 @@ const customerSignupVerify = async (req, res) => {
       {
         user: newUser,
         token,
-      }
+      },
     );
   } catch (error) {
     console.error("Error in customerSignupVerify:", error);
@@ -161,7 +161,7 @@ const organizerSignupInit = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        constantsMessage.EMAIL_ALREADY_EXISTS
+        constantsMessage.EMAIL_ALREADY_EXISTS,
       );
     }
 
@@ -175,7 +175,7 @@ const organizerSignupInit = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        constantsMessage.CONTACT_ALREADY_EXISTS
+        constantsMessage.CONTACT_ALREADY_EXISTS,
       );
     }
 
@@ -191,7 +191,7 @@ const organizerSignupInit = async (req, res) => {
       HTTP_STATUS.OK,
       res,
       constantsMessage.OTP_SENT_SUCCESS,
-      { otp }
+      { otp },
     );
   } catch (error) {
     console.error("Error in organizerSignupInit:", error);
@@ -209,7 +209,7 @@ const organizerSignupVerify = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        constantsMessage.INVALID_OR_EXPIRED_OTP
+        constantsMessage.INVALID_OR_EXPIRED_OTP,
       );
     }
 
@@ -218,7 +218,7 @@ const organizerSignupVerify = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        constantsMessage.SESSION_EXPIRED_REGISTER
+        constantsMessage.SESSION_EXPIRED_REGISTER,
       );
     }
 
@@ -250,7 +250,7 @@ const organizerSignupVerify = async (req, res) => {
       HTTP_STATUS.OK,
       res,
       constantsMessage.ORGANIZER_REGISTRATION_SUCCESS,
-      { user: newUser, token }
+      { user: newUser, token },
     );
   } catch (error) {
     console.error("Error in organizerSignupVerify:", error);
@@ -269,7 +269,7 @@ const resendOtp = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        constantsMessage.SESSION_EXPIRED_SIGNUP
+        constantsMessage.SESSION_EXPIRED_SIGNUP,
       );
     }
 
@@ -286,7 +286,7 @@ const resendOtp = async (req, res) => {
       constantsMessage.OTP_RESENT_SUCCESS,
       {
         otp,
-      }
+      },
     );
   } catch (error) {
     console.error("Error in resendOtp:", error);
@@ -302,7 +302,7 @@ const uploadDocument = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        constantsMessage.NO_FILES_UPLOADED
+        constantsMessage.NO_FILES_UPLOADED,
       );
     }
 
@@ -319,7 +319,7 @@ const uploadDocument = async (req, res) => {
       constantsMessage.FILES_UPLOADED_SUCCESS,
       {
         files: filePaths,
-      }
+      },
     );
   } catch (error) {
     console.error("Error in uploadDocument:", error);
@@ -338,7 +338,7 @@ const loginInit = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        constantsMessage.INVALID_EMAIL_OR_PASSWORD
+        constantsMessage.INVALID_EMAIL_OR_PASSWORD,
       );
     }
 
@@ -347,7 +347,7 @@ const loginInit = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.FORBIDDEN,
         res,
-        constantsMessage.ACCOUNT_DISABLED
+        constantsMessage.ACCOUNT_DISABLED,
       );
     }
 
@@ -357,7 +357,7 @@ const loginInit = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        constantsMessage.INVALID_EMAIL_OR_PASSWORD
+        constantsMessage.INVALID_EMAIL_OR_PASSWORD,
       );
     }
 
@@ -369,7 +369,7 @@ const loginInit = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.FORBIDDEN,
         res,
-        `${constantsMessage.ACCOUNT_STATUS_PREFIX}${user.organizerVerificationStatus}${constantsMessage.WAIT_FOR_ADMIN_APPROVAL}`
+        `${constantsMessage.ACCOUNT_STATUS_PREFIX}${user.organizerVerificationStatus}${constantsMessage.WAIT_FOR_ADMIN_APPROVAL}`,
       );
     }
 
@@ -384,7 +384,7 @@ const loginInit = async (req, res) => {
       HTTP_STATUS.OK,
       res,
       constantsMessage.OTP_SENT_SUCCESS,
-      { otp }
+      { otp },
     );
   } catch (error) {
     console.error("Error in loginInit:", error);
@@ -403,7 +403,7 @@ const loginVerify = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        constantsMessage.INVALID_OR_EXPIRED_OTP
+        constantsMessage.INVALID_OR_EXPIRED_OTP,
       );
     }
 
@@ -413,7 +413,7 @@ const loginVerify = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.NOT_FOUND,
         res,
-        constantsMessage.USER_NOT_FOUND
+        constantsMessage.USER_NOT_FOUND,
       );
     }
 
@@ -434,7 +434,7 @@ const loginVerify = async (req, res) => {
       {
         user,
         token,
-      }
+      },
     );
   } catch (error) {
     console.error("Error in loginVerify:", error);
@@ -453,7 +453,7 @@ const adminLogin = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.NOT_FOUND,
         res,
-        constantsMessage.USER_NOT_FOUND
+        constantsMessage.USER_NOT_FOUND,
       );
     }
 
@@ -462,7 +462,7 @@ const adminLogin = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.FORBIDDEN,
         res,
-        "Access denied. Admin only."
+        "Access denied. Admin only.",
       );
     }
 
@@ -471,7 +471,7 @@ const adminLogin = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.FORBIDDEN,
         res,
-        constantsMessage.ACCOUNT_DISABLED
+        constantsMessage.ACCOUNT_DISABLED,
       );
     }
 
@@ -481,7 +481,7 @@ const adminLogin = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        constantsMessage.INVALID_EMAIL_OR_PASSWORD
+        constantsMessage.INVALID_EMAIL_OR_PASSWORD,
       );
     }
 
@@ -509,7 +509,7 @@ const resendLoginOtp = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.NOT_FOUND,
         res,
-        constantsMessage.USER_NOT_FOUND
+        constantsMessage.USER_NOT_FOUND,
       );
     }
 
@@ -518,7 +518,7 @@ const resendLoginOtp = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.FORBIDDEN,
         res,
-        constantsMessage.ACCOUNT_DISABLED
+        constantsMessage.ACCOUNT_DISABLED,
       );
     }
 
@@ -530,7 +530,7 @@ const resendLoginOtp = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.FORBIDDEN,
         res,
-        `${constantsMessage.ACCOUNT_STATUS_PREFIX}${user.organizerVerificationStatus}${constantsMessage.WAIT_FOR_ADMIN_APPROVAL}`
+        `${constantsMessage.ACCOUNT_STATUS_PREFIX}${user.organizerVerificationStatus}${constantsMessage.WAIT_FOR_ADMIN_APPROVAL}`,
       );
     }
 
@@ -547,7 +547,7 @@ const resendLoginOtp = async (req, res) => {
       constantsMessage.OTP_RESENT_SUCCESS,
       {
         otp,
-      }
+      },
     );
   } catch (error) {
     console.error("Error in resendLoginOtp:", error);
@@ -564,7 +564,7 @@ const updateUserProfile = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.FORBIDDEN,
         res,
-        constantsMessage.SUPER_ADMIN_UPDATE_NOT_ALLOWED
+        constantsMessage.SUPER_ADMIN_UPDATE_NOT_ALLOWED,
       );
     }
 
@@ -581,7 +581,7 @@ const updateUserProfile = async (req, res) => {
         return apiErrorRes(
           HTTP_STATUS.BAD_REQUEST,
           res,
-          constantsMessage.EMAIL_ALREADY_EXISTS
+          constantsMessage.EMAIL_ALREADY_EXISTS,
         );
       }
       updateData.email = email;
@@ -606,7 +606,7 @@ const updateUserProfile = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.NOT_FOUND,
         res,
-        constantsMessage.USER_NOT_FOUND
+        constantsMessage.USER_NOT_FOUND,
       );
     }
     if (updatedUser.profileImage) {
@@ -617,7 +617,7 @@ const updateUserProfile = async (req, res) => {
       HTTP_STATUS.OK,
       res,
       constantsMessage.PROFILE_UPDATED,
-      { user: updatedUser }
+      { user: updatedUser },
     );
   } catch (error) {
     console.error("Error in updateUserProfile:", error);
@@ -651,7 +651,7 @@ const getUserProfileById = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.NOT_FOUND,
         res,
-        constantsMessage.USER_NOT_FOUND
+        constantsMessage.USER_NOT_FOUND,
       );
     }
 
@@ -719,10 +719,10 @@ const getUserProfileById = async (req, res) => {
       totalFollowers: 0, // Default to 0, overwritten if organizer/relevant
     };
 
-    // Calculate totalFollowers for everyone (or just organizers? Requirement says "toall followers API... if he is organiser". 
+    // Calculate totalFollowers for everyone (or just organizers? Requirement says "toall followers API... if he is organiser".
     // Actually typically anyone can have followers if the social graph exists, but requirement phrased "name , i f he is organiser than his... toall followers...".
     // I'll add totalFollowers for everyone as it's useful social proof, or just organizer if strictly interpreted.
-    // The prompt says "toall followers ... , if he is organiser than his ... data". 
+    // The prompt says "toall followers ... , if he is organiser than his ... data".
     // I'll compute followers for all users as the Follow model exists.
     const totalFollowers = await Follow.countDocuments({
       toUser: userId,
@@ -736,7 +736,8 @@ const getUserProfileById = async (req, res) => {
 
       // Organizer specific fields
       profileData.businessType = user.businessType;
-      profileData.organizerVerificationStatus = user.organizerVerificationStatus;
+      profileData.organizerVerificationStatus =
+        user.organizerVerificationStatus;
 
       // Calculate totalEventsHosted
       const totalEventsHosted = await Event.countDocuments({
@@ -778,21 +779,21 @@ const getUserProfileById = async (req, res) => {
         // Format poster images
         if (Array.isArray(eventObj.posterImage)) {
           eventObj.posterImage = eventObj.posterImage.map((img) =>
-            formatResponseUrl(img)
+            formatResponseUrl(img),
           );
         }
 
         // Format media links
         if (Array.isArray(eventObj.mediaLinks)) {
           eventObj.mediaLinks = eventObj.mediaLinks.map((link) =>
-            formatResponseUrl(link)
+            formatResponseUrl(link),
           );
         }
 
         // Format teaser videos
         if (Array.isArray(eventObj.shortTeaserVideo)) {
           eventObj.shortTeaserVideo = eventObj.shortTeaserVideo.map((video) =>
-            formatResponseUrl(video)
+            formatResponseUrl(video),
           );
         }
 
@@ -813,7 +814,7 @@ const getUserProfileById = async (req, res) => {
         // Format poster images
         if (Array.isArray(courseObj.posterImage)) {
           courseObj.posterImage = courseObj.posterImage.map((img) =>
-            formatResponseUrl(img)
+            formatResponseUrl(img),
           );
         }
 
@@ -821,7 +822,7 @@ const getUserProfileById = async (req, res) => {
         const hasFutureSchedule =
           course.schedules &&
           course.schedules.some(
-            (schedule) => new Date(schedule.endDate) >= now
+            (schedule) => new Date(schedule.endDate) >= now,
           );
 
         if (
@@ -854,7 +855,7 @@ const getUserProfileById = async (req, res) => {
       "User profile fetched successfully",
       {
         profile: profileData,
-      }
+      },
     );
   } catch (error) {
     console.error("Error in getUserProfileById:", error);
@@ -925,7 +926,7 @@ const userList = async (req, res) => {
         page: Number(page),
         limit: Number(limit),
         totalPages: Math.ceil(total / limit),
-      }
+      },
     );
   } catch (error) {
     console.error("Error in userList:", error);
@@ -941,14 +942,14 @@ const toggleUserDisable = async (req, res) => {
     const updatedUser = await User.findByIdAndUpdate(
       userId,
       { isDisable },
-      { new: true }
+      { new: true },
     );
 
     if (!updatedUser) {
       return apiErrorRes(
         HTTP_STATUS.NOT_FOUND,
         res,
-        constantsMessage.USER_NOT_FOUND
+        constantsMessage.USER_NOT_FOUND,
       );
     }
 
@@ -956,7 +957,7 @@ const toggleUserDisable = async (req, res) => {
       HTTP_STATUS.OK,
       res,
       `User ${isDisable ? "disabled" : "enabled"} successfully`,
-      { user: updatedUser }
+      { user: updatedUser },
     );
   } catch (error) {
     console.error("Error in toggleUserDisable:", error);
@@ -971,14 +972,14 @@ const deleteUser = async (req, res) => {
     const updatedUser = await User.findByIdAndUpdate(
       userId,
       { isDeleted: true },
-      { new: true }
+      { new: true },
     );
 
     if (!updatedUser) {
       return apiErrorRes(
         HTTP_STATUS.NOT_FOUND,
         res,
-        constantsMessage.USER_NOT_FOUND
+        constantsMessage.USER_NOT_FOUND,
       );
     }
 
@@ -995,33 +996,33 @@ router.post(
   "/customer/signup",
   perApiLimiter(),
   validateRequest(customerSignupSchema),
-  customerSignupInit
+  customerSignupInit,
 );
 router.post(
   "/customer/verify-otp",
   perApiLimiter(),
   validateRequest(otpVerificationSchema),
-  customerSignupVerify
+  customerSignupVerify,
 );
 
 router.post(
   "/organizer/signup",
   perApiLimiter(),
   validateRequest(organizerSignupSchema),
-  organizerSignupInit
+  organizerSignupInit,
 );
 router.post(
   "/organizer/verify-otp",
   perApiLimiter(),
   validateRequest(otpVerificationSchema),
-  organizerSignupVerify
+  organizerSignupVerify,
 );
 
 router.post(
   "/resend-otp",
   perApiLimiter(),
   validateRequest(resendOtpSchema),
-  resendOtp
+  resendOtp,
 );
 
 // Upload endpoint - accepts multiple files
@@ -1029,49 +1030,49 @@ router.post(
   "/upload",
   perApiLimiter(),
   upload.array("files", 10),
-  uploadDocument
+  uploadDocument,
 );
 
 router.post(
   "/login/init",
   perApiLimiter(),
   validateRequest(loginInitSchema),
-  loginInit
+  loginInit,
 );
 
 router.post(
   "/login/verify",
   perApiLimiter(),
   validateRequest(otpVerificationSchema),
-  loginVerify
+  loginVerify,
 );
 
 router.post(
   "/login/resend-otp",
   perApiLimiter(),
   validateRequest(resendOtpSchema),
-  resendLoginOtp
+  resendLoginOtp,
 );
 
 router.post(
   "/admin/login",
   perApiLimiter(),
   validateRequest(loginInitSchema), // Reuse schema as it has email & password
-  adminLogin
+  adminLogin,
 );
 
 router.post(
   "/update-profile",
   perApiLimiter(),
   validateRequest(updateUserSchema),
-  updateUserProfile
+  updateUserProfile,
 );
 
 router.get("/userList", checkRole([roleId.SUPER_ADMIN]), userList);
 router.patch(
   "/toggle-disable/:userId",
   checkRole([roleId.SUPER_ADMIN]),
-  toggleUserDisable
+  toggleUserDisable,
 );
 router.delete("/delete/:userId", checkRole([roleId.SUPER_ADMIN]), deleteUser);
 

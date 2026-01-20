@@ -303,6 +303,106 @@ const createCourse = async (req, res) => {
   }
 };
 
+// Admin List API
+const getCoursesAdmin = async (req, res) => {
+  try {
+    const {
+      categoryId,
+      search,
+      page = 1,
+      limit = 10,
+    } = req.query;
+
+    const skip = (page - 1) * limit;
+    let query = {};
+
+    // Apply category filter
+    if (categoryId) {
+      query.courseCategory = categoryId;
+    }
+
+    // Apply search
+    if (search) {
+      query.$or = [
+        { courseTitle: { $regex: search, $options: "i" } },
+        { shortdesc: { $regex: search, $options: "i" } },
+      ];
+    }
+
+    const totalCourses = await Course.countDocuments(query);
+    const totalPages = Math.ceil(totalCourses / limit);
+
+    const courses = await Course.find(query)
+      .populate("courseCategory", "name image")
+      .populate("createdBy", "firstName lastName profileImage")
+      .skip(skip)
+      .limit(Number(limit))
+      .sort({ createdAt: -1 }) // Newest first
+      .lean();
+
+    const formattedCourses = courses.map((course) => {
+      // Format images
+      if (Array.isArray(course.posterImage)) {
+        course.posterImage = course.posterImage.map(formatResponseUrl);
+      }
+      if (course.courseCategory && course.courseCategory.image) {
+        course.courseCategory.image = formatResponseUrl(course.courseCategory.image);
+      }
+      if (course.createdBy && course.createdBy.profileImage) {
+        course.createdBy.profileImage = formatResponseUrl(course.createdBy.profileImage);
+      }
+
+      // Calculate Duration
+      let duration = null;
+      if (course.schedules && course.schedules.length > 0) {
+        const sched = course.schedules[0];
+        if (sched.startTime && sched.endTime) {
+          const [startH, startM] = sched.startTime.split(':').map(Number);
+          const [endH, endM] = sched.endTime.split(':').map(Number);
+          let diffMins = (endH * 60 + endM) - (startH * 60 + startM);
+          if (diffMins < 0) diffMins += 24 * 60;
+
+          if (diffMins > 0) {
+            const hours = Math.floor(diffMins / 60);
+            const minutes = diffMins % 60;
+            if (hours > 0 && minutes > 0) duration = `${hours}H ${minutes}min`;
+            else if (hours > 0) duration = `${hours}H`;
+            else duration = `${minutes}min`;
+          }
+        }
+      }
+      course.duration = duration;
+
+      // Calculate aggregated seat stats
+      let totalSeats = 0;
+      let acquiredSeats = 0;
+      if (course.schedules && Array.isArray(course.schedules)) {
+        course.schedules.forEach(schedule => {
+          totalSeats += (schedule.totalSeats || 0);
+          acquiredSeats += (schedule.totalAttendees || 0);
+        });
+      }
+      course.totalSeats = totalSeats;
+      course.acquiredSeats = acquiredSeats;
+      course.leftSeats = totalSeats - acquiredSeats;
+
+      return course;
+    });
+
+    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.SUCCESS, {
+      totalCourses,
+      currentPage: Number(page),
+      totalPages,
+      coursesPerPage: Number(limit),
+      courses: formattedCourses,
+    });
+
+  } catch (error) {
+    console.error("Error in getCoursesAdmin:", error);
+    return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
+  }
+};
+
 router.post(
   "/create",
   perApiLimiter(),
@@ -317,6 +417,14 @@ router.get(
   perApiLimiter(),
   validateRequest(getCoursesSchema),
   getCourses
+);
+
+router.get(
+  "/admin/list",
+  perApiLimiter(),
+  checkRole([roleId.SUPER_ADMIN]),
+  validateRequest(getCoursesSchema),
+  getCoursesAdmin
 );
 
 module.exports = router;

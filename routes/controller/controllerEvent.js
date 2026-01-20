@@ -341,6 +341,93 @@ const getEvents = async (req, res) => {
   }
 };
 
+// Admin List API
+const getEventsAdmin = async (req, res) => {
+  try {
+    const {
+      categoryId,
+      search,
+      page = 1,
+      limit = 10,
+    } = req.query;
+
+    const skip = (page - 1) * limit;
+    let query = {};
+
+    // Apply category filter
+    if (categoryId && categoryId !== "") {
+      query.eventCategory = categoryId;
+    }
+
+    // Apply search
+    if (search) {
+      query.$or = [
+        { eventTitle: { $regex: search, $options: "i" } },
+        { shortdesc: { $regex: search, $options: "i" } },
+        { tags: { $regex: search, $options: "i" } },
+      ];
+    }
+
+    // Execute query
+    const events = await Event.find(query)
+      .populate("eventCategory", "name image")
+      .populate("createdBy", "firstName lastName profileImage")
+      .sort({ createdAt: -1 }) // Newest created first for Admin
+      .skip(skip)
+      .limit(parseInt(limit))
+      .lean();
+
+    const totalCount = await Event.countDocuments(query);
+
+    // Format fields
+    const formattedEvents = events.map((event) => {
+      if (Array.isArray(event.posterImage)) {
+        event.posterImage = event.posterImage.map((img) =>
+          formatResponseUrl(img),
+        );
+      }
+      if (event.eventCategory && event.eventCategory.image) {
+        event.eventCategory.image = formatResponseUrl(event.eventCategory.image);
+      }
+      if (event.createdBy && event.createdBy.profileImage) {
+        event.createdBy.profileImage = formatResponseUrl(event.createdBy.profileImage);
+      }
+
+      // Calculate Duration (Same logic as public API)
+      let duration = null;
+      if (event.startDate && event.endDate) {
+        const start = new Date(event.startDate);
+        const end = new Date(event.endDate);
+        const diffMs = end - start;
+        if (diffMs > 0) {
+          const hours = Math.floor(diffMs / (1000 * 60 * 60));
+          const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+          if (hours > 0 && minutes > 0) duration = `${hours}H ${minutes}min`;
+          else if (hours > 0) duration = `${hours}H`;
+          else duration = `${minutes}min`;
+        }
+      }
+      event.duration = duration;
+
+      event.totalSeats = event.totalTickets || 0;
+      event.leftSeats = event.ticketQtyAvailable || 0;
+      event.acquiredSeats = (event.totalTickets || 0) - (event.ticketQtyAvailable || 0);
+
+      return event;
+    });
+
+    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.EVENTS_FETCHED, {
+      events: formattedEvents,
+      total: totalCount,
+      page: parseInt(page),
+      limit: parseInt(limit),
+    });
+  } catch (error) {
+    console.error("Error in getEventsAdmin:", error);
+    return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
+  }
+};
+
 router.post(
   "/create",
   perApiLimiter(),
@@ -354,6 +441,14 @@ router.get(
   perApiLimiter(),
   validateRequest(getEventsSchema),
   getEvents,
+);
+
+router.get(
+  "/admin/list",
+  perApiLimiter(),
+  checkRole([roleId.SUPER_ADMIN]),
+  validateRequest(getEventsSchema),
+  getEventsAdmin
 );
 
 module.exports = router;

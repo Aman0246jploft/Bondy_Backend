@@ -1,546 +1,309 @@
-require("dotenv").config();
 const mongoose = require("mongoose");
-const { User, Category, Event } = require("../db/index");
+const path = require("path");
+const dotenv = require("dotenv");
+
+// Load env vars
+dotenv.config({ path: path.join(__dirname, "../.env") });
+
+const {
+    User,
+    Category,
+    Event,
+    Course,
+    Tax,
+    GlobalSetting,
+    PromoCode
+} = require("../db/index");
 const { roleId } = require("../utils/Role");
 
-const seedEvents = async () => {
+const SEED_IMAGE = "uploads/category/1768802416388-images-(2).jpg";
+
+const categoriesData = [
+    { name: "Music", type: "event" },
+    { name: "Technology", type: "course" },
+    { name: "Art", type: "event" },
+    { name: "Sports", type: "course" },
+    { name: "Business", type: "course" },
+    { name: "Food", type: "event" },
+];
+
+const usersData = [
+    {
+        firstName: "Organizer",
+        lastName: "One",
+        email: "organizer1@example.com",
+        roleId: roleId.ORGANISER,
+        password: "password123",
+    },
+    {
+        firstName: "Organizer",
+        lastName: "Two",
+        email: "organizer2@example.com",
+        roleId: roleId.ORGANISER,
+        password: "password123",
+    },
+    {
+        firstName: "Customer",
+        lastName: "One",
+        email: "customer1@example.com",
+        roleId: roleId.CUSTOMER,
+        password: "password123",
+    },
+    {
+        firstName: "Customer",
+        lastName: "Two",
+        email: "customer2@example.com",
+        roleId: roleId.CUSTOMER,
+        password: "password123",
+    },
+];
+
+const generateEventData = (organizerId, categories) => {
+    const events = [];
+    const eventCategories = categories.filter(c => c.type === "event");
+
+    for (let i = 0; i < 20; i++) {
+        const isPast = i < 5; // First 5 past
+        const isLive = i >= 5 && i < 8; // Next 3 live
+        // Rest upcoming
+
+        const startDate = new Date();
+        const endDate = new Date();
+
+        if (isPast) {
+            startDate.setDate(startDate.getDate() - 20);
+            endDate.setDate(endDate.getDate() - 19);
+        } else if (isLive) {
+            // Starts yesterday, ends tomorrow
+            startDate.setDate(startDate.getDate() - 1);
+            endDate.setDate(endDate.getDate() + 1);
+        } else {
+            // Starts in future
+            startDate.setDate(startDate.getDate() + i);
+            endDate.setDate(endDate.getDate() + i + 1);
+        }
+
+        const randomCategory = eventCategories[Math.floor(Math.random() * eventCategories.length)];
+
+        events.push({
+            eventTitle: `Event ${i + 1} - ${randomCategory.name}`,
+            eventCategory: randomCategory._id,
+            posterImage: [SEED_IMAGE],
+            shortdesc: `This is a short description for Event ${i + 1}`,
+            longdesc: `This is a detailed long description for Event ${i + 1}. It is very interesting and you should surely attend.`,
+            tags: ["fun", "social", randomCategory.name],
+            venueName: `Venue ${i + 1}`,
+            venueAddress: {
+                type: "Point",
+                coordinates: [77.2090 + (Math.random() * 0.1 - 0.05), 28.6139 + (Math.random() * 0.1 - 0.05)], // Around Delhi
+                city: "New Delhi",
+                country: "India",
+                address: `Street ${i + 1}, Some Area`,
+            },
+            startDate: startDate,
+            endDate: endDate,
+            startTime: "10:00",
+            endTime: "18:00",
+            ticketName: "General Admission",
+            ticketQtyAvailable: 100,
+            ticketSelesStartDate: new Date(Date.now() - 86400000), // Yesterday
+            ticketSelesEndDate: endDate,
+            ticketPrice: (i + 1) * 10,
+            totalTickets: 100,
+            createdBy: organizerId,
+            status: isPast ? "Past" : (isLive ? "Live" : "Upcoming"),
+            accessAndPrivacy: true,
+            ageRestriction: {
+                type: "ALL"
+            }
+        });
+    }
+    return events;
+};
+
+const generateCourseData = (organizerId, categories) => {
+    const courses = [];
+    const courseCategories = categories.filter(c => c.type === "course");
+
+    for (let i = 0; i < 20; i++) {
+        const randomCategory = courseCategories[Math.floor(Math.random() * courseCategories.length)];
+
+        // Schedule logic
+        const startDate = new Date();
+        startDate.setDate(startDate.getDate() + i + 5);
+        const endDate = new Date(startDate);
+        endDate.setDate(endDate.getDate() + 30); // 1 month course
+
+        courses.push({
+            courseTitle: `Course ${i + 1} - ${randomCategory.name}`,
+            courseCategory: randomCategory._id,
+            posterImage: [SEED_IMAGE],
+            shortdesc: `Learn everything about ${randomCategory.name} in Course ${i + 1}`,
+            venueAddress: {
+                type: "Point",
+                coordinates: [77.2090 + (Math.random() * 0.1 - 0.05), 28.6139 + (Math.random() * 0.1 - 0.05)],
+                city: "New Delhi",
+                country: "India",
+                address: `Institute ${i + 1}, Delhi`,
+            },
+            schedules: [
+                {
+                    startDate: startDate,
+                    endDate: endDate,
+                    startTime: "09:00",
+                    endTime: "11:00",
+                    totalSeats: 20,
+                    price: (i + 1) * 50
+                }
+            ],
+            createdBy: organizerId
+        });
+    }
+    return courses;
+};
+
+const seedDatabase = async () => {
+    // Wait for connection to be established by db/index.js or ensure it here
+    if (mongoose.connection.readyState === 0) {
+        // connect if not connected (though db/index usually connects)
+        // db/index connects automatically, so we might just need to wait a bit or it handles it.
+        // Actually db/index connects async. We should probably wait or use connection event.
+        // Looking at db/index.js, it does not export the connection promise.
+        // It just calls mongoose.connect.
+        // We can just await mongoose.connect again or wait for 'open'.
+        await new Promise(resolve => Date.now()); // Just a tick
+        // Better:
+        try {
+            await mongoose.connect(process.env.DB_STRING);
+            console.log("Connected to DB for seeding");
+        } catch (e) {
+            console.log("Connection might already be creating...");
+        }
+    }
+
     try {
-        console.log("🌱 Starting event seed script...\n");
+        console.log("Cleaning up old seed data (optional)...");
+        // Optionally clear data? User said "make seed data", didn't explicitly say clear.
+        // I will NOT clear everything to avoid data loss of existing user data,
+        // unless I'm sure these are my test data.
+        // Detailed instruction: "create the 2 customer and 2 orgainser"
+        // I'll filter by specific emails to update or replace them.
 
-        // Get the current date and time
-        const now = new Date();
-        console.log(`Current time: ${now.toISOString()}\n`);
+        // 1. Create Categories
+        console.log("Seeding Categories...");
+        const createdCategories = [];
+        for (const cat of categoriesData) {
+            const category = await Category.findOneAndUpdate(
+                { name: cat.name },
+                { ...cat, image: SEED_IMAGE },
+                { upsert: true, new: true }
+            );
+            createdCategories.push(category);
+        }
+        console.log(`${createdCategories.length} Categories seeded.`);
 
-        // Find or create an organizer user
-        let organizer = await User.findOne({ roleId: roleId.ORGANISER });
+        // 2. Create Users
+        console.log("Seeding Users...");
+        const createdOrganizers = [];
+        const createdCustomers = [];
 
-        if (!organizer) {
-            console.log("📝 Creating organizer user...");
-            organizer = new User({
-                firstName: "Test",
-                lastName: "Organizer",
-                email: "organizer@test.com",
-                password: "123456",
-                contactNumber: "9999999999",
-                roleId: roleId.ORGANISER,
-                organizerVerificationStatus: "APPROVED",
-                location: {
-                    type: "Point",
-                    coordinates: [77.209, 28.6139], // Delhi
-                    city: "Delhi",
-                    country: "India",
-                },
-                language: "en",
+        const categoryIds = createdCategories.map(c => c._id);
+
+        for (const user of usersData) {
+            const userData = {
+                ...user,
+                profileImage: SEED_IMAGE,
+                categories: categoryIds, // Interested in all for demo
+                organizerVerificationStatus: user.roleId === roleId.ORGANISER ? "approved" : "pending",
                 isDisable: false,
                 isDeleted: false,
-            });
-            await organizer.save();
-            console.log("✅ Organizer created\n");
-        } else {
-            console.log("✅ Using existing organizer\n");
-        }
+                // password hashing is handled by pre-save hook in User model
+            };
 
-        // Create multiple categories
-        const categoryData = [
-            { name: "Music & Entertainment", image: "uploads/categories/music.jpg" },
-            { name: "Health & Wellness", image: "uploads/categories/health.jpg" },
-            { name: "Business & Tech", image: "uploads/categories/tech.jpg" },
-            { name: "Food & Drink", image: "uploads/categories/food.jpg" },
-            { name: "Arts & Culture", image: "uploads/categories/art.jpg" },
-        ];
-
-        const categories = [];
-        console.log("📝 Creating categories...");
-
-        for (const cat of categoryData) {
-            let category = await Category.findOne({ name: cat.name, isDeleted: false });
-            if (!category) {
-                category = new Category({
-                    name: cat.name,
-                    image: cat.image,
-                    type: "event",
-                    isDeleted: false,
-                });
-                await category.save();
-                console.log(`✅ Created category: ${cat.name}`);
+            // Check if user exists to avoid duplicate key error on email
+            let userDoc = await User.findOne({ email: user.email });
+            if (!userDoc) {
+                userDoc = new User(userData);
+                // Only manual setting if needed, but password hashing hook handles plain text
+                await userDoc.save();
             } else {
-                console.log(`✅ Using existing category: ${cat.name}`);
+                // Update existing
+                // Note: changes to password here manually might trigger hash again if we simply set it.
+                // We'll skip password update on existing to avoid re-hashing if not changed or complications.
+                // But we want to ensure other fields.
+                userDoc.firstName = userData.firstName;
+                userDoc.lastName = userData.lastName;
+                userDoc.profileImage = userData.profileImage;
+                userDoc.categories = userData.categories;
+                userDoc.roleId = userData.roleId;
+                userDoc.organizerVerificationStatus = userData.organizerVerificationStatus;
+                await userDoc.save();
             }
-            categories.push(category);
+
+            if (user.roleId === roleId.ORGANISER) {
+                createdOrganizers.push(userDoc);
+            } else {
+                createdCustomers.push(userDoc);
+            }
         }
-        console.log("\n");
+        console.log(`${createdOrganizers.length} Organizers and ${createdCustomers.length} Customers seeded.`);
 
-        // Clear existing test events (optional)
-        // await Event.deleteMany({ createdBy: organizer._id });
-        // console.log("🗑️  Cleared existing test events\n");
+        // 3. Create Events
+        console.log("Seeding Events...");
 
-        console.log("📅 Creating test events...\n");
+        // Distribute 20 events between organizers
+        // Let's give 10 to each
+        const events1 = generateEventData(createdOrganizers[0]._id, createdCategories).slice(0, 10);
+        const events2 = generateEventData(createdOrganizers[1]._id, createdCategories).slice(0, 10);
 
-        // Helper function to calculate dates
-        const getStartOfWeek = (date) => {
-            const d = new Date(date);
-            const day = d.getDay();
-            const diff = day === 0 ? -6 : 1 - day; // Monday
-            d.setDate(d.getDate() + diff);
-            d.setHours(0, 0, 0, 0);
-            return d;
-        };
+        const allEvents = [...events1, ...events2];
 
-        const getStartOfWeekend = (date) => {
-            const d = new Date(date);
-            const day = d.getDay();
-            const diff = day === 0 ? -1 : 6 - day; // Saturday
-            d.setDate(d.getDate() + diff);
-            d.setHours(0, 0, 0, 0);
-            return d;
-        };
-
-        // Different locations for "Near You" testing
-        const locations = [
-            {
-                name: "Delhi - India Gate",
-                coords: [77.2295, 28.6129], // ~2km from center
-                city: "Delhi",
-                country: "India",
-            },
-            {
-                name: "Delhi - Connaught Place",
-                coords: [77.2167, 28.6304], // ~5km from center
-                city: "Delhi",
-                country: "India",
-            },
-            {
-                name: "Gurgaon - Cyber Hub",
-                coords: [77.088, 28.4955], // ~25km from Delhi center
-                city: "Gurgaon",
-                country: "India",
-            },
-            {
-                name: "Noida - Sector 18",
-                coords: [77.3249, 28.5706], // ~20km from Delhi center
-                city: "Noida",
-                country: "India",
-            },
-            {
-                name: "Delhi - Hauz Khas",
-                coords: [77.2069, 28.5494],
-                city: "Delhi",
-                country: "India",
-            },
-            {
-                name: "Delhi - Nehru Place",
-                coords: [77.2502, 28.5494],
-                city: "Delhi",
-                country: "India",
-            },
-            {
-                name: "Faridabad - Crown Plaza",
-                coords: [77.3178, 28.4089],
-                city: "Faridabad",
-                country: "India",
-            },
-            {
-                name: "Mumbai - Gateway of India",
-                coords: [72.8347, 18.922], // Far away
-                city: "Mumbai",
-                country: "India",
-            },
-            {
-                name: "Bangalore - MG Road",
-                coords: [77.6033, 12.9762], // Far away
-                city: "Bangalore",
-                country: "India",
-            },
-        ];
-
-        const eventTypes = [
-            { type: "Music Concert", icon: "🎵", tags: ["music", "concert", "live"] },
-            { type: "Comedy Show", icon: "🎤", tags: ["comedy", "standup", "entertainment"] },
-            { type: "Theater Play", icon: "🎭", tags: ["theater", "drama", "performance"] },
-            { type: "Dance Performance", icon: "💃", tags: ["dance", "performance", "art"] },
-            { type: "Art Exhibition", icon: "🎨", tags: ["art", "exhibition", "gallery"] },
-            { type: "Food Festival", icon: "🍔", tags: ["food", "festival", "cuisine"] },
-            { type: "Tech Meetup", icon: "💻", tags: ["tech", "meetup", "networking"] },
-            { type: "Yoga Session", icon: "🧘", tags: ["yoga", "wellness", "fitness"] },
-            { type: "Sports Event", icon: "⚽", tags: ["sports", "game", "competition"] },
-            { type: "Movie Screening", icon: "🎬", tags: ["movie", "film", "screening"] },
-            { type: "DJ Night", icon: "🎧", tags: ["dj", "electronic", "party"] },
-            { type: "Poetry Night", icon: "📚", tags: ["poetry", "literature", "reading"] },
-            { type: "Workshop", icon: "🛠️", tags: ["workshop", "learning", "skills"] },
-            { type: "Carnival", icon: "🎪", tags: ["carnival", "family", "fun"] },
-            { type: "Jazz Night", icon: "🎷", tags: ["jazz", "music", "live"] },
-        ];
-
-        const venues = [
-            "Arena Hall", "Central Stadium", "City Theater", "Grand Auditorium",
-            "Music Palace", "Open Air Amphitheater", "Convention Center",
-            "Community Hall", "Art Gallery", "Rooftop Lounge", "Garden Venue",
-            "Conference Hall", "Club House", "Beach Resort", "Mountain Lodge"
-        ];
-
-        const events = [];
-        let eventCount = 0;
-
-        // Generate 10 PAST EVENTS (should be filtered out)
-        console.log("📝 Generating past events (should be filtered)...");
-        for (let i = 0; i < 10; i++) {
-            const pastDate = new Date(now);
-            pastDate.setDate(pastDate.getDate() - (30 - i * 2));
-            pastDate.setHours(18 + (i % 6), 0, 0, 0);
-
-            const eventType = eventTypes[i % eventTypes.length];
-            const location = locations[i % locations.length];
-
-            events.push({
-                eventTitle: `❌ ${eventType.type} - ${pastDate.toDateString()} (PAST)`,
-                eventCategory: categories[Math.floor(Math.random() * categories.length)]._id,
-                posterImage: [`uploads/events/past-${i}.jpg`],
-                shortdesc: `This event ended on ${pastDate.toDateString()}`,
-                longdesc: "Past event for testing exclusion logic",
-                tags: [...eventType.tags, "past"],
-                venueName: venues[i % venues.length],
-                venueAddress: {
-                    type: "Point",
-                    coordinates: location.coords,
-                    city: location.city,
-                    country: location.country,
-                    address: location.name,
-                },
-                startDate: pastDate,
-                endDate: new Date(pastDate.getTime() + 3 * 60 * 60 * 1000),
-                startTime: `${18 + (i % 6)}:00`,
-                endTime: `${21 + (i % 6)}:00`,
-                ticketPrice: 500 + (i * 100),
-                totalTickets: 100 + (i * 10),
-                ticketQtyAvailable: 50 + (i * 5),
-                isDraft: false,
-                createdBy: organizer._id,
-            });
-            eventCount++;
-        }
-
-        // Generate 5 DRAFT EVENTS (should be filtered out)
-        console.log("📝 Generating draft events (should be filtered)...");
-        for (let i = 0; i < 5; i++) {
-            const draftDate = new Date(now);
-            draftDate.setDate(draftDate.getDate() + (i + 2));
-            draftDate.setHours(19, 0, 0, 0);
-
-            const eventType = eventTypes[(i + 3) % eventTypes.length];
-            const location = locations[i % locations.length];
-
-            events.push({
-                eventTitle: `❌ DRAFT: ${eventType.type} (Should NOT appear)`,
-                eventCategory: categories[Math.floor(Math.random() * categories.length)]._id,
-                posterImage: [`uploads/events/draft-${i}.jpg`],
-                shortdesc: "This is a draft event",
-                longdesc: "Testing draft exclusion logic",
-                tags: [...eventType.tags, "draft"],
-                venueName: venues[(i + 5) % venues.length],
-                venueAddress: {
-                    type: "Point",
-                    coordinates: location.coords,
-                    city: location.city,
-                    country: location.country,
-                    address: location.name,
-                },
-                startDate: draftDate,
-                endDate: new Date(draftDate.getTime() + 2 * 60 * 60 * 1000),
-                startTime: "19:00",
-                endTime: "21:00",
-                ticketPrice: 600 + (i * 150),
-                totalTickets: 100,
-                ticketQtyAvailable: 100,
-                isDraft: true, // Draft events should be excluded
-                createdBy: organizer._id,
-            });
-            eventCount++;
-        }
-
-        // Generate 30 UPCOMING EVENTS (various future dates)
-        console.log("📝 Generating upcoming events...");
-        for (let i = 0; i < 30; i++) {
-            const upcomingDate = new Date(now);
-            upcomingDate.setDate(upcomingDate.getDate() + (i + 1));
-            upcomingDate.setHours(17 + (i % 7), 0, 0, 0);
-
-            const eventType = eventTypes[i % eventTypes.length];
-            const location = locations[i % locations.length];
-
-            events.push({
-                eventTitle: `${eventType.icon} ${eventType.type} - Day ${i + 1}`,
-                eventCategory: categories[Math.floor(Math.random() * categories.length)]._id,
-                posterImage: [`uploads/events/upcoming-${i}.jpg`],
-                shortdesc: `Amazing ${eventType.type.toLowerCase()} happening soon!`,
-                longdesc: `Join us for an unforgettable ${eventType.type.toLowerCase()} experience`,
-                tags: eventType.tags,
-                venueName: venues[i % venues.length],
-                venueAddress: {
-                    type: "Point",
-                    coordinates: location.coords,
-                    city: location.city,
-                    country: location.country,
-                    address: location.name,
-                },
-                startDate: upcomingDate,
-                endDate: new Date(upcomingDate.getTime() + (2 + (i % 3)) * 60 * 60 * 1000),
-                startTime: `${17 + (i % 7)}:00`,
-                endTime: `${19 + (i % 7)}:00`,
-                ticketPrice: 500 + (i * 50),
-                totalTickets: 100 + (i * 10),
-                ticketQtyAvailable: 80 + (i * 8),
-                isDraft: false,
-                createdBy: organizer._id,
-            });
-            eventCount++;
-        }
-
-        // Generate 15 THIS WEEK EVENTS
-        console.log("📝 Generating this week events...");
-        const startOfWeek = getStartOfWeek(now);
-        for (let i = 0; i < 15; i++) {
-            const weekDate = new Date(startOfWeek);
-            weekDate.setDate(weekDate.getDate() + (i % 7)); // Spread across the week
-            weekDate.setHours(15 + (i % 8), 0, 0, 0);
-
-            // Skip if it's in the past
-            if (weekDate >= now) {
-                const eventType = eventTypes[i % eventTypes.length];
-                const location = locations[i % locations.length];
-
-                events.push({
-                    eventTitle: `${eventType.icon} ${eventType.type} - This Week`,
-                    eventCategory: categories[Math.floor(Math.random() * categories.length)]._id,
-                    posterImage: [`uploads/events/week-${i}.jpg`],
-                    shortdesc: `This week's ${eventType.type.toLowerCase()}`,
-                    longdesc: `Don't miss this week's exciting ${eventType.type.toLowerCase()}`,
-                    tags: [...eventType.tags, "thisweek"],
-                    venueName: venues[i % venues.length],
-                    venueAddress: {
-                        type: "Point",
-                        coordinates: location.coords,
-                        city: location.city,
-                        country: location.country,
-                        address: location.name,
-                    },
-                    startDate: weekDate,
-                    endDate: new Date(weekDate.getTime() + 3 * 60 * 60 * 1000),
-                    startTime: `${15 + (i % 8)}:00`,
-                    endTime: `${18 + (i % 8)}:00`,
-                    ticketPrice: 700 + (i * 80),
-                    totalTickets: 150 + (i * 15),
-                    ticketQtyAvailable: 120 + (i * 10),
-                    isDraft: false,
-                    createdBy: organizer._id,
-                });
-                eventCount++;
+        // Check for existing events to avoid duplicates (optional, based on title/creator)
+        const newEvents = [];
+        for (const ev of allEvents) {
+            const exists = await Event.findOne({ eventTitle: ev.eventTitle, createdBy: ev.createdBy });
+            if (!exists) {
+                newEvents.push(ev);
             }
         }
 
-        // Generate 10 THIS WEEKEND EVENTS (Saturday & Sunday)
-        console.log("📝 Generating this weekend events...");
-        const startOfWeekend = getStartOfWeekend(now);
-        for (let i = 0; i < 10; i++) {
-            const weekendDate = new Date(startOfWeekend);
-            weekendDate.setDate(weekendDate.getDate() + (i % 2)); // Saturday or Sunday
-            weekendDate.setHours(18 + (i % 5), 0, 0, 0);
+        if (newEvents.length > 0) {
+            // Use insertMany to bypass pre('save') hook which blocks past events
+            await Event.insertMany(newEvents);
+            console.log(`${newEvents.length} Events seeded.`);
+        } else {
+            console.log("No new events to seed.");
+        }
 
-            // Skip if it's in the past
-            if (weekendDate >= now) {
-                const eventType = eventTypes[i % eventTypes.length];
-                const location = locations[i % locations.length];
+        // 4. Create Courses
+        console.log("Seeding Courses...");
+        const courses1 = generateCourseData(createdOrganizers[0]._id, createdCategories).slice(0, 10);
+        const courses2 = generateCourseData(createdOrganizers[1]._id, createdCategories).slice(0, 10);
 
-                events.push({
-                    eventTitle: `${eventType.icon} ${eventType.type} - Weekend Special`,
-                    eventCategory: categories[Math.floor(Math.random() * categories.length)]._id,
-                    posterImage: [`uploads/events/weekend-${i}.jpg`],
-                    shortdesc: `Weekend ${eventType.type.toLowerCase()} extravaganza!`,
-                    longdesc: `Perfect weekend entertainment with ${eventType.type.toLowerCase()}`,
-                    tags: [...eventType.tags, "weekend"],
-                    venueName: venues[i % venues.length],
-                    venueAddress: {
-                        type: "Point",
-                        coordinates: location.coords,
-                        city: location.city,
-                        country: location.country,
-                        address: location.name,
-                    },
-                    startDate: weekendDate,
-                    endDate: new Date(weekendDate.getTime() + 4 * 60 * 60 * 1000),
-                    startTime: `${18 + (i % 5)}:00`,
-                    endTime: `${22 + (i % 5)}:00`,
-                    ticketPrice: 1000 + (i * 100),
-                    totalTickets: 200 + (i * 20),
-                    ticketQtyAvailable: 150 + (i * 15),
-                    isDraft: false,
-                    createdBy: organizer._id,
-                });
-                eventCount++;
+        const allCourses = [...courses1, ...courses2];
+
+        const newCourses = [];
+        for (const co of allCourses) {
+            const exists = await Course.findOne({ courseTitle: co.courseTitle, createdBy: co.createdBy });
+            if (!exists) {
+                newCourses.push(co);
             }
         }
 
-        // Generate 25 THIS YEAR EVENTS (spread across months)
-        console.log("📝 Generating this year events...");
-        for (let i = 0; i < 25; i++) {
-            const yearDate = new Date(now);
-            yearDate.setMonth(now.getMonth() + (i % 11)); // Spread across remaining months
-            yearDate.setDate(1 + (i % 28));
-            yearDate.setHours(19, 0, 0, 0);
-
-            // Make sure it's still this year and not in the past
-            if (yearDate.getFullYear() === now.getFullYear() && yearDate >= now) {
-                const eventType = eventTypes[i % eventTypes.length];
-                const location = locations[i % locations.length];
-
-                events.push({
-                    eventTitle: `${eventType.icon} ${eventType.type} - ${yearDate.toLocaleString('default', { month: 'long' })}`,
-                    eventCategory: categories[Math.floor(Math.random() * categories.length)]._id,
-                    posterImage: [`uploads/events/year-${i}.jpg`],
-                    shortdesc: `${yearDate.toLocaleString('default', { month: 'long' })} ${eventType.type.toLowerCase()}`,
-                    longdesc: `Looking forward to this ${eventType.type.toLowerCase()} event`,
-                    tags: [...eventType.tags, "thisyear"],
-                    venueName: venues[i % venues.length],
-                    venueAddress: {
-                        type: "Point",
-                        coordinates: location.coords,
-                        city: location.city,
-                        country: location.country,
-                        address: location.name,
-                    },
-                    startDate: yearDate,
-                    endDate: new Date(yearDate.getTime() + 3 * 60 * 60 * 1000),
-                    startTime: "19:00",
-                    endTime: "22:00",
-                    ticketPrice: 800 + (i * 60),
-                    totalTickets: 180 + (i * 12),
-                    ticketQtyAvailable: 140 + (i * 10),
-                    isDraft: false,
-                    createdBy: organizer._id,
-                });
-                eventCount++;
-            }
+        if (newCourses.length > 0) {
+            // Safe to use insertMany or save, Course doesn't seem to have strict hook blocking creation
+            await Course.insertMany(newCourses);
+            console.log(`${newCourses.length} Courses seeded.`);
+        } else {
+            console.log("No new courses to seed.");
         }
 
-        // Generate 20 NEAR YOU EVENTS (Delhi/NCR locations)
-        console.log("📝 Generating near you events (Delhi/NCR)...");
-        for (let i = 0; i < 20; i++) {
-            const nearDate = new Date(now);
-            nearDate.setDate(nearDate.getDate() + (i % 15) + 1);
-            nearDate.setHours(18 + (i % 6), 0, 0, 0);
-
-            const eventType = eventTypes[i % eventTypes.length];
-            // Use only Delhi/NCR locations (first 7 locations)
-            const location = locations[i % 7];
-
-            events.push({
-                eventTitle: `${eventType.icon} ${eventType.type} - ${location.city}`,
-                eventCategory: categories[Math.floor(Math.random() * categories.length)]._id,
-                posterImage: [`uploads/events/near-${i}.jpg`],
-                shortdesc: `${eventType.type} in ${location.city}`,
-                longdesc: `Experience ${eventType.type.toLowerCase()} near you in ${location.city}`,
-                tags: [...eventType.tags, "nearyou", location.city.toLowerCase()],
-                venueName: venues[i % venues.length],
-                venueAddress: {
-                    type: "Point",
-                    coordinates: location.coords,
-                    city: location.city,
-                    country: location.country,
-                    address: location.name,
-                },
-                startDate: nearDate,
-                endDate: new Date(nearDate.getTime() + 3 * 60 * 60 * 1000),
-                startTime: `${18 + (i % 6)}:00`,
-                endTime: `${21 + (i % 6)}:00`,
-                ticketPrice: 600 + (i * 70),
-                totalTickets: 120 + (i * 15),
-                ticketQtyAvailable: 100 + (i * 12),
-                isDraft: false,
-                createdBy: organizer._id,
-            });
-            eventCount++;
-        }
-
-        // Generate 5 FAR LOCATION EVENTS (Mumbai & Bangalore)
-        console.log("📝 Generating far location events (Mumbai/Bangalore)...");
-        for (let i = 0; i < 5; i++) {
-            const farDate = new Date(now);
-            farDate.setDate(farDate.getDate() + (i * 3) + 2);
-            farDate.setHours(19, 0, 0, 0);
-
-            const eventType = eventTypes[i % eventTypes.length];
-            // Use only far locations (Mumbai & Bangalore)
-            const location = locations[7 + (i % 2)];
-
-            events.push({
-                eventTitle: `${eventType.icon} ${eventType.type} - ${location.city}`,
-                eventCategory: categories[Math.floor(Math.random() * categories.length)]._id,
-                posterImage: [`uploads/events/far-${i}.jpg`],
-                shortdesc: `${eventType.type} in ${location.city}`,
-                longdesc: `Travel to ${location.city} for this amazing ${eventType.type.toLowerCase()}`,
-                tags: [...eventType.tags, location.city.toLowerCase()],
-                venueName: venues[i % venues.length],
-                venueAddress: {
-                    type: "Point",
-                    coordinates: location.coords,
-                    city: location.city,
-                    country: location.country,
-                    address: location.name,
-                },
-                startDate: farDate,
-                endDate: new Date(farDate.getTime() + 3 * 60 * 60 * 1000),
-                startTime: "19:00",
-                endTime: "22:00",
-                ticketPrice: 1500 + (i * 200),
-                totalTickets: 300 + (i * 50),
-                ticketQtyAvailable: 250 + (i * 40),
-                isDraft: false,
-                createdBy: organizer._id,
-            });
-            eventCount++;
-        }
-
-        console.log(`\n📊 Total events to be created: ${eventCount}\n`);
-
-
-        // Insert all events
-        const insertedEvents = await Event.insertMany(events);
-
-        console.log(`✅ Successfully created ${insertedEvents.length} events\n`);
-
-        // Display summary
-        console.log("📊 Event Summary:");
-        console.log("=".repeat(60));
-        insertedEvents.forEach((event, index) => {
-            console.log(`${index + 1}. ${event.eventTitle}`);
-            console.log(`   📅 Date: ${event.startDate.toLocaleString()}`);
-            console.log(`   📍 Location: ${event.venueAddress.address}`);
-            console.log(`   💰 Price: ₹${event.ticketPrice}`);
-            console.log(`   🎫 Available: ${event.ticketQtyAvailable}/${event.totalTickets}`);
-            console.log(`   📝 Draft: ${event.isDraft ? 'Yes ❌' : 'No ✅'}`);
-            console.log("");
-        });
-
-        console.log("=".repeat(60));
-        console.log("\n🎯 Testing Guide:");
-        console.log("1. Test 'all' filter - should return all non-past, non-draft events");
-        console.log("2. Test 'upcoming' filter - should return events that haven't started");
-        console.log("3. Test 'thisWeek' filter - should return events Mon-Sun of current week");
-        console.log("4. Test 'thisWeekend' filter - should return Saturday-Sunday events");
-        console.log("5. Test 'thisYear' filter - should return events in current year");
-        console.log("6. Test 'nearYou' filter with:");
-        console.log("   - Lat: 28.6139, Long: 77.209 (Delhi center)");
-        console.log("   - Radius: 50km - should show Delhi/Gurgaon/Noida events");
-        console.log("   - Radius: 10km - should show only central Delhi events");
-        console.log("   - Mumbai event should NOT appear for Delhi coordinates\n");
-
-        console.log("✅ Seed script completed successfully!");
-        process.exit(0);
-    } catch (error) {
-        console.error("❌ Error in seed script:", error);
-        process.exit(1);
+    } catch (err) {
+        console.error("Seeding Error:", err);
+    } finally {
+        console.log("Seeding complete. Exiting...");
+        process.exit();
     }
 };
 
-(async () => {
-    await seedEvents();
-})();
+seedDatabase();
