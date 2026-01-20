@@ -40,6 +40,28 @@ const createEventSchema = Joi.object({
     isDraft: Joi.boolean().optional(),
 });
 
+const getEventsSchema = Joi.object({
+    filter: Joi.string()
+        .valid("all", "nearYou", "upcoming", "thisWeek", "thisWeekend", "thisYear", "recommended")
+        .default("all"),
+    latitude: Joi.number().when("filter", {
+        is: "nearYou",
+        then: Joi.required(),
+        otherwise: Joi.optional(),
+    }),
+    longitude: Joi.number().when("filter", {
+        is: "nearYou",
+        then: Joi.required(),
+        otherwise: Joi.optional(),
+    }),
+    radius: Joi.number().min(1).max(500).default(50), // in kilometers
+    categoryId: Joi.string().hex().length(24).optional(),
+    search: Joi.string().optional(),
+    page: Joi.number().integer().min(1).default(1),
+    limit: Joi.number().integer().min(1).max(100).default(10),
+});
+
 module.exports = {
     createEventSchema,
+    getEventsSchema,
 };

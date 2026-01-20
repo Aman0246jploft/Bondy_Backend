@@ -1,3 +1,4 @@
+require("dotenv").config();
 const express = require("express");
 const router = express.Router();
 const {
@@ -10,7 +11,6 @@ const {
   GlobalSetting,
 } = require("../../db");
 const CONSTANTS = require("../../utils/constants");
-const constantsMessage = require("../../utils/constantsMessage");
 const HTTP_STATUS = require("../../utils/statusCode");
 const {
   apiErrorRes,
@@ -413,7 +413,7 @@ const confirmPayment = async (req, res) => {
     let commissionPercentage = 0;
 
     const globalConfig = await GlobalSetting.findOne({
-      key: "COMMISSION_CONFIG",
+      key: process.env.COMMISSION_CONFIG,
     });
     if (globalConfig && globalConfig.value) {
       if (transaction.bookingType === "EVENT") {

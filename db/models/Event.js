@@ -102,6 +102,9 @@ eventSchema.set("toJSON", {
   },
 });
 
+// Create geospatial index for location-based queries
+eventSchema.index({ venueAddress: "2dsphere" });
+
 
 
 eventSchema.pre("save", function (next) {

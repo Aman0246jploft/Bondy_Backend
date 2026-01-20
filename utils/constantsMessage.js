@@ -69,4 +69,7 @@ module.exports = Object.freeze({
   SUPER_ADMIN_UPDATE_NOT_ALLOWED:
     "Updating super admin profile is not allowed.",
   EVENT_CREATED: "Event created successfully.",
+  EVENTS_FETCHED: "Events fetched successfully.",
+  INVALID_FILTER_TYPE: "Invalid filter type provided.",
+  LOCATION_REQUIRED: "Latitude and longitude are required for nearYou filter.",
 });
