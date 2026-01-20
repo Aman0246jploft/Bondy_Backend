@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const { Event } = require("../../db");
+const { Event, Transaction, User } = require("../../db");
 const constantsMessage = require("../../utils/constantsMessage");
 const HTTP_STATUS = require("../../utils/statusCode");
 const {
@@ -17,7 +17,6 @@ const perApiLimiter = require("../../middlewares/rateLimiter");
 const checkRole = require("../../middlewares/checkRole");
 const { roleId } = require("../../utils/Role");
 const jwt = require("jsonwebtoken");
-const { User } = require("../../db");
 
 // Create Event
 const createEvent = async (req, res) => {
@@ -239,6 +238,29 @@ const getEvents = async (req, res) => {
     // Get total count for pagination
     const totalCount = await Event.countDocuments(query);
 
+    // Check for logged-in user to determine isBooked status
+    let viewerId = null;
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      const token = authHeader.split(" ")[1];
+      try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY);
+        viewerId = decoded.userId;
+      } catch (err) {
+        // Invalid token - treat as guest
+      }
+    }
+
+    const bookedEventIds = new Set();
+    if (viewerId) {
+      const bookings = await Transaction.find({
+        userId: viewerId,
+        eventId: { $in: events.map((e) => e._id) },
+        status: "PAID",
+      }).select("eventId");
+      bookings.forEach((b) => bookedEventIds.add(b.eventId.toString()));
+    }
+
     // Format image URLs
     const formattedEvents = events.map((event) => {
       if (Array.isArray(event.posterImage)) {
@@ -294,6 +316,14 @@ const getEvents = async (req, res) => {
         }
       }
       event.duration = duration;
+
+      // Add seat statistics
+      event.totalSeats = event.totalTickets || 0;
+      event.leftSeats = event.ticketQtyAvailable || 0;
+      event.acquiredSeats = (event.totalTickets || 0) - (event.ticketQtyAvailable || 0);
+
+      // Add booking status
+      event.isBooked = bookedEventIds.has(event._id.toString());
 
       return event;
     });

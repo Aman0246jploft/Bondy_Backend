@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const { Course } = require("../../db");
+const { Course, Transaction, User } = require("../../db");
 const constantsMessage = require("../../utils/constantsMessage");
 const HTTP_STATUS = require("../../utils/statusCode");
 const {
@@ -201,7 +201,33 @@ const createCourse = async (req, res) => {
       .skip(skip)
       .limit(Number(limit))
       .sort({ createdAt: -1 })
+      .sort({ createdAt: -1 })
       .lean();
+
+    // Check for logged-in user to determine isBooked status
+    let viewerId = null;
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      const token = authHeader.split(" ")[1];
+      try {
+        // Need jwt here. If not imported at top, require it.
+        const jwt = require("jsonwebtoken");
+        const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY);
+        viewerId = decoded.userId;
+      } catch (err) {
+        // Invalid token - treat as guest
+      }
+    }
+
+    const bookedCourseIds = new Set();
+    if (viewerId) {
+      const bookings = await Transaction.find({
+        userId: viewerId,
+        courseId: { $in: courses.map((c) => c._id) },
+        status: "PAID",
+      }).select("courseId");
+      bookings.forEach((b) => bookedCourseIds.add(b.courseId.toString()));
+    }
 
     const formattedCourses = courses.map((course) => {
       // Format images
@@ -241,6 +267,24 @@ const createCourse = async (req, res) => {
         }
       }
       course.duration = duration;
+
+      // Calculate aggregated seat stats from schedules
+      let totalSeats = 0;
+      let acquiredSeats = 0;
+
+      if (course.schedules && Array.isArray(course.schedules)) {
+        course.schedules.forEach(schedule => {
+          totalSeats += (schedule.totalSeats || 0);
+          acquiredSeats += (schedule.totalAttendees || 0);
+        });
+      }
+
+      course.totalSeats = totalSeats;
+      course.acquiredSeats = acquiredSeats;
+      course.leftSeats = totalSeats - acquiredSeats;
+
+      // Add booking status
+      course.isBooked = bookedCourseIds.has(course._id.toString());
 
       return course;
     });

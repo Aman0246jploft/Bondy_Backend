@@ -629,6 +629,19 @@ const getUserProfileById = async (req, res) => {
   try {
     const { userId } = req.params;
 
+    // Check for logged-in user to determine isFollowed status
+    let viewerId = null;
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      const token = authHeader.split(" ")[1];
+      try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY);
+        viewerId = decoded.userId;
+      } catch (err) {
+        // Invalid token - treat as guest
+      }
+    }
+
     // Find user with populated categories
     const user = await User.findById(userId)
       .populate("categories", "name type image")
@@ -669,6 +682,26 @@ const getUserProfileById = async (req, res) => {
       ? formatResponseUrl(user.profileImage)
       : null;
 
+    // Check if viewer follows this user
+    let isFollowed = false;
+    if (viewerId) {
+      const followRecord = await Follow.findOne({
+        fromUser: viewerId,
+        toUser: userId,
+      });
+      if (followRecord) {
+        isFollowed = true;
+      }
+    }
+
+    // Map roleId to string
+    let role = "CUSTOMER";
+    if (user.roleId === roleId.SUPER_ADMIN) role = "SUPER_ADMIN";
+    else if (user.roleId === roleId.ORGANISER) role = "ORGANISER";
+
+    // Get interested category names
+    const interestedCategories = (user.categories || []).map((cat) => cat.name);
+
     // Base profile data (common for all users)
     const profileData = {
       _id: user._id,
@@ -676,28 +709,46 @@ const getUserProfileById = async (req, res) => {
       lastName: user.lastName,
       profileImage: profileImage,
       bio: user.bio,
+      role: role,
+      interestedCategories: interestedCategories,
       categories: categories,
       totalAttended: totalAttended,
       totalInterests: totalInterests,
       verification: verification || null,
+      isFollowed: isFollowed,
+      totalFollowers: 0, // Default to 0, overwritten if organizer/relevant
     };
+
+    // Calculate totalFollowers for everyone (or just organizers? Requirement says "toall followers API... if he is organiser". 
+    // Actually typically anyone can have followers if the social graph exists, but requirement phrased "name , i f he is organiser than his... toall followers...".
+    // I'll add totalFollowers for everyone as it's useful social proof, or just organizer if strictly interpreted.
+    // The prompt says "toall followers ... , if he is organiser than his ... data". 
+    // I'll compute followers for all users as the Follow model exists.
+    const totalFollowers = await Follow.countDocuments({
+      toUser: userId,
+    });
+    profileData.totalFollowers = totalFollowers;
 
     // If user is organizer, add additional data
     if (user.roleId === roleId.ORGANISER) {
       // Add location
       profileData.location = user.location || null;
 
-      // Calculate totalFollowers
-      const totalFollowers = await Follow.countDocuments({
-        toUser: userId,
-      });
-      profileData.totalFollowers = totalFollowers;
+      // Organizer specific fields
+      profileData.businessType = user.businessType;
+      profileData.organizerVerificationStatus = user.organizerVerificationStatus;
 
       // Calculate totalEventsHosted
       const totalEventsHosted = await Event.countDocuments({
         createdBy: userId,
       });
       profileData.totalEventsHosted = totalEventsHosted;
+
+      // Calculate totalCourses count (added)
+      const totalCourses = await Course.countDocuments({
+        createdBy: userId,
+      });
+      profileData.totalCoursesAdded = totalCourses; // "total course he added"
 
       // Get all events created by this organizer
       const events = await Event.find({
