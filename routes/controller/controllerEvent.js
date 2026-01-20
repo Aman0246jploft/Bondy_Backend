@@ -44,19 +44,19 @@ const createEvent = async (req, res) => {
     const event = newEvent.toObject();
     if (Array.isArray(event.posterImage)) {
       event.posterImage = event.posterImage.map((img) =>
-        formatResponseUrl(img)
+        formatResponseUrl(img),
       );
     }
 
     if (Array.isArray(event.shortTeaserVideo)) {
       event.shortTeaserVideo = event.shortTeaserVideo.map((video) =>
-        formatResponseUrl(video)
+        formatResponseUrl(video),
       );
     }
 
     if (Array.isArray(event.mediaLinks)) {
       event.mediaLinks = event.mediaLinks.map((link) =>
-        formatResponseUrl(link)
+        formatResponseUrl(link),
       );
     }
 
@@ -118,7 +118,6 @@ const getEvents = async (req, res) => {
               userCategories = user.categories;
             }
           } catch (err) {
-
             // Token invalid or expired - treat as guest (no personalization)
             // No error response needed as per optional auth
           }
@@ -139,7 +138,7 @@ const getEvents = async (req, res) => {
           return apiErrorRes(
             HTTP_STATUS.BAD_REQUEST,
             res,
-            constantsMessage.LOCATION_REQUIRED
+            constantsMessage.LOCATION_REQUIRED,
           );
         }
 
@@ -215,7 +214,7 @@ const getEvents = async (req, res) => {
         return apiErrorRes(
           HTTP_STATUS.BAD_REQUEST,
           res,
-          constantsMessage.INVALID_FILTER_TYPE
+          constantsMessage.INVALID_FILTER_TYPE,
         );
     }
 
@@ -244,33 +243,33 @@ const getEvents = async (req, res) => {
     const formattedEvents = events.map((event) => {
       if (Array.isArray(event.posterImage)) {
         event.posterImage = event.posterImage.map((img) =>
-          formatResponseUrl(img)
+          formatResponseUrl(img),
         );
       }
 
       if (Array.isArray(event.shortTeaserVideo)) {
         event.shortTeaserVideo = event.shortTeaserVideo.map((video) =>
-          formatResponseUrl(video)
+          formatResponseUrl(video),
         );
       }
 
       if (Array.isArray(event.mediaLinks)) {
         event.mediaLinks = event.mediaLinks.map((link) =>
-          formatResponseUrl(link)
+          formatResponseUrl(link),
         );
       }
 
       // Format category image
       if (event.eventCategory && event.eventCategory.image) {
         event.eventCategory.image = formatResponseUrl(
-          event.eventCategory.image
+          event.eventCategory.image,
         );
       }
 
       // Format creator profile image
       if (event.createdBy && event.createdBy.profileImage) {
         event.createdBy.profileImage = formatResponseUrl(
-          event.createdBy.profileImage
+          event.createdBy.profileImage,
         );
       }
 
@@ -317,14 +316,14 @@ router.post(
   perApiLimiter(),
   checkRole([roleId.ORGANISER]),
   validateRequest(createEventSchema),
-  createEvent
+  createEvent,
 );
-// this is for the customer Pannel 
+// this is for the customer Pannel
 router.get(
   "/list",
   perApiLimiter(),
   validateRequest(getEventsSchema),
-  getEvents
+  getEvents,
 );
 
 module.exports = router;

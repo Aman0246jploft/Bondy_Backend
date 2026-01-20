@@ -10,9 +10,6 @@ const documentSchema = new mongoose.Schema(
       type: String,
       required: true, // link to the uploaded document
     },
-    region: {
-      type: String, // region/country for the document
-    },
     verified: {
       type: Boolean,
       default: false, // whether the document is verified
