@@ -42,7 +42,7 @@ const createCategory = async (req, res) => {
           HTTP_STATUS.OK,
           res,
           constantsMessage.CATEGORY_RESTORED,
-          { category: existingCategory }
+          { category: existingCategory },
         );
       } else {
         return apiErrorRes(
