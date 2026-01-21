@@ -10,7 +10,10 @@ const jwtVerification = require("./middlewares/jwtVerification");
 require("./cron/eventStatus.cron");
 require("./cron/bookingCleanup.cron");
 // const requestLogger = require('./middlewares/requestLogger');
-const server = http.createServer(app); // Add this
+const server = http.createServer(app);
+const initSocket = require("./socket/index");
+const io = initSocket(server);
+
 app.use(cors());
 const { PORT, API_END_POINT_V1 } = process.env;
 app.use(express.json({ limit: "20mb" }));

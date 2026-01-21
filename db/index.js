@@ -29,4 +29,7 @@ module.exports = {
   Payout: require("./models/Payout"),
   GlobalSetting: require("./models/GlobalSetting"),
   FAQ: require("./models/FAQ"),
+  Comment: require("./models/Comment"),
+  Chat: require("./models/Chat"),
+  Message: require("./models/Message"),
 };

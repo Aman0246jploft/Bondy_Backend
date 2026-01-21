@@ -13,4 +13,6 @@ module.exports = {
   payout: require("./controller/controllerPayout"),
   globalsetting: require("./controller/controllerGlobalSetting"),
   faq: require("./controller/controllerFAQ"),
+  comment: require("./controller/controllerComment"),
+  chat: require("./controller/controllerChat"),
 };

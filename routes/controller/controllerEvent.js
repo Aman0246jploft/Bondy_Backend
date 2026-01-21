@@ -320,7 +320,8 @@ const getEvents = async (req, res) => {
       // Add seat statistics
       event.totalSeats = event.totalTickets || 0;
       event.leftSeats = event.ticketQtyAvailable || 0;
-      event.acquiredSeats = (event.totalTickets || 0) - (event.ticketQtyAvailable || 0);
+      event.acquiredSeats =
+        (event.totalTickets || 0) - (event.ticketQtyAvailable || 0);
 
       // Add booking status
       event.isBooked = bookedEventIds.has(event._id.toString());
@@ -344,12 +345,7 @@ const getEvents = async (req, res) => {
 // Admin List API
 const getEventsAdmin = async (req, res) => {
   try {
-    const {
-      categoryId,
-      search,
-      page = 1,
-      limit = 10,
-    } = req.query;
+    const { categoryId, search, page = 1, limit = 10 } = req.query;
 
     const skip = (page - 1) * limit;
     let query = {};
@@ -387,10 +383,14 @@ const getEventsAdmin = async (req, res) => {
         );
       }
       if (event.eventCategory && event.eventCategory.image) {
-        event.eventCategory.image = formatResponseUrl(event.eventCategory.image);
+        event.eventCategory.image = formatResponseUrl(
+          event.eventCategory.image,
+        );
       }
       if (event.createdBy && event.createdBy.profileImage) {
-        event.createdBy.profileImage = formatResponseUrl(event.createdBy.profileImage);
+        event.createdBy.profileImage = formatResponseUrl(
+          event.createdBy.profileImage,
+        );
       }
 
       // Calculate Duration (Same logic as public API)
@@ -411,7 +411,8 @@ const getEventsAdmin = async (req, res) => {
 
       event.totalSeats = event.totalTickets || 0;
       event.leftSeats = event.ticketQtyAvailable || 0;
-      event.acquiredSeats = (event.totalTickets || 0) - (event.ticketQtyAvailable || 0);
+      event.acquiredSeats =
+        (event.totalTickets || 0) - (event.ticketQtyAvailable || 0);
 
       return event;
     });
@@ -448,7 +449,7 @@ router.get(
   perApiLimiter(),
   checkRole([roleId.SUPER_ADMIN]),
   validateRequest(getEventsSchema),
-  getEventsAdmin
+  getEventsAdmin,
 );
 
 module.exports = router;

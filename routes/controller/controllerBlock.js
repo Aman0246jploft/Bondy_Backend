@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const { Block } = require("../../db");
+const { Block, Chat } = require("../../db");
 const HTTP_STATUS = require("../../utils/statusCode");
 const { apiErrorRes, apiSuccessRes } = require("../../utils/globalFunction");
 const perApiLimiter = require("../../middlewares/rateLimiter");
@@ -26,6 +26,12 @@ const blockUser = async (req, res) => {
 
     const newBlock = new Block({ fromUser, toUser });
     await newBlock.save();
+
+    // Update Chat if exists
+    await Chat.updateMany(
+      { participants: { $all: [fromUser, toUser] } },
+      { $addToSet: { blockedBy: fromUser } }
+    );
 
     return apiSuccessRes(
       HTTP_STATUS.OK,
@@ -54,6 +60,12 @@ const unblockUser = async (req, res) => {
     if (!deletedBlock) {
       return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "User is not blocked.");
     }
+
+    // Update Chat if exists
+    await Chat.updateMany(
+      { participants: { $all: [fromUser, toUser] } },
+      { $pull: { blockedBy: fromUser } }
+    );
 
     return apiSuccessRes(
       HTTP_STATUS.OK,

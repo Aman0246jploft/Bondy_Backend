@@ -48,7 +48,7 @@ const createCategory = async (req, res) => {
         return apiErrorRes(
           HTTP_STATUS.BAD_REQUEST,
           res,
-          `Category with name "${name}" already exists for type "${type}"`
+          `Category with name "${name}" already exists for type "${type}"`,
         );
       }
     }
@@ -66,7 +66,7 @@ const createCategory = async (req, res) => {
       HTTP_STATUS.OK,
       res,
       constantsMessage.CATEGORY_CREATED,
-      { category: newCategory }
+      { category: newCategory },
     );
   } catch (error) {
     console.error("Error in createCategory:", error);
@@ -116,7 +116,7 @@ const getCategoryList = async (req, res) => {
         page: pageNum,
         limit: limitNum,
         totalPages: Math.ceil(total / limitNum),
-      }
+      },
     );
   } catch (error) {
     console.error("Error in getCategoryList:", error);
@@ -135,7 +135,7 @@ const updateCategory = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.NOT_FOUND,
         res,
-        constantsMessage.CATEGORY_NOT_FOUND
+        constantsMessage.CATEGORY_NOT_FOUND,
       );
     }
 
@@ -156,7 +156,7 @@ const updateCategory = async (req, res) => {
         return apiErrorRes(
           HTTP_STATUS.BAD_REQUEST,
           res,
-          `Category with name "${checkName}" already exists for type "${checkType}"`
+          `Category with name "${checkName}" already exists for type "${checkType}"`,
         );
       }
 
@@ -180,7 +180,7 @@ const updateCategory = async (req, res) => {
       HTTP_STATUS.OK,
       res,
       constantsMessage.CATEGORY_UPDATED,
-      { category }
+      { category },
     );
   } catch (error) {
     console.error("Error in updateCategory:", error);
@@ -198,7 +198,7 @@ const deleteCategory = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.NOT_FOUND,
         res,
-        constantsMessage.CATEGORY_NOT_FOUND
+        constantsMessage.CATEGORY_NOT_FOUND,
       );
     }
 
@@ -210,7 +210,7 @@ const deleteCategory = async (req, res) => {
       HTTP_STATUS.OK,
       res,
       constantsMessage.CATEGORY_DELETED,
-      { categoryId: id }
+      { categoryId: id },
     );
   } catch (error) {
     console.error("Error in deleteCategory:", error);
@@ -224,26 +224,26 @@ router.post(
   perApiLimiter(),
   validateRequest(createCategorySchema),
   checkRole([roleId.SUPER_ADMIN]),
-  createCategory
+  createCategory,
 );
 router.get(
   "/list",
   perApiLimiter(),
   validateRequest(categoryListSchema, "query"),
-  getCategoryList
+  getCategoryList,
 );
 router.post(
   "/update/:id",
   perApiLimiter(),
   validateRequest(updateCategorySchema),
   checkRole([roleId.SUPER_ADMIN]),
-  updateCategory
+  updateCategory,
 );
 router.delete(
   "/delete/:id",
   perApiLimiter(),
   checkRole([roleId.SUPER_ADMIN]),
-  deleteCategory
+  deleteCategory,
 );
 
 module.exports = router;
