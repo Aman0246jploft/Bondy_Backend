@@ -213,7 +213,6 @@ const getCourses = async (req, res) => {
       .skip(skip)
       .limit(Number(limit))
       .sort({ createdAt: -1 })
-      .sort({ createdAt: -1 })
       .lean();
 
     // Check for logged-in user to determine isBooked status

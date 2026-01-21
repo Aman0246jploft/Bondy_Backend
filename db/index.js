@@ -28,4 +28,5 @@ module.exports = {
   PromoCode: require("./models/PromoCode"),
   Payout: require("./models/Payout"),
   GlobalSetting: require("./models/GlobalSetting"),
+  FAQ: require("./models/FAQ"),
 };

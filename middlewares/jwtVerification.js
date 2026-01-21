@@ -18,22 +18,24 @@ const publicRoutes = [
 
   "/api/v1/user/upload",
   "/api/v1/event/list",
-
+  "/api/v1/faq/list",
+  "/api/v1/globalsetting/all",
+  "/api/v1/globalsetting/",
 ];
 
 function jwtVerification() {
   return (req, res, next) => {
     const isPublic = publicRoutes.some((route) => req.path.startsWith(route));
-    if (isPublic) {
-      return next(); // Allow public routes without JWT check
-    }
-
     const authHeader = req.headers.authorization;
 
     if (authHeader && authHeader.startsWith("Bearer ")) {
       const token = authHeader.split(" ")[1];
       jwt.verify(token, process.env.JWT_SECRET_KEY, (err, decoded) => {
         if (err) {
+          // If route is public, ignore error and continue as guest
+          if (isPublic) {
+            return next();
+          }
           return apiErrorRes(
             HTTP_STATUS.FORBIDDEN,
             res,
@@ -47,6 +49,10 @@ function jwtVerification() {
         next();
       });
     } else {
+      // No token provided
+      if (isPublic) {
+        return next(); // Allow public access (guest)
+      }
       return apiErrorRes(
         HTTP_STATUS.UNAUTHORIZED,
         res,

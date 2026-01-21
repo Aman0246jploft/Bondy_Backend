@@ -12,4 +12,5 @@ module.exports = {
   course: require("./controller/controllerCourse"),
   payout: require("./controller/controllerPayout"),
   globalsetting: require("./controller/controllerGlobalSetting"),
+  faq: require("./controller/controllerFAQ"),
 };
