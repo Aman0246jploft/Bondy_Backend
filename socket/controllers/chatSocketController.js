@@ -91,13 +91,15 @@ const chatSocketController = (io, socket) => {
                     // Use chatId for subsequent logic
                     chatId = chat._id.toString();
 
-                    // If receiver is online, we might want to force them to join or notify them
+                    // If receiver is online, force them to join the room
                     const receiverSocketId = getSocketId(receiverId);
                     if (receiverSocketId) {
-                        io.to(receiverSocketId).emit("new_chat", chat);
-                        // Optionally make them join:
-                        // io.sockets.sockets.get(receiverSocketId)?.join(chatId);
-                        // But usually safer to let client handle "new_chat" event and emit "join_chat"
+                        const receiverSocket = io.sockets.sockets.get(receiverSocketId);
+                        if (receiverSocket) {
+                            receiverSocket.join(chatId);
+                            // Also emit new_chat so they know a new room exists
+                            io.to(receiverSocketId).emit("new_chat", chat);
+                        }
                     }
                 } else {
                     chatId = chat._id.toString();
@@ -145,9 +147,34 @@ const chatSocketController = (io, socket) => {
                 "firstName lastName profileImage",
             );
 
-            // Emit to Room
-            // Note: If it was a new chat, sender joined above. Receiver needs to be in room or notified.
-            // Standard flow:
+            // Populate chat to send as update
+            const populatedChat = await Chat.findById(chatId).populate(
+                "participants",
+                "firstName lastName profileImage"
+            );
+
+            // Format chat object with unread counts and online status
+            const formatChatForUser = (chatDoc, targetUserId) => {
+                const chatObj = chatDoc.toObject();
+                chatObj.unreadCount = chatDoc.unreadCounts.get(targetUserId.toString()) || 0;
+                chatObj.participants = chatObj.participants.map((p) => {
+                    p.isOnline = onlineUsers.has(p._id.toString());
+                    return p;
+                });
+                return chatObj;
+            };
+
+            // Emit 'update_chat_list' to all participants individually to ensure correct unread counts
+            chat.participants.forEach((pId) => {
+                const pIdStr = pId.toString();
+                const pSocketId = getSocketId(pIdStr);
+                if (pSocketId) {
+                    const formattedChat = formatChatForUser(populatedChat, pIdStr);
+                    io.to(pSocketId).emit("update_chat_list", formattedChat);
+                }
+            });
+
+            // Emit to Room (standard message receive)
             socket.to(chatId).emit("receive_message", populatedMessage);
 
             if (typeof ack === "function") {
