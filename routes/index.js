@@ -15,4 +15,6 @@ module.exports = {
   faq: require("./controller/controllerFAQ"),
   comment: require("./controller/controllerComment"),
   chat: require("./controller/controllerChat"),
+  review: require("./controller/controllerReview"),
+  support: require("./controller/controllerSupportTicket"),
 };

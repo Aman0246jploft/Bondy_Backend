@@ -32,4 +32,6 @@ module.exports = {
   Comment: require("./models/Comment"),
   Chat: require("./models/Chat"),
   Message: require("./models/Message"),
+  Review: require("./models/Review"),
+  SupportTicket: require("./models/SupportTicket"),
 };

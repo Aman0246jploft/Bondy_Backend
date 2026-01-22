@@ -117,30 +117,53 @@ const customerSignupVerify = async (req, res) => {
 
     const userData = JSON.parse(redisData.data);
 
-    // Create User
-    const newUser = new User({
-      email: userData.email,
-      password: userData.password,
-      contactNumber: userData.mobileNumber,
-      countryCode: userData.countryCode,
-      roleId: roleId.CUSTOMER,
-    });
+    // Check if user already exists (deleted or not)
+    let user = await User.findOne({ email });
 
-    await newUser.save();
+    if (user) {
+      // If user exists and is not deleted, this shouldn't happen due to init check, but handle it safely
+      if (!user.isDeleted) {
+        return apiErrorRes(
+          HTTP_STATUS.BAD_REQUEST,
+          res,
+          constantsMessage.EMAIL_ALREADY_EXISTS,
+        );
+      }
+
+      // Reactivate Deleted User
+      user.isDeleted = false;
+      user.isDisable = false;
+      user.password = userData.password;
+      user.contactNumber = userData.mobileNumber;
+      user.countryCode = userData.countryCode;
+      user.roleId = roleId.CUSTOMER;
+      // Reset other fields if necessary
+      await user.save();
+    } else {
+      // Create New User
+      user = new User({
+        email: userData.email,
+        password: userData.password,
+        contactNumber: userData.mobileNumber,
+        countryCode: userData.countryCode,
+        roleId: roleId.CUSTOMER,
+      });
+      await user.save();
+    }
 
     // Clear Redis
     await removeKey(`signup_otp:${email}`);
     await removeKey(`signup_data:${email}`);
 
     // Generate Token
-    const token = signToken({ userId: newUser._id, roleId: newUser.roleId });
+    const token = signToken({ userId: user._id, roleId: user.roleId });
 
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
       constantsMessage.REGISTRATION_SUCCESSFUL,
       {
-        user: newUser,
+        user,
         token,
       },
     );
@@ -224,33 +247,62 @@ const organizerSignupVerify = async (req, res) => {
 
     const userData = JSON.parse(redisData.data);
 
-    const newUser = new User({
-      firstName: userData.firstName,
-      lastName: userData.lastName,
-      email: userData.email,
-      password: userData.password,
-      contactNumber: userData.mobileNumber,
-      countryCode: userData.countryCode,
-      businessType: userData.businessType,
-      acceptTerms: userData.acceptTerms,
-      documents: userData.documents,
-      roleId: roleId.ORGANISER, // ORGANIZER
-      organizerVerificationStatus: "pending",
-    });
+    // Check if user already exists (deleted or not)
+    let user = await User.findOne({ email });
 
-    await newUser.save();
+    if (user) {
+      if (!user.isDeleted) {
+        return apiErrorRes(
+          HTTP_STATUS.BAD_REQUEST,
+          res,
+          constantsMessage.EMAIL_ALREADY_EXISTS,
+        );
+      }
+
+      // Reactivate Deleted User
+      user.isDeleted = false;
+      user.isDisable = false;
+      user.firstName = userData.firstName;
+      user.lastName = userData.lastName;
+      user.password = userData.password;
+      user.contactNumber = userData.mobileNumber;
+      user.countryCode = userData.countryCode;
+      user.businessType = userData.businessType;
+      user.acceptTerms = userData.acceptTerms;
+      user.documents = userData.documents;
+      user.roleId = roleId.ORGANISER;
+      user.organizerVerificationStatus = "pending";
+
+      await user.save();
+    } else {
+      // Create New User
+      user = new User({
+        firstName: userData.firstName,
+        lastName: userData.lastName,
+        email: userData.email,
+        password: userData.password,
+        contactNumber: userData.mobileNumber,
+        countryCode: userData.countryCode,
+        businessType: userData.businessType,
+        acceptTerms: userData.acceptTerms,
+        documents: userData.documents,
+        roleId: roleId.ORGANISER, // ORGANIZER
+        organizerVerificationStatus: "pending",
+      });
+
+      await user.save();
+    }
 
     await removeKey(`signup_otp:${email}`);
-
     await removeKey(`signup_data:${email}`);
 
-    const token = signToken({ userId: newUser._id, roleId: newUser.roleId });
+    const token = signToken({ userId: user._id, roleId: user.roleId });
 
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
       constantsMessage.ORGANIZER_REGISTRATION_SUCCESS,
-      { user: newUser, token },
+      { user, token },
     );
   } catch (error) {
     console.error("Error in organizerSignupVerify:", error);
@@ -992,6 +1044,32 @@ const deleteUser = async (req, res) => {
   }
 };
 
+// Delete My Account
+const deleteMyAccount = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return apiErrorRes(
+        HTTP_STATUS.NOT_FOUND,
+        res,
+        constantsMessage.USER_NOT_FOUND,
+      );
+    }
+
+    // Soft Delete
+    user.isDeleted = true;
+    user.isDisable = true;
+    await user.save();
+
+    return apiSuccessRes(HTTP_STATUS.OK, res, "Account deleted successfully");
+  } catch (error) {
+    console.error("Error in deleteMyAccount:", error);
+    return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
+  }
+};
+
 router.post(
   "/customer/signup",
   perApiLimiter(),
@@ -1075,6 +1153,9 @@ router.patch(
   toggleUserDisable,
 );
 router.delete("/delete/:userId", checkRole([roleId.SUPER_ADMIN]), deleteUser);
+
+// Delete My Account
+router.delete("/delete-account", perApiLimiter(), deleteMyAccount);
 
 // Get User Profile By ID
 router.get("/profile/:userId", perApiLimiter(), getUserProfileById);

@@ -22,7 +22,7 @@ const socketAuthMiddleware = async (socket, next) => {
 
 
     // Check if user exists (optional but recommended)
-    const user = await User.findById(decoded._id||decoded.userId || decoded.id).select(
+    const user = await User.findById(decoded._id || decoded.userId || decoded.id).select(
       "_id firstName lastName profileImage",
     );
 
