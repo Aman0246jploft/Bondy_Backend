@@ -234,13 +234,11 @@ const calculateBooking = async (req, res) => {
       }
       baseTicketPrice = schedule.price;
     }
-
     // Calculate Base Price
     const basePrice = roundToTwo(baseTicketPrice * qty);
     let finalAmount = basePrice;
     let discountAmount = 0;
     let taxAmount = 0;
-
     // Apply Discount Code (reused logic from existing calculateBooking)
     if (discountCode) {
       const code = await PromoCode.findOne({
