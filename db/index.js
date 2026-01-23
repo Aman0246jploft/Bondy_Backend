@@ -34,4 +34,6 @@ module.exports = {
   Message: require("./models/Message"),
   Review: require("./models/Review"),
   SupportTicket: require("./models/SupportTicket"),
+  Notification: require("./models/Notification"),
 };
+

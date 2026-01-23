@@ -27,7 +27,7 @@ const getAllFAQsAdmin = async (req, res) => {
     });
   } catch (error) {
     return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
-};
+  };
 }
 
 // Admin: Create FAQ

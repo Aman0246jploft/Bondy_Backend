@@ -1,418 +1,169 @@
 const { Notification, User } = require("../../db");
 const {
-  DATA_NULL,
   SUCCESS,
   SERVER_ERROR_CODE,
   NOT_FOUND,
+  DATA_NULL,
 } = require("../../utils/constants");
-const { sendFirebaseNotification } = require("../../utils/FireNotification");
-const {
-  resultDb,
-  momentValueFunc,
-  objectId,
-} = require("../../utils/globalFunction");
-const { addJobToQueue, createQueue, processQueue } = require("./serviceBull");
+const { resultDb } = require("../../utils/globalFunction");
+const { sendFirebaseNotification } = require("../../utils/firebasePushNotification");
+const { addJobToQueue, createQueue, processQueue, handleQueueEvents } = require("./serviceBull");
 
-const saveNotification = async (payload) => {
-  try {
-    if (!Array.isArray(payload) || payload.length === 0) {
-      return resultDb(SERVER_ERROR_CODE, "Payload must be a non-empty array");
-    }
-    const notificationQueue = createQueue("notificationQueue");
-    payload.forEach((userNotification) => {
-      addJobToQueue(notificationQueue, userNotification);
-    });
-    processQueue(notificationQueue, notificationProcessor);
-    return resultDb(SUCCESS, {
-      message: "Notifications added to the queue for saving one by one",
-    });
-  } catch (error) {
-    console.error("Error saving notifications:", error);
-    if (error.code) {
-      return resultDb(error.code, DATA_NULL);
-    }
-    return resultDb(SERVER_ERROR_CODE, DATA_NULL);
-  }
-};
+// Initialize Notification Queue
+const notificationQueue = createQueue("notificationQueue");
+handleQueueEvents(notificationQueue);
 
+/**
+ * Processor for the notification queue
+ * This handles the actual DB insertion and Push Notification delivery
+ */
 const notificationProcessor = async (job) => {
+  const { recipient, sender, type, title, message, relatedId, onModel, metadata, deepLink } = job.data;
+
   try {
-    const userNotification = job.data;
-    if (
-      userNotification &&
-      userNotification.userId &&
-      userNotification.title &&
-      userNotification.message
-    ) {
+    // 1. Save to Database
+    const newNotification = await Notification.create({
+      recipient,
+      sender,
+      type,
+      title,
+      message,
+      relatedId,
+      onModel,
+      metadata,
+      deepLink
+    });
+
+    // 2. Fetch recipient's FCM token
+    const user = await User.findById(recipient).select("fmcToken");
+
+    if (user && user.fmcToken) {
+      // 3. Send Push Notification
       await sendFirebaseNotification({
-        token: userNotification.deviceId,
-        title: userNotification.title,
-        body: userNotification.message,
-        imageUrl: "",
+        token: user.fmcToken,
+        title,
+        body: message,
+        imageUrl: metadata?.imageUrl || null
       });
-      const savedNotification = await Notification.create(userNotification);
-      console.log("savedNotification", savedNotification, userNotification);
-    } else {
-      console.error("Invalid notification format in queue", userNotification);
     }
+
+    console.log(`Notification processed and saved for user: ${recipient}`);
   } catch (error) {
-    console.error("Error processing notification job:", error);
+    console.error("Error in notification processor:", error);
     throw error;
   }
 };
 
-const getAllNotificationByUserId = async (userId) => {
+// Start processing the queue
+processQueue(notificationQueue, notificationProcessor);
+
+/**
+ * Service to add a notification to the queue
+ */
+const queueNotification = async (payload) => {
   try {
-    const saveData = await Notification.find({ userId });
-    if (saveData) {
-      return resultDb(SUCCESS, saveData);
-    }
-    return resultDb(SERVER_ERROR_CODE, DATA_NULL);
+    await addJobToQueue(notificationQueue, payload);
+    return resultDb(SUCCESS, { message: "Notification queued successfully" });
   } catch (error) {
-    if (error.code) return resultDb(error.code, DATA_NULL);
+    console.error("Error queuing notification:", error);
     return resultDb(SERVER_ERROR_CODE, DATA_NULL);
   }
 };
 
-const getNotificationByUserIdListed = async (payload) => {
+/**
+ * Fetch notifications for a specific user
+ */
+const getUserNotifications = async (payload) => {
   try {
-    let query = { userId: payload?.userId };
-    if (payload?.fromDate && payload?.toDate) {
-      const fromTime = momentValueFunc(new Date(payload.fromDate));
-      const endTime =
-        momentValueFunc(new Date(payload.toDate)) + 24 * 60 * 60 * 1000;
-      query.createdAt = {
-        $gte: fromTime,
-        $lte: endTime,
-      };
-    } else if (payload?.fromDate) {
-      const fromTime = momentValueFunc(new Date(payload.fromDate));
-      query.createdAt = { $gte: fromTime };
-    } else if (payload?.toDate) {
-      const endTime =
-        momentValueFunc(new Date(payload.toDate)) + 24 * 60 * 60 * 1000;
-      query.createdAt = { $lte: endTime };
-    }
-    if (payload?.keyWord) {
-      query.$or = [
-        { title: { $regex: payload.keyWord, $options: "i" } },
-        { message: { $regex: payload.keyWord, $options: "i" } },
-        { notificationType: { $regex: payload.keyWord, $options: "i" } },
-      ];
-    }
-    let sortBy = payload?.sortBy || "createdAt";
-    let pageNo = payload?.pageNo || 1;
-    let limit = payload.size || 10;
-    let sort = { [sortBy]: payload.sortOrder === "asc" ? 1 : -1 };
+    const { recipient, pageNo = 1, size = 10, type, isRead } = payload;
+
+    let query = { recipient, isDeleted: false };
+    if (type) query.type = type;
+    if (isRead !== undefined) query.isRead = isRead;
+
     const total = await Notification.countDocuments(query);
     const list = await Notification.find(query)
-      .select(
-        "userId title message notificationType redirectUrl readAt createdAt isRead"
-      )
-      .skip((pageNo - 1) * limit)
-      .limit(limit)
-      .sort(sort)
+      .populate("sender", "firstName lastName profileImage")
+      .sort({ createdAt: -1 })
+      .skip((pageNo - 1) * size)
+      .limit(size)
       .lean();
 
-    let totalUnread = await Notification.countDocuments({
-      isRead: false,
-      userId: payload?.userId,
-    });
+    const totalUnread = await Notification.countDocuments({ recipient, isRead: false, isDeleted: false });
+
     return resultDb(SUCCESS, {
       total,
-      list,
       totalUnread,
+      list,
     });
   } catch (error) {
-    if (error.code) return resultDb(error.code, DATA_NULL);
+    console.error("Error fetching user notifications:", error);
     return resultDb(SERVER_ERROR_CODE, DATA_NULL);
   }
 };
 
-const getNotificationList = async (payload) => {
+/**
+ * Mark a single notification as read
+ */
+const markRead = async (notificationId, recipient) => {
   try {
-    let matchStage = {};
-    if (payload?.userId) {
-      matchStage.userId = payload?.userId;
-    }
-    if (payload?.fromDate && payload?.toDate) {
-      const fromTime = momentValueFunc(new Date(payload.fromDate));
-      const endTime =
-        momentValueFunc(new Date(payload.toDate)) + 24 * 60 * 60 * 1000;
-      matchStage.createdAt = {
-        $gte: fromTime,
-        $lte: endTime,
-      };
-    } else if (payload?.fromDate) {
-      const fromTime = momentValueFunc(new Date(payload.fromDate));
-      matchStage.createdAt = { $gte: fromTime };
-    } else if (payload?.toDate) {
-      const endTime =
-        momentValueFunc(new Date(payload.toDate)) + 24 * 60 * 60 * 1000;
-      matchStage.createdAt = { $lte: endTime };
-    }
-
-    if (payload?.keyWord) {
-      matchStage.$or = [
-        { title: { $regex: payload.keyWord, $options: "i" } },
-        { message: { $regex: payload.keyWord, $options: "i" } },
-        { notificationType: { $regex: payload.keyWord, $options: "i" } },
-      ];
-    }
-    if (payload?.type && payload?.type != "") {
-      matchStage.type = payload.type;
-    }
-
-    let sortBy = payload?.sortBy || "createdAt";
-    let sortOrder = payload?.sortOrder === "asc" ? 1 : -1;
-    let pageNo = Number(payload?.pageNo) || 1;
-    let limit = Number(payload?.size) || 10;
-    let skip = (pageNo - 1) * limit;
-
-    const aggregationPipeline = [
-      { $match: matchStage },
-      {
-        $group: {
-          _id: "$randomId",
-          latestNotification: { $first: "$$ROOT" },
-        },
-      },
-      {
-        $replaceRoot: { newRoot: "$latestNotification" },
-      },
-      { $sort: { [sortBy]: sortOrder } },
-      { $skip: skip },
-      { $limit: limit },
-    ];
-
-    const groupedNotifications =
-      await Notification.aggregate(aggregationPipeline);
-
-    // Total count calculation, without skip and limit.
-    const totalGroupsPipeline = [
-      { $match: matchStage },
-      { $group: { _id: "$randomId" } },
-    ];
-
-    const totalGroups = await Notification.aggregate(totalGroupsPipeline);
-    const total = totalGroups.length;
-
-    return resultDb(SUCCESS, {
-      total,
-      list: groupedNotifications,
-    });
-  } catch (error) {
-    console.log(error);
-    if (error.code) return resultDb(error.code, DATA_NULL);
-    return resultDb(SERVER_ERROR_CODE, DATA_NULL);
-  }
-};
-
-const notificationStatusUpdateRead = async (id) => {
-  try {
-    const saveData = await Notification.findByIdAndUpdate(
-      id,
-      { $set: { isRead: true } },
+    const notification = await Notification.findOneAndUpdate(
+      { _id: notificationId, recipient },
+      { isRead: true },
       { new: true }
     );
-    if (saveData) {
-      return resultDb(SUCCESS, saveData);
+
+    if (!notification) {
+      return resultDb(NOT_FOUND, "Notification not found");
     }
-    return resultDb(SERVER_ERROR_CODE, DATA_NULL);
+
+    return resultDb(SUCCESS, notification);
   } catch (error) {
-    if (error.code) return resultDb(error.code, DATA_NULL);
+    console.error("Error marking notification as read:", error);
     return resultDb(SERVER_ERROR_CODE, DATA_NULL);
   }
 };
 
-const notificationStatusUserIdUpdateReadAll = async (userId) => {
+/**
+ * Mark all notifications as read for a user
+ */
+const markAllRead = async (recipient) => {
   try {
-    const saveData = await Notification.updateMany(
-      { userId: userId },
-      { $set: { isRead: true } }
+    await Notification.updateMany({ recipient, isRead: false }, { isRead: true });
+    return resultDb(SUCCESS, { message: "All notifications marked as read" });
+  } catch (error) {
+    console.error("Error marking all notifications as read:", error);
+    return resultDb(SERVER_ERROR_CODE, DATA_NULL);
+  }
+};
+
+/**
+ * Soft delete a notification
+ */
+const deleteNotification = async (notificationId, recipient) => {
+  try {
+    const notification = await Notification.findOneAndUpdate(
+      { _id: notificationId, recipient },
+      { isDeleted: true },
+      { new: true }
     );
-    return resultDb(SUCCESS, saveData);
+
+    if (!notification) {
+      return resultDb(NOT_FOUND, "Notification not found");
+    }
+
+    return resultDb(SUCCESS, { message: "Notification deleted successfully" });
   } catch (error) {
-    if (error.code) {
-      return resultDb(error.code, DATA_NULL);
-    }
-    return resultDb(SERVER_ERROR_CODE, DATA_NULL);
-  }
-};
-
-// interface Data {
-
-// }
-const notifyUserOnEventNonSession = async (data) => {
-  try {
-    if (Array.isArray(data)) {
-      let notifyDoc = await Promise.all(
-        data?.filter(async (d) => {
-          let deviceId = await User.findOne({ _id: d.userId }).select(
-            "deviceId notification"
-          );
-          if (deviceId) {
-            if (deviceId?.notification) {
-              await sendFirebaseNotification({
-                token: deviceId.deviceId,
-                title: d.title,
-                body: d?.message,
-                imageUrl: d.imageUrl,
-              });
-              return d;
-            }
-          }
-        })
-      );
-      // if(notifyDoc?.length === 0) {
-      //     return resultDb(SUCCESS, null);
-      // }
-      // notify = await Notification.insertMany(notifyDoc);
-      // if (notify?.length > 0) {
-      //     return resultDb(SUCCESS, notify);
-      // }
-      return resultDb(SUCCESS, null);
-      // return resultDb(NOT_FOUND, DATA_NULL);
-    }
-  } catch (error) {
-    console.log(error);
-  }
-};
-
-const notifyUserOnEvent = async (data, session) => {
-  try {
-    if (Array.isArray(data)) {
-      let notifyDoc = await Promise.all(
-        data?.filter(async (d) => {
-          let deviceId = await User.findOne({ _id: d.userId }).select(
-            "deviceId notification"
-          );
-          if (deviceId) {
-            if (deviceId?.notification) {
-              await sendFirebaseNotification({
-                token: deviceId.deviceId,
-                title: d.title,
-                body: d?.message,
-                imageUrl: d.imageUrl,
-              });
-              return d;
-            }
-          }
-        })
-      );
-      if (notifyDoc?.length === 0) {
-        return resultDb(SUCCESS, null);
-      }
-      notify = await Notification.insertMany(notifyDoc, { session });
-      if (notify?.length > 0) {
-        return resultDb(SUCCESS, notify);
-      }
-      return resultDb(NOT_FOUND, DATA_NULL);
-    }
-
-    let notify = null;
-    if (Array.isArray(data?.userId)) {
-      if (data?.userId.length === 0) {
-        return resultDb(SUCCESS, notify);
-      }
-      let ids = data?.userId;
-      let notifyDoc = await Promise.all(
-        ids?.map(async (id) => {
-          let deviceId = await User.findOne({ _id: id }).select(
-            "deviceId notification"
-          );
-          if (deviceId) {
-            if (deviceId?.notification) {
-              await sendFirebaseNotification({
-                token: deviceId.deviceId,
-                title: data.title,
-                body: data?.message,
-                imageUrl: data.imageUrl,
-              });
-              return {
-                ...data,
-                userId: id,
-              };
-            }
-          }
-        })
-      );
-      if (notifyDoc?.length === 0) {
-        return resultDb(SUCCESS, null);
-      }
-      notify = await Notification.insertMany(notifyDoc, { session });
-    } else {
-      notify = new Notification(data);
-      notify = await notify.save({ session });
-      if (notify) {
-        return resultDb(SUCCESS, notify);
-      }
-    }
-    if (notify?.length > 0) {
-      return resultDb(SUCCESS, notify);
-    }
-    return resultDb(NOT_FOUND, DATA_NULL);
-  } catch (error) {
-    console.error(error);
-    return resultDb(SERVER_ERROR_CODE, DATA_NULL);
-  }
-};
-
-const getUserNotification = async (payload) => {
-  try {
-    let query = {
-      isDeleted: false,
-    };
-    if (payload?.userId) {
-      query.userId = objectId(payload.userId);
-    }
-    const total = await Notification.countDocuments(query);
-    let list = await Notification.aggregate([
-      { $match: query },
-      {
-        $lookup: {
-          from: "User",
-          localField: "sendBy",
-          foreignField: "_id",
-          as: "sender",
-        },
-      },
-      { $unwind: { path: "$sender", preserveNullAndEmptyArrays: true } },
-      { $sort: { createdAt: -1 } },
-      {
-        $project: {
-          _id: 1,
-          userId: 1,
-          sendBy: 1,
-          type: 1,
-          title: 1,
-          message: 1,
-          status: 1,
-          imageUrl: 1,
-          isRead: 1,
-          createdAt: 1,
-          "sender._id": 1,
-          "sender.fullName": 1,
-          "sender.profile": 1,
-          "sender.profileImage": 1,
-        },
-      },
-    ]);
-    return resultDb(SUCCESS, { total, list });
-  } catch (error) {
-    console.error(error);
+    console.error("Error deleting notification:", error);
     return resultDb(SERVER_ERROR_CODE, DATA_NULL);
   }
 };
 
 module.exports = {
-  saveNotification,
-  getAllNotificationByUserId,
-  getNotificationByUserIdListed,
-  getNotificationList,
-  notificationStatusUpdateRead,
-  notificationStatusUserIdUpdateReadAll,
-  notifyUserOnEvent,
-  getUserNotification,
-  notifyUserOnEventNonSession,
+  queueNotification,
+  getUserNotifications,
+  markRead,
+  markAllRead,
+  deleteNotification,
+  notificationProcessor, // Exporting for testing if needed
 };

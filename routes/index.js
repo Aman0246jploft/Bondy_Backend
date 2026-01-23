@@ -17,4 +17,8 @@ module.exports = {
   chat: require("./controller/controllerChat"),
   review: require("./controller/controllerReview"),
   support: require("./controller/controllerSupportTicket"),
+  notification: require("./controller/controllerNotification"),
+  analytics: require("./controller/controllerAnalytics"),
 };
+
+
