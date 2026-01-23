@@ -158,7 +158,7 @@ const UserSchema = new Schema(
   },
   {
     timestamps: true,
-  }
+  },
 );
 
 UserSchema.index({ location: "2dsphere" }, { sparse: true });
@@ -171,7 +171,6 @@ UserSchema.pre("save", function (next) {
 
   next();
 });
-
 
 UserSchema.pre("save", async function (next) {
   if (!this.isModified("password")) return next();

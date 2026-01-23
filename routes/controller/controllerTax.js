@@ -22,7 +22,7 @@ const createTax = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        "Tax with this name already exists."
+        "Tax with this name already exists.",
       );
     }
 
@@ -39,14 +39,14 @@ const createTax = async (req, res) => {
       HTTP_STATUS.OK,
       res,
       "Tax created successfully.",
-      newTax
+      newTax,
     );
   } catch (error) {
     return apiErrorRes(
       HTTP_STATUS.INTERNAL_SERVER_ERROR,
       res,
       error.message,
-      error.message
+      error.message,
     );
   }
 };
@@ -61,7 +61,7 @@ const updateTax = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.NOT_FOUND,
         res,
-        constantsMessage.NOT_FOUND
+        constantsMessage.NOT_FOUND,
       );
     }
 
@@ -71,7 +71,7 @@ const updateTax = async (req, res) => {
       HTTP_STATUS.INTERNAL_SERVER_ERROR,
       res,
       error.message,
-      error.message
+      error.message,
     );
   }
 };
@@ -95,14 +95,14 @@ const getTaxList = async (req, res) => {
         total,
         pageNo,
         size,
-      }
+      },
     );
   } catch (error) {
     return apiErrorRes(
       HTTP_STATUS.INTERNAL_SERVER_ERROR,
       res,
       error.message,
-      error.message
+      error.message,
     );
   }
 };
@@ -117,7 +117,7 @@ const getTaxById = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.NOT_FOUND,
         res,
-        constantsMessage.NOT_FOUND
+        constantsMessage.NOT_FOUND,
       );
     }
 
@@ -125,14 +125,14 @@ const getTaxById = async (req, res) => {
       HTTP_STATUS.OK,
       res,
       "Tax details fetched successfully.",
-      tax
+      tax,
     );
   } catch (error) {
     return apiErrorRes(
       HTTP_STATUS.INTERNAL_SERVER_ERROR,
       res,
       error.message,
-      error.message
+      error.message,
     );
   }
 };
@@ -147,7 +147,7 @@ const deleteTax = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.NOT_FOUND,
         res,
-        constantsMessage.NOT_FOUND
+        constantsMessage.NOT_FOUND,
       );
     }
 
@@ -155,14 +155,14 @@ const deleteTax = async (req, res) => {
       HTTP_STATUS.OK,
       res,
       "Tax deleted successfully.",
-      null
+      null,
     );
   } catch (error) {
     return apiErrorRes(
       HTTP_STATUS.INTERNAL_SERVER_ERROR,
       res,
       error.message,
-      error.message
+      error.message,
     );
   }
 };
@@ -172,14 +172,14 @@ router.post(
   "/create",
   perApiLimiter(),
   validateRequest(createTaxSchema),
-  createTax
+  createTax,
 );
 
 router.post(
   "/update",
   perApiLimiter(),
   validateRequest(updateTaxSchema),
-  updateTax
+  updateTax,
 );
 
 router.get("/list", perApiLimiter(), getTaxList);
@@ -188,14 +188,14 @@ router.post(
   "/getById",
   perApiLimiter(),
   validateRequest(getByIdSchema),
-  getTaxById
+  getTaxById,
 );
 
 router.post(
   "/delete",
   perApiLimiter(),
   validateRequest(getByIdSchema),
-  deleteTax
+  deleteTax,
 );
 
 module.exports = router;

@@ -6,39 +6,35 @@ const { apiErrorRes, apiSuccessRes } = require("../../utils/globalFunction");
 const HTTP_STATUS = require("../../utils/statusCode");
 const CONSTANTS = require("../../utils/constants");
 const upload = require("../../middlewares/multer"); // Assuming multer setup exists
-const {
-    uploadFile,
-} = require("../services/validations/chatValidation");
+const { uploadFile } = require("../services/validations/chatValidation");
 
 // 1. Upload File (HTTP)
 router.post("/upload", upload.single("file"), async (req, res) => {
-    try {
-        if (!req.file) {
-            return apiErrorRes(
-                HTTP_STATUS.BAD_REQUEST,
-                res,
-                "No file uploaded",
-                null
-            );
-        }
-        // Construct public URL - adjust based on your set up (local vs cloudinary)
-        // Assuming local storage based on index.js static serve
-        const fileUrl = `${process.env.BASE_URL}/uploads/${req.file.filename}`;
-
-        return apiSuccessRes(
-            HTTP_STATUS.OK,
-            res,
-            "File uploaded successfully",
-            { fileUrl, fileType: req.file.mimetype }
-        );
-    } catch (error) {
-        return apiErrorRes(
-            HTTP_STATUS.INTERNAL_SERVER_ERROR,
-            res,
-            "Error uploading file",
-            error
-        );
+  try {
+    if (!req.file) {
+      return apiErrorRes(
+        HTTP_STATUS.BAD_REQUEST,
+        res,
+        "No file uploaded",
+        null,
+      );
     }
+    // Construct public URL - adjust based on your set up (local vs cloudinary)
+    // Assuming local storage based on index.js static serve
+    const fileUrl = `${process.env.BASE_URL}/uploads/${req.file.filename}`;
+
+    return apiSuccessRes(HTTP_STATUS.OK, res, "File uploaded successfully", {
+      fileUrl,
+      fileType: req.file.mimetype,
+    });
+  } catch (error) {
+    return apiErrorRes(
+      HTTP_STATUS.INTERNAL_SERVER_ERROR,
+      res,
+      "Error uploading file",
+      error,
+    );
+  }
 });
 
 // 2. Get Chat List - MOVED TO SOCKET

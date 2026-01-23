@@ -32,7 +32,7 @@ const createAttendeesSchema = Joi.object({
         lastName: Joi.string().trim().required(),
         email: Joi.string().email().required(),
         contactNumber: Joi.string().trim().optional(),
-      })
+      }),
     )
     .min(1)
     .required(),
@@ -64,7 +64,7 @@ const createAttendees = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.NOT_FOUND,
         res,
-        "Transaction not found or not paid"
+        "Transaction not found or not paid",
       );
     }
 
@@ -83,7 +83,7 @@ const createAttendees = async (req, res) => {
             endDate: event.endDate,
             status: "Expired",
           },
-        }
+        },
       );
     }
 
@@ -92,7 +92,7 @@ const createAttendees = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        `You must provide exactly ${transaction.qty} attendee(s)`
+        `You must provide exactly ${transaction.qty} attendee(s)`,
       );
     }
 
@@ -102,7 +102,7 @@ const createAttendees = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        "Attendees already created for this transaction"
+        "Attendees already created for this transaction",
       );
     }
 
@@ -128,7 +128,7 @@ const createAttendees = async (req, res) => {
     for (let i = 0; i < createdAttendees.length; i++) {
       createdAttendees[i].qrCodeData = generateAttendeeQRData(
         createdAttendees[i].ticketNumber,
-        createdAttendees[i]._id
+        createdAttendees[i]._id,
       );
       await createdAttendees[i].save();
     }
@@ -139,7 +139,7 @@ const createAttendees = async (req, res) => {
       "Attendees created successfully",
       {
         attendees: createdAttendees,
-      }
+      },
     );
   } catch (error) {
     console.error("Error in createAttendees:", error);
@@ -164,7 +164,7 @@ const getEventAttendees = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.FORBIDDEN,
         res,
-        "You are not authorized to view attendees for this event"
+        "You are not authorized to view attendees for this event",
       );
     }
 
@@ -232,7 +232,7 @@ const getEventAttendees = async (req, res) => {
           checkedIn: 0,
           notCheckedIn: 0,
         },
-      }
+      },
     );
   } catch (error) {
     console.error("Error in getEventAttendees:", error);
@@ -262,7 +262,7 @@ const getMyAttendees = async (req, res) => {
       "Your attendees fetched successfully",
       {
         attendees,
-      }
+      },
     );
   } catch (error) {
     console.error("Error in getMyAttendees:", error);
@@ -278,7 +278,7 @@ const checkInAttendee = async (req, res) => {
 
     // Find Attendee
     const attendee = await Attendee.findOne({ ticketNumber }).populate(
-      "eventId"
+      "eventId",
     );
 
     if (!attendee) {
@@ -290,7 +290,7 @@ const checkInAttendee = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.FORBIDDEN,
         res,
-        "You are not authorized to check-in attendees for this event"
+        "You are not authorized to check-in attendees for this event",
       );
     }
 
@@ -299,7 +299,7 @@ const checkInAttendee = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        `Attendee already checked in at ${attendee.checkedInAt}`
+        `Attendee already checked in at ${attendee.checkedInAt}`,
       );
     }
 
@@ -338,7 +338,7 @@ const getAttendeeByTicket = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.FORBIDDEN,
         res,
-        "You are not authorized to view this ticket"
+        "You are not authorized to view this ticket",
       );
     }
 
@@ -348,7 +348,7 @@ const getAttendeeByTicket = async (req, res) => {
       "Attendee details fetched successfully",
       {
         attendee,
-      }
+      },
     );
   } catch (error) {
     console.error("Error in getAttendeeByTicket:", error);
@@ -366,7 +366,7 @@ const scanQRAndCheckIn = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        "QR code data is required"
+        "QR code data is required",
       );
     }
 
@@ -399,7 +399,7 @@ const scanQRAndCheckIn = async (req, res) => {
         return apiErrorRes(
           HTTP_STATUS.NOT_FOUND,
           res,
-          "Individual ticket not found"
+          "Individual ticket not found",
         );
       }
       event = attendee.eventId;
@@ -410,7 +410,7 @@ const scanQRAndCheckIn = async (req, res) => {
         return apiErrorRes(
           HTTP_STATUS.BAD_REQUEST,
           res,
-          "eventId is required for User profile scans"
+          "eventId is required for User profile scans",
         );
       }
 
@@ -430,14 +430,14 @@ const scanQRAndCheckIn = async (req, res) => {
         return apiErrorRes(
           HTTP_STATUS.NOT_FOUND,
           res,
-          "No paid booking found for this user for this event"
+          "No paid booking found for this user for this event",
         );
       }
     } else {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        "Invalid QR code format"
+        "Invalid QR code format",
       );
     }
 
@@ -451,7 +451,7 @@ const scanQRAndCheckIn = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.FORBIDDEN,
         res,
-        "You are not authorized to check-in attendees for this event"
+        "You are not authorized to check-in attendees for this event",
       );
     }
 
@@ -460,7 +460,7 @@ const scanQRAndCheckIn = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        "Transaction is not PAID"
+        "Transaction is not PAID",
       );
     }
 
@@ -474,7 +474,7 @@ const scanQRAndCheckIn = async (req, res) => {
           validationStatus: "ALREADY_CHECKED_IN",
           checkedInAt: transaction.checkedInAt,
           buyer: transaction.userId,
-        }
+        },
       );
     }
 
@@ -486,7 +486,7 @@ const scanQRAndCheckIn = async (req, res) => {
         {
           validationStatus: "ALREADY_CHECKED_IN",
           checkedInAt: attendee.checkedInAt,
-        }
+        },
       );
     }
 
@@ -504,7 +504,7 @@ const scanQRAndCheckIn = async (req, res) => {
             status: "Expired",
           },
           validationStatus: "EVENT_EXPIRED",
-        }
+        },
       );
     }
 
@@ -521,7 +521,7 @@ const scanQRAndCheckIn = async (req, res) => {
         for (let i = 0; i < transaction.qty; i++) {
           const ticketNumber = generateTicketNumber(
             transaction.eventId._id || transaction.eventId,
-            i + 1
+            i + 1,
           );
           attendeeDocs.push({
             transactionId: transaction._id,
@@ -553,7 +553,7 @@ const scanQRAndCheckIn = async (req, res) => {
               checkedInAt: now,
               checkedInBy: organizerId,
             },
-          }
+          },
         );
         currentAttendees = await Attendee.find({
           transactionId: transaction._id,
@@ -627,7 +627,7 @@ router.post(
   "/create",
   perApiLimiter(),
   validateRequest(createAttendeesSchema),
-  createAttendees
+  createAttendees,
 );
 
 router.get("/event/:eventId", perApiLimiter(), getEventAttendees);
@@ -638,7 +638,7 @@ router.post(
   "/check-in",
   perApiLimiter(),
   validateRequest(checkInSchema),
-  checkInAttendee
+  checkInAttendee,
 );
 
 router.get("/ticket/:ticketNumber", perApiLimiter(), getAttendeeByTicket);
@@ -647,6 +647,6 @@ router.post(
   "/scan-qr",
   perApiLimiter(),
   validateRequest(scanQRSchema),
-  scanQRAndCheckIn
+  scanQRAndCheckIn,
 );
 module.exports = router;

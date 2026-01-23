@@ -15,7 +15,7 @@ const blockUser = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        "You cannot block yourself."
+        "You cannot block yourself.",
       );
     }
 
@@ -30,21 +30,21 @@ const blockUser = async (req, res) => {
     // Update Chat if exists
     await Chat.updateMany(
       { participants: { $all: [fromUser, toUser] } },
-      { $addToSet: { blockedBy: fromUser } }
+      { $addToSet: { blockedBy: fromUser } },
     );
 
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
       "User blocked successfully.",
-      newBlock
+      newBlock,
     );
   } catch (error) {
     return apiErrorRes(
       HTTP_STATUS.INTERNAL_SERVER_ERROR,
       res,
       error.message,
-      error.message
+      error.message,
     );
   }
 };
@@ -64,21 +64,21 @@ const unblockUser = async (req, res) => {
     // Update Chat if exists
     await Chat.updateMany(
       { participants: { $all: [fromUser, toUser] } },
-      { $pull: { blockedBy: fromUser } }
+      { $pull: { blockedBy: fromUser } },
     );
 
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
       "User unblocked successfully.",
-      null
+      null,
     );
   } catch (error) {
     return apiErrorRes(
       HTTP_STATUS.INTERNAL_SERVER_ERROR,
       res,
       error.message,
-      error.message
+      error.message,
     );
   }
 };
@@ -107,14 +107,14 @@ const getBlockedUsers = async (req, res) => {
         total,
         pageNo,
         size,
-      }
+      },
     );
   } catch (error) {
     return apiErrorRes(
       HTTP_STATUS.INTERNAL_SERVER_ERROR,
       res,
       error.message,
-      error.message
+      error.message,
     );
   }
 };
@@ -126,13 +126,13 @@ router.post(
   "/create",
   perApiLimiter(),
   validateRequest(blockUserSchema),
-  blockUser
+  blockUser,
 );
 router.post(
   "/delete",
   perApiLimiter(),
   validateRequest(blockUserSchema),
-  unblockUser
+  unblockUser,
 );
 router.get("/list", perApiLimiter(), getBlockedUsers);
 

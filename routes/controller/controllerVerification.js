@@ -19,13 +19,13 @@ const uploadVerificationDoc = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        constantsMessage.NO_FILES_UPLOADED
+        constantsMessage.NO_FILES_UPLOADED,
       );
     }
 
     const userId = req.user.userId;
     const uploadPromises = req.files.map((file) =>
-      storeImage(file, `verification/${userId}`)
+      storeImage(file, `verification/${userId}`),
     );
     const filePaths = await Promise.all(uploadPromises);
 
@@ -33,14 +33,14 @@ const uploadVerificationDoc = async (req, res) => {
       HTTP_STATUS.OK,
       res,
       constantsMessage.FILES_UPLOADED_SUCCESS,
-      { files: filePaths }
+      { files: filePaths },
     );
   } catch (error) {
     return apiErrorRes(
       HTTP_STATUS.INTERNAL_SERVER_ERROR,
       res,
       error.message,
-      error.message
+      error.message,
     );
   }
 };
@@ -102,14 +102,14 @@ const submitVerification = async (req, res) => {
       HTTP_STATUS.OK,
       res,
       "Verification submitted successfully.",
-      verification
+      verification,
     );
   } catch (error) {
     return apiErrorRes(
       HTTP_STATUS.INTERNAL_SERVER_ERROR,
       res,
       error.message,
-      error.message
+      error.message,
     );
   }
 };
@@ -125,7 +125,7 @@ const getVerificationStatus = async (req, res) => {
         HTTP_STATUS.OK,
         res,
         "No verification record found.",
-        null
+        null,
       );
     }
 
@@ -133,14 +133,14 @@ const getVerificationStatus = async (req, res) => {
       HTTP_STATUS.OK,
       res,
       "Verification status fetched.",
-      verification
+      verification,
     );
   } catch (error) {
     return apiErrorRes(
       HTTP_STATUS.INTERNAL_SERVER_ERROR,
       res,
       error.message,
-      error.message
+      error.message,
     );
   }
 };
@@ -164,7 +164,7 @@ const updateVerificationStatus = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.NOT_FOUND,
         res,
-        "Verification record not found."
+        "Verification record not found.",
       );
     }
 
@@ -183,7 +183,7 @@ const updateVerificationStatus = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        "Invalid verification type."
+        "Invalid verification type.",
       );
     }
 
@@ -208,14 +208,14 @@ const updateVerificationStatus = async (req, res) => {
       HTTP_STATUS.OK,
       res,
       "Verification status updated.",
-      verification
+      verification,
     );
   } catch (error) {
     return apiErrorRes(
       HTTP_STATUS.INTERNAL_SERVER_ERROR,
       res,
       error.message,
-      error.message
+      error.message,
     );
   }
 };
@@ -224,7 +224,7 @@ router.post(
   "/upload-document",
   perApiLimiter(),
   upload.array("files", 5), // allow up to 5 docs
-  uploadVerificationDoc
+  uploadVerificationDoc,
 );
 
 router.post("/submit", perApiLimiter(), submitVerification);
@@ -233,7 +233,7 @@ router.post(
   "/update-status",
   perApiLimiter(),
   validateRequest(verifyStatusSchema),
-  updateVerificationStatus
+  updateVerificationStatus,
 );
 
 module.exports = router;

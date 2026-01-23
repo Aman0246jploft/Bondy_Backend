@@ -16,7 +16,7 @@ const followUser = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        "You cannot follow yourself."
+        "You cannot follow yourself.",
       );
     }
 
@@ -25,7 +25,7 @@ const followUser = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        "Already following this user."
+        "Already following this user.",
       );
     }
 
@@ -36,14 +36,14 @@ const followUser = async (req, res) => {
       HTTP_STATUS.OK,
       res,
       "User followed successfully.",
-      newFollow
+      newFollow,
     );
   } catch (error) {
     return apiErrorRes(
       HTTP_STATUS.INTERNAL_SERVER_ERROR,
       res,
       error.message,
-      error.message
+      error.message,
     );
   }
 };
@@ -60,7 +60,7 @@ const unfollowUser = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        "You are not following this user."
+        "You are not following this user.",
       );
     }
 
@@ -68,14 +68,14 @@ const unfollowUser = async (req, res) => {
       HTTP_STATUS.OK,
       res,
       "User unfollowed successfully.",
-      null
+      null,
     );
   } catch (error) {
     return apiErrorRes(
       HTTP_STATUS.INTERNAL_SERVER_ERROR,
       res,
       error.message,
-      error.message
+      error.message,
     );
   }
 };
@@ -104,14 +104,14 @@ const getFollowers = async (req, res) => {
         total,
         pageNo,
         size,
-      }
+      },
     );
   } catch (error) {
     return apiErrorRes(
       HTTP_STATUS.INTERNAL_SERVER_ERROR,
       res,
       error.message,
-      error.message
+      error.message,
     );
   }
 };
@@ -140,14 +140,14 @@ const getFollowing = async (req, res) => {
         total,
         pageNo,
         size,
-      }
+      },
     );
   } catch (error) {
     return apiErrorRes(
       HTTP_STATUS.INTERNAL_SERVER_ERROR,
       res,
       error.message,
-      error.message
+      error.message,
     );
   }
 };
@@ -165,13 +165,13 @@ router.post(
   "/create",
   perApiLimiter(),
   validateRequest(followUserSchema),
-  followUser
+  followUser,
 );
 router.post(
   "/delete",
   perApiLimiter(),
   validateRequest(followUserSchema),
-  unfollowUser
+  unfollowUser,
 );
 router.get("/followers", perApiLimiter(), getFollowers);
 router.get("/following", perApiLimiter(), getFollowing);

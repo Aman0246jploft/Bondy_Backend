@@ -22,20 +22,20 @@ const globalCrudController = {
           HTTP_STATUS.OK,
           res,
           CONSTANTS_MSG.SUCCESS,
-          modelData.data
+          modelData.data,
         );
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
         modelData.data,
-        modelData.data
+        modelData.data,
       );
     } catch (error) {
       return apiErrorRes(
         HTTP_STATUS.INTERNAL_SERVER_ERROR,
         res,
         error.message,
-        error.message
+        error.message,
       );
     }
   },
@@ -49,21 +49,21 @@ const globalCrudController = {
           HTTP_STATUS.OK,
           res,
           CONSTANTS_MSG.SUCCESS,
-          modelData.data
+          modelData.data,
         );
 
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
         CONSTANTS_MSG.NOT_FOUND,
-        CONSTANTS.DATA_NULL
+        CONSTANTS.DATA_NULL,
       );
     } catch (error) {
       return apiErrorRes(
         HTTP_STATUS.INTERNAL_SERVER_ERROR,
         res,
         error.message,
-        error.message
+        error.message,
       );
     }
   },
@@ -77,21 +77,21 @@ const globalCrudController = {
           HTTP_STATUS.OK,
           res,
           CONSTANTS_MSG.SUCCESS,
-          modelData.data
+          modelData.data,
         );
 
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
         CONSTANTS_MSG.FAILED,
-        CONSTANTS.DATA_NULL
+        CONSTANTS.DATA_NULL,
       );
     } catch (error) {
       return apiErrorRes(
         HTTP_STATUS.INTERNAL_SERVER_ERROR,
         res,
         error.message,
-        error.message
+        error.message,
       );
     }
   },
@@ -105,21 +105,21 @@ const globalCrudController = {
           HTTP_STATUS.OK,
           res,
           CONSTANTS_MSG.SUCCESS,
-          modelData.data
+          modelData.data,
         );
 
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
         CONSTANTS_MSG.FAILED,
-        CONSTANTS.DATA_NULL
+        CONSTANTS.DATA_NULL,
       );
     } catch (error) {
       return apiErrorRes(
         HTTP_STATUS.INTERNAL_SERVER_ERROR,
         res,
         error.message,
-        error.message
+        error.message,
       );
     }
   },
@@ -133,21 +133,21 @@ const globalCrudController = {
           HTTP_STATUS.OK,
           res,
           CONSTANTS_MSG.SUCCESS,
-          modelData.data
+          modelData.data,
         );
 
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
         CONSTANTS_MSG.FAILED,
-        CONSTANTS.DATA_NULL
+        CONSTANTS.DATA_NULL,
       );
     } catch (error) {
       return apiErrorRes(
         HTTP_STATUS.INTERNAL_SERVER_ERROR,
         res,
         error.message,
-        error.message
+        error.message,
       );
     }
   },
@@ -205,21 +205,21 @@ const globalCrudController = {
           HTTP_STATUS.OK,
           res,
           CONSTANTS_MSG.SUCCESS,
-          modelData.data
+          modelData.data,
         );
 
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
         CONSTANTS_MSG.FAILED,
-        CONSTANTS.DATA_NULL
+        CONSTANTS.DATA_NULL,
       );
     } catch (error) {
       return apiErrorRes(
         HTTP_STATUS.INTERNAL_SERVER_ERROR,
         res,
         error.message,
-        error.message
+        error.message,
       );
     }
   },

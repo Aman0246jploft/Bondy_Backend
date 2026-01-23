@@ -56,7 +56,7 @@ const initiateBooking = async (req, res) => {
         return apiErrorRes(
           HTTP_STATUS.BAD_REQUEST,
           res,
-          "Not enough tickets available"
+          "Not enough tickets available",
         );
       }
       baseTicketPrice = targetItem.ticketPrice;
@@ -74,7 +74,7 @@ const initiateBooking = async (req, res) => {
         return apiErrorRes(
           HTTP_STATUS.BAD_REQUEST,
           res,
-          "Not enough seats available"
+          "Not enough seats available",
         );
       }
       baseTicketPrice = schedule.price;
@@ -83,7 +83,7 @@ const initiateBooking = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        "Either eventId or courseId must be provided"
+        "Either eventId or courseId must be provided",
       );
     }
 
@@ -104,7 +104,7 @@ const initiateBooking = async (req, res) => {
         return apiErrorRes(
           HTTP_STATUS.BAD_REQUEST,
           res,
-          "Invalid discount code"
+          "Invalid discount code",
         );
       }
 
@@ -113,7 +113,7 @@ const initiateBooking = async (req, res) => {
         return apiErrorRes(
           HTTP_STATUS.BAD_REQUEST,
           res,
-          "Discount code expired"
+          "Discount code expired",
         );
       }
 
@@ -121,7 +121,7 @@ const initiateBooking = async (req, res) => {
         return apiErrorRes(
           HTTP_STATUS.BAD_REQUEST,
           res,
-          "Discount code usage limit exceeded"
+          "Discount code usage limit exceeded",
         );
       }
 
@@ -212,7 +212,7 @@ const calculateBooking = async (req, res) => {
         return apiErrorRes(
           HTTP_STATUS.BAD_REQUEST,
           res,
-          "Not enough tickets available"
+          "Not enough tickets available",
         );
       }
       baseTicketPrice = targetItem.ticketPrice;
@@ -229,7 +229,7 @@ const calculateBooking = async (req, res) => {
         return apiErrorRes(
           HTTP_STATUS.BAD_REQUEST,
           res,
-          "Not enough seats available"
+          "Not enough seats available",
         );
       }
       baseTicketPrice = schedule.price;
@@ -296,7 +296,7 @@ const calculateBooking = async (req, res) => {
           totalAmount: finalAmount,
         },
         appliedTaxes,
-      }
+      },
     );
   } catch (error) {
     console.error("Error in calculateBooking:", error);
@@ -325,7 +325,7 @@ const confirmPayment = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        "Transaction already paid"
+        "Transaction already paid",
       );
     }
 
@@ -333,7 +333,7 @@ const confirmPayment = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        "Transaction is in invalid state to pay"
+        "Transaction is in invalid state to pay",
       );
     }
 
@@ -345,7 +345,7 @@ const confirmPayment = async (req, res) => {
           ticketQtyAvailable: { $gte: transaction.qty },
         },
         { $inc: { ticketQtyAvailable: -transaction.qty } },
-        { new: true }
+        { new: true },
       );
 
       if (!updatedEvent) {
@@ -355,7 +355,7 @@ const confirmPayment = async (req, res) => {
           HTTP_STATUS.OK,
           res,
           "Tickets no longer available. Refund initiated.",
-          { transaction: transaction.toObject() }
+          { transaction: transaction.toObject() },
         );
       }
     } else if (transaction.bookingType === "COURSE") {
@@ -378,7 +378,7 @@ const confirmPayment = async (req, res) => {
         {
           arrayFilters: [{ "elem._id": transaction.scheduleId }],
           new: true,
-        }
+        },
       );
 
       // Note: $expr with $subtract inside $elemMatch can be tricky in some Mongo versions.
@@ -394,7 +394,7 @@ const confirmPayment = async (req, res) => {
         if (
           scheduleCheck &&
           scheduleCheck.totalSeats - scheduleCheck.totalAttendees <
-          transaction.qty
+            transaction.qty
         ) {
           transaction.status = "REFUND_INITIATED";
           await transaction.save();
@@ -402,7 +402,7 @@ const confirmPayment = async (req, res) => {
             HTTP_STATUS.OK,
             res,
             "Seats no longer available. Refund initiated.",
-            { transaction: transaction.toObject() }
+            { transaction: transaction.toObject() },
           );
         }
         // If it's something else, it might be a logic error or missing schedule, but for race condition, this is the main case.
@@ -426,7 +426,7 @@ const confirmPayment = async (req, res) => {
     const netBasePrice = transaction.basePrice - transaction.discountAmount;
 
     const commissionAmount = roundToTwo(
-      netBasePrice * (commissionPercentage / 100)
+      netBasePrice * (commissionPercentage / 100),
     );
     const organizerEarning = roundToTwo(netBasePrice - commissionAmount);
 
@@ -450,7 +450,7 @@ const confirmPayment = async (req, res) => {
     if (transaction.discountCode) {
       await PromoCode.updateOne(
         { code: transaction.discountCode },
-        { $inc: { usedCount: 1 } }
+        { $inc: { usedCount: 1 } },
       );
     }
 
@@ -462,7 +462,7 @@ const confirmPayment = async (req, res) => {
       event.posterImage = (event.posterImage || []).map(formatResponseUrl);
       event.mediaLinks = (event.mediaLinks || []).map(formatResponseUrl);
       event.shortTeaserVideo = (event.shortTeaserVideo || []).map(
-        formatResponseUrl
+        formatResponseUrl,
       );
     } else if (
       transaction.bookingType === "COURSE" &&
@@ -478,7 +478,7 @@ const confirmPayment = async (req, res) => {
       "Payment successful. Booking confirmed.",
       {
         transaction: transactionObj,
-      }
+      },
     );
   } catch (error) {
     console.error("Error in confirmPayment:", error);
@@ -547,7 +547,7 @@ const getTicketDetail = async (req, res) => {
       event.posterImage = (event.posterImage || []).map(formatResponseUrl);
       event.mediaLinks = (event.mediaLinks || []).map(formatResponseUrl);
       event.shortTeaserVideo = (event.shortTeaserVideo || []).map(
-        formatResponseUrl
+        formatResponseUrl,
       );
     } else if (
       transaction.bookingType === "COURSE" &&
@@ -668,7 +668,7 @@ const scanQRCode = async (req, res) => {
     } else {
       await Course.updateOne(
         { _id: item._id, "schedules._id": transaction.scheduleId },
-        { $inc: { "schedules.$.totalAttendees": 1 } }
+        { $inc: { "schedules.$.totalAttendees": 1 } },
       );
     }
 
@@ -719,7 +719,7 @@ const getEventAttendeesList = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.FORBIDDEN,
         res,
-        "You don't have permission to view this event's attendees"
+        "You don't have permission to view this event's attendees",
       );
     }
 
@@ -742,7 +742,7 @@ const getEventAttendeesList = async (req, res) => {
     const transactions = await Transaction.find(filter)
       .populate(
         "userId",
-        "firstName lastName email profileImage contactNumber countryCode"
+        "firstName lastName email profileImage contactNumber countryCode",
       )
       .populate("checkedInBy", "firstName lastName email")
       .sort({ createdAt: -1 });
@@ -751,11 +751,11 @@ const getEventAttendeesList = async (req, res) => {
     let filteredTransactions = transactions;
     if (status === "fully-checked-in") {
       filteredTransactions = transactions.filter(
-        (t) => (t.checkedInQty || 0) >= t.qty
+        (t) => (t.checkedInQty || 0) >= t.qty,
       );
     } else if (status === "partial") {
       filteredTransactions = transactions.filter(
-        (t) => (t.checkedInQty || 0) > 0 && (t.checkedInQty || 0) < t.qty
+        (t) => (t.checkedInQty || 0) > 0 && (t.checkedInQty || 0) < t.qty,
       );
     }
 
@@ -788,11 +788,11 @@ const getEventAttendeesList = async (req, res) => {
           checkedInAt: transaction.checkedInAt,
           checkedInBy: checkedInByUser
             ? {
-              _id: checkedInByUser._id,
-              firstName: checkedInByUser.firstName,
-              lastName: checkedInByUser.lastName,
-              email: checkedInByUser.email,
-            }
+                _id: checkedInByUser._id,
+                firstName: checkedInByUser.firstName,
+                lastName: checkedInByUser.lastName,
+                email: checkedInByUser.email,
+              }
             : null,
         },
         bookingDate: transaction.createdAt,
@@ -813,10 +813,10 @@ const getEventAttendeesList = async (req, res) => {
         totalAttendees: attendees.length,
         totalCheckedInTickets: attendees.reduce(
           (sum, a) => sum + a.tickets.checkedInQty,
-          0
+          0,
         ),
         attendees,
-      }
+      },
     );
   } catch (error) {
     console.error("Error in getEventAttendeesList:", error);
@@ -844,7 +844,7 @@ const getEventAttendeeStats = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.FORBIDDEN,
         res,
-        "You don't have permission to view this event's statistics"
+        "You don't have permission to view this event's statistics",
       );
     }
 
@@ -861,17 +861,17 @@ const getEventAttendeeStats = async (req, res) => {
     const totalTicketsSold = transactions.reduce((sum, t) => sum + t.qty, 0);
     const totalTicketsCheckedIn = transactions.reduce(
       (sum, t) => sum + (t.checkedInQty || 0),
-      0
+      0,
     );
     const totalTicketsPending = totalTicketsSold - totalTicketsCheckedIn;
     const fullyCheckedInBookings = transactions.filter(
-      (t) => (t.checkedInQty || 0) >= t.qty
+      (t) => (t.checkedInQty || 0) >= t.qty,
     ).length;
     const partiallyCheckedInBookings = transactions.filter(
-      (t) => (t.checkedInQty || 0) > 0 && (t.checkedInQty || 0) < t.qty
+      (t) => (t.checkedInQty || 0) > 0 && (t.checkedInQty || 0) < t.qty,
     ).length;
     const notCheckedInBookings = transactions.filter(
-      (t) => (t.checkedInQty || 0) === 0
+      (t) => (t.checkedInQty || 0) === 0,
     ).length;
 
     return apiSuccessRes(HTTP_STATUS.OK, res, "Attendee statistics fetched", {
@@ -915,21 +915,21 @@ router.post(
   "/initiate",
   perApiLimiter(),
   validateRequest(initiateBookingSchema),
-  initiateBooking
+  initiateBooking,
 );
 
 router.post(
   "/calculate",
   perApiLimiter(),
   validateRequest(initiateBookingSchema), // Reusing initiate schema as inputs are same
-  calculateBooking
+  calculateBooking,
 );
 
 router.post(
   "/confirm-payment",
   perApiLimiter(),
   validateRequest(confirmPaymentSchema),
-  confirmPayment
+  confirmPayment,
 );
 
 router.get("/list", perApiLimiter(), getTicketList);
@@ -941,7 +941,7 @@ router.post(
   perApiLimiter(),
   checkRole([roleId.ORGANISER, roleId.SUPER_ADMIN]),
   validateRequest(scanQRCodeSchema),
-  scanQRCode
+  scanQRCode,
 );
 
 // Get Event Attendees List (Organizer or Admin)
@@ -949,7 +949,7 @@ router.get(
   "/event/:eventId/attendees",
   perApiLimiter(),
   checkRole([roleId.ORGANISER, roleId.SUPER_ADMIN]),
-  getEventAttendeesList
+  getEventAttendeesList,
 );
 
 // Get Event Attendee Statistics (Organizer or Admin)
@@ -957,7 +957,7 @@ router.get(
   "/event/:eventId/stats",
   perApiLimiter(),
   checkRole([roleId.ORGANISER, roleId.SUPER_ADMIN]),
-  getEventAttendeeStats
+  getEventAttendeeStats,
 );
 
 module.exports = router;

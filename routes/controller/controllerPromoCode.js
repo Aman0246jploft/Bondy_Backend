@@ -22,7 +22,7 @@ const createPromoCode = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        "Promo code already exists."
+        "Promo code already exists.",
       );
     }
 
@@ -36,14 +36,14 @@ const createPromoCode = async (req, res) => {
       HTTP_STATUS.OK,
       res,
       "Promo code created successfully.",
-      newPromoCode
+      newPromoCode,
     );
   } catch (error) {
     return apiErrorRes(
       HTTP_STATUS.INTERNAL_SERVER_ERROR,
       res,
       error.message,
-      error.message
+      error.message,
     );
   }
 };
@@ -60,7 +60,7 @@ const updatePromoCode = async (req, res) => {
         return apiErrorRes(
           HTTP_STATUS.BAD_REQUEST,
           res,
-          "Promo code already exists."
+          "Promo code already exists.",
         );
       }
       updateData.code = code;
@@ -73,7 +73,7 @@ const updatePromoCode = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.NOT_FOUND,
         res,
-        constantsMessage.NOT_FOUND
+        constantsMessage.NOT_FOUND,
       );
     }
 
@@ -81,14 +81,14 @@ const updatePromoCode = async (req, res) => {
       HTTP_STATUS.OK,
       res,
       "Promo code updated successfully.",
-      promoCode
+      promoCode,
     );
   } catch (error) {
     return apiErrorRes(
       HTTP_STATUS.INTERNAL_SERVER_ERROR,
       res,
       error.message,
-      error.message
+      error.message,
     );
   }
 };
@@ -112,14 +112,14 @@ const getPromoCodeList = async (req, res) => {
         total,
         pageNo,
         size,
-      }
+      },
     );
   } catch (error) {
     return apiErrorRes(
       HTTP_STATUS.INTERNAL_SERVER_ERROR,
       res,
       error.message,
-      error.message
+      error.message,
     );
   }
 };
@@ -134,7 +134,7 @@ const getPromoCodeById = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.NOT_FOUND,
         res,
-        constantsMessage.NOT_FOUND
+        constantsMessage.NOT_FOUND,
       );
     }
 
@@ -142,14 +142,14 @@ const getPromoCodeById = async (req, res) => {
       HTTP_STATUS.OK,
       res,
       "Promo code details fetched successfully.",
-      promoCode
+      promoCode,
     );
   } catch (error) {
     return apiErrorRes(
       HTTP_STATUS.INTERNAL_SERVER_ERROR,
       res,
       error.message,
-      error.message
+      error.message,
     );
   }
 };
@@ -164,7 +164,7 @@ const deletePromoCode = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.NOT_FOUND,
         res,
-        constantsMessage.NOT_FOUND
+        constantsMessage.NOT_FOUND,
       );
     }
 
@@ -172,14 +172,14 @@ const deletePromoCode = async (req, res) => {
       HTTP_STATUS.OK,
       res,
       "Promo code deleted successfully.",
-      null
+      null,
     );
   } catch (error) {
     return apiErrorRes(
       HTTP_STATUS.INTERNAL_SERVER_ERROR,
       res,
       error.message,
-      error.message
+      error.message,
     );
   }
 };
@@ -189,14 +189,14 @@ router.post(
   "/create",
   perApiLimiter(),
   validateRequest(createPromoCodeSchema),
-  createPromoCode
+  createPromoCode,
 );
 
 router.post(
   "/update",
   perApiLimiter(),
   validateRequest(updatePromoCodeSchema),
-  updatePromoCode
+  updatePromoCode,
 );
 
 router.post("/list", perApiLimiter(), getPromoCodeList);
@@ -205,14 +205,14 @@ router.post(
   "/getById",
   perApiLimiter(),
   validateRequest(getByIdSchema),
-  getPromoCodeById
+  getPromoCodeById,
 );
 
 router.post(
   "/delete",
   perApiLimiter(),
   validateRequest(getByIdSchema),
-  deletePromoCode
+  deletePromoCode,
 );
 
 module.exports = router;

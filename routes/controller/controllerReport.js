@@ -19,7 +19,7 @@ const createReport = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        "You cannot report yourself."
+        "You cannot report yourself.",
       );
     }
 
@@ -28,7 +28,7 @@ const createReport = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        "You have already reported this user."
+        "You have already reported this user.",
       );
     }
 
@@ -44,14 +44,14 @@ const createReport = async (req, res) => {
       HTTP_STATUS.OK,
       res,
       "User reported successfully.",
-      newReport
+      newReport,
     );
   } catch (error) {
     return apiErrorRes(
       HTTP_STATUS.INTERNAL_SERVER_ERROR,
       res,
       error.message,
-      error.message
+      error.message,
     );
   }
 };
@@ -82,7 +82,7 @@ const listReports = async (req, res) => {
       HTTP_STATUS.INTERNAL_SERVER_ERROR,
       res,
       error.message,
-      error.message
+      error.message,
     );
   }
 };
@@ -91,7 +91,7 @@ router.post(
   "/create",
   perApiLimiter(),
   validateRequest(reportUserSchema),
-  createReport
+  createReport,
 );
 router.get("/list", perApiLimiter(), listReports);
 
