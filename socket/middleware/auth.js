@@ -20,11 +20,10 @@ const socketAuthMiddleware = async (socket, next) => {
     // Verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY);
 
-
     // Check if user exists (optional but recommended)
-    const user = await User.findById(decoded._id || decoded.userId || decoded.id).select(
-      "_id firstName lastName profileImage",
-    );
+    const user = await User.findById(
+      decoded._id || decoded.userId || decoded.id,
+    ).select("_id firstName lastName profileImage");
 
     if (!user) {
       return next(new Error("Authentication error: User not found"));
