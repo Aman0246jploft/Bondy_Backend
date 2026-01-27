@@ -6,7 +6,11 @@ const CONSTANTS = require("../../utils/constants");
 const constantsMessage = require("../../utils/constantsMessage");
 const HTTP_STATUS = require("../../utils/statusCode");
 const { apiErrorRes, apiSuccessRes } = require("../../utils/globalFunction");
-const Joi = require("joi");
+const {
+  createAttendeesSchema,
+  checkInSchema,
+  scanQRSchema,
+} = require("../services/validations/attendeeValidation");
 const validateRequest = require("../../middlewares/validateRequest");
 const perApiLimiter = require("../../middlewares/rateLimiter");
 
@@ -22,30 +26,6 @@ const generateAttendeeQRData = (ticketNumber, attendeeId) => {
   return `ATTENDEE-${ticketNumber}-${attendeeId}-${Date.now()}`;
 };
 
-// Validation Schemas
-const createAttendeesSchema = Joi.object({
-  transactionId: Joi.string().required(),
-  attendees: Joi.array()
-    .items(
-      Joi.object({
-        firstName: Joi.string().trim().required(),
-        lastName: Joi.string().trim().required(),
-        email: Joi.string().email().required(),
-        contactNumber: Joi.string().trim().optional(),
-      }),
-    )
-    .min(1)
-    .required(),
-});
-
-const checkInSchema = Joi.object({
-  ticketNumber: Joi.string().required(),
-});
-
-const scanQRSchema = Joi.object({
-  qrCodeData: Joi.string().required(),
-  eventId: Joi.string().optional(), // Required for User profile scans
-});
 
 // 1. Create Attendees for a Transaction
 const createAttendees = async (req, res) => {
@@ -58,7 +38,7 @@ const createAttendees = async (req, res) => {
       _id: transactionId,
       userId,
       status: "PAID",
-    }).populate("eventId");
+    }).populate("eventId").populate("courseId");
 
     if (!transaction) {
       return apiErrorRes(
@@ -68,19 +48,27 @@ const createAttendees = async (req, res) => {
       );
     }
 
-    // ✅ Check if event has expired
-    const event = transaction.eventId;
+    // ✅ Check if event/course has expired
     const now = new Date();
+    let targetItem = transaction.eventId || transaction.courseId;
+    let endDate;
 
-    if (now > new Date(event.endDate)) {
+    if (transaction.bookingType === "EVENT") {
+      endDate = transaction.eventId.endDate;
+    } else {
+      const schedule = transaction.courseId.schedules.id(transaction.scheduleId);
+      endDate = schedule ? schedule.endDate : transaction.courseId.createdAt;
+    }
+
+    if (now > new Date(endDate)) {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        "Cannot create attendees - Event has expired",
+        `Cannot create attendees - ${transaction.bookingType} has expired`,
         {
-          event: {
-            eventTitle: event.eventTitle,
-            endDate: event.endDate,
+          item: {
+            title: transaction.eventId ? transaction.eventId.eventTitle : transaction.courseId.courseTitle,
+            endDate: endDate,
             status: "Expired",
           },
         },
@@ -108,10 +96,15 @@ const createAttendees = async (req, res) => {
 
     // Create Attendees
     const attendeeDocuments = attendees.map((attendee, index) => {
-      const ticketNumber = generateTicketNumber(transaction.eventId, index + 1);
+      const ticketNumber = generateTicketNumber(
+        transaction.eventId ? transaction.eventId._id : transaction.courseId._id,
+        index + 1
+      );
       return {
         transactionId: transaction._id,
-        eventId: transaction.eventId,
+        eventId: transaction.eventId ? transaction.eventId._id : null,
+        courseId: transaction.courseId ? transaction.courseId._id : null,
+        scheduleId: transaction.scheduleId || null,
         userId: transaction.userId,
         firstName: attendee.firstName,
         lastName: attendee.lastName,
@@ -277,20 +270,21 @@ const checkInAttendee = async (req, res) => {
     const userId = req.user.userId;
 
     // Find Attendee
-    const attendee = await Attendee.findOne({ ticketNumber }).populate(
-      "eventId",
-    );
+    const attendee = await Attendee.findOne({ ticketNumber })
+      .populate("eventId")
+      .populate("courseId");
 
     if (!attendee) {
       return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Ticket not found");
     }
 
-    // Verify Event Ownership
-    if (attendee.eventId.createdBy.toString() !== userId) {
+    // Verify Event/Course Ownership
+    const targetItem = attendee.eventId || attendee.courseId;
+    if (targetItem.createdBy.toString() !== userId) {
       return apiErrorRes(
         HTTP_STATUS.FORBIDDEN,
         res,
-        "You are not authorized to check-in attendees for this event",
+        `You are not authorized to check-in attendees for this ${attendee.eventId ? 'event' : 'course'}`,
       );
     }
 
@@ -326,6 +320,7 @@ const getAttendeeByTicket = async (req, res) => {
 
     const attendee = await Attendee.findOne({ ticketNumber })
       .populate("eventId")
+      .populate("courseId")
       .populate("userId", "firstName lastName email profileImage")
       .populate("transactionId", "bookingId totalAmount");
 
@@ -333,8 +328,9 @@ const getAttendeeByTicket = async (req, res) => {
       return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Ticket not found");
     }
 
-    // Verify Event Ownership
-    if (attendee.eventId.createdBy.toString() !== userId) {
+    // Verify Event/Course Ownership
+    const targetItem = attendee.eventId || attendee.courseId;
+    if (targetItem.createdBy.toString() !== userId) {
       return apiErrorRes(
         HTTP_STATUS.FORBIDDEN,
         res,
@@ -390,8 +386,10 @@ const scanQRAndCheckIn = async (req, res) => {
       event = transaction.eventId;
     } else if (qrCodeData.startsWith("ATTENDEE-")) {
       // Case 2: Individual Attendee QR
+      let itemType = "";
       attendee = await Attendee.findOne({ qrCodeData })
         .populate("eventId")
+        .populate("courseId")
         .populate("userId", "firstName lastName email profileImage")
         .populate("transactionId", "bookingId totalAmount status");
 
@@ -402,35 +400,52 @@ const scanQRAndCheckIn = async (req, res) => {
           "Individual ticket not found",
         );
       }
-      event = attendee.eventId;
+      event = attendee.eventId || attendee.courseId;
+      itemType = attendee.eventId ? "EVENT" : "COURSE";
       transaction = attendee.transactionId;
     } else if (mongoose.Types.ObjectId.isValid(qrCodeData)) {
       // Case 3: User ID Scan (Profile QR)
-      if (!eventId) {
+      if (!eventId && !courseId) {
         return apiErrorRes(
           HTTP_STATUS.BAD_REQUEST,
           res,
-          "eventId is required for User profile scans",
+          "eventId or courseId is required for User profile scans",
         );
       }
 
-      event = await Event.findById(eventId);
-      if (!event) {
-        return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Event not found");
+      if (eventId) {
+        event = await Event.findById(eventId);
+        if (!event) {
+          return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Event not found");
+        }
+        itemType = "EVENT";
+      } else {
+        const course = await Course.findById(courseId);
+        if (!course) {
+          return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Course not found");
+        }
+        event = course; // Use generic reference for ownership check
+        itemType = "COURSE";
       }
 
-      // Find an active paid transaction for this user and event
-      transaction = await Transaction.findOne({
+      // Find an active paid transaction for this user and event/course
+      const filter = {
         userId: qrCodeData,
-        eventId: eventId,
         status: "PAID",
-      }).populate("userId", "firstName lastName email profileImage");
+      };
+      if (eventId) filter.eventId = eventId;
+      if (courseId) filter.courseId = courseId;
+
+      transaction = await Transaction.findOne(filter)
+        .populate("userId", "firstName lastName email profileImage")
+        .populate("eventId")
+        .populate("courseId");
 
       if (!transaction) {
         return apiErrorRes(
           HTTP_STATUS.NOT_FOUND,
           res,
-          "No paid booking found for this user for this event",
+          "No paid booking found for this user",
         );
       }
     } else {
@@ -492,18 +507,18 @@ const scanQRAndCheckIn = async (req, res) => {
 
     const now = new Date();
     // Check if event has expired
-    if (now > new Date(event.endDate)) {
+    if (now > new Date(endDate)) {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        "Event has expired - Check-in not allowed",
+        `${transaction.bookingType || 'Event'} has expired - Check-in not allowed`,
         {
-          event: {
-            eventTitle: event.eventTitle,
-            endDate: event.endDate,
+          item: {
+            title: title,
+            endDate: endDate,
             status: "Expired",
           },
-          validationStatus: "EVENT_EXPIRED",
+          validationStatus: "EXPIRED",
         },
       );
     }
@@ -564,7 +579,18 @@ const scanQRAndCheckIn = async (req, res) => {
       transaction.isCheckedIn = true;
       transaction.checkedInAt = now;
       transaction.checkedInBy = organizerId;
+      transaction.checkedInQty = transaction.qty; // Fully checked in
       await transaction.save();
+
+      // Update totalAttendees count (present list)
+      if (transaction.bookingType === "EVENT") {
+        await Event.findByIdAndUpdate(event._id, { $inc: { totalAttendees: transaction.qty } });
+      } else {
+        await Course.updateOne(
+          { _id: transaction.courseId._id, "schedules._id": transaction.scheduleId },
+          { $inc: { "schedules.$.presentCount": transaction.qty } },
+        );
+      }
 
       return apiSuccessRes(HTTP_STATUS.OK, res, "✅ Check-in successful", {
         type: "TRANSACTION",
@@ -600,7 +626,19 @@ const scanQRAndCheckIn = async (req, res) => {
         transaction.isCheckedIn = true;
         transaction.checkedInAt = now;
         transaction.checkedInBy = organizerId;
-        await transaction.save();
+      }
+
+      transaction.checkedInQty = checkedInCount;
+      await transaction.save();
+
+      // Update totalAttendees count (present list)
+      if (transaction.bookingType === "EVENT") {
+        await Event.findByIdAndUpdate(event._id, { $inc: { totalAttendees: 1 } });
+      } else if (transaction.bookingType === "COURSE") {
+        await Course.updateOne(
+          { _id: transaction.courseId._id, "schedules._id": transaction.scheduleId },
+          { $inc: { "schedules.$.presentCount": 1 } },
+        );
       }
 
       return apiSuccessRes(HTTP_STATUS.OK, res, "✅ Check-in successful", {

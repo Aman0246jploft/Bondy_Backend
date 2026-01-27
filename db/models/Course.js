@@ -32,6 +32,11 @@ const scheduleSchema = new mongoose.Schema({
     default: 0,
     min: 0,
   },
+  presentCount: {
+    type: Number,
+    default: 0,
+    min: 0,
+  },
 });
 
 const courseSchema = new mongoose.Schema(

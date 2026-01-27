@@ -19,6 +19,7 @@ module.exports = {
   support: require("./controller/controllerSupportTicket"),
   notification: require("./controller/controllerNotification"),
   analytics: require("./controller/controllerAnalytics"),
+  attendee: require("./controller/controllerAttendee"),
 };
 
 

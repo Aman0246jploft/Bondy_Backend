@@ -9,6 +9,7 @@ const {
   PromoCode,
   Course,
   GlobalSetting,
+  Attendee,
 } = require("../../db");
 const CONSTANTS = require("../../utils/constants");
 const HTTP_STATUS = require("../../utils/statusCode");
@@ -392,7 +393,7 @@ const confirmPayment = async (req, res) => {
         if (
           scheduleCheck &&
           scheduleCheck.totalSeats - scheduleCheck.totalAttendees <
-            transaction.qty
+          transaction.qty
         ) {
           transaction.status = "REFUND_INITIATED";
           await transaction.save();
@@ -437,6 +438,7 @@ const confirmPayment = async (req, res) => {
     await transaction.save();
 
     // Update Organizer Earning Status
+    const item = transaction.eventId || transaction.courseId;
     const organizerId = item.createdBy;
     await User.findByIdAndUpdate(organizerId, {
       $inc: {
@@ -661,12 +663,47 @@ const scanQRCode = async (req, res) => {
     transaction.checkedInBy = gateKeeperId;
     await transaction.save();
 
+    // ✅ Sync with Attendee table
+    const currentAttendees = await Attendee.find({ transactionId: transaction._id });
+    if (currentAttendees.length > 0) {
+      // If individual tickets exist, mark the first available one as checked in?
+      // Or just mark all if it's a TICKET- scan. TICKET- usually means the whole transaction.
+      // But let's be more precise: if it's a TICKET- scan, we mark ONE more as checked in if possible.
+      const firstAvailable = await Attendee.findOne({ transactionId: transaction._id, isCheckedIn: false });
+      if (firstAvailable) {
+        firstAvailable.isCheckedIn = true;
+        firstAvailable.checkedInAt = now;
+        firstAvailable.checkedInBy = gateKeeperId;
+        await firstAvailable.save();
+      }
+    } else {
+      // If no attendees exist, auto-create the first one (or all)
+      // For simplicity and consistency with controllerAttendee.js, 
+      // let's create a placeholder attendee if none exist to make the flow robust.
+      const ticketNumber = `TKT-AUTO-${transaction._id.toString().slice(-4)}-${newCheckedInQty}`;
+      const newAttendee = new Attendee({
+        transactionId: transaction._id,
+        eventId: transaction.eventId ? transaction.eventId._id || transaction.eventId : null,
+        courseId: transaction.courseId ? transaction.courseId._id || transaction.courseId : null,
+        scheduleId: transaction.scheduleId || null,
+        userId: transaction.userId,
+        firstName: "Guest", // Fallback
+        lastName: `Attendee ${newCheckedInQty}`,
+        email: "guest@example.com",
+        ticketNumber,
+        isCheckedIn: true,
+        checkedInAt: now,
+        checkedInBy: gateKeeperId,
+      });
+      await newAttendee.save();
+    }
+
     if (transaction.bookingType === "EVENT") {
       await Event.findByIdAndUpdate(item._id, { $inc: { totalAttendees: 1 } });
     } else {
       await Course.updateOne(
         { _id: item._id, "schedules._id": transaction.scheduleId },
-        { $inc: { "schedules.$.totalAttendees": 1 } },
+        { $inc: { "schedules.$.presentCount": 1 } },
       );
     }
 
@@ -786,11 +823,11 @@ const getEventAttendeesList = async (req, res) => {
           checkedInAt: transaction.checkedInAt,
           checkedInBy: checkedInByUser
             ? {
-                _id: checkedInByUser._id,
-                firstName: checkedInByUser.firstName,
-                lastName: checkedInByUser.lastName,
-                email: checkedInByUser.email,
-              }
+              _id: checkedInByUser._id,
+              firstName: checkedInByUser.firstName,
+              lastName: checkedInByUser.lastName,
+              email: checkedInByUser.email,
+            }
             : null,
         },
         bookingDate: transaction.createdAt,

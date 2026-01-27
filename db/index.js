@@ -35,5 +35,6 @@ module.exports = {
   Review: require("./models/Review"),
   SupportTicket: require("./models/SupportTicket"),
   Notification: require("./models/Notification"),
+  Attendee: require("./models/Attendee"),
 };
 
