@@ -60,6 +60,16 @@ const updateUserSchema = Joi.object({
   }).optional(),
 });
 
+const socialLoginSchema = Joi.object({
+  socialId: Joi.string().required(),
+  socialType: Joi.string().required(),
+  email: Joi.string().email().optional().allow(null, ""),
+  firstName: Joi.string().optional().allow(null, ""),
+  lastName: Joi.string().optional().allow(null, ""),
+  profileImage: Joi.string().optional().allow(null, ""),
+  fmcToken: Joi.string().optional().allow(null, ""),
+});
+
 module.exports = {
   customerSignupSchema,
   organizerSignupSchema,
@@ -67,4 +77,5 @@ module.exports = {
   resendOtpSchema,
   loginInitSchema,
   updateUserSchema,
+  socialLoginSchema,
 };

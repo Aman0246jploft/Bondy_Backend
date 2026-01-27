@@ -27,6 +27,7 @@ const {
   resendOtpSchema,
   loginInitSchema,
   updateUserSchema,
+  socialLoginSchema,
 } = require("../services/validations/userValidation");
 const validateRequest = require("../../middlewares/validateRequest");
 const perApiLimiter = require("../../middlewares/rateLimiter");
@@ -607,6 +608,92 @@ const resendLoginOtp = async (req, res) => {
   }
 };
 
+// Social Login
+const socialLogin = async (req, res) => {
+  try {
+    const {
+      socialId,
+      socialType,
+      email,
+      firstName,
+      lastName,
+      profileImage,
+      fmcToken,
+    } = req.body;
+
+    // 1. Search by Social ID
+    let user = await User.findOne({
+      "socialLogin.socialId": socialId,
+      "socialLogin.socialType": socialType,
+      isDeleted: false,
+    });
+
+    if (user) {
+      // Check if account is disabled
+      if (user.isDisable) {
+        return apiErrorRes(
+          HTTP_STATUS.FORBIDDEN,
+          res,
+          constantsMessage.ACCOUNT_DISABLED,
+        );
+      }
+
+      // Update fmcToken and lastLogin
+      if (fmcToken) user.fmcToken = fmcToken;
+      user.lastLogin = new Date();
+      await user.save();
+    } else {
+      // 2. Search by Email only if provided
+      if (email) {
+        user = await User.findOne({ email: email.toLowerCase(), isDeleted: false });
+
+        if (user) {
+          // Link social account to existing email account
+          user.socialLogin = { socialId, socialType };
+          if (!user.firstName && firstName) user.firstName = firstName;
+          if (!user.lastName && lastName) user.lastName = lastName;
+          if (!user.profileImage && profileImage) user.profileImage = profileImage;
+          if (fmcToken) user.fmcToken = fmcToken;
+          user.lastLogin = new Date();
+          await user.save();
+        }
+      }
+
+      // 3. Create new user if still not found (either no email or no user with that email)
+      if (!user) {
+        user = new User({
+          firstName: firstName || null,
+          lastName: lastName || null,
+          email: email ? email.toLowerCase() : undefined, // Sparse index handles undefined
+          profileImage: profileImage || null,
+          socialLogin: { socialId, socialType },
+          roleId: roleId.CUSTOMER,
+          fmcToken: fmcToken || null,
+          lastLogin: new Date(),
+          organizerVerificationStatus: "approved", // auto-approve customers
+        });
+        await user.save();
+      }
+    }
+
+    // Generate Token
+    const token = signToken({ userId: user._id, roleId: user.roleId });
+
+    return apiSuccessRes(
+      HTTP_STATUS.OK,
+      res,
+      constantsMessage.LOGIN_SUCCESS_MSG,
+      {
+        user,
+        token,
+      },
+    );
+  } catch (error) {
+    console.error("Error in socialLogin:", error);
+    return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
+  }
+};
+
 // Update User Profile
 const updateUserProfile = async (req, res) => {
   try {
@@ -1137,6 +1224,13 @@ router.post(
   perApiLimiter(),
   validateRequest(loginInitSchema), // Reuse schema as it has email & password
   adminLogin,
+);
+
+router.post(
+  "/social-login",
+  perApiLimiter(),
+  validateRequest(socialLoginSchema),
+  socialLogin,
 );
 
 router.post(
