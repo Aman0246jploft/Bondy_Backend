@@ -393,7 +393,7 @@ const confirmPayment = async (req, res) => {
         if (
           scheduleCheck &&
           scheduleCheck.totalSeats - scheduleCheck.totalAttendees <
-          transaction.qty
+            transaction.qty
         ) {
           transaction.status = "REFUND_INITIATED";
           await transaction.save();
@@ -832,11 +832,11 @@ const getEventAttendeesList = async (req, res) => {
           checkedInAt: transaction.checkedInAt,
           checkedInBy: checkedInByUser
             ? {
-              _id: checkedInByUser._id,
-              firstName: checkedInByUser.firstName,
-              lastName: checkedInByUser.lastName,
-              email: checkedInByUser.email,
-            }
+                _id: checkedInByUser._id,
+                firstName: checkedInByUser.firstName,
+                lastName: checkedInByUser.lastName,
+                email: checkedInByUser.email,
+              }
             : null,
         },
         bookingDate: transaction.createdAt,

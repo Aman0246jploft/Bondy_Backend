@@ -362,7 +362,7 @@ const getAttendeeByTicket = async (req, res) => {
 // 6. Scan QR Code and Check-in (Organizer Only)
 const scanQRAndCheckIn = async (req, res) => {
   try {
-    const { qrCodeData, eventId } = req.body;
+    const { qrCodeData, eventId, courseId } = req.body;
     const organizerId = req.user.userId;
 
     if (!qrCodeData) {
@@ -376,6 +376,8 @@ const scanQRAndCheckIn = async (req, res) => {
     let attendee = null;
     let transaction = null;
     let event = null;
+    let endDate = null;
+    let title = "";
 
     // Determine if it's a Transaction QR, Attendee QR, or User ID QR
     if (qrCodeData.startsWith("TICKET-")) {
@@ -385,15 +387,22 @@ const scanQRAndCheckIn = async (req, res) => {
 
       transaction = await Transaction.findById(transactionId)
         .populate("eventId")
+        .populate("courseId")
         .populate("userId", "firstName lastName email profileImage");
 
       if (!transaction) {
         return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Transaction not found");
       }
-      event = transaction.eventId;
+      event = transaction.eventId || transaction.courseId;
+      title = event ? event.eventTitle || event.courseTitle : "";
+      if (transaction.bookingType === "EVENT") {
+        endDate = event.endDate;
+      } else {
+        const schedule = event.schedules.id(transaction.scheduleId);
+        endDate = schedule ? schedule.endDate : event.createdAt;
+      }
     } else if (qrCodeData.startsWith("ATTENDEE-")) {
       // Case 2: Individual Attendee QR
-      let itemType = "";
       attendee = await Attendee.findOne({ qrCodeData })
         .populate("eventId")
         .populate("courseId")
@@ -408,7 +417,13 @@ const scanQRAndCheckIn = async (req, res) => {
         );
       }
       event = attendee.eventId || attendee.courseId;
-      itemType = attendee.eventId ? "EVENT" : "COURSE";
+      title = event ? event.eventTitle || event.courseTitle : "";
+      if (attendee.eventId) {
+        endDate = event.endDate;
+      } else {
+        const schedule = event.schedules.id(attendee.scheduleId);
+        endDate = schedule ? schedule.endDate : event.createdAt;
+      }
       transaction = attendee.transactionId;
     } else if (mongoose.Types.ObjectId.isValid(qrCodeData)) {
       // Case 3: User ID Scan (Profile QR)
@@ -425,14 +440,12 @@ const scanQRAndCheckIn = async (req, res) => {
         if (!event) {
           return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Event not found");
         }
-        itemType = "EVENT";
       } else {
         const course = await Course.findById(courseId);
         if (!course) {
           return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Course not found");
         }
         event = course; // Use generic reference for ownership check
-        itemType = "COURSE";
       }
 
       // Find an active paid transaction for this user and event/course
@@ -454,6 +467,14 @@ const scanQRAndCheckIn = async (req, res) => {
           res,
           "No paid booking found for this user",
         );
+      }
+      event = transaction.eventId || transaction.courseId;
+      title = event ? event.eventTitle || event.courseTitle : "";
+      if (transaction.bookingType === "EVENT") {
+        endDate = event.endDate;
+      } else {
+        const schedule = event.schedules.id(transaction.scheduleId);
+        endDate = schedule ? schedule.endDate : event.createdAt;
       }
     } else {
       return apiErrorRes(
@@ -542,21 +563,27 @@ const scanQRAndCheckIn = async (req, res) => {
         const attendeeDocs = [];
         for (let i = 0; i < transaction.qty; i++) {
           const ticketNumber = generateTicketNumber(
-            transaction.eventId._id || transaction.eventId,
+            transaction.eventId
+              ? transaction.eventId._id || transaction.eventId
+              : transaction.courseId._id || transaction.courseId,
             i + 1,
           );
           attendeeDocs.push({
             transactionId: transaction._id,
-            eventId: transaction.eventId._id || transaction.eventId,
+            eventId: transaction.eventId
+              ? transaction.eventId._id || transaction.eventId
+              : null,
+            courseId: transaction.courseId
+              ? transaction.courseId._id || transaction.courseId
+              : null,
+            scheduleId: transaction.scheduleId || null,
             userId: transaction.userId._id || transaction.userId,
-            firstName: transaction.userId.firstName,
-            lastName: transaction.userId.lastName,
-            email: transaction.userId.email,
+            firstName: transaction.userId.firstName || "Guest",
+            lastName: transaction.userId.lastName || `Attendee ${i + 1}`,
+            email: transaction.userId.email || "guest@example.com",
             ticketNumber,
             qrCodeData: "",
-            isCheckedIn: true,
-            checkedInAt: now,
-            checkedInBy: organizerId,
+            isCheckedIn: false, // Initially false, will check in one below
           });
         }
         const created = await Attendee.insertMany(attendeeDocs);
@@ -564,35 +591,33 @@ const scanQRAndCheckIn = async (req, res) => {
           doc.qrCodeData = generateAttendeeQRData(doc.ticketNumber, doc._id);
           await doc.save();
         }
-        currentAttendees = created;
-      } else {
-        // Mark all existing ones for this transaction as checked in
-        await Attendee.updateMany(
-          { transactionId: transaction._id, isCheckedIn: false },
-          {
-            $set: {
-              isCheckedIn: true,
-              checkedInAt: now,
-              checkedInBy: organizerId,
-            },
-          },
-        );
-        currentAttendees = await Attendee.find({
-          transactionId: transaction._id,
-        });
       }
 
-      // Mark transaction as checked in
-      transaction.isCheckedIn = true;
-      transaction.checkedInAt = now;
+      // Mark ONE available attendee as checked in
+      const firstAvailable = await Attendee.findOne({
+        transactionId: transaction._id,
+        isCheckedIn: false,
+      });
+
+      if (firstAvailable) {
+        firstAvailable.isCheckedIn = true;
+        firstAvailable.checkedInAt = now;
+        firstAvailable.checkedInBy = organizerId;
+        await firstAvailable.save();
+      }
+
+      // Update transaction check-in status
+      const newCheckedInQty = (transaction.checkedInQty || 0) + 1;
+      transaction.checkedInQty = newCheckedInQty;
+      transaction.isCheckedIn = newCheckedInQty >= transaction.qty;
+      if (newCheckedInQty === 1) transaction.checkedInAt = now;
       transaction.checkedInBy = organizerId;
-      transaction.checkedInQty = transaction.qty; // Fully checked in
       await transaction.save();
 
-      // Update totalAttendees count (present list)
+      // Update totalAttendees count (present list) by 1
       if (transaction.bookingType === "EVENT") {
         await Event.findByIdAndUpdate(event._id, {
-          $inc: { totalAttendees: transaction.qty },
+          $inc: { totalAttendees: 1 },
         });
       } else {
         await Course.updateOne(
@@ -600,22 +625,26 @@ const scanQRAndCheckIn = async (req, res) => {
             _id: transaction.courseId._id,
             "schedules._id": transaction.scheduleId,
           },
-          { $inc: { "schedules.$.presentCount": transaction.qty } },
+          { $inc: { "schedules.$.presentCount": 1 } },
         );
       }
 
       return apiSuccessRes(HTTP_STATUS.OK, res, "✅ Check-in successful", {
         type: "TRANSACTION",
-        attendees: currentAttendees.map((a) => ({
-          firstName: a.firstName,
-          lastName: a.lastName,
-          ticketNumber: a.ticketNumber,
-        })),
+        attendee: firstAvailable
+          ? {
+            firstName: firstAvailable.firstName,
+            lastName: firstAvailable.lastName,
+            ticketNumber: firstAvailable.ticketNumber,
+          }
+          : null,
         event: {
-          eventTitle: event.eventTitle,
+          eventTitle: title,
         },
         bookingId: transaction.bookingId,
-        qty: transaction.qty,
+        totalQty: transaction.qty,
+        checkedInQty: transaction.checkedInQty,
+        remainingQty: transaction.qty - transaction.checkedInQty,
         validationStatus: "SUCCESS",
       });
     } else {
@@ -666,7 +695,7 @@ const scanQRAndCheckIn = async (req, res) => {
           ticketNumber: attendee.ticketNumber,
         },
         event: {
-          eventTitle: event.eventTitle,
+          eventTitle: title,
         },
         validationStatus: "SUCCESS",
       });
