@@ -575,6 +575,7 @@ const getTicketDetail = async (req, res) => {
 };
 
 // 5. Scan QR Code (Gate Keeper)
+
 const scanQRCode = async (req, res) => {
   try {
     const { qrCodeData } = req.body;
@@ -664,12 +665,17 @@ const scanQRCode = async (req, res) => {
     await transaction.save();
 
     // ✅ Sync with Attendee table
-    const currentAttendees = await Attendee.find({ transactionId: transaction._id });
+    const currentAttendees = await Attendee.find({
+      transactionId: transaction._id,
+    });
     if (currentAttendees.length > 0) {
       // If individual tickets exist, mark the first available one as checked in?
       // Or just mark all if it's a TICKET- scan. TICKET- usually means the whole transaction.
       // But let's be more precise: if it's a TICKET- scan, we mark ONE more as checked in if possible.
-      const firstAvailable = await Attendee.findOne({ transactionId: transaction._id, isCheckedIn: false });
+      const firstAvailable = await Attendee.findOne({
+        transactionId: transaction._id,
+        isCheckedIn: false,
+      });
       if (firstAvailable) {
         firstAvailable.isCheckedIn = true;
         firstAvailable.checkedInAt = now;
@@ -678,13 +684,17 @@ const scanQRCode = async (req, res) => {
       }
     } else {
       // If no attendees exist, auto-create the first one (or all)
-      // For simplicity and consistency with controllerAttendee.js, 
+      // For simplicity and consistency with controllerAttendee.js,
       // let's create a placeholder attendee if none exist to make the flow robust.
       const ticketNumber = `TKT-AUTO-${transaction._id.toString().slice(-4)}-${newCheckedInQty}`;
       const newAttendee = new Attendee({
         transactionId: transaction._id,
-        eventId: transaction.eventId ? transaction.eventId._id || transaction.eventId : null,
-        courseId: transaction.courseId ? transaction.courseId._id || transaction.courseId : null,
+        eventId: transaction.eventId
+          ? transaction.eventId._id || transaction.eventId
+          : null,
+        courseId: transaction.courseId
+          ? transaction.courseId._id || transaction.courseId
+          : null,
         scheduleId: transaction.scheduleId || null,
         userId: transaction.userId,
         firstName: "Guest", // Fallback
@@ -772,7 +782,6 @@ const getEventAttendeesList = async (req, res) => {
     } else if (status === "fully-checked-in") {
       // This will be handled in the code below
     }
-
     // Get all paid transactions for this event
     const transactions = await Transaction.find(filter)
       .populate(

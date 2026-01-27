@@ -26,7 +26,6 @@ const generateAttendeeQRData = (ticketNumber, attendeeId) => {
   return `ATTENDEE-${ticketNumber}-${attendeeId}-${Date.now()}`;
 };
 
-
 // 1. Create Attendees for a Transaction
 const createAttendees = async (req, res) => {
   try {
@@ -38,7 +37,9 @@ const createAttendees = async (req, res) => {
       _id: transactionId,
       userId,
       status: "PAID",
-    }).populate("eventId").populate("courseId");
+    })
+      .populate("eventId")
+      .populate("courseId");
 
     if (!transaction) {
       return apiErrorRes(
@@ -56,7 +57,9 @@ const createAttendees = async (req, res) => {
     if (transaction.bookingType === "EVENT") {
       endDate = transaction.eventId.endDate;
     } else {
-      const schedule = transaction.courseId.schedules.id(transaction.scheduleId);
+      const schedule = transaction.courseId.schedules.id(
+        transaction.scheduleId,
+      );
       endDate = schedule ? schedule.endDate : transaction.courseId.createdAt;
     }
 
@@ -67,7 +70,9 @@ const createAttendees = async (req, res) => {
         `Cannot create attendees - ${transaction.bookingType} has expired`,
         {
           item: {
-            title: transaction.eventId ? transaction.eventId.eventTitle : transaction.courseId.courseTitle,
+            title: transaction.eventId
+              ? transaction.eventId.eventTitle
+              : transaction.courseId.courseTitle,
             endDate: endDate,
             status: "Expired",
           },
@@ -97,8 +102,10 @@ const createAttendees = async (req, res) => {
     // Create Attendees
     const attendeeDocuments = attendees.map((attendee, index) => {
       const ticketNumber = generateTicketNumber(
-        transaction.eventId ? transaction.eventId._id : transaction.courseId._id,
-        index + 1
+        transaction.eventId
+          ? transaction.eventId._id
+          : transaction.courseId._id,
+        index + 1,
       );
       return {
         transactionId: transaction._id,
@@ -284,7 +291,7 @@ const checkInAttendee = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.FORBIDDEN,
         res,
-        `You are not authorized to check-in attendees for this ${attendee.eventId ? 'event' : 'course'}`,
+        `You are not authorized to check-in attendees for this ${attendee.eventId ? "event" : "course"}`,
       );
     }
 
@@ -511,7 +518,7 @@ const scanQRAndCheckIn = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        `${transaction.bookingType || 'Event'} has expired - Check-in not allowed`,
+        `${transaction.bookingType || "Event"} has expired - Check-in not allowed`,
         {
           item: {
             title: title,
@@ -584,10 +591,15 @@ const scanQRAndCheckIn = async (req, res) => {
 
       // Update totalAttendees count (present list)
       if (transaction.bookingType === "EVENT") {
-        await Event.findByIdAndUpdate(event._id, { $inc: { totalAttendees: transaction.qty } });
+        await Event.findByIdAndUpdate(event._id, {
+          $inc: { totalAttendees: transaction.qty },
+        });
       } else {
         await Course.updateOne(
-          { _id: transaction.courseId._id, "schedules._id": transaction.scheduleId },
+          {
+            _id: transaction.courseId._id,
+            "schedules._id": transaction.scheduleId,
+          },
           { $inc: { "schedules.$.presentCount": transaction.qty } },
         );
       }
@@ -633,10 +645,15 @@ const scanQRAndCheckIn = async (req, res) => {
 
       // Update totalAttendees count (present list)
       if (transaction.bookingType === "EVENT") {
-        await Event.findByIdAndUpdate(event._id, { $inc: { totalAttendees: 1 } });
+        await Event.findByIdAndUpdate(event._id, {
+          $inc: { totalAttendees: 1 },
+        });
       } else if (transaction.bookingType === "COURSE") {
         await Course.updateOne(
-          { _id: transaction.courseId._id, "schedules._id": transaction.scheduleId },
+          {
+            _id: transaction.courseId._id,
+            "schedules._id": transaction.scheduleId,
+          },
           { $inc: { "schedules.$.presentCount": 1 } },
         );
       }

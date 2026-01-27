@@ -42,7 +42,7 @@ function jwtVerification() {
             "Invalid or expired token",
             null,
             CONSTANTS.ERROR_CODE_ONE,
-            CONSTANTS.ERROR_TRUE
+            CONSTANTS.ERROR_TRUE,
           );
         }
         req.user = decoded;
@@ -59,7 +59,7 @@ function jwtVerification() {
         "Authorization token missing",
         null,
         CONSTANTS.ERROR_CODE_ONE,
-        CONSTANTS.ERROR_TRUE
+        CONSTANTS.ERROR_TRUE,
       );
     }
   };
