@@ -645,14 +645,18 @@ const socialLogin = async (req, res) => {
     } else {
       // 2. Search by Email only if provided
       if (email) {
-        user = await User.findOne({ email: email.toLowerCase(), isDeleted: false });
+        user = await User.findOne({
+          email: email.toLowerCase(),
+          isDeleted: false,
+        });
 
         if (user) {
           // Link social account to existing email account
           user.socialLogin = { socialId, socialType };
           if (!user.firstName && firstName) user.firstName = firstName;
           if (!user.lastName && lastName) user.lastName = lastName;
-          if (!user.profileImage && profileImage) user.profileImage = profileImage;
+          if (!user.profileImage && profileImage)
+            user.profileImage = profileImage;
           if (fmcToken) user.fmcToken = fmcToken;
           user.lastLogin = new Date();
           await user.save();

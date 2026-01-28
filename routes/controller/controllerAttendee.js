@@ -633,10 +633,10 @@ const scanQRAndCheckIn = async (req, res) => {
         type: "TRANSACTION",
         attendee: firstAvailable
           ? {
-            firstName: firstAvailable.firstName,
-            lastName: firstAvailable.lastName,
-            ticketNumber: firstAvailable.ticketNumber,
-          }
+              firstName: firstAvailable.firstName,
+              lastName: firstAvailable.lastName,
+              ticketNumber: firstAvailable.ticketNumber,
+            }
           : null,
         event: {
           eventTitle: title,
