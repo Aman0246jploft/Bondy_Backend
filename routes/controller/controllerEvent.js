@@ -85,6 +85,104 @@ const getEvents = async (req, res) => {
     const now = new Date();
     const skip = (page - 1) * limit;
 
+
+
+    if (filter === "nearYou") {
+
+      const baseMatch = {
+        endDate: { $gte: now },
+        isDraft: false,
+        status: { $ne: "Past" },
+      };
+
+      if (categoryId) {
+        baseMatch.eventCategory = new mongoose.Types.ObjectId(categoryId);
+      }
+
+      if (search) {
+        baseMatch.$or = [
+          { eventTitle: { $regex: search, $options: "i" } },
+          { shortdesc: { $regex: search, $options: "i" } },
+          { tags: { $regex: search, $options: "i" } },
+        ];
+      }
+
+      // 🔹 CASE 1: lat + lng → GEO SEARCH
+      if (latitude && longitude) {
+        const events = await Event.aggregate([
+          {
+            $geoNear: {
+              near: {
+                type: "Point",
+                coordinates: [parseFloat(longitude), parseFloat(latitude)],
+              },
+              distanceField: "distance",
+              maxDistance: radius * 1000,
+              spherical: true,
+              query: baseMatch,
+            },
+          },
+          { $skip: skip },
+          { $limit: parseInt(limit) },
+        ]);
+
+        return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.EVENTS_FETCHED, {
+          events,
+          page: parseInt(page),
+          limit: parseInt(limit),
+        });
+      }
+
+      // 🔹 CASE 2: NO coords → GET USER LOCATION
+      let city = null;
+      let country = null;
+
+      const authHeader = req.headers.authorization;
+      if (authHeader && authHeader.startsWith("Bearer ")) {
+        try {
+          const token = authHeader.split(" ")[1];
+          const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY);
+          const user = await User.findById(decoded.userId).lean();
+
+          city = user?.location?.city || null;
+          country = user?.location?.country || null;
+        } catch (err) { }
+      }
+
+      // 🔹 CASE 3: CITY or COUNTRY FILTER
+      if (city || country) {
+        if (city) {
+          baseMatch["venueAddress.city"] = city;
+        } else {
+          baseMatch["venueAddress.country"] = country;
+        }
+
+        const events = await Event.find(baseMatch)
+          .sort({ startDate: 1 })
+          .skip(skip)
+          .limit(parseInt(limit))
+          .lean();
+
+        const total = await Event.countDocuments(baseMatch);
+
+        return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.EVENTS_FETCHED, {
+          events,
+          total,
+          page: parseInt(page),
+          limit: parseInt(limit),
+        });
+      }
+
+      // 🔹 CASE 4: NOTHING FOUND → EMPTY RESPONSE
+      return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.EVENTS_FETCHED, {
+        events: [],
+        total: 0,
+        page: parseInt(page),
+        limit: parseInt(limit),
+      });
+    }
+
+
     // Base query - ALWAYS exclude past events and drafts
     let query = {
       endDate: { $gte: now }, // Event must not have ended yet
@@ -131,27 +229,27 @@ const getEvents = async (req, res) => {
         // We could add popularity sorting here if 'totalAttendees' was populated
         break;
 
-      case "nearYou":
-        // Validate coordinates
-        if (!latitude || !longitude) {
-          return apiErrorRes(
-            HTTP_STATUS.BAD_REQUEST,
-            res,
-            constantsMessage.LOCATION_REQUIRED,
-          );
-        }
+      // case "nearYou":
+      //   // Validate coordinates
+      //   if (!latitude || !longitude) {
+      //     return apiErrorRes(
+      //       HTTP_STATUS.BAD_REQUEST,
+      //       res,
+      //       constantsMessage.LOCATION_REQUIRED,
+      //     );
+      //   }
 
-        // Use geospatial query with $nearSphere
-        query.venueAddress = {
-          $nearSphere: {
-            $geometry: {
-              type: "Point",
-              coordinates: [parseFloat(longitude), parseFloat(latitude)],
-            },
-            $maxDistance: radius * 1000, // Convert km to meters
-          },
-        };
-        break;
+      //   // Use geospatial query with $nearSphere
+      //   query.venueAddress = {
+      //     $nearSphere: {
+      //       $geometry: {
+      //         type: "Point",
+      //         coordinates: [parseFloat(longitude), parseFloat(latitude)],
+      //       },
+      //       $maxDistance: radius * 1000, // Convert km to meters
+      //     },
+      //   };
+      //   break;
 
       case "upcoming":
         // Events that haven't started yet
@@ -227,10 +325,18 @@ const getEvents = async (req, res) => {
     }
 
     // Execute query with pagination
-    const events = await Event.find(query)
+    // Execute query with pagination
+    let eventsQuery = Event.find(query)
       .populate("eventCategory", "name image")
-      .populate("createdBy", "firstName lastName profileImage")
-      .sort({ startDate: 1 }) // Sort by earliest events first
+      .populate("createdBy", "firstName lastName profileImage");
+
+    // Only apply explicit sort if NOT using geospatial query (nearYou)
+    // $nearSphere automatically sorts by distance, and combining with other sorts is not allowed
+    if (filter !== "nearYou") {
+      eventsQuery = eventsQuery.sort({ startDate: 1 });
+    }
+
+    const events = await eventsQuery
       .skip(skip)
       .limit(parseInt(limit))
       .lean();

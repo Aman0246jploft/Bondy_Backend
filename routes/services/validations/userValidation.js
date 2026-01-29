@@ -57,6 +57,8 @@ const updateUserSchema = Joi.object({
     city: Joi.string().optional(),
     country: Joi.string().optional(),
     address: Joi.string().trim().optional(),
+    state: Joi.string().optional(),
+    zipcode: Joi.string().optional(),
   }).optional(),
 });
 

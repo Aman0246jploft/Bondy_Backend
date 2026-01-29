@@ -78,6 +78,7 @@ const createCategory = async (req, res) => {
 const getCategoryList = async (req, res) => {
   try {
     const { page = 1, limit = 10, search, type } = req.query;
+
     const pageNum = parseInt(page);
     const limitNum = parseInt(limit);
 
@@ -92,7 +93,7 @@ const getCategoryList = async (req, res) => {
     if (search) {
       query.name = { $regex: search, $options: "i" };
     }
-
+    console.log("Query Params:41111", query);
     const total = await Category.countDocuments(query);
     const categories = await Category.find(query)
       .skip((pageNum - 1) * limitNum)

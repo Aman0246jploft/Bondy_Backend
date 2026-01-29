@@ -84,6 +84,8 @@ const UserSchema = new Schema(
       city: String,
       country: String,
       address: String,
+      state: String,
+      zipcode: String,
     },
     language: {
       type: String,

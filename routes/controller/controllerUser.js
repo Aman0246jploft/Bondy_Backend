@@ -738,6 +738,8 @@ const updateUserProfile = async (req, res) => {
         city: location.city,
         country: location.country,
         address: location.address,
+        state: location.state,
+        zipcode: location.zipcode,
       };
     }
 
@@ -767,6 +769,16 @@ const updateUserProfile = async (req, res) => {
     return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
   }
 };
+
+
+const selfProfile = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    req.params.userId = userId;
+    await getUserProfileById(req, res);
+
+  } catch (error) { }
+}
 
 const getUserProfileById = async (req, res) => {
   try {
@@ -850,9 +862,14 @@ const getUserProfileById = async (req, res) => {
       _id: user._id,
       firstName: user.firstName,
       lastName: user.lastName,
+      email: user.email,
+      countryCode: user.countryCode,
+      contactNumber: user.contactNumber,
+      dob: user.dob,
       profileImage: profileImage,
       bio: user.bio,
       role: role,
+      location: user.location || null,
       interestedCategories: interestedCategories,
       categories: categories,
       totalAttended: totalAttended,
@@ -874,9 +891,6 @@ const getUserProfileById = async (req, res) => {
 
     // If user is organizer, add additional data
     if (user.roleId === roleId.ORGANISER) {
-      // Add location
-      profileData.location = user.location || null;
-
       // Organizer specific fields
       profileData.businessType = user.businessType;
       profileData.organizerVerificationStatus =
@@ -1242,6 +1256,11 @@ router.post(
   perApiLimiter(),
   validateRequest(updateUserSchema),
   updateUserProfile,
+);
+
+router.get(
+  "/selfProfile",
+  selfProfile,
 );
 
 router.get("/userList", checkRole([roleId.SUPER_ADMIN]), userList);
