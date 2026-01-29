@@ -93,7 +93,7 @@ const getCategoryList = async (req, res) => {
     if (search) {
       query.name = { $regex: search, $options: "i" };
     }
-    console.log("Query Params:41111", query);
+
     const total = await Category.countDocuments(query);
     const categories = await Category.find(query)
       .skip((pageNum - 1) * limitNum)

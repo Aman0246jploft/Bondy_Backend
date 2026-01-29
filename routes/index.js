@@ -20,6 +20,7 @@ module.exports = {
   notification: require("./controller/controllerNotification"),
   analytics: require("./controller/controllerAnalytics"),
   attendee: require("./controller/controllerAttendee"),
+  contact: require("./controller/controllerContact"),
 };
 
 
