@@ -34,7 +34,9 @@ const createEvent = async (req, res) => {
 
     let featureFee = 0;
     if (req.body.fetcherEvent) {
-      const feeSetting = await GlobalSetting.findOne({ key: "FEATURE_EVENT_FEE" });
+      const feeSetting = await GlobalSetting.findOne({
+        key: "FEATURE_EVENT_FEE",
+      });
       if (feeSetting && feeSetting.value) {
         featureFee = Number(feeSetting.value) || 0;
       }
@@ -157,7 +159,7 @@ const getEvents = async (req, res) => {
 
           city = user?.location?.city || null;
           country = user?.location?.country || null;
-        } catch (err) { }
+        } catch (err) {}
       }
 
       // 🔹 CASE 3: CITY or COUNTRY FILTER
