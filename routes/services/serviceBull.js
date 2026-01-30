@@ -1,18 +1,17 @@
 const Queue = require("bull");
-const { REDIS_CONFIG  } = require("./serviceRedis");
+const { REDIS_CONFIG } = require("./serviceRedis");
 
 const bullRedisConfig = {
   host: REDIS_CONFIG.socket.host,
   port: REDIS_CONFIG.socket.port,
   username: REDIS_CONFIG.username,
   password: REDIS_CONFIG.password,
-
 };
 
 // Function to create a Bull queue
 const createQueue = (queueName) => {
   const queue = new Queue(queueName, {
-    redis: bullRedisConfig ,
+    redis: bullRedisConfig,
   });
 
   queue.on("ready", () => {
@@ -22,7 +21,7 @@ const createQueue = (queueName) => {
   queue.on("error", (err) => {
     console.error(
       `Failed to connect queue ${queueName} to Redis:`,
-      err.message
+      err.message,
     );
   });
 
@@ -51,7 +50,7 @@ const processQueue = (queue, processor) => {
     } catch (error) {
       console.error(
         `Error processing job ${job.id} in queue ${queue.name}:`,
-        error
+        error,
       );
       throw error; // Let Bull retry the job based on configuration
     }
@@ -72,7 +71,7 @@ const handleQueueEvents = (queue) => {
 
   queue.on("stalled", (job) => {
     console.warn(
-      `Job ${job.id} in queue ${queue.name} stalled and will be retried.`
+      `Job ${job.id} in queue ${queue.name} stalled and will be retried.`,
     );
   });
 

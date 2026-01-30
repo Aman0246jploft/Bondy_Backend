@@ -81,7 +81,7 @@ const updateDocument = async (Model, _id, data) => {
     const updated = await Model.findByIdAndUpdate(
       _id,
       { $set: data }, // Explicitly use $set
-      { new: true }
+      { new: true },
     );
     return resultDb(SUCCESS, updated);
   } catch (err) {
@@ -106,7 +106,7 @@ const softDeleteDocument = async (Model, id) => {
     const updated = await Model.findByIdAndUpdate(
       id,
       { isDeleted: true },
-      { new: true }
+      { new: true },
     );
     return resultDb(SUCCESS, updated);
   } catch (err) {
@@ -154,7 +154,7 @@ const getAllDocuments = async (
     select: "",
     fromDate: "",
     toDate: "",
-  }
+  },
 ) => {
   try {
     const {
