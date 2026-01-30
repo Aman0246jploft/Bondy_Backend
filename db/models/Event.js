@@ -68,6 +68,10 @@ const eventSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    featureEventFee: {
+      type: Number,
+      default: 0,
+    },
     isDraft: {
       type: Boolean,
       default: false,

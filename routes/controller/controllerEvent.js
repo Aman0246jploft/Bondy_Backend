@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const { Event, Transaction, User } = require("../../db");
+const { Event, Transaction, User, GlobalSetting } = require("../../db");
 const constantsMessage = require("../../utils/constantsMessage");
 const HTTP_STATUS = require("../../utils/statusCode");
 const {
@@ -32,11 +32,20 @@ const createEvent = async (req, res) => {
       address: venueAddress.address,
     };
 
+    let featureFee = 0;
+    if (req.body.fetcherEvent) {
+      const feeSetting = await GlobalSetting.findOne({ key: "FEATURE_EVENT_FEE" });
+      if (feeSetting && feeSetting.value) {
+        featureFee = Number(feeSetting.value) || 0;
+      }
+    }
+
     const newEvent = new Event({
       ...eventData,
       venueAddress: location,
       venueName: req.body.venueName,
       createdBy: req.user.userId,
+      featureEventFee: featureFee,
     });
 
     await newEvent.save();
@@ -85,10 +94,7 @@ const getEvents = async (req, res) => {
     const now = new Date();
     const skip = (page - 1) * limit;
 
-
-
     if (filter === "nearYou") {
-
       const baseMatch = {
         endDate: { $gte: now },
         isDraft: false,
@@ -126,11 +132,16 @@ const getEvents = async (req, res) => {
           { $limit: parseInt(limit) },
         ]);
 
-        return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.EVENTS_FETCHED, {
-          events,
-          page: parseInt(page),
-          limit: parseInt(limit),
-        });
+        return apiSuccessRes(
+          HTTP_STATUS.OK,
+          res,
+          constantsMessage.EVENTS_FETCHED,
+          {
+            events,
+            page: parseInt(page),
+            limit: parseInt(limit),
+          },
+        );
       }
 
       // 🔹 CASE 2: NO coords → GET USER LOCATION
@@ -165,23 +176,32 @@ const getEvents = async (req, res) => {
 
         const total = await Event.countDocuments(baseMatch);
 
-        return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.EVENTS_FETCHED, {
-          events,
-          total,
-          page: parseInt(page),
-          limit: parseInt(limit),
-        });
+        return apiSuccessRes(
+          HTTP_STATUS.OK,
+          res,
+          constantsMessage.EVENTS_FETCHED,
+          {
+            events,
+            total,
+            page: parseInt(page),
+            limit: parseInt(limit),
+          },
+        );
       }
 
       // 🔹 CASE 4: NOTHING FOUND → EMPTY RESPONSE
-      return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.EVENTS_FETCHED, {
-        events: [],
-        total: 0,
-        page: parseInt(page),
-        limit: parseInt(limit),
-      });
+      return apiSuccessRes(
+        HTTP_STATUS.OK,
+        res,
+        constantsMessage.EVENTS_FETCHED,
+        {
+          events: [],
+          total: 0,
+          page: parseInt(page),
+          limit: parseInt(limit),
+        },
+      );
     }
-
 
     // Base query - ALWAYS exclude past events and drafts
     let query = {
@@ -336,10 +356,7 @@ const getEvents = async (req, res) => {
       eventsQuery = eventsQuery.sort({ startDate: 1 });
     }
 
-    const events = await eventsQuery
-      .skip(skip)
-      .limit(parseInt(limit))
-      .lean();
+    const events = await eventsQuery.skip(skip).limit(parseInt(limit)).lean();
 
     // Get total count for pagination
     const totalCount = await Event.countDocuments(query);
