@@ -1,12 +1,18 @@
 const Queue = require("bull");
-const { client } = require("./serviceRedis");
+const { REDIS_CONFIG  } = require("./serviceRedis");
 
-const redisConfig = {};
+const bullRedisConfig = {
+  host: REDIS_CONFIG.socket.host,
+  port: REDIS_CONFIG.socket.port,
+  username: REDIS_CONFIG.username,
+  password: REDIS_CONFIG.password,
+
+};
 
 // Function to create a Bull queue
 const createQueue = (queueName) => {
   const queue = new Queue(queueName, {
-    redis: client,
+    redis: bullRedisConfig ,
   });
 
   queue.on("ready", () => {

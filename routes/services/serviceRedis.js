@@ -3,14 +3,23 @@ const { createClient } = require("redis");
 const CONSTANTS = require("../../utils/constants");
 const { resultDb } = require("../../utils/globalFunction");
 // Redis connection options
+const REDIS_CONFIG = {
+  username: "default", // RedisLabs always uses "default"
+  password: "ynEIIf8wNVtXNfvuEXsYYZ8TfHfU7YNe",
+  socket: {
+    host: "redis-15412.c212.ap-south-1-1.ec2.cloud.redislabs.com",
+    port: 15412,
+  },
+};
 
 // Main client for general Redis operations
-const client = createClient({});
+// redis-15412.c212.ap-south-1-1.ec2.cloud.redislabs.com:15412
+const client = createClient(REDIS_CONFIG);
 
 // Dedicated clients for pub/sub
-const publisher = createClient({});
+const publisher = createClient(REDIS_CONFIG);
 
-const subscriber = createClient({});
+const subscriber = createClient(REDIS_CONFIG);
 
 // const subscriber = createClient({ socket: {
 //     host: '127.0.0.1',
@@ -129,4 +138,5 @@ module.exports = {
   client,
   publisher,
   subscriber,
+  REDIS_CONFIG
 };
