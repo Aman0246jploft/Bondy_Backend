@@ -61,7 +61,12 @@ const getEventsSchema = Joi.object({
     limit: Joi.number().integer().min(1).max(100).default(10),
 });
 
+const getEventDetailsSchema = Joi.object({
+    eventId: Joi.string().hex().length(24).required(),
+});
+
 module.exports = {
     createEventSchema,
     getEventsSchema,
+    getEventDetailsSchema
 };

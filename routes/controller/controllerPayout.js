@@ -1,6 +1,12 @@
 const express = require("express");
 const router = express.Router();
-const { Transaction, User, Payout, GlobalSetting } = require("../../db");
+const {
+  Transaction,
+  User,
+  Payout,
+  GlobalSetting,
+  WalletHistory,
+} = require("../../db");
 const HTTP_STATUS = require("../../utils/statusCode");
 const { apiErrorRes, apiSuccessRes } = require("../../utils/globalFunction");
 const checkRole = require("../../middlewares/checkRole");
@@ -20,11 +26,16 @@ const getOrganizerEarnings = async (req, res) => {
       createdAt: -1,
     });
 
+    const history = await WalletHistory.find({ userId })
+      .sort({ createdAt: -1 })
+      .limit(50); // Limit to last 50 transactions
+
     return apiSuccessRes(HTTP_STATUS.OK, res, "Earnings fetched successfully", {
       totalEarnings: user.totalEarnings,
       payoutBalance: user.payoutBalance,
       bankDetails: user.bankDetails,
       payoutHistory,
+      walletHistory: history,
     });
   } catch (error) {
     console.error("Error in getOrganizerEarnings:", error);
@@ -60,6 +71,59 @@ const updateBankDetails = async (req, res) => {
     });
   } catch (error) {
     console.error("Error in updateBankDetails:", error);
+    return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
+  }
+};
+
+// 2.5 Request Payout (Organizer)
+const requestPayout = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { amount, paymentReference } = req.body; // paymentReference could be bank details hint or updated info
+
+    if (!amount || amount <= 0) {
+      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Invalid amount");
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "User not found");
+    }
+
+    if (user.payoutBalance < amount) {
+      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Insufficient balance");
+    }
+
+    // 1. Create Payout Request
+    const newPayout = new Payout({
+      organizerId: userId,
+      amount: amount,
+      status: "PENDING",
+      paymentReference: paymentReference || "Requested by user",
+    });
+    await newPayout.save();
+
+    // 2. Debit User Balance
+    user.payoutBalance -= amount;
+    await user.save();
+
+    // 3. Record in Wallet History
+    const historyEntry = new WalletHistory({
+      userId: userId,
+      amount: -amount, // Negative for debit
+      type: "PAYOUT_REQUEST",
+      payoutId: newPayout._id,
+      balanceAfter: user.payoutBalance,
+      description: `Payout Request of ${amount}`,
+    });
+    await historyEntry.save();
+
+    return apiSuccessRes(HTTP_STATUS.OK, res, "Payout request submitted", {
+      payout: newPayout,
+      newBalance: user.payoutBalance,
+    });
+  } catch (error) {
+    console.error("Error in requestPayout:", error);
     return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
   }
 };
@@ -117,8 +181,32 @@ const markPayoutAsPaid = async (req, res) => {
     await payout.save();
 
     // Deduct from Balance
+    // NOTE: Balance was ALREADY deducted when payout was requested (PENDING).
+    // If the admin is just marking it as PAID, we don't deduct again.
+    // However, if the payout system allows "Admin Initiated Payouts" without request, only then we deduct.
+    // But typically, Payout Request logic handles the deduction.
+    // Let's assume this endpoint is for approving PENDING payouts or creating new immediate payouts.
+
+    // Scenario A: Payout exists and is Pending -> just mark paid.
+    // Scenario B: Admin creates new Payout completely (Manual Payout) -> deduct.
+
+    // Let's check if we are updating an existing request or creating new.
+    // The current code creates a NEW Payout object. This implies "Manual Payout".
+    // If it's manual payout, yes, deduct.
+
     organiser.payoutBalance -= amount;
     await organiser.save();
+
+    // Wallet History
+    const walletEntry = new WalletHistory({
+      userId: organiserId,
+      amount: -amount,
+      type: "ADJUSTMENT", // or MANUAL_PAYOUT
+      payoutId: payout._id,
+      balanceAfter: organiser.payoutBalance,
+      description: `Admin manual payout: ${adminNote || "No notes"}`,
+    });
+    await walletEntry.save();
 
     return apiSuccessRes(HTTP_STATUS.OK, res, "Payout marked as paid", {
       payout,
@@ -170,11 +258,102 @@ const getAdminStats = async (req, res) => {
   }
 };
 
+// Cleaned up duplicate lines
+// Route to approve/reject payout requests would be better than just "mark-paid" (which creates new)
+// But following existing pattern, we can add a route to approve existing.
+router.post(
+  "/approve-request",
+  checkRole([roleId.SUPER_ADMIN]),
+  async (req, res) => {
+    try {
+      const { payoutId, transactionId, adminNote } = req.body;
+      // transactionId here is bank transaction ID, not DB ID
+
+      const payout = await Payout.findById(payoutId);
+      if (!payout)
+        return apiErrorRes(
+          HTTP_STATUS.NOT_FOUND,
+          res,
+          "Payout request not found",
+        );
+      if (payout.status !== "PENDING")
+        return apiErrorRes(
+          HTTP_STATUS.BAD_REQUEST,
+          res,
+          "Payout is not pending",
+        );
+
+      payout.status = "PAID";
+      payout.paymentReference = transactionId;
+      payout.adminNote = adminNote;
+      payout.paidAt = new Date();
+      await payout.save();
+
+      // No balance change needed as it was deducted on request.
+      // Just log history? Optional, since 'PAYOUT_REQUEST' already logged the debit.
+      // Maybe log a 'PAYOUT_COMPLETED' event?
+
+      return apiSuccessRes(HTTP_STATUS.OK, res, "Payout approved");
+    } catch (e) {
+      return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, e.message);
+    }
+  },
+);
+
+router.post(
+  "/reject-request",
+  checkRole([roleId.SUPER_ADMIN]),
+  async (req, res) => {
+    try {
+      const { payoutId, adminNote } = req.body;
+
+      const payout = await Payout.findById(payoutId);
+      if (!payout)
+        return apiErrorRes(
+          HTTP_STATUS.NOT_FOUND,
+          res,
+          "Payout request not found",
+        );
+      if (payout.status !== "PENDING")
+        return apiErrorRes(
+          HTTP_STATUS.BAD_REQUEST,
+          res,
+          "Payout is not pending",
+        );
+
+      payout.status = "CANCELLED"; // or REJECTED
+      payout.adminNote = adminNote;
+      await payout.save();
+
+      // CMS: Refund the amount back to user
+      const user = await User.findById(payout.organizerId);
+      user.payoutBalance += payout.amount;
+      await user.save();
+
+      // Log History
+      const walletEntry = new WalletHistory({
+        userId: user._id,
+        amount: payout.amount,
+        type: "PAYOUT_REJECTED",
+        payoutId: payout._id,
+        balanceAfter: user.payoutBalance,
+        description: `Payout rejected: ${adminNote || "No reason provided"}`,
+      });
+      await walletEntry.save();
+
+      return apiSuccessRes(HTTP_STATUS.OK, res, "Payout rejected and refunded");
+    } catch (e) {
+      return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, e.message);
+    }
+  },
+);
+
 // --- Routes Definitions ---
 
 // Organizer Routes
 router.get("/earnings", checkRole([roleId.ORGANISER]), getOrganizerEarnings);
 router.put("/bank-details", checkRole([roleId.ORGANISER]), updateBankDetails);
+router.post("/request-payout", checkRole([roleId.ORGANISER]), requestPayout);
 
 // Admin Routes
 router.get(
@@ -182,6 +361,7 @@ router.get(
   checkRole([roleId.SUPER_ADMIN]),
   getPendingPayouts,
 );
+router.post("/mark-paid", checkRole([roleId.SUPER_ADMIN]), markPayoutAsPaid);
 router.post("/mark-paid", checkRole([roleId.SUPER_ADMIN]), markPayoutAsPaid);
 router.get("/admin-stats", checkRole([roleId.SUPER_ADMIN]), getAdminStats);
 

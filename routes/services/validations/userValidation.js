@@ -21,6 +21,7 @@ const organizerSignupSchema = Joi.object({
   documents: Joi.array()
     .items(
       Joi.object({
+        name: Joi.string().optional(),
         file: Joi.string().required(),
         // status will be set to pending by default in backend
       })
@@ -48,17 +49,19 @@ const updateUserSchema = Joi.object({
   profileImage: Joi.string().optional(),
   gender: Joi.string().optional(),
   email: Joi.string().email().optional(),
+  countryCode: Joi.string().optional().allow(null, ""),
+  contactNumber: Joi.string().optional().allow(null, ""),
   dob: Joi.date().optional(),
   bio: Joi.string().optional(),
   categories: Joi.array().items(Joi.string()).optional(),
   location: Joi.object({
     latitude: Joi.number().required(),
     longitude: Joi.number().required(),
-    city: Joi.string().optional(),
-    country: Joi.string().optional(),
-    address: Joi.string().trim().optional(),
-    state: Joi.string().optional(),
-    zipcode: Joi.string().optional(),
+    city: Joi.string().optional().allow(null, ""),
+    country: Joi.string().optional().allow(null, ""),
+    address: Joi.string().trim().optional().allow(null, ""),
+    state: Joi.string().optional().allow(null, ""),
+    zipcode: Joi.string().optional().allow(null, ""),
   }).optional(),
 });
 

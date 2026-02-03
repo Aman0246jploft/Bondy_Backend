@@ -1,6 +1,14 @@
 const express = require("express");
 const router = express.Router();
-const { Event, Transaction, User, GlobalSetting } = require("../../db");
+const {
+  Event,
+  Transaction,
+  User,
+  GlobalSetting,
+  Review,
+  Comment,
+  Attendee,
+} = require("../../db");
 const constantsMessage = require("../../utils/constantsMessage");
 const HTTP_STATUS = require("../../utils/statusCode");
 const {
@@ -11,6 +19,7 @@ const {
 const {
   createEventSchema,
   getEventsSchema,
+  getEventDetailsSchema,
 } = require("../services/validations/eventValidation");
 const validateRequest = require("../../middlewares/validateRequest");
 const perApiLimiter = require("../../middlewares/rateLimiter");
@@ -467,6 +476,164 @@ const getEvents = async (req, res) => {
   }
 };
 
+// Get Single Event Details
+const getEventDetails = async (req, res) => {
+  try {
+    const { eventId } = req.params;
+
+    // 1. Fetch Event with populated fields
+    const event = await Event.findById(eventId)
+      .populate("eventCategory", "name image")
+      .populate("createdBy", "firstName lastName profileImage")
+      .lean();
+
+    if (!event) {
+      return apiErrorRes(
+        HTTP_STATUS.NOT_FOUND,
+        res,
+        constantsMessage.EVENT_NOT_FOUND,
+      );
+    }
+
+    // 2. Determine Status & Booking
+    const now = new Date();
+    let status = "Upcoming";
+    if (event.endDate < now) {
+      status = "Past";
+    } else if (now >= event.startDate && now <= event.endDate) {
+      status = "Live";
+    }
+    // Override status in response
+    event.status = status;
+
+    // Check Booking Status (if logged in)
+    let isBooked = false;
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      try {
+        const token = authHeader.split(" ")[1];
+        const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY);
+        const userId = decoded.userId;
+
+        // Check Transaction for confirmed booking
+        const booking = await Transaction.findOne({
+          userId: userId,
+          eventId: eventId,
+          status: "PAID",
+        });
+        if (booking) isBooked = true;
+      } catch (err) {}
+    }
+    event.isBooked = isBooked;
+
+    // Format Event Images
+    if (Array.isArray(event.posterImage)) {
+      event.posterImage = event.posterImage.map(formatResponseUrl);
+    }
+    if (Array.isArray(event.shortTeaserVideo)) {
+      event.shortTeaserVideo = event.shortTeaserVideo.map(formatResponseUrl);
+    }
+    if (Array.isArray(event.mediaLinks)) {
+      event.mediaLinks = event.mediaLinks.map(formatResponseUrl);
+    }
+    if (event.eventCategory?.image) {
+      event.eventCategory.image = formatResponseUrl(event.eventCategory.image);
+    }
+    if (event.createdBy?.profileImage) {
+      event.createdBy.profileImage = formatResponseUrl(
+        event.createdBy.profileImage,
+      );
+    }
+
+    // Calculate Duration
+    if (event.startDate && event.endDate) {
+      const start = new Date(event.startDate);
+      const end = new Date(event.endDate);
+      const diffMs = end - start;
+      if (diffMs > 0) {
+        const hours = Math.floor(diffMs / (1000 * 60 * 60));
+        const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+        if (hours > 0 && minutes > 0)
+          event.duration = `${hours}H ${minutes}min`;
+        else if (hours > 0) event.duration = `${hours}H`;
+        else event.duration = `${minutes}min`;
+      }
+    }
+
+    // 3. Parallel Fetch for Related Data
+    const [reviews, comments, totalAttendees, recentAttendees] =
+      await Promise.all([
+        // Top 5 Reviews
+        Review.find({ entityId: eventId, entityModel: "Event" })
+          .sort({ createdAt: -1 })
+          .limit(5)
+          .populate("userId", "firstName lastName profileImage")
+          .lean(),
+
+        // Top 5 Comments
+        Comment.find({ event: eventId, parentComment: null })
+          .sort({ createdAt: -1 })
+          .limit(5)
+          .populate("user", "firstName lastName profileImage")
+          .lean(),
+
+        // Total Attendees Count
+        Attendee.countDocuments({ eventId: eventId }),
+
+        // Top 5 Attendees (Profile Pics)
+        Attendee.find({ eventId: eventId })
+          .sort({ createdAt: -1 })
+          .limit(5)
+          .populate("userId", "profileImage")
+          .select("userId")
+          .lean(),
+      ]);
+
+    // Format Related Data
+    const formattedReviews = reviews.map((r) => ({
+      ...r,
+      user: r.userId
+        ? {
+            ...r.userId,
+            profileImage: formatResponseUrl(r.userId.profileImage),
+          }
+        : null,
+    }));
+
+    const formattedComments = comments.map((c) => ({
+      ...c,
+      user: c.user
+        ? {
+            ...c.user,
+            profileImage: formatResponseUrl(c.user.profileImage),
+          }
+        : null,
+    }));
+
+    const formattedAttendees = recentAttendees
+      .map((a) => (a.userId ? formatResponseUrl(a.userId.profileImage) : null))
+      .filter(Boolean); // Remove nulls
+
+    return apiSuccessRes(
+      HTTP_STATUS.OK,
+      res,
+      constantsMessage.Event_DETAILS_FETCHED || "Event details fetched",
+      {
+        event,
+        reviews: formattedReviews,
+        comments: formattedComments,
+        attendees: {
+          total: totalAttendees,
+          recent: formattedAttendees,
+        },
+      },
+    );
+  } catch (error) {
+    console.error("Error in getEventDetails:", error);
+    return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
+  }
+};
+
 // Admin List API
 const getEventsAdmin = async (req, res) => {
   try {
@@ -576,5 +743,7 @@ router.get(
   validateRequest(getEventsSchema),
   getEventsAdmin,
 );
+
+router.get("/details/:eventId", perApiLimiter(), getEventDetails);
 
 module.exports = router;

@@ -10,6 +10,7 @@ const {
   Course,
   GlobalSetting,
   Attendee,
+  WalletHistory,
 } = require("../../db");
 const CONSTANTS = require("../../utils/constants");
 const HTTP_STATUS = require("../../utils/statusCode");
@@ -393,7 +394,7 @@ const confirmPayment = async (req, res) => {
         if (
           scheduleCheck &&
           scheduleCheck.totalSeats - scheduleCheck.totalAttendees <
-            transaction.qty
+          transaction.qty
         ) {
           transaction.status = "REFUND_INITIATED";
           await transaction.save();
@@ -446,6 +447,20 @@ const confirmPayment = async (req, res) => {
         payoutBalance: organizerEarning,
       },
     });
+
+    // Create Wallet History Entry
+    const walletEntry = new WalletHistory({
+      userId: organizerId,
+      amount: organizerEarning,
+      type: "TICKET_SALE",
+      transactionId: transaction._id,
+      balanceAfter: (await User.findById(organizerId)).payoutBalance, // Fetch fresh or calculate
+      description: `Ticket Sale: ${transaction.bookingType === "EVENT"
+        ? (transaction.eventId.eventTitle || "Event")
+        : (transaction.courseId.courseTitle || "Course")
+        }`,
+    });
+    await walletEntry.save();
 
     if (transaction.discountCode) {
       await PromoCode.updateOne(
@@ -832,11 +847,11 @@ const getEventAttendeesList = async (req, res) => {
           checkedInAt: transaction.checkedInAt,
           checkedInBy: checkedInByUser
             ? {
-                _id: checkedInByUser._id,
-                firstName: checkedInByUser.firstName,
-                lastName: checkedInByUser.lastName,
-                email: checkedInByUser.email,
-              }
+              _id: checkedInByUser._id,
+              firstName: checkedInByUser.firstName,
+              lastName: checkedInByUser.lastName,
+              email: checkedInByUser.email,
+            }
             : null,
         },
         bookingDate: transaction.createdAt,

@@ -30,6 +30,8 @@ const createCourse = async (req, res) => {
       city: venueAddress.city,
       country: venueAddress.country,
       address: venueAddress.address,
+      state: venueAddress.state,
+      zipcode: venueAddress.zipcode,
     };
 
     const newCourse = new Course({
@@ -215,13 +217,24 @@ const getCourses = async (req, res) => {
       .sort({ createdAt: -1 })
       .lean();
 
+    // Aggregate acquired seats from Transactions
+    const courseIds = courses.map((c) => c._id);
+    const bookingCounts = await Transaction.aggregate([
+      { $match: { courseId: { $in: courseIds }, status: "PAID" } },
+      { $group: { _id: "$courseId", count: { $sum: 1 } } },
+    ]);
+
+    const bookingMap = {};
+    bookingCounts.forEach((b) => {
+      bookingMap[b._id.toString()] = b.count;
+    });
+
     // Check for logged-in user to determine isBooked status
     let viewerId = null;
     const authHeader = req.headers.authorization;
     if (authHeader && authHeader.startsWith("Bearer ")) {
       const token = authHeader.split(" ")[1];
       try {
-        // Need jwt here. If not imported at top, require it.
         const jwt = require("jsonwebtoken");
         const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY);
         viewerId = decoded.userId;
@@ -234,7 +247,7 @@ const getCourses = async (req, res) => {
     if (viewerId) {
       const bookings = await Transaction.find({
         userId: viewerId,
-        courseId: { $in: courses.map((c) => c._id) },
+        courseId: { $in: courseIds },
         status: "PAID",
       }).select("courseId");
       bookings.forEach((b) => bookedCourseIds.add(b.courseId.toString()));
@@ -257,20 +270,15 @@ const getCourses = async (req, res) => {
       }
 
       // Calculate Duration
-      // Format: "2H 30min". Based on first schedule's startTime and endTime.
-      // Assuming all schedules have same duration for the course usually.
       let duration = null;
       if (course.schedules && course.schedules.length > 0) {
-        // Pick the first schedule that matches the filter criteria?
-        // Or just the first one generally. Let's pick the first one.
         const sched = course.schedules[0];
         if (sched.startTime && sched.endTime) {
-          // Parse HH:mm
           const [startH, startM] = sched.startTime.split(":").map(Number);
           const [endH, endM] = sched.endTime.split(":").map(Number);
 
           let diffMins = endH * 60 + endM - (startH * 60 + startM);
-          if (diffMins < 0) diffMins += 24 * 60; // Handle overnight?
+          if (diffMins < 0) diffMins += 24 * 60;
 
           if (diffMins > 0) {
             const hours = Math.floor(diffMins / 60);
@@ -283,20 +291,13 @@ const getCourses = async (req, res) => {
       }
       course.duration = duration;
 
-      // Calculate aggregated seat stats from schedules
-      let totalSeats = 0;
-      let acquiredSeats = 0;
-
-      if (course.schedules && Array.isArray(course.schedules)) {
-        course.schedules.forEach((schedule) => {
-          totalSeats += schedule.totalSeats || 0;
-          acquiredSeats += schedule.totalAttendees || 0;
-        });
-      }
+      // Calculate aggregated seat stats
+      const totalSeats = course.totalSeats || 0;
+      const acquiredSeats = bookingMap[course._id.toString()] || 0;
 
       course.totalSeats = totalSeats;
       course.acquiredSeats = acquiredSeats;
-      course.leftSeats = totalSeats - acquiredSeats;
+      course.leftSeats = Math.max(0, totalSeats - acquiredSeats);
 
       // Add booking status
       course.isBooked = bookedCourseIds.has(course._id.toString());
@@ -349,6 +350,17 @@ const getCoursesAdmin = async (req, res) => {
       .sort({ createdAt: -1 }) // Newest first
       .lean();
 
+    const courseIds = courses.map((c) => c._id);
+    const bookingCounts = await Transaction.aggregate([
+      { $match: { courseId: { $in: courseIds }, status: "PAID" } },
+      { $group: { _id: "$courseId", count: { $sum: 1 } } },
+    ]);
+
+    const bookingMap = {};
+    bookingCounts.forEach((b) => {
+      bookingMap[b._id.toString()] = b.count;
+    });
+
     const formattedCourses = courses.map((course) => {
       // Format images
       if (Array.isArray(course.posterImage)) {
@@ -387,17 +399,12 @@ const getCoursesAdmin = async (req, res) => {
       course.duration = duration;
 
       // Calculate aggregated seat stats
-      let totalSeats = 0;
-      let acquiredSeats = 0;
-      if (course.schedules && Array.isArray(course.schedules)) {
-        course.schedules.forEach((schedule) => {
-          totalSeats += schedule.totalSeats || 0;
-          acquiredSeats += schedule.totalAttendees || 0;
-        });
-      }
+      const totalSeats = course.totalSeats || 0;
+      const acquiredSeats = bookingMap[course._id.toString()] || 0;
+
       course.totalSeats = totalSeats;
       course.acquiredSeats = acquiredSeats;
-      course.leftSeats = totalSeats - acquiredSeats;
+      course.leftSeats = Math.max(0, totalSeats - acquiredSeats);
 
       return course;
     });

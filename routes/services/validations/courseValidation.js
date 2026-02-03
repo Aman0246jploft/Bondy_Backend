@@ -1,12 +1,14 @@
 const Joi = require("joi");
 
 const scheduleSchema = Joi.object({
-    startDate: Joi.date().required(),
-    endDate: Joi.date().required(),
+    startDate: Joi.date().min('now').required().messages({
+        'date.min': 'Start date cannot be in the past'
+    }),
+    endDate: Joi.date().min(Joi.ref('startDate')).required().messages({
+        'date.min': 'End date must be after or equal to start date'
+    }),
     startTime: Joi.string().required(),
     endTime: Joi.string().required(),
-    totalSeats: Joi.number().min(1).required(),
-    price: Joi.number().min(0).required(),
 });
 
 const createCourseSchema = Joi.object({
@@ -19,9 +21,22 @@ const createCourseSchema = Joi.object({
         city: Joi.string().required(),
         country: Joi.string().required(),
         address: Joi.string().required(),
+        state: Joi.string().optional(),
+        zipcode: Joi.string().optional(),
     }).required(),
     shortdesc: Joi.string().optional(),
-    schedules: Joi.array().items(scheduleSchema).min(1).required(),
+    totalSeats: Joi.number().min(1).required(),
+    price: Joi.number().min(0).required(),
+    enrollmentType: Joi.string()
+        .valid("Ongoing", "fixedStart")
+        .default("Ongoing"),
+    schedules: Joi.array().items(scheduleSchema).min(1).required()
+        .when('enrollmentType', {
+            is: 'fixedStart',
+            then: Joi.array().length(1).messages({
+                'array.length': 'Fixed start courses must have exactly one schedule'
+            })
+        }),
 });
 
 const getCoursesSchema = Joi.object({

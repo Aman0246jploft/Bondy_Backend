@@ -106,11 +106,16 @@ const UserSchema = new Schema(
     documents: {
       type: [
         {
+          name: {
+            type: String,
+            enum: ["Business Proof", "Gov ID"],
+            default: null
+          }, // Document name/title
           file: { type: String, default: null }, // the document URL or filename
           status: {
             // approval status
             type: String,
-            enum: ["pending", "approved", "rejected"], // or any status you want
+            enum: ["pending", "approved", "rejected"],
             default: "pending",
           },
           reason: { type: String, default: null }, // reason for rejection
@@ -135,8 +140,8 @@ const UserSchema = new Schema(
     },
     organizerVerificationStatus: {
       type: String,
-      enum: ["pending", "approved", "rejected"],
-      default: "pending",
+      enum: ["unverified", "pending", "approved", "rejected"],
+      default: "unverified",
     },
     timeZone: { type: String },
     lastLogin: {

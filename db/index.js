@@ -23,7 +23,7 @@ module.exports = {
   Follow: require("./models/Follow"),
   Block: require("./models/Block"),
   Report: require("./models/ReportUser"),
-  Verification: require("./models/userVerification"),
+
   Tax: require("./models/Tax"),
   PromoCode: require("./models/PromoCode"),
   Payout: require("./models/Payout"),

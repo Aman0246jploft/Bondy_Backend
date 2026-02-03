@@ -1,239 +1,182 @@
 const express = require("express");
 const router = express.Router();
-const { Verification } = require("../../db");
-const HTTP_STATUS = require("../../utils/statusCode");
-const { apiErrorRes, apiSuccessRes } = require("../../utils/globalFunction");
-const constantsMessage = require("../../utils/constantsMessage");
+
 const perApiLimiter = require("../../middlewares/rateLimiter");
-const { upload, storeImage } = require("../../utils/cloudinary");
+const { apiSuccessRes, apiErrorRes } = require("../../utils/globalFunction");
+
+const HTTP_STATUS = require("../../utils/statusCode");
+const User = require("../../db/models/User");
 const { roleId } = require("../../utils/Role");
-const validateRequest = require("../../middlewares/validateRequest");
-const {
-  verifyStatusSchema,
-} = require("../services/validations/adminValidations");
+const checkRole = require("../../middlewares/checkRole");
+// Assuming there might be a middleware to check auth like 'verifyToken', using checkRole which likely includes auth check
+// If checkRole doesn't imply auth, we might need an auth middleware. 
+// Assuming checkRole([]) works as "must be authenticated" or "must have one of these roles"
 
-// Upload Verification Document
-const uploadVerificationDoc = async (req, res) => {
-  try {
-    if (!req.files || req.files.length === 0) {
-      return apiErrorRes(
-        HTTP_STATUS.BAD_REQUEST,
-        res,
-        constantsMessage.NO_FILES_UPLOADED,
-      );
-    }
-
-    const userId = req.user.userId;
-    const uploadPromises = req.files.map((file) =>
-      storeImage(file, `verification/${userId}`),
-    );
-    const filePaths = await Promise.all(uploadPromises);
-
-    return apiSuccessRes(
-      HTTP_STATUS.OK,
-      res,
-      constantsMessage.FILES_UPLOADED_SUCCESS,
-      { files: filePaths },
-    );
-  } catch (error) {
-    return apiErrorRes(
-      HTTP_STATUS.INTERNAL_SERVER_ERROR,
-      res,
-      error.message,
-      error.message,
-    );
-  }
-};
-
-// Submit Verification Request
+// Submit Verification Documents (Organizer)
 const submitVerification = async (req, res) => {
-  try {
-    const userId = req.user.userId;
-    const {
-      idVerification,
-      contactVerification,
-      payoutVerification,
-      businessVerification,
-    } = req.body;
+    try {
+        const userId = req.user.userId;
+        const { documents } = req.body; // Array of { name, file }
 
-    // Find or create verification record
-    let verification = await Verification.findOne({ user: userId });
+        if (!documents || documents.length === 0) {
+            return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "At least one document is required.");
+        }
 
-    if (!verification) {
-      verification = new Verification({ user: userId });
+        const user = await User.findById(userId);
+        if (!user) {
+            return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "User not found.");
+        }
+
+        const validNames = ["Business Proof", "Gov ID"];
+
+        // Format documents with initial status and validation
+        const newDocs = [];
+        for (const doc of documents) {
+            if (!doc.name || !validNames.includes(doc.name)) {
+                return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, `Invalid document name. Allowed: ${validNames.join(", ")}`);
+            }
+            newDocs.push({
+                name: doc.name,
+                file: doc.file,
+                status: "pending",
+                reason: null
+            });
+        }
+
+        // Update user: Add documents and set verification status to pending
+        user.documents = newDocs;
+        user.organizerVerificationStatus = "pending";
+        await user.save();
+
+        return apiSuccessRes(HTTP_STATUS.OK, res, "Verification documents submitted successfully.", {
+            organizerVerificationStatus: user.organizerVerificationStatus,
+            documents: user.documents
+        });
+
+    } catch (error) {
+        console.error("Error in submitVerification:", error);
+        return apiErrorRes(HTTP_STATUS.INTERNAL_SERVER_ERROR, res, error.message);
     }
-
-    if (idVerification)
-      verification.idVerification = {
-        ...verification.idVerification,
-        ...idVerification,
-        status: "pending",
-        date: new Date(),
-      };
-    if (contactVerification)
-      verification.contactVerification = {
-        ...verification.contactVerification,
-        ...contactVerification,
-        status: "pending",
-        date: new Date(),
-      };
-    if (payoutVerification)
-      verification.payoutVerification = {
-        ...verification.payoutVerification,
-        ...payoutVerification,
-        status: "pending",
-        date: new Date(),
-      };
-    if (businessVerification)
-      verification.businessVerification = {
-        ...verification.businessVerification,
-        ...businessVerification,
-        status: "pending",
-        date: new Date(),
-      };
-
-    // Reset overall status to pending if any new data is submitted?
-    // Or logic dictates overall isVerified is false until admin approves?
-    verification.isVerified = false;
-
-    await verification.save();
-
-    return apiSuccessRes(
-      HTTP_STATUS.OK,
-      res,
-      "Verification submitted successfully.",
-      verification,
-    );
-  } catch (error) {
-    return apiErrorRes(
-      HTTP_STATUS.INTERNAL_SERVER_ERROR,
-      res,
-      error.message,
-      error.message,
-    );
-  }
 };
 
-// Get Status
-const getVerificationStatus = async (req, res) => {
-  try {
-    const userId = req.user.userId;
-    const verification = await Verification.findOne({ user: userId }).lean();
+// Get Verification Requests (Admin)
+const getVerificationRequests = async (req, res) => {
+    try {
+        const { status, page = 1, limit = 10, search } = req.query;
 
-    if (!verification) {
-      return apiSuccessRes(
-        HTTP_STATUS.OK,
-        res,
-        "No verification record found.",
-        null,
-      );
+        const query = {
+            roleId: roleId.ORGANISER
+        };
+
+        if (status) {
+            query.organizerVerificationStatus = status;
+        }
+
+        // Search logic
+        if (search) {
+            query.$or = [
+                { firstName: { $regex: search, $options: "i" } },
+                { lastName: { $regex: search, $options: "i" } },
+                { email: { $regex: search, $options: "i" } }
+            ];
+        }
+
+        const skip = (Number(page) - 1) * Number(limit);
+
+        const [users, total] = await Promise.all([
+            User.find(query)
+                .select("firstName lastName email countryCode contactNumber businessType organizerVerificationStatus documents createdAt")
+                .sort({ createdAt: -1 }) // Newest first
+                .skip(skip)
+                .limit(Number(limit))
+                .lean(),
+            User.countDocuments(query)
+        ]);
+
+        return apiSuccessRes(HTTP_STATUS.OK, res, "Verification requests fetched successfully.", {
+            requests: users,
+            total,
+            page: Number(page),
+            limit: Number(limit),
+            totalPages: Math.ceil(total / Number(limit))
+        });
+
+    } catch (error) {
+        console.error("Error in getVerificationRequests:", error);
+        return apiErrorRes(HTTP_STATUS.INTERNAL_SERVER_ERROR, res, error.message);
     }
-
-    return apiSuccessRes(
-      HTTP_STATUS.OK,
-      res,
-      "Verification status fetched.",
-      verification,
-    );
-  } catch (error) {
-    return apiErrorRes(
-      HTTP_STATUS.INTERNAL_SERVER_ERROR,
-      res,
-      error.message,
-      error.message,
-    );
-  }
 };
 
-// Update Status (Admin)
-const updateVerificationStatus = async (req, res) => {
-  try {
-    const { userId, type, status, rejectionReason } = req.body; // type: 'id', 'contact', 'payout', 'business'
+// Approve/Reject Verification (Admin)
+const verifyOrganizer = async (req, res) => {
+    try {
+        const { userId, action, reason } = req.body;
+        // action: "approve" | "reject"
 
-    // Simple role check, though middleware usually handles this
-    if (
-      req.user.roleId !== roleId.SUPER_ADMIN &&
-      req.user.roleId !== roleId.ADMIN
-    ) {
-      // Assuming ADMIN role exists? or just SUPER_ADMIN. Using generic check for now.
-      // If strict, I should check against roleId enums.
+        if (!['approve', 'reject'].includes(action)) {
+            return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Invalid action. Use 'approve' or 'reject'.");
+        }
+
+        const user = await User.findById(userId);
+        if (!user) {
+            return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "User not found.");
+        }
+
+        if (action === "approve") {
+            user.organizerVerificationStatus = "approved";
+            user.documents.forEach(doc => {
+                doc.status = "approved";
+                doc.reason = null;
+            });
+        } else if (action === "reject") {
+            if (!reason) {
+                return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Reason is required for rejection.");
+            }
+            user.organizerVerificationStatus = "rejected";
+            user.documents.forEach(doc => {
+                if (doc.status === 'pending') {
+                    doc.status = "rejected";
+                    doc.reason = reason;
+                }
+            });
+        }
+
+        await user.save();
+
+        return apiSuccessRes(HTTP_STATUS.OK, res, `Organizer verification ${action}d successfully.`);
+
+    } catch (error) {
+        console.error("Error in verifyOrganizer:", error);
+        return apiErrorRes(HTTP_STATUS.INTERNAL_SERVER_ERROR, res, error.message);
     }
-
-    const verification = await Verification.findOne({ user: userId });
-    if (!verification) {
-      return apiErrorRes(
-        HTTP_STATUS.NOT_FOUND,
-        res,
-        "Verification record not found.",
-      );
-    }
-
-    const updateField = (field) => {
-      field.status = status;
-      if (status === "verified") field.verifiedAt = new Date();
-      // Handle rejection reason if schema supported it
-    };
-
-    if (type === "id") updateField(verification.idVerification);
-    else if (type === "contact") updateField(verification.contactVerification);
-    else if (type === "payout") updateField(verification.payoutVerification);
-    else if (type === "business")
-      updateField(verification.businessVerification);
-    else {
-      return apiErrorRes(
-        HTTP_STATUS.BAD_REQUEST,
-        res,
-        "Invalid verification type.",
-      );
-    }
-
-    // Check if all required sections are verified to set global isVerified
-    // logic depends on business rules. For now, manual update logic.
-
-    // If we want to set global verified:
-    if (status === "verified") {
-      // Logic: if all relevant parts are verified, set global true.
-      // Simplifying: if the request specifically asks to set global status?
-      // Or maybe just let admin toggle global status.
-    }
-
-    // Allow updating global status directly if type is 'global'
-    if (type === "global") {
-      verification.isVerified = status === "verified";
-    }
-
-    await verification.save();
-
-    return apiSuccessRes(
-      HTTP_STATUS.OK,
-      res,
-      "Verification status updated.",
-      verification,
-    );
-  } catch (error) {
-    return apiErrorRes(
-      HTTP_STATUS.INTERNAL_SERVER_ERROR,
-      res,
-      error.message,
-      error.message,
-    );
-  }
 };
 
+// Routes
+// Note: Auth middleware usually needs to be explicitly applied if 'checkRole' doesn't handle finding user from token.
+// Assuming 'checkRole' works as middleware that decodes token or follows a 'verifyToken' middleware.
+// Based on controllerUser.js usage: router.get("/userList", checkRole([roleId.SUPER_ADMIN]), userList);
+// I need perApiLimiter too perhaps?
+
+// Organizer submits verification
 router.post(
-  "/upload-document",
-  perApiLimiter(),
-  upload.array("files", 5), // allow up to 5 docs
-  uploadVerificationDoc,
+    "/submit",
+    perApiLimiter(),
+    checkRole([roleId.ORGANISER]), // Must be organizer
+    submitVerification
 );
 
-router.post("/submit", perApiLimiter(), submitVerification);
-router.post("/status", perApiLimiter(), getVerificationStatus);
+// Admin gets requests
+router.get(
+    "/requests",
+    checkRole([roleId.SUPER_ADMIN]),
+    getVerificationRequests
+);
+
+// Admin approves/rejects
 router.post(
-  "/update-status",
-  perApiLimiter(),
-  validateRequest(verifyStatusSchema),
-  updateVerificationStatus,
+    "/audit",
+    checkRole([roleId.SUPER_ADMIN]),
+    verifyOrganizer
 );
 
 module.exports = router;

@@ -17,21 +17,6 @@ const scheduleSchema = new mongoose.Schema({
     type: String, // e.g. "01:00"
     required: true,
   },
-  totalSeats: {
-    type: Number,
-    required: true,
-    min: 1,
-  },
-  price: {
-    type: Number,
-    required: true,
-    min: 0,
-  },
-  totalAttendees: {
-    type: Number,
-    default: 0,
-    min: 0,
-  },
   presentCount: {
     type: Number,
     default: 0,
@@ -50,23 +35,54 @@ const courseSchema = new mongoose.Schema(
     venueAddress: {
       type: {
         type: String,
-        enum: ["Point"], // Must be "Point"
-        required: true,
-        default: "Point",
+        enum: ["Point"],
       },
-      coordinates: {
-        type: [Number], // [longitude, latitude]
-        required: true,
-      },
-      city: { type: String },
-      country: { type: String },
-      address: { type: String },
+      coordinates: [Number], // [lng, lat]
+      city: String,
+      country: String,
+      address: String,
+      state: String,
+      zipcode: String,
+
     },
     shortdesc: { type: String },
-    schedules: {
-      type: [scheduleSchema], // ⬅ multiple date/time entries
-      default: [],
+
+    price: {
+      type: Number,
+      required: true,
+      min: 0,
     },
+
+    totalSeats: {
+      type: Number,
+      required: true,
+      min: 1,
+    },
+
+    enrollmentType: {
+      type: String,
+      enum: ["Ongoing", "fixedStart"],
+      default: "Ongoing",
+    },
+
+    schedules: {
+      type: [scheduleSchema],
+      default: [],
+      validate: {
+        validator: function (value) {
+          if (this.enrollmentType === "fixedStart") {
+            return value.length === 1;
+          }
+          return value.length >= 1;
+        },
+        message: function () {
+          return this.enrollmentType === "fixedStart"
+            ? "Fixed start courses must have exactly one schedule"
+            : "Ongoing courses must have at least one schedule";
+        },
+      },
+    },
+
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",

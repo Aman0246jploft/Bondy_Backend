@@ -1,13 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const {
-  User,
-  Event,
-  Course,
-  Transaction,
-  Follow,
-  Verification,
-} = require("../../db");
+const { User, Event, Course, Transaction, Follow } = require("../../db");
 const CONSTANTS = require("../../utils/constants");
 const constantsMessage = require("../../utils/constantsMessage");
 const HTTP_STATUS = require("../../utils/statusCode");
@@ -135,7 +128,7 @@ const customerSignupVerify = async (req, res) => {
       user.isDeleted = false;
       user.isDisable = false;
       user.password = userData.password;
-      user.contactNumber = userData.mobileNumber;
+      user.contactNumber = userData.contactNumber;
       user.countryCode = userData.countryCode;
       user.roleId = roleId.CUSTOMER;
       // Reset other fields if necessary
@@ -145,7 +138,7 @@ const customerSignupVerify = async (req, res) => {
       user = new User({
         email: userData.email,
         password: userData.password,
-        contactNumber: userData.mobileNumber,
+        contactNumber: userData.contactNumber,
         countryCode: userData.countryCode,
         roleId: roleId.CUSTOMER,
       });
@@ -266,7 +259,7 @@ const organizerSignupVerify = async (req, res) => {
       user.firstName = userData.firstName;
       user.lastName = userData.lastName;
       user.password = userData.password;
-      user.contactNumber = userData.mobileNumber;
+      user.contactNumber = userData.contactNumber || userData.mobileNumber;
       user.countryCode = userData.countryCode;
       user.businessType = userData.businessType;
       user.acceptTerms = userData.acceptTerms;
@@ -282,7 +275,7 @@ const organizerSignupVerify = async (req, res) => {
         lastName: userData.lastName,
         email: userData.email,
         password: userData.password,
-        contactNumber: userData.mobileNumber,
+        contactNumber: userData.contactNumber || userData.mobileNumber,
         countryCode: userData.countryCode,
         businessType: userData.businessType,
         acceptTerms: userData.acceptTerms,
@@ -770,15 +763,13 @@ const updateUserProfile = async (req, res) => {
   }
 };
 
-
 const selfProfile = async (req, res) => {
   try {
     const userId = req.user.userId;
     req.params.userId = userId;
     await getUserProfileById(req, res);
-
   } catch (error) { }
-}
+};
 
 const getUserProfileById = async (req, res) => {
   try {
@@ -811,7 +802,7 @@ const getUserProfileById = async (req, res) => {
     }
 
     // Get verification data
-    const verification = await Verification.findOne({ user: userId }).lean();
+    // const verification = await Verification.findOne({ user: userId }).lean();
 
     // Calculate totalAttended (unique events where user has checked in)
     const attendedEvents = await Transaction.distinct("eventId", {
@@ -874,7 +865,6 @@ const getUserProfileById = async (req, res) => {
       categories: categories,
       totalAttended: totalAttended,
       totalInterests: totalInterests,
-      verification: verification || null,
       isFollowed: isFollowed,
       totalFollowers: 0, // Default to 0, overwritten if organizer/relevant
     };
@@ -895,6 +885,7 @@ const getUserProfileById = async (req, res) => {
       profileData.businessType = user.businessType;
       profileData.organizerVerificationStatus =
         user.organizerVerificationStatus;
+      profileData.documents = user.documents;
 
       // Calculate totalEventsHosted
       const totalEventsHosted = await Event.countDocuments({
@@ -1258,10 +1249,7 @@ router.post(
   updateUserProfile,
 );
 
-router.get(
-  "/selfProfile",
-  selfProfile,
-);
+router.get("/selfProfile", selfProfile);
 
 router.get("/userList", checkRole([roleId.SUPER_ADMIN]), userList);
 router.patch(
