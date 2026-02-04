@@ -19,11 +19,16 @@ const createContact = async (req, res) => {
             );
         }
 
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Invalid email format");
+        }
+
         const newContact = new Contact({
             fullName,
             email,
             phone,
-            topic,
+            topic: topic || "General",
             message,
         });
 
