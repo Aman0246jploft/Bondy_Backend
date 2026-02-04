@@ -157,10 +157,6 @@ const {
   followUserSchema,
 } = require("../services/validations/adminValidations");
 
-// ... existing imports ...
-
-// ... existing code ...
-
 router.post(
   "/create",
   perApiLimiter(),
