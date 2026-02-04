@@ -21,6 +21,7 @@ module.exports = {
   analytics: require("./controller/controllerAnalytics"),
   attendee: require("./controller/controllerAttendee"),
   contact: require("./controller/controllerContact"),
+  supportTicket: require("./controller/controllerSupportTicket"),
 };
 
 

@@ -23,7 +23,7 @@ module.exports = {
   Follow: require("./models/Follow"),
   Block: require("./models/Block"),
   Report: require("./models/ReportUser"),
-
+  WalletHistory: require("./models/WalletHistory"),
   Tax: require("./models/Tax"),
   PromoCode: require("./models/PromoCode"),
   Payout: require("./models/Payout"),
@@ -37,4 +37,3 @@ module.exports = {
   Notification: require("./models/Notification"),
   Attendee: require("./models/Attendee"),
 };
-

@@ -550,7 +550,8 @@ const getTicketDetail = async (req, res) => {
       userId,
     })
       .populate("eventId")
-      .populate("courseId");
+      .populate("courseId")
+      .populate("userId");
 
     if (!transaction) {
       return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Ticket not found");
@@ -572,16 +573,16 @@ const getTicketDetail = async (req, res) => {
       course.posterImage = (course.posterImage || []).map(formatResponseUrl);
     }
 
-    const checkInStatus = {
-      checkedInQty: transaction.checkedInQty || 0,
-      totalQty: transaction.qty,
-      remainingQty: transaction.qty - (transaction.checkedInQty || 0),
-      isFullyCheckedIn: (transaction.checkedInQty || 0) >= transaction.qty,
-      checkedInAt: transaction.checkedInAt,
-    };
+    // const checkInStatus = {
+    //   checkedInQty: transaction.checkedInQty || 0,
+    //   totalQty: transaction.qty,
+    //   remainingQty: transaction.qty - (transaction.checkedInQty || 0),
+    //   isFullyCheckedIn: (transaction.checkedInQty || 0) >= transaction.qty,
+    //   checkedInAt: transaction.checkedInAt,
+    // };
 
     return apiSuccessRes(HTTP_STATUS.OK, res, "Ticket detail fetched", {
-      ticket: { ...transactionObj, checkInStatus },
+      ticket: { ...transactionObj },
     });
   } catch (error) {
     console.error("Error in getTicketDetail:", error);
@@ -608,7 +609,8 @@ const scanQRCode = async (req, res) => {
     const transactionId = qrParts[1];
     const transaction = await Transaction.findById(transactionId)
       .populate("eventId")
-      .populate("courseId");
+      .populate("courseId")
+      .populate("userId");
 
     if (!transaction) {
       return apiSuccessRes(HTTP_STATUS.OK, res, "QR code scanned", {
@@ -711,13 +713,14 @@ const scanQRCode = async (req, res) => {
           ? transaction.courseId._id || transaction.courseId
           : null,
         scheduleId: transaction.scheduleId || null,
-        userId: transaction.userId,
-        firstName: "Guest", // Fallback
-        lastName: `Attendee ${newCheckedInQty}`,
-        email: "guest@example.com",
+        userId: transaction?.userId?._id || transaction?.userId,
+        firstName: transaction?.userId?.firstName || "Guest", // Fallback
+        lastName: transaction?.userId?.lastName || `Attendee ${newCheckedInQty}`,
+        email: transaction?.userId?.email || "guest@example.com",
         ticketNumber,
         isCheckedIn: true,
         checkedInAt: now,
+        qrCodeData,
         checkedInBy: gateKeeperId,
       });
       await newAttendee.save();

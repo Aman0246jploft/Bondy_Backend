@@ -63,14 +63,14 @@ const createTicket = async (req, res) => {
 const getMyTickets = async (req, res) => {
   try {
     const userId = req.user.userId;
-    const { status, page = 1, limit = 10 } = req.query;
+    const { status, category, page = 1, limit = 10 } = req.query;
     const skip = (page - 1) * limit;
 
     const query = { user: userId };
     if (status) query.status = status;
+    if (category) query.category = category;
 
     const tickets = await SupportTicket.find(query)
-      .populate("category", "name")
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(parseInt(limit))
@@ -129,7 +129,6 @@ const getAllTickets = async (req, res) => {
 
     const tickets = await SupportTicket.find(query)
       .populate("user", "firstName lastName email profileImage contactNumber")
-      .populate("category", "name")
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(parseInt(limit))
@@ -209,7 +208,6 @@ const getTicketDetails = async (req, res) => {
     const ticket = await SupportTicket.findOne(query)
       .populate("user", "firstName lastName email profileImage")
       .populate("adminComments.adminId", "firstName lastName")
-      .populate("category", "name")
       .lean();
 
     if (!ticket) {

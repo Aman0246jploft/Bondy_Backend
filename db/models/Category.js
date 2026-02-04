@@ -11,7 +11,7 @@ const categorySchema = new mongoose.Schema(
 
     type: {
       type: String,
-      enum: ["event", "course"],
+      enum: ["event", "course", "support_ticket"],
       required: true,
       lowercase: true,
     },
