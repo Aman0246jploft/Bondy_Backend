@@ -20,6 +20,7 @@ const initiateBookingSchema = Joi.object({
     "any.required": "Quantity is required",
   }),
   discountCode: Joi.string().allow(null, "").optional(),
+  bookingType: Joi.string().valid("EVENT", "COURSE").optional(),
 }).or("eventId", "courseId");
 
 const confirmPaymentSchema = Joi.object({

@@ -72,14 +72,14 @@ const initiateBooking = async (req, res) => {
       if (!schedule) {
         return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Schedule not found");
       }
-      if (schedule.totalSeats - schedule.totalAttendees < qty) {
+      if (targetItem.totalSeats - schedule.presentCount < qty) {
         return apiErrorRes(
           HTTP_STATUS.BAD_REQUEST,
           res,
           "Not enough seats available",
         );
       }
-      baseTicketPrice = schedule.price;
+      baseTicketPrice = targetItem.price;
       bookingType = "COURSE";
     } else {
       return apiErrorRes(
@@ -227,15 +227,17 @@ const calculateBooking = async (req, res) => {
       if (!schedule) {
         return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Schedule not found");
       }
-      if (schedule.totalSeats - schedule.totalAttendees < qty) {
+      if (targetItem.totalSeats - schedule.presentCount < qty) {
         return apiErrorRes(
           HTTP_STATUS.BAD_REQUEST,
           res,
           "Not enough seats available",
         );
       }
-      baseTicketPrice = schedule.price;
+
+      baseTicketPrice = targetItem.price;
     }
+
     // Calculate Base Price
     const basePrice = roundToTwo(baseTicketPrice * qty);
     let finalAmount = basePrice;
@@ -359,32 +361,26 @@ const confirmPayment = async (req, res) => {
         );
       }
     } else if (transaction.bookingType === "COURSE") {
+      // Calculate max allowed attendees based on total seats
+      const totalSeats = transaction.courseId.totalSeats;
+      const maxPresentCount = totalSeats - transaction.qty;
+
       const updatedCourse = await Course.findOneAndUpdate(
         {
           _id: transaction.courseId._id,
           schedules: {
             $elemMatch: {
               _id: transaction.scheduleId,
-              $expr: {
-                $gte: [
-                  { $subtract: ["$totalSeats", "$totalAttendees"] },
-                  transaction.qty,
-                ],
-              },
+              presentCount: { $lte: maxPresentCount },
             },
           },
         },
-        { $inc: { "schedules.$[elem].totalAttendees": transaction.qty } },
+        { $inc: { "schedules.$[elem].presentCount": transaction.qty } },
         {
           arrayFilters: [{ "elem._id": transaction.scheduleId }],
           new: true,
         },
       );
-
-      // Note: $expr with $subtract inside $elemMatch can be tricky in some Mongo versions.
-      // A more robust way if $expr fails is to just check totalAttendees directly if we know totalSeats doesn't change often,
-      // but let's try the more precise one first. Wait, schedules are subdocs, so we can't easily $subtract across fields in a filter without $expr.
-      // Re-evaluating: The correct atomic way to check "seats available" is to know the totalSeats.
 
       if (!updatedCourse) {
         // Double check if it was just because of seats or something else
@@ -393,7 +389,7 @@ const confirmPayment = async (req, res) => {
 
         if (
           scheduleCheck &&
-          scheduleCheck.totalSeats - scheduleCheck.totalAttendees <
+          courseCheck.totalSeats - scheduleCheck.presentCount <
           transaction.qty
         ) {
           transaction.status = "REFUND_INITIATED";
@@ -405,7 +401,6 @@ const confirmPayment = async (req, res) => {
             { transaction: transaction.toObject() },
           );
         }
-        // If it's something else, it might be a logic error or missing schedule, but for race condition, this is the main case.
       }
     }
 
@@ -456,8 +451,8 @@ const confirmPayment = async (req, res) => {
       transactionId: transaction._id,
       balanceAfter: (await User.findById(organizerId)).payoutBalance, // Fetch fresh or calculate
       description: `Ticket Sale: ${transaction.bookingType === "EVENT"
-        ? (transaction.eventId.eventTitle || "Event")
-        : (transaction.courseId.courseTitle || "Course")
+        ? transaction.eventId.eventTitle || "Event"
+        : transaction.courseId.courseTitle || "Course"
         }`,
     });
     await walletEntry.save();
@@ -715,7 +710,8 @@ const scanQRCode = async (req, res) => {
         scheduleId: transaction.scheduleId || null,
         userId: transaction?.userId?._id || transaction?.userId,
         firstName: transaction?.userId?.firstName || "Guest", // Fallback
-        lastName: transaction?.userId?.lastName || `Attendee ${newCheckedInQty}`,
+        lastName:
+          transaction?.userId?.lastName || `Attendee ${newCheckedInQty}`,
         email: transaction?.userId?.email || "guest@example.com",
         ticketNumber,
         isCheckedIn: true,

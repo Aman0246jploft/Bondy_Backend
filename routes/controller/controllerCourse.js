@@ -58,6 +58,20 @@ const createCourse = async (req, res) => {
     return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
   }
 };
+
+
+function getSessionStatus(schedule) {
+  if (!schedule) return "PAST";
+
+  const now = new Date();
+  const start = new Date(schedule.startDate);
+  const end = new Date(schedule.endDate);
+
+  if (now >= start && now <= end) return "LIVE";
+  if (now < start) return "UPCOMING";
+  return "PAST";
+}
+
 const getCourses = async (req, res) => {
   try {
     const {
@@ -174,14 +188,30 @@ const getCourses = async (req, res) => {
     // ===============================
     const courseIds = courses.map((c) => c._id);
 
+    // Aggregate by Course (for general stats if needed) and Schedule
     const bookingCounts = await Transaction.aggregate([
       { $match: { courseId: { $in: courseIds }, status: "PAID" } },
-      { $group: { _id: "$courseId", count: { $sum: 1 } } },
+      {
+        $group: {
+          _id: { course: "$courseId", schedule: "$scheduleId" },
+          count: { $sum: 1 },
+        },
+      },
     ]);
 
-    const bookingMap = {};
+    const bookingMap = {}; // Map: "courseId_scheduleId" -> count
+    const courseBookingMap = {}; // Map: "courseId" -> count (total for course)
+
     bookingCounts.forEach((b) => {
-      bookingMap[b._id.toString()] = b.count;
+      const courseId = b._id.course.toString();
+      const scheduleId = b._id.schedule ? b._id.schedule.toString() : "null";
+
+      // Per schedule count
+      const key = `${courseId}_${scheduleId}`;
+      bookingMap[key] = b.count;
+
+      // Total course count
+      courseBookingMap[courseId] = (courseBookingMap[courseId] || 0) + b.count;
     });
 
     // ===============================
@@ -201,25 +231,59 @@ const getCourses = async (req, res) => {
       } catch { }
     }
 
-    const bookedCourseIds = new Set();
+    const bookedCourseIds = new Set(); // Set of "courseId"
+    const bookedScheduleMap = {}; // Map: "courseId" -> Set of "scheduleId"
 
     if (viewerId) {
       const bookings = await Transaction.find({
         userId: viewerId,
         courseId: { $in: courseIds },
         status: "PAID",
-      }).select("courseId");
+      }).select("courseId scheduleId");
 
-      bookings.forEach((b) =>
-        bookedCourseIds.add(b.courseId.toString())
-      );
+      bookings.forEach((b) => {
+        bookedCourseIds.add(b.courseId.toString());
+        if (b.scheduleId) {
+          const cId = b.courseId.toString();
+          if (!bookedScheduleMap[cId]) {
+            bookedScheduleMap[cId] = new Set();
+          }
+          bookedScheduleMap[cId].add(b.scheduleId.toString());
+        }
+      });
     }
 
     // ===============================
     // Final formatting
     // ===============================
     const formattedCourses = courses.map((course) => {
+      // Enrich schedules with seat info
+      if (course.schedules && Array.isArray(course.schedules)) {
+        course.schedules = course.schedules.map((schedule) => {
+          const schedId = schedule._id.toString();
+          const acquired = bookingMap[`${course._id}_${schedId}`] || 0;
+          const total = course.totalSeats; // Course-level total seats applies to each schedule
+          const available = Math.max(0, total - acquired);
+
+          // Check if this specific schedule is booked by user
+          const userBookedSchedules = bookedScheduleMap[course._id.toString()];
+          const isScheduleBooked = userBookedSchedules
+            ? userBookedSchedules.has(schedId)
+            : false;
+
+          return {
+            ...schedule,
+            totalSeats: total,
+            acquiredSeats: acquired,
+            availableSeats: available,
+            isFull: available <= 0,
+            isBooked: isScheduleBooked,
+          };
+        });
+      }
+
       const currentSchedule = resolveCurrentSchedule(course.schedules);
+      const sessionStatus = getSessionStatus(currentSchedule);
 
       // images
       if (Array.isArray(course.posterImage)) {
@@ -249,15 +313,20 @@ const getCourses = async (req, res) => {
         duration = h ? (m ? `${h}H ${m}min` : `${h}H`) : `${m}min`;
       }
 
-      const acquiredSeats = bookingMap[course._id.toString()] || 0;
+      // Use course-level booking map for total acquired seats across all schedules (or specific logic?)
+      // Usually "acquiredSeats" on the course object implies generic popularity or total constraints?
+      // For "Ongoing" or "fixedStart", totalSeats is usually per schedule (class capacity).
+      // But let's stick to the requested aggregation logic.
+      const acquiredSeats = courseBookingMap[course._id.toString()] || 0;
 
       return {
         ...course,
         currentSchedule,
+        sessionStatus,
         isAvailable: !!currentSchedule,
         duration,
         acquiredSeats,
-        leftSeats: Math.max(0, course.totalSeats - acquiredSeats),
+        leftSeats: Math.max(0, course.totalSeats - acquiredSeats), // This might be misleading if it aggregates all schedules vs course capacity, but keeping consistent with prev logic
         isBooked: bookedCourseIds.has(course._id.toString()),
       };
     });
@@ -406,6 +475,168 @@ router.post(
   createCourse,
 );
 
+// ---------------------------------------------------------
+// Get Course Details
+// ---------------------------------------------------------
+const getCourseDetails = async (req, res) => {
+  try {
+    const { courseId } = req.params;
+
+    // 1. Fetch Course
+    const course = await Course.findById(courseId)
+      .populate("courseCategory", "name image")
+      .populate("createdBy", "firstName lastName profileImage")
+      .lean();
+
+    if (!course) {
+      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Course not found");
+    }
+
+    // 2. Booking Aggregation (Per Schedule for this Course)
+    // We only need transactions for this specific course
+    const bookings = await Transaction.aggregate([
+      {
+        $match: {
+          courseId: course._id, // Match by ObjectId directly if course._id is ObjectId, or cast if needed (usually auto-cast in mongoose queries but in aggregate be careful)
+          status: "PAID",
+        },
+      },
+      {
+        $group: {
+          _id: "$scheduleId", // Group by scheduleId
+          count: { $sum: 1 },
+        },
+      },
+    ]);
+
+    const bookingMap = {}; // scheduleId -> count
+    let totalAcquiredSeats = 0;
+
+    bookings.forEach((b) => {
+      if (b._id) {
+        bookingMap[b._id.toString()] = b.count;
+      }
+      totalAcquiredSeats += b.count;
+    });
+
+    // 3. Check if Viewer (User) has booked
+    let viewerId = null;
+    const authHeader = req.headers.authorization;
+    let isBooked = false;
+    const bookedScheduleIds = new Set();
+
+    if (authHeader?.startsWith("Bearer ")) {
+      try {
+        const jwt = require("jsonwebtoken");
+        const decoded = jwt.verify(
+          authHeader.split(" ")[1],
+          process.env.JWT_SECRET_KEY
+        );
+        viewerId = decoded.userId;
+      } catch { }
+    }
+
+    if (viewerId) {
+      const existingBookings = await Transaction.find({
+        userId: viewerId,
+        courseId: course._id,
+        status: "PAID",
+      }).select("scheduleId");
+
+      if (existingBookings.length > 0) {
+        isBooked = true;
+        existingBookings.forEach((b) => {
+          if (b.scheduleId) bookedScheduleIds.add(b.scheduleId.toString());
+        });
+      }
+    }
+
+    // 4. Enrich Schedules
+    if (course.schedules && Array.isArray(course.schedules)) {
+      course.schedules = course.schedules.map((schedule) => {
+        const schedId = schedule._id.toString();
+        const acquired = bookingMap[schedId] || 0;
+        const total = course.totalSeats;
+        const available = Math.max(0, total - acquired);
+
+        return {
+          ...schedule,
+          totalSeats: total,
+          acquiredSeats: acquired,
+          availableSeats: available,
+          isFull: available <= 0,
+          isBooked: bookedScheduleIds.has(schedId),
+        };
+      });
+    }
+
+    // 5. Helpers (Duplicate logic from getCourses for standalone consistency)
+    function resolveCurrentSchedule(schedules = []) {
+      const now = new Date();
+      return schedules
+        .map((s) => ({
+          ...s,
+          start: new Date(s.startDate),
+          end: new Date(s.endDate),
+        }))
+        .filter((s) => s.end >= now)
+        .sort((a, b) => a.start - b.start)[0] || null;
+    }
+
+    const currentSchedule = resolveCurrentSchedule(course.schedules);
+    const sessionStatus = getSessionStatus(currentSchedule);
+
+    // 6. Formatting Images
+    if (Array.isArray(course.posterImage)) {
+      course.posterImage = course.posterImage.map(formatResponseUrl);
+    }
+    if (course.courseCategory?.image) {
+      course.courseCategory.image = formatResponseUrl(
+        course.courseCategory.image
+      );
+    }
+    if (course.createdBy?.profileImage) {
+      course.createdBy.profileImage = formatResponseUrl(
+        course.createdBy.profileImage
+      );
+    }
+
+    // 7. Duration
+    let duration = null;
+    if (currentSchedule?.startTime && currentSchedule?.endTime) {
+      const [sh, sm] = currentSchedule.startTime.split(":").map(Number);
+      const [eh, em] = currentSchedule.endTime.split(":").map(Number);
+      let mins = eh * 60 + em - (sh * 60 + sm);
+      if (mins < 0) mins += 1440;
+      const h = Math.floor(mins / 60);
+      const m = mins % 60;
+      duration = h ? (m ? `${h}H ${m}min` : `${h}H`) : `${m}min`;
+    }
+
+    // 8. Final Object Construction
+    const formattedCourse = {
+      ...course,
+      currentSchedule,
+      sessionStatus,
+      isAvailable: !!currentSchedule,
+      duration,
+      acquiredSeats: totalAcquiredSeats,
+      leftSeats: Math.max(0, course.totalSeats - totalAcquiredSeats),
+      isBooked,
+    };
+
+    return apiSuccessRes(
+      HTTP_STATUS.OK,
+      res,
+      constantsMessage.SUCCESS,
+      formattedCourse
+    );
+  } catch (error) {
+    console.error("Error in getCourseDetails:", error);
+    return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
+  }
+};
+
 // Get Courses with Filters
 router.get(
   "/list",
@@ -414,6 +645,9 @@ router.get(
   getCourses,
 );
 
+router.get("/details/:courseId", perApiLimiter(), getCourseDetails);
+
+// Admin List API
 router.get(
   "/admin/list",
   perApiLimiter(),
