@@ -48,7 +48,9 @@ const getCoursesSchema = Joi.object({
             "thisWeek",
             "thisWeekend",
             "thisYear",
-            "recommended"
+            "recommended",
+            "today",
+            "nextWeek"
         )
         .default("all"),
     latitude: Joi.number().when("filter", {
@@ -66,7 +68,7 @@ const getCoursesSchema = Joi.object({
         otherwise: Joi.optional(),
     }),
     radius: Joi.number().min(1).max(500).default(50), // in kilometers
-    categoryId: Joi.string().hex().length(24).optional(),
+    categoryId: Joi.string().optional(),
     search: Joi.string().optional(),
     page: Joi.number().integer().min(1).default(1),
     limit: Joi.number().integer().min(1).max(100).default(10),

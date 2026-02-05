@@ -108,7 +108,12 @@ const getCourses = async (req, res) => {
     let query = {};
 
     if (categoryId) {
-      query.courseCategory = categoryId;
+      const catIds = categoryId.split(',');
+      if (catIds.length > 1) {
+        query.courseCategory = { $in: catIds };
+      } else {
+        query.courseCategory = categoryId;
+      }
     }
 
     if (search) {
@@ -151,25 +156,62 @@ const getCourses = async (req, res) => {
     // ===============================
     if (filter === "upcoming") {
       courses = courses.filter((c) =>
-        c.schedules.some((s) => new Date(s.startDate) > now)
+        (c.schedules || []).some((s) => new Date(s.startDate) > now)
       );
     }
 
     if (filter === "thisWeek") {
       const startOfWeek = new Date(now);
-      startOfWeek.setDate(now.getDate() - now.getDay() + 1);
+      const currentDay = startOfWeek.getDay();
+      const diff = currentDay === 0 ? -6 : 1 - currentDay; // Adjust to Monday
+      startOfWeek.setDate(startOfWeek.getDate() + diff);
       startOfWeek.setHours(0, 0, 0, 0);
 
       const endOfWeek = new Date(startOfWeek);
-      endOfWeek.setDate(startOfWeek.getDate() + 6);
+      endOfWeek.setDate(startOfWeek.getDate() + 6); // Sunday
       endOfWeek.setHours(23, 59, 59, 999);
 
       courses = courses.filter((c) =>
-        c.schedules.some(
+        (c.schedules || []).some(
           (s) =>
             new Date(s.startDate) >= startOfWeek &&
             new Date(s.startDate) <= endOfWeek
         )
+      );
+    }
+
+    if (filter === "today") {
+      const startOfToday = new Date(now);
+      startOfToday.setHours(0, 0, 0, 0);
+      const endOfToday = new Date(now);
+      endOfToday.setHours(23, 59, 59, 999);
+
+      courses = courses.filter((c) =>
+        (c.schedules || []).some(
+          (s) =>
+            new Date(s.startDate) >= startOfToday &&
+            new Date(s.startDate) <= endOfToday,
+        ),
+      );
+    }
+
+    if (filter === "nextWeek") {
+      const startOfNextWeek = new Date(now);
+      const currentDayNW = startOfNextWeek.getDay();
+      const diffNW = currentDayNW === 0 ? -6 : 1 - currentDayNW;
+      startOfNextWeek.setDate(startOfNextWeek.getDate() + diffNW + 7); // Next Monday
+      startOfNextWeek.setHours(0, 0, 0, 0);
+
+      const endOfNextWeek = new Date(startOfNextWeek);
+      endOfNextWeek.setDate(endOfNextWeek.getDate() + 6); // Next Sunday
+      endOfNextWeek.setHours(23, 59, 59, 999);
+
+      courses = courses.filter((c) =>
+        (c.schedules || []).some(
+          (s) =>
+            new Date(s.startDate) >= startOfNextWeek &&
+            new Date(s.startDate) <= endOfNextWeek,
+        ),
       );
     }
 

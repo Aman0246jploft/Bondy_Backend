@@ -168,7 +168,7 @@ const getEvents = async (req, res) => {
 
           city = user?.location?.city || null;
           country = user?.location?.country || null;
-        } catch (err) {}
+        } catch (err) { }
       }
 
       // 🔹 CASE 3: CITY or COUNTRY FILTER
@@ -223,7 +223,12 @@ const getEvents = async (req, res) => {
 
     // Apply category filter if provided
     if (categoryId && categoryId !== "") {
-      query.eventCategory = categoryId;
+      const catIds = categoryId.split(',');
+      if (catIds.length > 1) {
+        query.eventCategory = { $in: catIds };
+      } else {
+        query.eventCategory = categoryId;
+      }
     }
 
     // Apply filter-specific logic
@@ -335,6 +340,35 @@ const getEvents = async (req, res) => {
         query.startDate = {
           $gte: startOfYear,
           $lte: endOfYear,
+        };
+        break;
+
+      case "today":
+        const startOfToday = new Date(now);
+        startOfToday.setHours(0, 0, 0, 0);
+        const endOfToday = new Date(now);
+        endOfToday.setHours(23, 59, 59, 999);
+
+        query.startDate = {
+          $gte: startOfToday,
+          $lte: endOfToday,
+        };
+        break;
+
+      case "nextWeek":
+        const startOfNextWeek = new Date(now);
+        const currentDayNW = startOfNextWeek.getDay();
+        const diffNW = currentDayNW === 0 ? -6 : 1 - currentDayNW;
+        startOfNextWeek.setDate(startOfNextWeek.getDate() + diffNW + 7); // Next Monday
+        startOfNextWeek.setHours(0, 0, 0, 0);
+
+        const endOfNextWeek = new Date(startOfNextWeek);
+        endOfNextWeek.setDate(endOfNextWeek.getDate() + 6); // Next Sunday
+        endOfNextWeek.setHours(23, 59, 59, 999);
+
+        query.startDate = {
+          $gte: startOfNextWeek,
+          $lte: endOfNextWeek,
         };
         break;
 
@@ -522,7 +556,7 @@ const getEventDetails = async (req, res) => {
           status: "PAID",
         });
         if (booking) isBooked = true;
-      } catch (err) {}
+      } catch (err) { }
     }
     event.isBooked = isBooked;
 
@@ -594,9 +628,9 @@ const getEventDetails = async (req, res) => {
       ...r,
       user: r.userId
         ? {
-            ...r.userId,
-            profileImage: formatResponseUrl(r.userId.profileImage),
-          }
+          ...r.userId,
+          profileImage: formatResponseUrl(r.userId.profileImage),
+        }
         : null,
     }));
 
@@ -604,9 +638,9 @@ const getEventDetails = async (req, res) => {
       ...c,
       user: c.user
         ? {
-            ...c.user,
-            profileImage: formatResponseUrl(c.user.profileImage),
-          }
+          ...c.user,
+          profileImage: formatResponseUrl(c.user.profileImage),
+        }
         : null,
     }));
 
