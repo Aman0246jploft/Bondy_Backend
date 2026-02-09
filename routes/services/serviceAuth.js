@@ -27,14 +27,14 @@ async function handleFacebookLogin(req, res) {
     const appToken = `${process.env.FACEBOOK_APP_ID}|${process.env.FACEBOOK_APP_SECRET}`;
 
     const debugRes = await axios.get(
-      `https://graph.facebook.com/debug_token?input_token=${accessToken}&access_token=${appToken}`
+      `https://graph.facebook.com/debug_token?input_token=${accessToken}&access_token=${appToken}`,
     );
     const data = debugRes.data.data;
 
     if (!data.is_valid) throw new Error("Invalid token");
 
     const userInfoRes = await axios.get(
-      `https://graph.facebook.com/me?fields=id,email&access_token=${accessToken}`
+      `https://graph.facebook.com/me?fields=id,email&access_token=${accessToken}`,
     );
     const user = userInfoRes.data;
 

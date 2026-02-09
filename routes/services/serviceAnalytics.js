@@ -1,6 +1,6 @@
 const { Transaction, User, Event, Course } = require("../../db");
 const { roleId } = require("../../utils/Role");
-const { SUCCESS, SERVER_ERROR_CODE, DATA_NULL } = require("../../utils/constants");
+const { SUCCESS, SERVER_ERROR, DATA_NULL } = require("../../utils/constants");
 const { resultDb } = require("../../utils/globalFunction");
 const mongoose = require("mongoose");
 
@@ -51,8 +51,8 @@ const getAdminStats = async () => {
 
         return resultDb(SUCCESS, stats);
     } catch (error) {
-        console.error("Error in getAdminStats:", error);
-        return resultDb(SERVER_ERROR_CODE, DATA_NULL);
+        console.error("Error in getAdminStats service:", error);
+        return resultDb(SERVER_ERROR, DATA_NULL);
     }
 };
 
@@ -79,7 +79,7 @@ const getOrganizerStats = async (organizerId) => {
             Transaction.aggregate([
                 {
                     $lookup: {
-                        from: "Event",
+                        from: "events",
                         localField: "eventId",
                         foreignField: "_id",
                         as: "eventInfo"
@@ -87,7 +87,7 @@ const getOrganizerStats = async (organizerId) => {
                 },
                 {
                     $lookup: {
-                        from: "Course",
+                        from: "courses",
                         localField: "courseId",
                         foreignField: "_id",
                         as: "courseInfo"
@@ -120,8 +120,8 @@ const getOrganizerStats = async (organizerId) => {
 
         return resultDb(SUCCESS, stats);
     } catch (error) {
-        console.error("Error in getOrganizerStats:", error);
-        return resultDb(SERVER_ERROR_CODE, DATA_NULL);
+        console.error("Error in getOrganizerStats service:", error);
+        return resultDb(SERVER_ERROR, DATA_NULL);
     }
 };
 
@@ -146,8 +146,8 @@ const getCustomerStats = async (customerId) => {
 
         return resultDb(SUCCESS, stats[0] || { totalSpent: 0, totalBookings: 0, totalTicketsPurchased: 0 });
     } catch (error) {
-        console.error("Error in getCustomerStats:", error);
-        return resultDb(SERVER_ERROR_CODE, DATA_NULL);
+        console.error("Error in getCustomerStats service:", error);
+        return resultDb(SERVER_ERROR, DATA_NULL);
     }
 };
 
@@ -157,7 +157,7 @@ const getCustomerStats = async (customerId) => {
 const getUserStatsForAdmin = async (targetUserId) => {
     try {
         const user = await User.findById(targetUserId);
-        if (!user) return resultDb(SERVER_ERROR_CODE, "User not found");
+        if (!user) return resultDb(SERVER_ERROR, "User not found");
 
         if (user.roleId === roleId.ORGANISER) {
             return await getOrganizerStats(targetUserId);
@@ -165,8 +165,8 @@ const getUserStatsForAdmin = async (targetUserId) => {
             return await getCustomerStats(targetUserId);
         }
     } catch (error) {
-        console.error("Error in getUserStatsForAdmin:", error);
-        return resultDb(SERVER_ERROR_CODE, DATA_NULL);
+        console.error("Error in getUserStatsForAdmin service:", error);
+        return resultDb(SERVER_ERROR, DATA_NULL);
     }
 };
 

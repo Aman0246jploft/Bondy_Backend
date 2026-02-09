@@ -22,6 +22,7 @@ module.exports = {
   attendee: require("./controller/controllerAttendee"),
   contact: require("./controller/controllerContact"),
   supportTicket: require("./controller/controllerSupportTicket"),
+  organizerStats: require("./controller/controllerOrganizerStats"),
 };
 
 

@@ -6,8 +6,15 @@ const {
   DATA_NULL,
 } = require("../../utils/constants");
 const { resultDb } = require("../../utils/globalFunction");
-const { sendFirebaseNotification } = require("../../utils/firebasePushNotification");
-const { addJobToQueue, createQueue, processQueue, handleQueueEvents } = require("./serviceBull");
+const {
+  sendFirebaseNotification,
+} = require("../../utils/firebasePushNotification");
+const {
+  addJobToQueue,
+  createQueue,
+  processQueue,
+  handleQueueEvents,
+} = require("./serviceBull");
 
 // Initialize Notification Queue
 const notificationQueue = createQueue("notificationQueue");
@@ -18,7 +25,17 @@ handleQueueEvents(notificationQueue);
  * This handles the actual DB insertion and Push Notification delivery
  */
 const notificationProcessor = async (job) => {
-  const { recipient, sender, type, title, message, relatedId, onModel, metadata, deepLink } = job.data;
+  const {
+    recipient,
+    sender,
+    type,
+    title,
+    message,
+    relatedId,
+    onModel,
+    metadata,
+    deepLink,
+  } = job.data;
 
   try {
     // 1. Save to Database
@@ -31,7 +48,7 @@ const notificationProcessor = async (job) => {
       relatedId,
       onModel,
       metadata,
-      deepLink
+      deepLink,
     });
 
     // 2. Fetch recipient's FCM token
@@ -43,7 +60,7 @@ const notificationProcessor = async (job) => {
         token: user.fmcToken,
         title,
         body: message,
-        imageUrl: metadata?.imageUrl || null
+        imageUrl: metadata?.imageUrl || null,
       });
     }
 
@@ -89,7 +106,11 @@ const getUserNotifications = async (payload) => {
       .limit(size)
       .lean();
 
-    const totalUnread = await Notification.countDocuments({ recipient, isRead: false, isDeleted: false });
+    const totalUnread = await Notification.countDocuments({
+      recipient,
+      isRead: false,
+      isDeleted: false,
+    });
 
     return resultDb(SUCCESS, {
       total,
@@ -110,7 +131,7 @@ const markRead = async (notificationId, recipient) => {
     const notification = await Notification.findOneAndUpdate(
       { _id: notificationId, recipient },
       { isRead: true },
-      { new: true }
+      { new: true },
     );
 
     if (!notification) {
@@ -129,7 +150,10 @@ const markRead = async (notificationId, recipient) => {
  */
 const markAllRead = async (recipient) => {
   try {
-    await Notification.updateMany({ recipient, isRead: false }, { isRead: true });
+    await Notification.updateMany(
+      { recipient, isRead: false },
+      { isRead: true },
+    );
     return resultDb(SUCCESS, { message: "All notifications marked as read" });
   } catch (error) {
     console.error("Error marking all notifications as read:", error);
@@ -145,7 +169,7 @@ const deleteNotification = async (notificationId, recipient) => {
     const notification = await Notification.findOneAndUpdate(
       { _id: notificationId, recipient },
       { isDeleted: true },
-      { new: true }
+      { new: true },
     );
 
     if (!notification) {
