@@ -9,6 +9,8 @@ mongoose
   .then(() => {
     const endTime = Date.now();
     console.log(`✅ DB Connected successfully in ${endTime - startTime}ms`);
+    require("../cron/eventStatus.cron");
+    require("../cron/bookingCleanup.cron");
   })
   .catch((err) => {
     console.error("❌ DB Connection Error:", err.message);

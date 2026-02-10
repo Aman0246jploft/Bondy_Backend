@@ -449,10 +449,11 @@ const confirmPayment = async (req, res) => {
       type: "TICKET_SALE",
       transactionId: transaction._id,
       balanceAfter: (await User.findById(organizerId)).payoutBalance, // Fetch fresh or calculate
-      description: `Ticket Sale: ${transaction.bookingType === "EVENT"
-        ? transaction.eventId.eventTitle || "Event"
-        : transaction.courseId.courseTitle || "Course"
-        }`,
+      description: `Ticket Sale: ${
+        transaction.bookingType === "EVENT"
+          ? transaction.eventId.eventTitle || "Event"
+          : transaction.courseId.courseTitle || "Course"
+      }`,
     });
     await walletEntry.save();
 
@@ -845,11 +846,11 @@ const getEventAttendeesList = async (req, res) => {
           checkedInAt: transaction.checkedInAt,
           checkedInBy: checkedInByUser
             ? {
-              _id: checkedInByUser._id,
-              firstName: checkedInByUser.firstName,
-              lastName: checkedInByUser.lastName,
-              email: checkedInByUser.email,
-            }
+                _id: checkedInByUser._id,
+                firstName: checkedInByUser.firstName,
+                lastName: checkedInByUser.lastName,
+                email: checkedInByUser.email,
+              }
             : null,
         },
         bookingDate: transaction.createdAt,

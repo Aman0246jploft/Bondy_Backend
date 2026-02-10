@@ -59,7 +59,6 @@ const createCourse = async (req, res) => {
   }
 };
 
-
 function getSessionStatus(schedule) {
   if (!schedule) return "PAST";
 
@@ -92,14 +91,16 @@ const getCourses = async (req, res) => {
     //Helper: resolve current schedule
     // ===============================
     function resolveCurrentSchedule(schedules = []) {
-      return schedules
-        .map((s) => ({
-          ...s,
-          start: new Date(s.startDate),
-          end: new Date(s.endDate),
-        }))
-        .filter((s) => s.end >= now)
-        .sort((a, b) => a.start - b.start)[0] || null;
+      return (
+        schedules
+          .map((s) => ({
+            ...s,
+            start: new Date(s.startDate),
+            end: new Date(s.endDate),
+          }))
+          .filter((s) => s.end >= now)
+          .sort((a, b) => a.start - b.start)[0] || null
+      );
     }
 
     // ===============================
@@ -108,7 +109,7 @@ const getCourses = async (req, res) => {
     let query = {};
 
     if (categoryId) {
-      const catIds = categoryId.split(',');
+      const catIds = categoryId.split(",");
       if (catIds.length > 1) {
         query.courseCategory = { $in: catIds };
       } else {
@@ -156,7 +157,7 @@ const getCourses = async (req, res) => {
     // ===============================
     if (filter === "upcoming") {
       courses = courses.filter((c) =>
-        (c.schedules || []).some((s) => new Date(s.startDate) > now)
+        (c.schedules || []).some((s) => new Date(s.startDate) > now),
       );
     }
 
@@ -175,8 +176,8 @@ const getCourses = async (req, res) => {
         (c.schedules || []).some(
           (s) =>
             new Date(s.startDate) >= startOfWeek &&
-            new Date(s.startDate) <= endOfWeek
-        )
+            new Date(s.startDate) <= endOfWeek,
+        ),
       );
     }
 
@@ -267,10 +268,10 @@ const getCourses = async (req, res) => {
         const jwt = require("jsonwebtoken");
         const decoded = jwt.verify(
           authHeader.split(" ")[1],
-          process.env.JWT_SECRET_KEY
+          process.env.JWT_SECRET_KEY,
         );
         viewerId = decoded.userId;
-      } catch { }
+      } catch {}
     }
 
     const bookedCourseIds = new Set(); // Set of "courseId"
@@ -333,12 +334,12 @@ const getCourses = async (req, res) => {
       }
       if (course.courseCategory?.image) {
         course.courseCategory.image = formatResponseUrl(
-          course.courseCategory.image
+          course.courseCategory.image,
         );
       }
       if (course.createdBy?.profileImage) {
         course.createdBy.profileImage = formatResponseUrl(
-          course.createdBy.profileImage
+          course.createdBy.profileImage,
         );
       }
 
@@ -403,7 +404,6 @@ const getCourses = async (req, res) => {
     return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
   }
 };
-
 
 // Admin List API
 const getCoursesAdmin = async (req, res) => {
@@ -572,10 +572,10 @@ const getCourseDetails = async (req, res) => {
         const jwt = require("jsonwebtoken");
         const decoded = jwt.verify(
           authHeader.split(" ")[1],
-          process.env.JWT_SECRET_KEY
+          process.env.JWT_SECRET_KEY,
         );
         viewerId = decoded.userId;
-      } catch { }
+      } catch {}
     }
 
     if (viewerId) {
@@ -615,14 +615,16 @@ const getCourseDetails = async (req, res) => {
     // 5. Helpers (Duplicate logic from getCourses for standalone consistency)
     function resolveCurrentSchedule(schedules = []) {
       const now = new Date();
-      return schedules
-        .map((s) => ({
-          ...s,
-          start: new Date(s.startDate),
-          end: new Date(s.endDate),
-        }))
-        .filter((s) => s.end >= now)
-        .sort((a, b) => a.start - b.start)[0] || null;
+      return (
+        schedules
+          .map((s) => ({
+            ...s,
+            start: new Date(s.startDate),
+            end: new Date(s.endDate),
+          }))
+          .filter((s) => s.end >= now)
+          .sort((a, b) => a.start - b.start)[0] || null
+      );
     }
 
     const currentSchedule = resolveCurrentSchedule(course.schedules);
@@ -634,12 +636,12 @@ const getCourseDetails = async (req, res) => {
     }
     if (course.courseCategory?.image) {
       course.courseCategory.image = formatResponseUrl(
-        course.courseCategory.image
+        course.courseCategory.image,
       );
     }
     if (course.createdBy?.profileImage) {
       course.createdBy.profileImage = formatResponseUrl(
-        course.createdBy.profileImage
+        course.createdBy.profileImage,
       );
     }
 
@@ -671,7 +673,7 @@ const getCourseDetails = async (req, res) => {
       HTTP_STATUS.OK,
       res,
       constantsMessage.SUCCESS,
-      formattedCourse
+      formattedCourse,
     );
   } catch (error) {
     console.error("Error in getCourseDetails:", error);

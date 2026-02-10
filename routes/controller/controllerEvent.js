@@ -223,7 +223,7 @@ const getEvents = async (req, res) => {
 
     // Apply category filter if provided
     if (categoryId && categoryId !== "") {
-      const catIds = categoryId.split(',');
+      const catIds = categoryId.split(",");
       if (catIds.length > 1) {
         query.eventCategory = { $in: catIds };
       } else {
@@ -510,7 +510,7 @@ const getEvents = async (req, res) => {
   }
 };
 
-// Get Single Event Details
+// Admint Get Single Event Details
 const getEventDetails = async (req, res) => {
   try {
     const { eventId } = req.params;
@@ -668,6 +668,144 @@ const getEventDetails = async (req, res) => {
   }
 };
 
+// Get Events for Organizer
+const getEventsByOrganizer = async (req, res) => {
+  try {
+    const { categoryId, search, page = 1, limit = 10, status } = req.query;
+    const userId = req.user.userId;
+
+    const skip = (page - 1) * limit;
+    let query = { createdBy: userId };
+
+    const now = new Date();
+
+    // Apply status filter
+    if (status && status !== "all") {
+      if (status === "upcoming") {
+        query.endDate = { $gte: now };
+        query.startDate = { $gt: now };
+      } else if (status === "past") {
+        query.endDate = { $lt: now };
+      } else if (status === "ongoing") {
+        query.startDate = { $lte: now };
+        query.endDate = { $gte: now };
+      }
+    }
+
+    // Apply category filter
+    if (categoryId && categoryId !== "") {
+      query.eventCategory = categoryId;
+    }
+
+    // Apply search
+    if (search) {
+      query.$or = [
+        { eventTitle: { $regex: search, $options: "i" } },
+        { shortdesc: { $regex: search, $options: "i" } },
+        { tags: { $regex: search, $options: "i" } },
+      ];
+    }
+
+    // Execute query
+    const events = await Event.find(query)
+      .populate("eventCategory", "name image")
+      .populate("createdBy", "firstName lastName profileImage")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit))
+      .lean();
+
+    const totalCount = await Event.countDocuments(query);
+
+    // Calculate Revenue
+    const eventIds = events.map((e) => e._id);
+    const revenues = await Transaction.aggregate([
+      {
+        $match: {
+          eventId: { $in: eventIds },
+          status: "PAID",
+          bookingType: "EVENT",
+        },
+      },
+      {
+        $group: {
+          _id: "$eventId",
+          totalRevenue: { $sum: "$totalAmount" },
+        },
+      },
+    ]);
+
+    const revenueMap = {};
+    revenues.forEach((r) => {
+      revenueMap[r._id.toString()] = r.totalRevenue;
+    });
+
+    // Format fields
+    const formattedEvents = events.map((event) => {
+      if (Array.isArray(event.posterImage)) {
+        event.posterImage = event.posterImage.map((img) =>
+          formatResponseUrl(img),
+        );
+      }
+      if (event.eventCategory && event.eventCategory.image) {
+        event.eventCategory.image = formatResponseUrl(
+          event.eventCategory.image,
+        );
+      }
+      if (event.createdBy && event.createdBy.profileImage) {
+        event.createdBy.profileImage = formatResponseUrl(
+          event.createdBy.profileImage,
+        );
+      }
+
+      // Calculate Duration
+      let duration = null;
+      if (event.startDate && event.endDate) {
+        const start = new Date(event.startDate);
+        const end = new Date(event.endDate);
+        const diffMs = end - start;
+        if (diffMs > 0) {
+          const hours = Math.floor(diffMs / (1000 * 60 * 60));
+          const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+          if (hours > 0 && minutes > 0) duration = `${hours}H ${minutes}min`;
+          else if (hours > 0) duration = `${hours}H`;
+          else duration = `${minutes}min`;
+        }
+      }
+      event.duration = duration;
+
+      event.totalSeats = event.totalTickets || 0;
+      event.leftSeats = event.ticketQtyAvailable || 0;
+      event.acquiredSeats =
+        (event.totalTickets || 0) - (event.ticketQtyAvailable || 0);
+
+      // Status field logic
+      let eventStatus = "Upcoming";
+      if (event.endDate < now) {
+        eventStatus = "Past";
+      } else if (now >= event.startDate && now <= event.endDate) {
+        eventStatus = "Ongoing";
+      }
+      event.status = eventStatus;
+
+      // Add Revenue
+      event.totalRevenue = revenueMap[event._id.toString()] || 0;
+
+      return event;
+    });
+
+    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.EVENTS_FETCHED, {
+      events: formattedEvents,
+      total: totalCount,
+      page: parseInt(page),
+      limit: parseInt(limit),
+    });
+  } catch (error) {
+    console.error("Error in getEventsByOrganizer:", error);
+    return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
+  }
+};
+
 // Admin List API
 const getEventsAdmin = async (req, res) => {
   try {
@@ -755,6 +893,59 @@ const getEventsAdmin = async (req, res) => {
   }
 };
 
+// Get Organizer Stats (Revenue & Attendees)
+const getOrganizerStats = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+
+    // fetch all events by this organizer
+    const events = await Event.find({ createdBy: userId }).select("_id").lean();
+    const eventIds = events.map((e) => e._id);
+
+    if (eventIds.length === 0) {
+      return apiSuccessRes(
+        HTTP_STATUS.OK,
+        res,
+        "Stats fetched successfully",
+        {
+          totalRevenue: 0,
+          totalAttendees: 0,
+        },
+      );
+    }
+
+    const stats = await Transaction.aggregate([
+      {
+        $match: {
+          eventId: { $in: eventIds },
+          status: "PAID",
+          bookingType: "EVENT",
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          totalRevenue: { $sum: "$totalAmount" },
+          totalAttendees: { $sum: "$qty" },
+        },
+      },
+    ]);
+
+    const result =
+      stats.length > 0
+        ? stats[0]
+        : { totalRevenue: 0, totalAttendees: 0 };
+
+    return apiSuccessRes(HTTP_STATUS.OK, res, "Stats fetched successfully", {
+      totalRevenue: result.totalRevenue || 0,
+      totalAttendees: result.totalAttendees || 0,
+    });
+  } catch (error) {
+    console.error("Error in getOrganizerStats:", error);
+    return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
+  }
+};
+
 router.post(
   "/create",
   perApiLimiter(),
@@ -768,6 +959,21 @@ router.get(
   perApiLimiter(),
   validateRequest(getEventsSchema),
   getEvents,
+);
+
+// this is for the organizer Pannel
+router.get(
+  "/organizer/list",
+  perApiLimiter(),
+  checkRole([roleId.ORGANISER]),
+  getEventsByOrganizer,
+);
+
+router.get(
+  "/organizer/stats",
+  perApiLimiter(),
+  checkRole([roleId.ORGANISER]),
+  getOrganizerStats,
 );
 
 router.get(
