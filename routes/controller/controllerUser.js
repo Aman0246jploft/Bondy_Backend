@@ -768,7 +768,7 @@ const selfProfile = async (req, res) => {
     const userId = req.user.userId;
     req.params.userId = userId;
     await getUserProfileById(req, res);
-  } catch (error) {}
+  } catch (error) { }
 };
 
 const getUserProfileById = async (req, res) => {
