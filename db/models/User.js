@@ -109,7 +109,7 @@ const UserSchema = new Schema(
           name: {
             type: String,
             enum: ["Business Proof", "Gov ID"],
-            default: null
+            default: null,
           }, // Document name/title
           file: { type: String, default: null }, // the document URL or filename
           status: {
@@ -123,6 +123,13 @@ const UserSchema = new Schema(
       ],
       default: [], // empty array if no documents
     },
+
+    isVerified: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+
     countryCode: {
       type: String,
       trim: true,
@@ -191,6 +198,46 @@ UserSchema.pre("save", async function (next) {
   } catch (err) {
     next(err);
   }
+});
+function getLatestDocsByName(documents) {
+  const map = new Map();
+
+  for (const doc of documents) {
+    // override older ones with newer ones
+    map.set(doc.name, doc);
+  }
+
+  return Array.from(map.values());
+}
+
+
+UserSchema.pre("save", function (next) {
+  const REQUIRED_DOCS = ["Business Proof", "Gov ID"];
+
+  const latestDocs = getLatestDocsByName(this.documents);
+
+  const approvedDocs = latestDocs.filter((doc) => doc.status === "approved");
+
+  const approvedNames = approvedDocs.map((d) => d.name);
+
+  const isVerified = REQUIRED_DOCS.every((docName) =>
+    approvedNames.includes(docName),
+  );
+
+  this.isVerified = isVerified;
+
+  // keep organizerVerificationStatus in sync
+  if (isVerified) {
+    this.organizerVerificationStatus = "approved";
+  } else if (latestDocs.some((d) => d.status === "rejected")) {
+    this.organizerVerificationStatus = "rejected";
+  } else if (latestDocs.length) {
+    this.organizerVerificationStatus = "pending";
+  } else {
+    this.organizerVerificationStatus = "unverified";
+  }
+
+  next();
 });
 
 UserSchema.options.toJSON = {

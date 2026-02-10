@@ -1,4 +1,5 @@
 const express = require("express");
+const mongoose = require("mongoose");
 const router = express.Router();
 const {
   Event,
@@ -595,7 +596,7 @@ const getEventDetails = async (req, res) => {
     }
 
     // 3. Parallel Fetch for Related Data
-    const [reviews, comments, totalAttendees, recentAttendees] =
+    const [reviews, comments, totalAttendeesAgg, recentTransactions] =
       await Promise.all([
         // Top 5 Reviews
         Review.find({ entityId: eventId, entityModel: "Event" })
@@ -611,17 +612,53 @@ const getEventDetails = async (req, res) => {
           .populate("user", "firstName lastName profileImage")
           .lean(),
 
-        // Total Attendees Count
-        Attendee.countDocuments({ eventId: eventId }),
+        // Total Attendees Count (Sum of qty from PAID event transactions)
+        Transaction.aggregate([
+          {
+            $match: {
+              eventId: new mongoose.Types.ObjectId(eventId),
+              status: "PAID",
+              bookingType: "EVENT",
+            },
+          },
+          {
+            $group: {
+              _id: null,
+              totalQty: { $sum: "$qty" },
+            },
+          },
+        ]),
 
-        // Top 5 Attendees (Profile Pics)
-        Attendee.find({ eventId: eventId })
+        // Recent Bookers (Transactions)
+        Transaction.find({
+          eventId: eventId,
+          status: "PAID",
+          bookingType: "EVENT",
+        })
           .sort({ createdAt: -1 })
-          .limit(5)
-          .populate("userId", "profileImage")
-          .select("userId")
+          .limit(10) // Limit to 10 to get some unique users
+          .populate("userId", "firstName lastName profileImage")
           .lean(),
       ]);
+
+    const totalAttendees =
+      totalAttendeesAgg.length > 0 ? totalAttendeesAgg[0].totalQty : 0;
+
+    // Deduplicate users for recent bookers
+    const uniqueUsers = [];
+    const seenUserIds = new Set();
+    for (const t of recentTransactions) {
+      if (t.userId && !seenUserIds.has(t.userId._id.toString())) {
+        uniqueUsers.push({
+          _id: t.userId._id,
+          firstName: t.userId.firstName,
+          lastName: t.userId.lastName,
+          profileImage: formatResponseUrl(t.userId.profileImage),
+        });
+        seenUserIds.add(t.userId._id.toString());
+      }
+      if (uniqueUsers.length >= 5) break;
+    }
 
     // Format Related Data
     const formattedReviews = reviews.map((r) => ({
@@ -644,10 +681,6 @@ const getEventDetails = async (req, res) => {
         : null,
     }));
 
-    const formattedAttendees = recentAttendees
-      .map((a) => (a.userId ? formatResponseUrl(a.userId.profileImage) : null))
-      .filter(Boolean); // Remove nulls
-
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
@@ -658,7 +691,7 @@ const getEventDetails = async (req, res) => {
         comments: formattedComments,
         attendees: {
           total: totalAttendees,
-          recent: formattedAttendees,
+          recent: uniqueUsers,
         },
       },
     );
@@ -985,5 +1018,83 @@ router.get(
 );
 
 router.get("/details/:eventId", perApiLimiter(), getEventDetails);
+
+// Get All Event Attendees
+const getAllEventAttendees = async (req, res) => {
+  try {
+    const { eventId } = req.params;
+    const { search } = req.query;
+
+    const event = await Event.findById(eventId)
+      .populate("createdBy", "firstName lastName profileImage")
+      .select("createdBy eventTitle")
+      .lean();
+
+    if (!event) {
+      return apiErrorRes(
+        HTTP_STATUS.NOT_FOUND,
+        res,
+        constantsMessage.EVENT_NOT_FOUND,
+      );
+    }
+
+    // Format host image
+    if (event.createdBy && event.createdBy.profileImage) {
+      event.createdBy.profileImage = formatResponseUrl(
+        event.createdBy.profileImage,
+      );
+    }
+
+    // Fetch all PAID transactions for this event
+    const transactions = await Transaction.find({
+      eventId: eventId,
+      status: "PAID",
+      bookingType: "EVENT",
+    })
+      .populate("userId", "firstName lastName profileImage")
+      .sort({ createdAt: -1 })
+      .lean();
+
+    // Deduplicate users
+    const uniqueUsers = [];
+    const seenUserIds = new Set();
+
+    for (const t of transactions) {
+      if (t.userId && !seenUserIds.has(t.userId._id.toString())) {
+        const user = t.userId;
+        // Filter by search if provided
+        if (search) {
+          const fullName = `${user.firstName} ${user.lastName}`.toLowerCase();
+          if (!fullName.includes(search.toLowerCase())) continue;
+        }
+
+        uniqueUsers.push({
+          _id: user._id,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          profileImage: formatResponseUrl(user.profileImage),
+          ticketsBought: t.qty, // Optional: show how many tickets they bought
+        });
+        seenUserIds.add(user._id.toString());
+      }
+    }
+
+    return apiSuccessRes(
+      HTTP_STATUS.OK,
+      res,
+      "Event attendees fetched",
+      {
+        host: event.createdBy,
+        eventTitle: event.eventTitle,
+        attendees: uniqueUsers,
+      },
+    );
+  } catch (error) {
+    console.error("Error in getAllEventAttendees:", error);
+    return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
+  }
+};
+
+router.get("/attendees/:eventId", perApiLimiter(), getAllEventAttendees);
 
 module.exports = router;
