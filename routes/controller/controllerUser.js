@@ -13,6 +13,7 @@ const {
   formatResponseUrl,
 } = require("../../utils/globalFunction");
 const { signToken } = require("../../utils/jwtTokenUtils");
+const jwt = require("jsonwebtoken");
 const {
   customerSignupSchema,
   organizerSignupSchema,
@@ -780,10 +781,12 @@ const getUserProfileById = async (req, res) => {
     const authHeader = req.headers.authorization;
     if (authHeader && authHeader.startsWith("Bearer ")) {
       const token = authHeader.split(" ")[1];
+
       try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY);
         viewerId = decoded.userId;
       } catch (err) {
+        console.log(err);
         // Invalid token - treat as guest
       }
     }
@@ -830,14 +833,22 @@ const getUserProfileById = async (req, res) => {
 
     // Check if viewer follows this user
     let isFollowed = false;
+
     if (viewerId) {
       const followRecord = await Follow.findOne({
         fromUser: viewerId,
         toUser: userId,
       });
+
       if (followRecord) {
         isFollowed = true;
       }
+    }
+
+    // Check if it is my profile
+    let isMyProfile = false;
+    if (viewerId === userId) {
+      isMyProfile = true;
     }
 
     // Map roleId to string
@@ -866,6 +877,7 @@ const getUserProfileById = async (req, res) => {
       totalAttended: totalAttended,
       totalInterests: totalInterests,
       isFollowed: isFollowed,
+      isMyProfile: isMyProfile,
       totalFollowers: 0, // Default to 0, overwritten if organizer/relevant
     };
 
@@ -899,102 +911,104 @@ const getUserProfileById = async (req, res) => {
       });
       profileData.totalCoursesAdded = totalCourses; // "total course he added"
 
-      // Get all events created by this organizer
-      const events = await Event.find({
-        createdBy: userId,
-      })
-        .populate("eventCategory", "name")
-        .sort({ startDate: -1 })
-        .lean();
-
-      // Get all courses created by this organizer
-      const courses = await Course.find({
-        createdBy: userId,
-      })
-        .populate("courseCategory", "name")
-        .sort({ createdAt: -1 })
-        .lean();
-
       const now = new Date();
 
-      // Separate events into next and past
-      const nextEvents = [];
-      const pastEvents = [];
+      // -- EVENTS --
+      const nextEventsQuery = Event.find({
+        createdBy: userId,
+        endDate: { $gte: now },
+      })
+        .populate("eventCategory", "name")
+        .sort({ startDate: 1 }) // Soonest first
+        .limit(4)
+        .lean();
 
-      events.forEach((event) => {
+      const pastEventsQuery = Event.find({
+        createdBy: userId,
+        endDate: { $lt: now },
+      })
+        .populate("eventCategory", "name")
+        .sort({ startDate: -1 }) // Most recent past first
+        .limit(4)
+        .lean();
+
+      // -- COURSES --
+      // For courses, "next" means any schedule has endDate >= now
+      // "past" means all schedules have endDate < now
+      // Querying based on schedules array is complex for exact limits in one query without aggregation.
+      // To ensure we get 4 of each, we might need a more complex query or aggregation.
+      // BUT for simplicity and since courses might be fewer, or to match the "event" logic which is strictly date based:
+      // Course structure has `schedules` array.
+      // Let's use aggregation to filter and limit.
+
+      const nextCoursesQuery = Course.find({
+        createdBy: userId,
+        "schedules.endDate": { $gte: now },
+      })
+        .populate("courseCategory", "name")
+        .sort({ "schedules.startDate": 1 })
+        .limit(4)
+        .lean();
+
+      // Past courses: NONE of the schedules should be in the future
+      // So every schedule.endDate < now
+      const pastCoursesQuery = Course.find({
+        createdBy: userId,
+        "schedules.endDate": { $lt: now },
+        // Ensure no schedule is future
+        // This logic 'schedules.endDate': { $not: { $gte: now } }
+        // or simpler: NOT (schedules.endDate >= now)
+        schedules: {
+          $not: { $elemMatch: { endDate: { $gte: now } } }
+        }
+      })
+        .populate("courseCategory", "name")
+        .sort({ "schedules.endDate": -1 })
+        .limit(4)
+        .lean();
+
+      const [nextEventsRaw, pastEventsRaw, nextCoursesRaw, pastCoursesRaw] =
+        await Promise.all([
+          nextEventsQuery,
+          pastEventsQuery,
+          nextCoursesQuery,
+          pastCoursesQuery,
+        ]);
+
+      // Helper to format event
+      const formatEvent = (event) => {
         const eventObj = { ...event };
-
-        // Format poster images
         if (Array.isArray(eventObj.posterImage)) {
-          eventObj.posterImage = eventObj.posterImage.map((img) =>
-            formatResponseUrl(img),
-          );
+          eventObj.posterImage = eventObj.posterImage.map((img) => formatResponseUrl(img));
         }
-
-        // Format media links
         if (Array.isArray(eventObj.mediaLinks)) {
-          eventObj.mediaLinks = eventObj.mediaLinks.map((link) =>
-            formatResponseUrl(link),
-          );
+          eventObj.mediaLinks = eventObj.mediaLinks.map((link) => formatResponseUrl(link));
         }
-
-        // Format teaser videos
         if (Array.isArray(eventObj.shortTeaserVideo)) {
-          eventObj.shortTeaserVideo = eventObj.shortTeaserVideo.map((video) =>
-            formatResponseUrl(video),
-          );
+          eventObj.shortTeaserVideo = eventObj.shortTeaserVideo.map((video) => formatResponseUrl(video));
         }
+        return eventObj;
+      };
 
-        if (new Date(event.endDate) >= now) {
-          nextEvents.push(eventObj);
-        } else {
-          pastEvents.push(eventObj);
-        }
-      });
-
-      // Separate courses into next and past (based on schedules)
-      const nextCourses = [];
-      const pastCourses = [];
-
-      courses.forEach((course) => {
+      // Helper to format course
+      const formatCourse = (course) => {
         const courseObj = { ...course };
-
-        // Format poster images
         if (Array.isArray(courseObj.posterImage)) {
-          courseObj.posterImage = courseObj.posterImage.map((img) =>
-            formatResponseUrl(img),
-          );
+          courseObj.posterImage = courseObj.posterImage.map((img) => formatResponseUrl(img));
         }
-
-        // Check if course has any future schedules
-        const hasFutureSchedule =
-          course.schedules &&
-          course.schedules.some(
-            (schedule) => new Date(schedule.endDate) >= now,
-          );
-
-        if (
-          hasFutureSchedule ||
-          !course.schedules ||
-          course.schedules.length === 0
-        ) {
-          // If no schedules or has future schedules, consider it next
-          nextCourses.push(courseObj);
-        } else {
-          // All schedules are past
-          pastCourses.push(courseObj);
-        }
-      });
+        return courseObj;
+      };
 
       profileData.events = {
-        next: nextEvents,
-        past: pastEvents,
+        next: nextEventsRaw.map(formatEvent),
+        past: pastEventsRaw.map(formatEvent),
       };
 
       profileData.courses = {
-        next: nextCourses,
-        past: pastCourses,
+        next: nextCoursesRaw.map(formatCourse),
+        past: pastCoursesRaw.map(formatCourse),
       };
+
     }
 
     return apiSuccessRes(

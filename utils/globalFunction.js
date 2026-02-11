@@ -17,7 +17,7 @@ const apiSuccessRes = (
   code = CONSTANTS.ERROR_CODE_ZERO,
   error = CONSTANTS.ERROR_FALSE,
   token,
-  currentDate
+  currentDate,
 ) => {
   return res.status(200).json({
     message: message,
@@ -35,7 +35,7 @@ const apiErrorRes = (
   message = CONSTANTS.DATA_NULL,
   data = CONSTANTS.DATA_NULL,
   code = CONSTANTS.ERROR_CODE_ONE,
-  error = CONSTANTS.ERROR_TRUE
+  error = CONSTANTS.ERROR_TRUE,
 ) => {
   return res.status(200).json({
     message: message,

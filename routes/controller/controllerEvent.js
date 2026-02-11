@@ -169,7 +169,7 @@ const getEvents = async (req, res) => {
 
           city = user?.location?.city || null;
           country = user?.location?.country || null;
-        } catch (err) { }
+        } catch (err) {}
       }
 
       // 🔹 CASE 3: CITY or COUNTRY FILTER
@@ -557,7 +557,7 @@ const getEventDetails = async (req, res) => {
           status: "PAID",
         });
         if (booking) isBooked = true;
-      } catch (err) { }
+      } catch (err) {}
     }
     event.isBooked = isBooked;
 
@@ -665,9 +665,9 @@ const getEventDetails = async (req, res) => {
       ...r,
       user: r.userId
         ? {
-          ...r.userId,
-          profileImage: formatResponseUrl(r.userId.profileImage),
-        }
+            ...r.userId,
+            profileImage: formatResponseUrl(r.userId.profileImage),
+          }
         : null,
     }));
 
@@ -675,9 +675,9 @@ const getEventDetails = async (req, res) => {
       ...c,
       user: c.user
         ? {
-          ...c.user,
-          profileImage: formatResponseUrl(c.user.profileImage),
-        }
+            ...c.user,
+            profileImage: formatResponseUrl(c.user.profileImage),
+          }
         : null,
     }));
 
@@ -936,15 +936,10 @@ const getOrganizerStats = async (req, res) => {
     const eventIds = events.map((e) => e._id);
 
     if (eventIds.length === 0) {
-      return apiSuccessRes(
-        HTTP_STATUS.OK,
-        res,
-        "Stats fetched successfully",
-        {
-          totalRevenue: 0,
-          totalAttendees: 0,
-        },
-      );
+      return apiSuccessRes(HTTP_STATUS.OK, res, "Stats fetched successfully", {
+        totalRevenue: 0,
+        totalAttendees: 0,
+      });
     }
 
     const stats = await Transaction.aggregate([
@@ -965,9 +960,7 @@ const getOrganizerStats = async (req, res) => {
     ]);
 
     const result =
-      stats.length > 0
-        ? stats[0]
-        : { totalRevenue: 0, totalAttendees: 0 };
+      stats.length > 0 ? stats[0] : { totalRevenue: 0, totalAttendees: 0 };
 
     return apiSuccessRes(HTTP_STATUS.OK, res, "Stats fetched successfully", {
       totalRevenue: result.totalRevenue || 0,
@@ -978,46 +971,6 @@ const getOrganizerStats = async (req, res) => {
     return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
   }
 };
-
-router.post(
-  "/create",
-  perApiLimiter(),
-  checkRole([roleId.ORGANISER]),
-  validateRequest(createEventSchema),
-  createEvent,
-);
-// this is for the customer Pannel
-router.get(
-  "/list",
-  perApiLimiter(),
-  validateRequest(getEventsSchema),
-  getEvents,
-);
-
-// this is for the organizer Pannel
-router.get(
-  "/organizer/list",
-  perApiLimiter(),
-  checkRole([roleId.ORGANISER]),
-  getEventsByOrganizer,
-);
-
-router.get(
-  "/organizer/stats",
-  perApiLimiter(),
-  checkRole([roleId.ORGANISER]),
-  getOrganizerStats,
-);
-
-router.get(
-  "/admin/list",
-  perApiLimiter(),
-  checkRole([roleId.SUPER_ADMIN]),
-  validateRequest(getEventsSchema),
-  getEventsAdmin,
-);
-
-router.get("/details/:eventId", perApiLimiter(), getEventDetails);
 
 // Get All Event Attendees
 const getAllEventAttendees = async (req, res) => {
@@ -1079,21 +1032,56 @@ const getAllEventAttendees = async (req, res) => {
       }
     }
 
-    return apiSuccessRes(
-      HTTP_STATUS.OK,
-      res,
-      "Event attendees fetched",
-      {
-        host: event.createdBy,
-        eventTitle: event.eventTitle,
-        attendees: uniqueUsers,
-      },
-    );
+    return apiSuccessRes(HTTP_STATUS.OK, res, "Event attendees fetched", {
+      host: event.createdBy,
+      eventTitle: event.eventTitle,
+      attendees: uniqueUsers,
+    });
   } catch (error) {
     console.error("Error in getAllEventAttendees:", error);
     return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
   }
 };
+
+router.post(
+  "/create",
+  perApiLimiter(),
+  checkRole([roleId.ORGANISER]),
+  validateRequest(createEventSchema),
+  createEvent,
+);
+// this is for the customer Pannel
+router.get(
+  "/list",
+  perApiLimiter(),
+  validateRequest(getEventsSchema),
+  getEvents,
+);
+
+// this is for the organizer Pannel
+router.get(
+  "/organizer/list",
+  perApiLimiter(),
+  checkRole([roleId.ORGANISER]),
+  getEventsByOrganizer,
+);
+
+router.get(
+  "/organizer/stats",
+  perApiLimiter(),
+  checkRole([roleId.ORGANISER]),
+  getOrganizerStats,
+);
+
+router.get(
+  "/admin/list",
+  perApiLimiter(),
+  checkRole([roleId.SUPER_ADMIN]),
+  validateRequest(getEventsSchema),
+  getEventsAdmin,
+);
+
+router.get("/details/:eventId", perApiLimiter(), getEventDetails);
 
 router.get("/attendees/:eventId", perApiLimiter(), getAllEventAttendees);
 
