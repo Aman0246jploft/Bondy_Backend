@@ -39,6 +39,14 @@ const otpVerificationSchema = Joi.object({
   otp: Joi.string().length(5).required(),
 });
 
+const universalOtpSchema = Joi.object({
+  email: Joi.string().email().required(),
+  otp: Joi.string().length(5).required(),
+  type: Joi.string()
+    .valid("LOGIN", "REGISTER_CUSTOMER", "REGISTER_ORGANIZER")
+    .required(),
+});
+
 const resendOtpSchema = Joi.object({
   email: Joi.string().email().required(),
 });
@@ -83,4 +91,5 @@ module.exports = {
   loginInitSchema,
   updateUserSchema,
   socialLoginSchema,
+  universalOtpSchema,
 };

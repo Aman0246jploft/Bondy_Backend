@@ -22,6 +22,7 @@ const {
   loginInitSchema,
   updateUserSchema,
   socialLoginSchema,
+  universalOtpSchema,
 } = require("../services/validations/userValidation");
 const validateRequest = require("../../middlewares/validateRequest");
 const perApiLimiter = require("../../middlewares/rateLimiter");
@@ -1278,5 +1279,42 @@ router.delete("/delete-account", perApiLimiter(), deleteMyAccount);
 
 // Get User Profile By ID
 router.get("/profile/:userId", perApiLimiter(), getUserProfileById);
+
+// Unified OTP Verification
+const verifyUniversalOtp = async (req, res) => {
+  try {
+    const { type } = req.body;
+    // type: "LOGIN", "REGISTER_CUSTOMER", "REGISTER_ORGANIZER"
+
+    if (!type) {
+      return apiErrorRes(
+        HTTP_STATUS.BAD_REQUEST,
+        res,
+        "Type is required (LOGIN, REGISTER_CUSTOMER, REGISTER_ORGANIZER).",
+      );
+    }
+
+    if (type === "LOGIN") {
+      return loginVerify(req, res);
+    } else if (type === "REGISTER_CUSTOMER") {
+      return customerSignupVerify(req, res);
+    } else if (type === "REGISTER_ORGANIZER") {
+      return organizerSignupVerify(req, res);
+    } else {
+      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Invalid OTP type.");
+    }
+  } catch (error) {
+    console.error("Error in verifyUniversalOtp:", error);
+    return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
+  }
+};
+
+router.post(
+  "/verify-otp",
+  perApiLimiter(),
+  // Use the specific schema that validates 'type'
+  validateRequest(universalOtpSchema),
+  verifyUniversalOtp,
+);
 
 module.exports = router;
