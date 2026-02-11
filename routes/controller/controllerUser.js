@@ -1331,6 +1331,34 @@ router.post(
 
 
 
+// Unified Resend OTP
+const resendUniversalOtp = async (req, res) => {
+  try {
+    const { type } = req.body;
+    // type: "LOGIN", "REGISTER_CUSTOMER", "REGISTER_ORGANIZER"
+
+    if (!type) {
+      return apiErrorRes(
+        HTTP_STATUS.BAD_REQUEST,
+        res,
+        "Type is required (LOGIN, REGISTER_CUSTOMER, REGISTER_ORGANIZER).",
+      );
+    }
+
+    if (type === "LOGIN") {
+      return resendLoginOtp(req, res);
+    } else if (type === "REGISTER_CUSTOMER" || type === "REGISTER_ORGANIZER") {
+      // Both customer and organizer signup use the general 'resendOtp' which uses 'signup_data' key
+      return resendOtp(req, res);
+    } else {
+      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Invalid OTP type.");
+    }
+  } catch (error) {
+    console.error("Error in resendUniversalOtp:", error);
+    return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
+  }
+};
+
 router.post(
   "/resendOtp",
   perApiLimiter(),
