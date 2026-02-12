@@ -145,8 +145,10 @@ const chatSocketController = (io, socket) => {
       });
 
       await chat.save();
-      const populatedMessage = await newMessage.populate("sender", "firstName lastName profileImage");
-
+      const populatedMessage = await newMessage.populate(
+        "sender",
+        "firstName lastName profileImage",
+      );
 
       // Populate chat to send as update
       const populatedChat = await Chat.findById(chatId).populate(
@@ -378,7 +380,7 @@ const chatSocketController = (io, socket) => {
       // Update messages that aren't read by this user yet
       await Message.updateMany(
         { chat: chatId, readBy: { $ne: userId } },
-        { $addToSet: { readBy: userId } }
+        { $addToSet: { readBy: userId } },
       );
 
       // Notify room that messages are read by this user
