@@ -20,6 +20,8 @@ const chatSocketController = (io, socket) => {
   // 1. Handle Online Status
   onlineUsers.set(userId, socket.id);
   io.emit("user_online", { userId });
+  // Emit current online users to the new connector
+  socket.emit("online_users_list", { userIds: Array.from(onlineUsers.keys()) });
 
   // 2. Disconnect
   socket.on("disconnect", () => {
@@ -123,6 +125,7 @@ const chatSocketController = (io, socket) => {
         content,
         fileUrl,
         fileType,
+        readBy: [userId], // Sender has read it
       });
 
       // Update Chat (lastMessage)
@@ -142,10 +145,8 @@ const chatSocketController = (io, socket) => {
       });
 
       await chat.save();
-      const populatedMessage = await newMessage.populate(
-        "sender",
-        "firstName lastName profileImage",
-      );
+      const populatedMessage = await newMessage.populate("sender", "firstName lastName profileImage");
+
 
       // Populate chat to send as update
       const populatedChat = await Chat.findById(chatId).populate(
@@ -358,6 +359,34 @@ const chatSocketController = (io, socket) => {
       console.error("DeleteMessage Error", err);
       if (typeof ack === "function")
         ack({ status: "error", message: "Error deleting message" });
+    }
+  });
+
+  // 9. Mark Messages as Read
+  socket.on("mark_messages_read", async (data, ack) => {
+    const { chatId } = data;
+    if (!chatId) return;
+
+    try {
+      const chat = await Chat.findById(chatId);
+      if (!chat) return;
+
+      // Reset unread count for this user
+      chat.unreadCounts.set(userId, 0);
+      await chat.save();
+
+      // Update messages that aren't read by this user yet
+      await Message.updateMany(
+        { chat: chatId, readBy: { $ne: userId } },
+        { $addToSet: { readBy: userId } }
+      );
+
+      // Notify room that messages are read by this user
+      io.to(chatId).emit("messages_read_update", { chatId, userId });
+
+      if (typeof ack === "function") ack({ status: "ok" });
+    } catch (err) {
+      console.error("MarkRead Error", err);
     }
   });
 };
