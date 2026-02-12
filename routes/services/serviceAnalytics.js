@@ -16,7 +16,7 @@ const getAdminStats = async () => {
             _id: null,
             totalUsers: { $sum: 1 },
             totalOrganizers: {
-              $sum: { $cond: [{ $eq: ["$roleId", roleId.ORGANISER] }, 1, 0] },
+              $sum: { $cond: [{ $eq: ["$roleId", roleId.ORGANIZER] }, 1, 0] },
             },
             totalCustomers: {
               $sum: { $cond: [{ $eq: ["$roleId", roleId.CUSTOMER] }, 1, 0] },
@@ -197,7 +197,7 @@ const getUserStatsForAdmin = async (targetUserId) => {
     const user = await User.findById(targetUserId);
     if (!user) return resultDb(SERVER_ERROR, "User not found");
 
-    if (user.roleId === roleId.ORGANISER) {
+    if (user.roleId === roleId.ORGANIZER) {
       return await getOrganizerStats(targetUserId);
     } else {
       return await getCustomerStats(targetUserId);

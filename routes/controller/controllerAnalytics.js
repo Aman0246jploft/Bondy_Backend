@@ -32,7 +32,7 @@ router.get(
  */
 router.get(
   "/organizer/stats",
-  checkRole([roleId.ORGANISER]),
+  checkRole([roleId.ORGANIZER]),
   async (req, res) => {
     try {
       const result = await analyticsService.getOrganizerStats(req.user.userId);

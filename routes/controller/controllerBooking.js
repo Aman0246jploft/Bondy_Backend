@@ -449,11 +449,10 @@ const confirmPayment = async (req, res) => {
       type: "TICKET_SALE",
       transactionId: transaction._id,
       balanceAfter: (await User.findById(organizerId)).payoutBalance, // Fetch fresh or calculate
-      description: `Ticket Sale: ${
-        transaction.bookingType === "EVENT"
+      description: `Ticket Sale: ${transaction.bookingType === "EVENT"
           ? transaction.eventId.eventTitle || "Event"
           : transaction.courseId.courseTitle || "Course"
-      }`,
+        }`,
     });
     await walletEntry.save();
 
@@ -846,11 +845,11 @@ const getEventAttendeesList = async (req, res) => {
           checkedInAt: transaction.checkedInAt,
           checkedInBy: checkedInByUser
             ? {
-                _id: checkedInByUser._id,
-                firstName: checkedInByUser.firstName,
-                lastName: checkedInByUser.lastName,
-                email: checkedInByUser.email,
-              }
+              _id: checkedInByUser._id,
+              firstName: checkedInByUser.firstName,
+              lastName: checkedInByUser.lastName,
+              email: checkedInByUser.email,
+            }
             : null,
         },
         bookingDate: transaction.createdAt,
@@ -997,7 +996,7 @@ router.get("/detail/:transactionId", perApiLimiter(), getTicketDetail);
 router.post(
   "/scan-qr",
   perApiLimiter(),
-  checkRole([roleId.ORGANISER, roleId.SUPER_ADMIN]),
+  checkRole([roleId.ORGANIZER, roleId.SUPER_ADMIN]),
   validateRequest(scanQRCodeSchema),
   scanQRCode,
 );
@@ -1006,7 +1005,7 @@ router.post(
 router.get(
   "/event/:eventId/attendees",
   perApiLimiter(),
-  checkRole([roleId.ORGANISER, roleId.SUPER_ADMIN]),
+  checkRole([roleId.ORGANIZER, roleId.SUPER_ADMIN]),
   getEventAttendeesList,
 );
 
@@ -1014,7 +1013,7 @@ router.get(
 router.get(
   "/event/:eventId/stats",
   perApiLimiter(),
-  checkRole([roleId.ORGANISER, roleId.SUPER_ADMIN]),
+  checkRole([roleId.ORGANIZER, roleId.SUPER_ADMIN]),
   getEventAttendeeStats,
 );
 

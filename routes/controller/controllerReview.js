@@ -153,7 +153,7 @@ const getReviews = async (req, res) => {
 router.post(
   "/add",
   perApiLimiter(),
-  checkRole([roleId.CUSTOMER, roleId.ORGANISER, roleId.SUPER_ADMIN]),
+  checkRole([roleId.CUSTOMER, roleId.ORGANIZER, roleId.SUPER_ADMIN]),
   validateRequest(addReviewSchema),
   addReview,
 );
@@ -161,7 +161,7 @@ router.post(
 router.post(
   "/update/:reviewId",
   perApiLimiter(),
-  checkRole([roleId.CUSTOMER, roleId.ORGANISER, roleId.SUPER_ADMIN]),
+  checkRole([roleId.CUSTOMER, roleId.ORGANIZER, roleId.SUPER_ADMIN]),
   validateRequest(updateReviewSchema),
   updateReview,
 );
@@ -169,7 +169,7 @@ router.post(
 router.post(
   "/delete/:reviewId",
   perApiLimiter(),
-  checkRole([roleId.CUSTOMER, roleId.ORGANISER, roleId.SUPER_ADMIN]),
+  checkRole([roleId.CUSTOMER, roleId.ORGANIZER, roleId.SUPER_ADMIN]),
   deleteReview,
 );
 

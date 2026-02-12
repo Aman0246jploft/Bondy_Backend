@@ -32,14 +32,14 @@ const usersData = [
         firstName: "Organizer",
         lastName: "One",
         email: "organizer1@example.com",
-        roleId: roleId.ORGANISER,
+        roleId: roleId.ORGANIZER,
         password: "password123",
     },
     {
         firstName: "Organizer",
         lastName: "Two",
         email: "organizer2@example.com",
-        roleId: roleId.ORGANISER,
+        roleId: roleId.ORGANIZER,
         password: "password123",
     },
     {
@@ -214,7 +214,7 @@ const seedDatabase = async () => {
                 ...user,
                 profileImage: SEED_IMAGE,
                 categories: categoryIds, // Interested in all for demo
-                organizerVerificationStatus: user.roleId === roleId.ORGANISER ? "approved" : "pending",
+                organizerVerificationStatus: user.roleId === roleId.ORGANIZER ? "approved" : "pending",
                 isDisable: false,
                 isDeleted: false,
                 // password hashing is handled by pre-save hook in User model
@@ -240,7 +240,7 @@ const seedDatabase = async () => {
                 await userDoc.save();
             }
 
-            if (user.roleId === roleId.ORGANISER) {
+            if (user.roleId === roleId.ORGANIZER) {
                 createdOrganizers.push(userDoc);
             } else {
                 createdCustomers.push(userDoc);

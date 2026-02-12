@@ -32,12 +32,13 @@ const organizerSignupSchema = Joi.object({
 const loginInitSchema = Joi.object({
   email: Joi.string().email().required(),
   password: Joi.string().required(),
-  type: Joi.string().valid("ORGANISER", "CUSTOMER", "GUEST").required(),
+  type: Joi.string().valid("ORGANIZER", "CUSTOMER", "GUEST").required(),
 });
 
 const otpVerificationSchema = Joi.object({
   email: Joi.string().email().required(),
   otp: Joi.string().length(5).required(),
+  type: Joi.string().optional(),
 });
 
 const universalOtpSchema = Joi.object({

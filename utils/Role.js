@@ -1,6 +1,6 @@
 const roleId = {
     SUPER_ADMIN: 1,
-    ORGANISER: 2,
+    ORGANIZER: 2,
     CUSTOMER: 3,
     GUEST: 4
 }
@@ -8,7 +8,7 @@ const roleId = {
 
 const userRole = {
     1: "SUPER_ADMIN",
-    2: "ORGANISER",
+    2: "ORGANIZER",
     3: "CUSTOMER",
     4: "GUEST"
 }

@@ -267,7 +267,7 @@ const organizerSignupVerify = async (req, res) => {
       user.businessType = userData.businessType;
       user.acceptTerms = userData.acceptTerms;
       user.documents = userData.documents;
-      user.roleId = roleId.ORGANISER;
+      user.roleId = roleId.ORGANIZER;
       user.organizerVerificationStatus = "pending";
 
       await user.save();
@@ -283,7 +283,7 @@ const organizerSignupVerify = async (req, res) => {
         businessType: userData.businessType,
         acceptTerms: userData.acceptTerms,
         documents: userData.documents,
-        roleId: roleId.ORGANISER, // ORGANIZER
+        roleId: roleId.ORGANIZER, // ORGANIZER
         organizerVerificationStatus: "pending",
       });
 
@@ -419,6 +419,18 @@ const loginInit = async (req, res) => {
         constantsMessage.INVALID_EMAIL_OR_PASSWORD,
       );
     }
+
+    // Check Organizer Status
+    // if (
+    //   user.roleId === roleId.ORGANIZER &&
+    //   user.organizerVerificationStatus !== "approved"
+    // ) {
+    //   return apiErrorRes(
+    //     HTTP_STATUS.FORBIDDEN,
+    //     res,
+    //     `${constantsMessage.ACCOUNT_STATUS_PREFIX}${user.organizerVerificationStatus}${constantsMessage.WAIT_FOR_ADMIN_APPROVAL}`,
+    //   );
+    // }
 
     // Generate OTP
     const otp =
@@ -571,7 +583,7 @@ const resendLoginOtp = async (req, res) => {
 
     // Check Organizer Status
     if (
-      user.roleId === roleId.ORGANISER &&
+      user.roleId === roleId.ORGANIZER &&
       user.organizerVerificationStatus !== "approved"
     ) {
       return apiErrorRes(
@@ -854,7 +866,7 @@ const getUserProfileById = async (req, res) => {
     // Map roleId to string
     let role = "CUSTOMER";
     if (user.roleId === roleId.SUPER_ADMIN) role = "SUPER_ADMIN";
-    else if (user.roleId === roleId.ORGANISER) role = "ORGANISER";
+    else if (user.roleId === roleId.ORGANIZER) role = "ORGANIZER";
 
     // Get interested category names
     const interestedCategories = (user.categories || []).map((cat) => cat.name);
@@ -881,10 +893,10 @@ const getUserProfileById = async (req, res) => {
       totalFollowers: 0, // Default to 0, overwritten if organizer/relevant
     };
 
-    // Calculate totalFollowers for everyone (or just organizers? Requirement says "toall followers API... if he is organiser".
-    // Actually typically anyone can have followers if the social graph exists, but requirement phrased "name , i f he is organiser than his... toall followers...".
+    // Calculate totalFollowers for everyone (or just organizers? Requirement says "toall followers API... if he is ORGANIZER".
+    // Actually typically anyone can have followers if the social graph exists, but requirement phrased "name , i f he is ORGANIZER than his... toall followers...".
     // I'll add totalFollowers for everyone as it's useful social proof, or just organizer if strictly interpreted.
-    // The prompt says "toall followers ... , if he is organiser than his ... data".
+    // The prompt says "toall followers ... , if he is ORGANIZER than his ... data".
     // I'll compute followers for all users as the Follow model exists.
     const totalFollowers = await Follow.countDocuments({
       toUser: userId,
@@ -892,7 +904,7 @@ const getUserProfileById = async (req, res) => {
     profileData.totalFollowers = totalFollowers;
 
     // If user is organizer, add additional data
-    if (user.roleId === roleId.ORGANISER) {
+    if (user.roleId === roleId.ORGANIZER) {
       // Organizer specific fields
       profileData.businessType = user.businessType;
       profileData.organizerVerificationStatus =

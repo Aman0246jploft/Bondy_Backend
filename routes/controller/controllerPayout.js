@@ -133,8 +133,8 @@ const requestPayout = async (req, res) => {
 // 3. Get Pending Payouts (Admin)
 const getPendingPayouts = async (req, res) => {
   try {
-    const organisers = await User.find({
-      roleId: roleId.ORGANISER,
+    const ORGANIZERs = await User.find({
+      roleId: roleId.ORGANIZER,
       payoutBalance: { $gt: 0 },
     })
       .select(
@@ -143,7 +143,7 @@ const getPendingPayouts = async (req, res) => {
       .sort({ payoutBalance: -1 });
 
     return apiSuccessRes(HTTP_STATUS.OK, res, "Pending payouts fetched", {
-      organisers,
+      ORGANIZERs,
     });
   } catch (error) {
     console.error("Error in getPendingPayouts:", error);
@@ -154,14 +154,14 @@ const getPendingPayouts = async (req, res) => {
 // 4. Mark Payout as Paid (Admin)
 const markPayoutAsPaid = async (req, res) => {
   try {
-    const { organiserId, amount, paymentReference, adminNote } = req.body;
+    const { ORGANIZERId, amount, paymentReference, adminNote } = req.body;
 
-    const organiser = await User.findById(organiserId);
-    if (!organiser) {
-      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Organiser not found");
+    const ORGANIZER = await User.findById(ORGANIZERId);
+    if (!ORGANIZER) {
+      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "ORGANIZER not found");
     }
 
-    if (organiser.payoutBalance < amount) {
+    if (ORGANIZER.payoutBalance < amount) {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
@@ -171,7 +171,7 @@ const markPayoutAsPaid = async (req, res) => {
 
     // Create Payout Record
     const payout = new Payout({
-      organizerId: organiserId,
+      organizerId: ORGANIZERId,
       amount,
       paymentReference,
       adminNote,
@@ -194,16 +194,16 @@ const markPayoutAsPaid = async (req, res) => {
     // The current code creates a NEW Payout object. This implies "Manual Payout".
     // If it's manual payout, yes, deduct.
 
-    organiser.payoutBalance -= amount;
-    await organiser.save();
+    ORGANIZER.payoutBalance -= amount;
+    await ORGANIZER.save();
 
     // Wallet History
     const walletEntry = new WalletHistory({
-      userId: organiserId,
+      userId: ORGANIZERId,
       amount: -amount,
       type: "ADJUSTMENT", // or MANUAL_PAYOUT
       payoutId: payout._id,
-      balanceAfter: organiser.payoutBalance,
+      balanceAfter: ORGANIZER.payoutBalance,
       description: `Admin manual payout: ${adminNote || "No notes"}`,
     });
     await walletEntry.save();
@@ -351,9 +351,9 @@ router.post(
 // --- Routes Definitions ---
 
 // Organizer Routes
-router.get("/earnings", checkRole([roleId.ORGANISER]), getOrganizerEarnings);
-router.put("/bank-details", checkRole([roleId.ORGANISER]), updateBankDetails);
-router.post("/request-payout", checkRole([roleId.ORGANISER]), requestPayout);
+router.get("/earnings", checkRole([roleId.ORGANIZER]), getOrganizerEarnings);
+router.put("/bank-details", checkRole([roleId.ORGANIZER]), updateBankDetails);
+router.post("/request-payout", checkRole([roleId.ORGANIZER]), requestPayout);
 
 // Admin Routes
 router.get(

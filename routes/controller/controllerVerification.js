@@ -77,7 +77,7 @@ const getVerificationRequests = async (req, res) => {
     const { status, page = 1, limit = 10, search } = req.query;
 
     const query = {
-      roleId: roleId.ORGANISER,
+      roleId: roleId.ORGANIZER,
     };
 
     if (status) {
@@ -190,7 +190,7 @@ const verifyOrganizer = async (req, res) => {
 router.post(
   "/submit",
   perApiLimiter(),
-  checkRole([roleId.ORGANISER]), // Must be organizer
+  checkRole([roleId.ORGANIZER]), // Must be organizer
   submitVerification,
 );
 

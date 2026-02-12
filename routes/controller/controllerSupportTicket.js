@@ -235,7 +235,7 @@ const getTicketDetails = async (req, res) => {
 router.post(
   "/create",
   perApiLimiter(),
-  checkRole([roleId.CUSTOMER, roleId.ORGANISER]),
+  checkRole([roleId.CUSTOMER, roleId.ORGANIZER]),
   validateRequest(createTicketSchema),
   createTicket,
 );
@@ -243,7 +243,7 @@ router.post(
 router.get(
   "/my-tickets",
   perApiLimiter(),
-  checkRole([roleId.CUSTOMER, roleId.ORGANISER]),
+  checkRole([roleId.CUSTOMER, roleId.ORGANIZER]),
   getMyTickets,
 );
 

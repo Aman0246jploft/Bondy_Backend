@@ -271,7 +271,7 @@ const getCourses = async (req, res) => {
           process.env.JWT_SECRET_KEY,
         );
         viewerId = decoded.userId;
-      } catch {}
+      } catch { }
     }
 
     const bookedCourseIds = new Set(); // Set of "courseId"
@@ -512,7 +512,7 @@ const getCoursesAdmin = async (req, res) => {
 router.post(
   "/create",
   perApiLimiter(),
-  checkRole([roleId.ORGANISER]),
+  checkRole([roleId.ORGANIZER]),
   validateRequest(createCourseSchema),
   createCourse,
 );
@@ -575,7 +575,7 @@ const getCourseDetails = async (req, res) => {
           process.env.JWT_SECRET_KEY,
         );
         viewerId = decoded.userId;
-      } catch {}
+      } catch { }
     }
 
     if (viewerId) {

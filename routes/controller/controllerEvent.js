@@ -169,7 +169,7 @@ const getEvents = async (req, res) => {
 
           city = user?.location?.city || null;
           country = user?.location?.country || null;
-        } catch (err) {}
+        } catch (err) { }
       }
 
       // 🔹 CASE 3: CITY or COUNTRY FILTER
@@ -557,7 +557,7 @@ const getEventDetails = async (req, res) => {
           status: "PAID",
         });
         if (booking) isBooked = true;
-      } catch (err) {}
+      } catch (err) { }
     }
     event.isBooked = isBooked;
 
@@ -665,9 +665,9 @@ const getEventDetails = async (req, res) => {
       ...r,
       user: r.userId
         ? {
-            ...r.userId,
-            profileImage: formatResponseUrl(r.userId.profileImage),
-          }
+          ...r.userId,
+          profileImage: formatResponseUrl(r.userId.profileImage),
+        }
         : null,
     }));
 
@@ -675,9 +675,9 @@ const getEventDetails = async (req, res) => {
       ...c,
       user: c.user
         ? {
-            ...c.user,
-            profileImage: formatResponseUrl(c.user.profileImage),
-          }
+          ...c.user,
+          profileImage: formatResponseUrl(c.user.profileImage),
+        }
         : null,
     }));
 
@@ -1046,7 +1046,7 @@ const getAllEventAttendees = async (req, res) => {
 router.post(
   "/create",
   perApiLimiter(),
-  checkRole([roleId.ORGANISER]),
+  checkRole([roleId.ORGANIZER]),
   validateRequest(createEventSchema),
   createEvent,
 );
@@ -1062,14 +1062,14 @@ router.get(
 router.get(
   "/organizer/list",
   perApiLimiter(),
-  checkRole([roleId.ORGANISER]),
+  checkRole([roleId.ORGANIZER]),
   getEventsByOrganizer,
 );
 
 router.get(
   "/organizer/stats",
   perApiLimiter(),
-  checkRole([roleId.ORGANISER]),
+  checkRole([roleId.ORGANIZER]),
   getOrganizerStats,
 );
 
