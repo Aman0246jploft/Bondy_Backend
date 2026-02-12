@@ -379,7 +379,7 @@ const uploadDocument = async (req, res) => {
 // Login - Step 1: Init (Email/Password -> OTP)
 const loginInit = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, type } = req.body;
 
     // Find User
     const user = await User.findOne({ email, isDeleted: false });
@@ -388,6 +388,16 @@ const loginInit = async (req, res) => {
         HTTP_STATUS.BAD_REQUEST,
         res,
         constantsMessage.INVALID_EMAIL_OR_PASSWORD,
+      );
+    }
+
+    // Role Check
+    const currentRole = userRole[user.roleId];
+    if (currentRole !== type) {
+      return apiErrorRes(
+        HTTP_STATUS.FORBIDDEN,
+        res,
+        "Access denied. Invalid role.",
       );
     }
 
@@ -409,18 +419,6 @@ const loginInit = async (req, res) => {
         constantsMessage.INVALID_EMAIL_OR_PASSWORD,
       );
     }
-
-    // Check Organizer Status
-    // if (
-    //   user.roleId === roleId.ORGANISER &&
-    //   user.organizerVerificationStatus !== "approved"
-    // ) {
-    //   return apiErrorRes(
-    //     HTTP_STATUS.FORBIDDEN,
-    //     res,
-    //     `${constantsMessage.ACCOUNT_STATUS_PREFIX}${user.organizerVerificationStatus}${constantsMessage.WAIT_FOR_ADMIN_APPROVAL}`,
-    //   );
-    // }
 
     // Generate OTP
     const otp =
