@@ -32,7 +32,7 @@ const {
   getKey,
   removeKey,
 } = require("../services/serviceRedis");
-const { roleId } = require("../../utils/Role");
+const { roleId, userRole } = require("../../utils/Role");
 const { upload, storeImage } = require("../../utils/cloudinary");
 const checkRole = require("../../middlewares/checkRole");
 
@@ -160,7 +160,7 @@ const customerSignupVerify = async (req, res) => {
       res,
       constantsMessage.REGISTRATION_SUCCESSFUL,
       {
-        user,
+        user: { ...user.toObject(), userRole: userRole[user.roleId] },
         token,
       },
     );
@@ -299,7 +299,7 @@ const organizerSignupVerify = async (req, res) => {
       HTTP_STATUS.OK,
       res,
       constantsMessage.ORGANIZER_REGISTRATION_SUCCESS,
-      { user, token },
+      { user: { ...user.toObject(), userRole: userRole[user.roleId] }, token },
     );
   } catch (error) {
     console.error("Error in organizerSignupVerify:", error);
@@ -481,7 +481,7 @@ const loginVerify = async (req, res) => {
       res,
       constantsMessage.LOGIN_SUCCESS_MSG,
       {
-        user,
+        user: { ...user.toObject(), userRole: userRole[user.roleId] },
         token,
       },
     );
@@ -538,7 +538,7 @@ const adminLogin = async (req, res) => {
     const token = signToken({ userId: user._id, roleId: user.roleId });
 
     return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.LOGIN_SUCCESS, {
-      user,
+      user: { ...user.toObject(), userRole: userRole[user.roleId] },
       token,
     });
   } catch (error) {
@@ -684,7 +684,7 @@ const socialLogin = async (req, res) => {
       res,
       constantsMessage.LOGIN_SUCCESS_MSG,
       {
-        user,
+        user: { ...user.toObject(), userRole: userRole[user.roleId] },
         token,
       },
     );
@@ -771,7 +771,7 @@ const selfProfile = async (req, res) => {
     const userId = req.user.userId;
     req.params.userId = userId;
     await getUserProfileById(req, res);
-  } catch (error) {}
+  } catch (error) { }
 };
 
 const getUserProfileById = async (req, res) => {
@@ -1292,21 +1292,21 @@ router.get("/profile/:userId", perApiLimiter(), getUserProfileById);
 const verifyUniversalOtp = async (req, res) => {
   try {
     const { type } = req.body;
-    // type: "LOGIN", "REGISTER_CUSTOMER", "REGISTER_ORGANIZER"
+    // type: "LOGIN", "CUSTOMER", "ORGANIZER"
 
     if (!type) {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        "Type is required (LOGIN, REGISTER_CUSTOMER, REGISTER_ORGANIZER).",
+        "Type is required (LOGIN, CUSTOMER, ORGANIZER).",
       );
     }
 
     if (type === "LOGIN") {
       return loginVerify(req, res);
-    } else if (type === "REGISTER_CUSTOMER") {
+    } else if (type === "CUSTOMER") {
       return customerSignupVerify(req, res);
-    } else if (type === "REGISTER_ORGANIZER") {
+    } else if (type === "ORGANIZER") {
       return organizerSignupVerify(req, res);
     } else {
       return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Invalid OTP type.");
@@ -1329,19 +1329,19 @@ router.post(
 const resendUniversalOtp = async (req, res) => {
   try {
     const { type } = req.body;
-    // type: "LOGIN", "REGISTER_CUSTOMER", "REGISTER_ORGANIZER"
+    // type: "LOGIN", "CUSTOMER", "ORGANIZER"
 
     if (!type) {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        "Type is required (LOGIN, REGISTER_CUSTOMER, REGISTER_ORGANIZER).",
+        "Type is required (LOGIN, CUSTOMER, ORGANIZER).",
       );
     }
 
     if (type === "LOGIN") {
       return resendLoginOtp(req, res);
-    } else if (type === "REGISTER_CUSTOMER" || type === "REGISTER_ORGANIZER") {
+    } else if (type === "CUSTOMER" || type === "ORGANIZER") {
       // Both customer and organizer signup use the general 'resendOtp' which uses 'signup_data' key
       return resendOtp(req, res);
     } else {

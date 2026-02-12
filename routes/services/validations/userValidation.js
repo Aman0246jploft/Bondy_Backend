@@ -43,14 +43,14 @@ const universalOtpSchema = Joi.object({
   email: Joi.string().email().required(),
   otp: Joi.string().length(5).required(),
   type: Joi.string()
-    .valid("LOGIN", "REGISTER_CUSTOMER", "REGISTER_ORGANIZER")
+    .valid("LOGIN", "CUSTOMER", "ORGANIZER")
     .required(),
 });
 
 const universalResendOtpSchema = Joi.object({
   email: Joi.string().email().required(),
   type: Joi.string()
-    .valid("LOGIN", "REGISTER_CUSTOMER", "REGISTER_ORGANIZER")
+    .valid("LOGIN", "CUSTOMER", "ORGANIZER")
     .required(),
 });
 

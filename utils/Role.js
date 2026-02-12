@@ -6,6 +6,14 @@ const roleId = {
 }
 
 
+const userRole = {
+    1: "SUPER_ADMIN",
+    2: "ORGANISER",
+    3: "CUSTOMER",
+    4: "GUEST"
+}
+
 module.exports = {
-    roleId
+    roleId,
+    userRole
 }
