@@ -184,7 +184,7 @@ const verifyOrganizer = async (req, res) => {
 // Note: Auth middleware usually needs to be explicitly applied if 'checkRole' doesn't handle finding user from token.
 // Assuming 'checkRole' works as middleware that decodes token or follows a 'verifyToken' middleware.
 // Based on controllerUser.js usage: router.get("/userList", checkRole([roleId.SUPER_ADMIN]), userList);
-// I need perApiLimiter too perhaps?  
+// I need perApiLimiter too perhaps?
 
 // Organizer submits verification
 router.post(

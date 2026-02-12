@@ -362,7 +362,6 @@ router.get(
   getPendingPayouts,
 );
 router.post("/mark-paid", checkRole([roleId.SUPER_ADMIN]), markPayoutAsPaid);
-router.post("/mark-paid", checkRole([roleId.SUPER_ADMIN]), markPayoutAsPaid);
 router.get("/admin-stats", checkRole([roleId.SUPER_ADMIN]), getAdminStats);
 
 module.exports = router;

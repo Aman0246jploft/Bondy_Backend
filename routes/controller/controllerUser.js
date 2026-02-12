@@ -771,7 +771,7 @@ const selfProfile = async (req, res) => {
     const userId = req.user.userId;
     req.params.userId = userId;
     await getUserProfileById(req, res);
-  } catch (error) { }
+  } catch (error) {}
 };
 
 const getUserProfileById = async (req, res) => {
@@ -961,8 +961,8 @@ const getUserProfileById = async (req, res) => {
         // This logic 'schedules.endDate': { $not: { $gte: now } }
         // or simpler: NOT (schedules.endDate >= now)
         schedules: {
-          $not: { $elemMatch: { endDate: { $gte: now } } }
-        }
+          $not: { $elemMatch: { endDate: { $gte: now } } },
+        },
       })
         .populate("courseCategory", "name")
         .sort({ "schedules.endDate": -1 })
@@ -981,13 +981,19 @@ const getUserProfileById = async (req, res) => {
       const formatEvent = (event) => {
         const eventObj = { ...event };
         if (Array.isArray(eventObj.posterImage)) {
-          eventObj.posterImage = eventObj.posterImage.map((img) => formatResponseUrl(img));
+          eventObj.posterImage = eventObj.posterImage.map((img) =>
+            formatResponseUrl(img),
+          );
         }
         if (Array.isArray(eventObj.mediaLinks)) {
-          eventObj.mediaLinks = eventObj.mediaLinks.map((link) => formatResponseUrl(link));
+          eventObj.mediaLinks = eventObj.mediaLinks.map((link) =>
+            formatResponseUrl(link),
+          );
         }
         if (Array.isArray(eventObj.shortTeaserVideo)) {
-          eventObj.shortTeaserVideo = eventObj.shortTeaserVideo.map((video) => formatResponseUrl(video));
+          eventObj.shortTeaserVideo = eventObj.shortTeaserVideo.map((video) =>
+            formatResponseUrl(video),
+          );
         }
         return eventObj;
       };
@@ -996,7 +1002,9 @@ const getUserProfileById = async (req, res) => {
       const formatCourse = (course) => {
         const courseObj = { ...course };
         if (Array.isArray(courseObj.posterImage)) {
-          courseObj.posterImage = courseObj.posterImage.map((img) => formatResponseUrl(img));
+          courseObj.posterImage = courseObj.posterImage.map((img) =>
+            formatResponseUrl(img),
+          );
         }
         return courseObj;
       };
@@ -1010,7 +1018,6 @@ const getUserProfileById = async (req, res) => {
         next: nextCoursesRaw.map(formatCourse),
         past: pastCoursesRaw.map(formatCourse),
       };
-
     }
 
     return apiSuccessRes(
@@ -1182,16 +1189,6 @@ const deleteMyAccount = async (req, res) => {
   }
 };
 
-
-
-
-
-
-
-
-
-
-
 router.post(
   "/customer/signup",
   perApiLimiter(),
@@ -1328,9 +1325,6 @@ router.post(
   verifyUniversalOtp,
 );
 
-
-
-
 // Unified Resend OTP
 const resendUniversalOtp = async (req, res) => {
   try {
@@ -1367,3 +1361,5 @@ router.post(
 );
 
 module.exports = router;
+
+

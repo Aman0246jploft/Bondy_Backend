@@ -201,8 +201,11 @@ const chatSocketController = (io, socket) => {
   socket.on("get_chat_list", async (data, ack) => {
     const { error, value } = chatListSchema.validate(data || {});
     if (error) {
-      if (typeof ack === "function")
-        ack({ status: "error", message: error.details[0].message });
+      const payload = { status: "error", message: error.details[0].message };
+
+      if (typeof ack === "function") ack(payload);
+      else socket.emit("get_chat_list_response", payload);
+
       return;
     }
 
@@ -216,23 +219,50 @@ const chatSocketController = (io, socket) => {
         .skip(skip)
         .limit(limit);
 
+      // const chatsWithCount = chats.map((chat) => {
+      //   const chatObj = chat.toObject();
+      //   chatObj.unreadCount = chat.unreadCounts.get(userId.toString()) || 0;
+
+      //   chatObj.participants = chatObj.participants.map((p) => ({
+      //     ...p,
+      //     isOnline: onlineUsers.has(p._id.toString()),
+      //   }));
+
+      //   return chatObj;
+      // });
       const chatsWithCount = chats.map((chat) => {
         const chatObj = chat.toObject();
-        chatObj.unreadCount = chat.unreadCounts.get(userId.toString()) || 0;
-        // Add online status
-        chatObj.participants = chatObj.participants.map((p) => {
-          p.isOnline = onlineUsers.has(p._id.toString());
-          return p;
-        });
+        const currentUserId = userId.toString();
+
+        chatObj.unreadCount = chat.unreadCounts.get(currentUserId) || 0;
+
+        chatObj.participants = chatObj.participants.map((p) => ({
+          ...p,
+          isOnline: onlineUsers.has(p._id.toString()),
+        }));
+
+        // ✅ ADD THIS (important)
+        chatObj.otherUser = chatObj.participants.find(
+          (p) => p._id.toString() !== currentUserId,
+        );
+
         return chatObj;
       });
 
-      if (typeof ack === "function")
-        ack({ status: "ok", data: chatsWithCount });
+      const payload = { status: "ok", data: chatsWithCount };
+
+      if (typeof ack === "function") {
+        ack(payload); // real clients
+      } else {
+        socket.emit("get_chat_list_response", payload); // Postman
+      }
     } catch (err) {
       console.error("GetChatList Error", err);
-      if (typeof ack === "function")
-        ack({ status: "error", message: "Error fetching chats" });
+
+      const payload = { status: "error", message: "Error fetching chats" };
+
+      if (typeof ack === "function") ack(payload);
+      else socket.emit("get_chat_list_response", payload);
     }
   });
 
@@ -240,19 +270,22 @@ const chatSocketController = (io, socket) => {
   socket.on("get_message_list", async (data, ack) => {
     const { error, value } = messageListSchema.validate(data);
     if (error) {
-      if (typeof ack === "function")
-        ack({ status: "error", message: error.details[0].message });
+      const payload = { status: "error", message: error.details[0].message };
+
+      if (typeof ack === "function") ack(payload);
+      else socket.emit("get_message_list_response", payload);
       return;
     }
 
     const { chatId, page = 1, limit = 50 } = value;
-    const skip = (page - 1) * limit;
 
     try {
       const chat = await Chat.findOne({ _id: chatId, participants: userId });
       if (!chat) {
-        if (typeof ack === "function")
-          ack({ status: "error", message: "Chat not found" });
+        const payload = { status: "error", message: "Chat not found" };
+
+        if (typeof ack === "function") ack(payload);
+        else socket.emit("get_message_list_response", payload);
         return;
       }
 
@@ -263,20 +296,21 @@ const chatSocketController = (io, socket) => {
       })
         .populate("sender", "firstName lastName profileImage")
         .sort({ createdAt: -1 })
-        .skip(skip)
+        .skip((page - 1) * limit)
         .limit(limit);
 
-      // Clear unread
-      if (chat.unreadCounts.get(userId.toString()) > 0) {
-        chat.unreadCounts.set(userId.toString(), 0);
-        await chat.save();
-      }
+      chat.unreadCounts.set(userId.toString(), 0);
+      await chat.save();
 
-      if (typeof ack === "function") ack({ status: "ok", data: messages });
+      const payload = { status: "ok", data: messages };
+
+      if (typeof ack === "function") ack(payload);
+      else socket.emit("get_message_list_response", payload);
     } catch (err) {
-      console.error("GetMessageList Error", err);
-      if (typeof ack === "function")
-        ack({ status: "error", message: "Error fetching messages" });
+      const payload = { status: "error", message: "Error fetching messages" };
+
+      if (typeof ack === "function") ack(payload);
+      else socket.emit("get_message_list_response", payload);
     }
   });
 
