@@ -80,11 +80,9 @@ const getVerificationRequests = async (req, res) => {
       roleId: roleId.ORGANIZER,
     };
 
+    // Only filter by document status, not organizerVerificationStatus
     if (status) {
-      query.organizerVerificationStatus = status;
-    } else {
-      // By default, exclude unverified users
-      query.organizerVerificationStatus = { $ne: "unverified" };
+      query["documents.status"] = status;
     }
 
     // Search logic
@@ -110,16 +108,27 @@ const getVerificationRequests = async (req, res) => {
       User.countDocuments(query),
     ]);
 
-    // Show all documents for each user
-    // Users can have mixed document statuses (e.g., one approved, one pending)
-    // while their overall organizerVerificationStatus is still "pending"
+    // Filter to show only documents matching the selected status
+    const filteredUsers = users.map(user => {
+      let filteredDocs = user.documents;
+
+      // Filter documents by status if status parameter provided
+      if (status) {
+        filteredDocs = user.documents.filter(doc => doc.status === status);
+      }
+
+      return {
+        ...user,
+        documents: filteredDocs
+      };
+    });
 
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
       "Verification requests fetched successfully.",
       {
-        requests: users,
+        requests: filteredUsers,
         total,
         page: Number(page),
         limit: Number(limit),
@@ -132,10 +141,10 @@ const getVerificationRequests = async (req, res) => {
   }
 };
 
-// Approve/Reject Verification (Admin)
+// Approve/Reject Individual Document (Admin)
 const verifyOrganizer = async (req, res) => {
   try {
-    const { userId, action, reason } = req.body;
+    const { userId, documentId, action, reason } = req.body;
     // action: "approve" | "reject"
 
     if (!["approve", "reject"].includes(action)) {
@@ -146,17 +155,28 @@ const verifyOrganizer = async (req, res) => {
       );
     }
 
+    if (!documentId) {
+      return apiErrorRes(
+        HTTP_STATUS.BAD_REQUEST,
+        res,
+        "Document ID is required.",
+      );
+    }
+
     const user = await User.findById(userId);
     if (!user) {
       return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "User not found.");
     }
 
+    // Find the specific document
+    const document = user.documents.id(documentId);
+    if (!document) {
+      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Document not found.");
+    }
+
     if (action === "approve") {
-      user.organizerVerificationStatus = "approved";
-      user.documents.forEach((doc) => {
-        doc.status = "approved";
-        doc.reason = null;
-      });
+      document.status = "approved";
+      document.reason = null;
     } else if (action === "reject") {
       if (!reason) {
         return apiErrorRes(
@@ -165,21 +185,25 @@ const verifyOrganizer = async (req, res) => {
           "Reason is required for rejection.",
         );
       }
-      user.organizerVerificationStatus = "rejected";
-      user.documents.forEach((doc) => {
-        if (doc.status === "pending") {
-          doc.status = "rejected";
-          doc.reason = reason;
-        }
-      });
+      document.status = "rejected";
+      document.reason = reason;
     }
 
-    await user.save();
+    await user.save(); // This will trigger the pre-save hook to update organizerVerificationStatus
 
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
-      `Organizer verification ${action}d successfully.`,
+      `Document ${action}d successfully.`,
+      {
+        document: {
+          _id: document._id,
+          name: document.name,
+          status: document.status,
+          reason: document.reason,
+        },
+        organizerVerificationStatus: user.organizerVerificationStatus,
+      },
     );
   } catch (error) {
     console.error("Error in verifyOrganizer:", error);
