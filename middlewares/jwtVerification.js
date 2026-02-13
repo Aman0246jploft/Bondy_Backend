@@ -26,22 +26,21 @@ const publicRoutes = [
   "/api/v1/category/list",
   "/api/v1/event/details/",
 
-
   "/api/v1/user/verify-otp",
   "/api/v1/user/resendOtp",
   "/api/v1/user/forgot-password/init",
   "/api/v1/user/forgot-password/verify",
   "/api/v1/user/reset-password",
-  "/api/v1/user/reset-password",
 
-
-
-
-
+  "/uploads",
 ];
 
 function jwtVerification() {
   return (req, res, next) => {
+    if (req.path.startsWith("/uploads")) {
+      return next();
+    }
+
     const isPublic = publicRoutes.some((route) => req.path.startsWith(route));
     const authHeader = req.headers.authorization;
 

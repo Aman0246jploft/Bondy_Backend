@@ -781,7 +781,7 @@ const selfProfile = async (req, res) => {
     const userId = req.user.userId;
     req.params.userId = userId;
     await getUserProfileById(req, res);
-  } catch (error) { }
+  } catch (error) {}
 };
 
 const getUserProfileById = async (req, res) => {
@@ -1199,10 +1199,6 @@ const deleteMyAccount = async (req, res) => {
   }
 };
 
-
-
-
-
 // Unified Resend OTP
 const resendUniversalOtp = async (req, res) => {
   try {
@@ -1230,10 +1226,6 @@ const resendUniversalOtp = async (req, res) => {
     return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
   }
 };
-
-
-
-
 
 // Unified OTP Verification
 const verifyUniversalOtp = async (req, res) => {
@@ -1263,8 +1255,6 @@ const verifyUniversalOtp = async (req, res) => {
     return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
   }
 };
-
-
 
 router.post(
   "/customer/signup",
@@ -1373,7 +1363,6 @@ router.post(
   verifyUniversalOtp,
 );
 
-
 // Forgot Password - Step 1: Init
 const forgotPasswordInit = async (req, res) => {
   try {
@@ -1384,7 +1373,7 @@ const forgotPasswordInit = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.NOT_FOUND,
         res,
-        constantsMessage.USER_NOT_FOUND
+        constantsMessage.USER_NOT_FOUND,
       );
     }
 
@@ -1392,7 +1381,7 @@ const forgotPasswordInit = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.FORBIDDEN,
         res,
-        constantsMessage.ACCOUNT_DISABLED
+        constantsMessage.ACCOUNT_DISABLED,
       );
     }
 
@@ -1407,7 +1396,7 @@ const forgotPasswordInit = async (req, res) => {
       HTTP_STATUS.OK,
       res,
       constantsMessage.OTP_SENT_SUCCESS,
-      { otp }
+      { otp },
     );
   } catch (error) {
     console.error("Error in forgotPasswordInit:", error);
@@ -1425,7 +1414,7 @@ const verifyForgotPasswordOtp = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        constantsMessage.INVALID_OR_EXPIRED_OTP
+        constantsMessage.INVALID_OR_EXPIRED_OTP,
       );
     }
 
@@ -1436,14 +1425,14 @@ const verifyForgotPasswordOtp = async (req, res) => {
     // Scope: 'reset_password'
     const resetToken = signToken(
       { email, scope: "reset_password" },
-      "10m" // 10 minutes expiry
+      "10m", // 10 minutes expiry
     );
 
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
       "OTP verified successfully. Use the token to reset password.",
-      { token:resetToken }
+      { token: resetToken },
     );
   } catch (error) {
     console.error("Error in verifyForgotPasswordOtp:", error);
@@ -1464,17 +1453,26 @@ const resetPassword = async (req, res) => {
     // Let's look at `resetToken` passed in body for simplicity if header is tricky with global middleware.
     // Update: User often forgets headers. Body is easier for simple clients.
 
-    const token = req.body.resetToken || req.headers.authorization?.split(" ")[1];
+    const token =
+      req.body.resetToken || req.headers.authorization?.split(" ")[1];
 
     if (!token) {
-      return apiErrorRes(HTTP_STATUS.UNAUTHORIZED, res, "Reset token required.");
+      return apiErrorRes(
+        HTTP_STATUS.UNAUTHORIZED,
+        res,
+        "Reset token required.",
+      );
     }
 
     let decoded;
     try {
       decoded = jwt.verify(token, process.env.JWT_SECRET_KEY);
     } catch (err) {
-      return apiErrorRes(HTTP_STATUS.UNAUTHORIZED, res, "Invalid or expired reset token.");
+      return apiErrorRes(
+        HTTP_STATUS.UNAUTHORIZED,
+        res,
+        "Invalid or expired reset token.",
+      );
     }
 
     if (decoded.scope !== "reset_password" || !decoded.email) {
@@ -1483,15 +1481,19 @@ const resetPassword = async (req, res) => {
 
     const user = await User.findOne({ email: decoded.email, isDeleted: false });
     if (!user) {
-      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.USER_NOT_FOUND);
+      return apiErrorRes(
+        HTTP_STATUS.NOT_FOUND,
+        res,
+        constantsMessage.USER_NOT_FOUND,
+      );
     }
 
     // Update Password
     // Check if new password is same as old? Optional.
-    user.password = newPassword; // Pre-save hook usually hashes it? 
+    user.password = newPassword; // Pre-save hook usually hashes it?
     // Wait, let's check if there is a pre-save hook.
     // Usually defined in User model. I haven't seen the User model but typical setup.
-    // If not, I should hash it here. 
+    // If not, I should hash it here.
     // `customerSignupVerify` (line 143) passes raw password to `new User`.
     // `loginInit` (line 414) uses `verifyPassword` (bcrypt).
     // So `User` model likely has a pre-save hook.
@@ -1507,7 +1509,7 @@ const resetPassword = async (req, res) => {
     // Let's look at how `otpVerificationSchema` handles password... just string.
 
     // I will assume there is a pre-save hook for now. If not, this is a bug in my implementation AND likely the existing signup if it relies on it.
-    // Actually, `customerSignupVerify` takes `userData.password` from redis and saves it. 
+    // Actually, `customerSignupVerify` takes `userData.password` from redis and saves it.
     // If I wanted to be 100% sure, I'd check User model, but for now I'll assume standard behavior or that I should simple save it.
     // Wait, if there isn't a hook, the password will be plain text.
     // I should probably check `Backend/db/models/User.js` or similar if I could, but I don't want to waste steps.
@@ -1518,38 +1520,39 @@ const resetPassword = async (req, res) => {
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
-      constantsMessage.UPDATE_PASSWORD_SUCCESS
+      constantsMessage.UPDATE_PASSWORD_SUCCESS,
     );
-
   } catch (error) {
     console.error("Error in resetPassword:", error);
     return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
   }
 };
 
-const { forgotPasswordInitSchema, resetPasswordSchema } = require("../services/validations/userValidation");
+const {
+  forgotPasswordInitSchema,
+  resetPasswordSchema,
+} = require("../services/validations/userValidation");
 
 router.post(
   "/forgot-password/init",
   perApiLimiter(),
   validateRequest(forgotPasswordInitSchema),
-  forgotPasswordInit
+  forgotPasswordInit,
 );
 
 router.post(
   "/forgot-password/verify",
   perApiLimiter(),
   validateRequest(otpVerificationSchema), // Reusing schema as it fits (email + otp)
-  verifyForgotPasswordOtp
+  verifyForgotPasswordOtp,
 );
 
 router.post(
   "/reset-password",
   perApiLimiter(),
   validateRequest(resetPasswordSchema),
-  resetPassword
+  resetPassword,
 );
-
 
 router.post(
   "/resendOtp",
@@ -1559,5 +1562,3 @@ router.post(
 );
 
 module.exports = router;
-
-
