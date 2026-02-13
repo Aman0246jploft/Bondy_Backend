@@ -5,6 +5,10 @@ const CONSTANTS = require("../../utils/constants");
 const constantsMessage = require("../../utils/constantsMessage");
 const HTTP_STATUS = require("../../utils/statusCode");
 const {
+  forgotPasswordInitSchema,
+  resetPasswordSchema,
+} = require("../services/validations/userValidation");
+const {
   apiErrorRes,
   apiSuccessRes,
   generateOTP,
@@ -467,7 +471,7 @@ const loginVerify = async (req, res) => {
     }
 
     // Find User
-    const user = await User.findOne({ email, isDeleted: false });
+    const user = await User.findOne({ email, isDeleted: false }).populate("categories");
     if (!user) {
       return apiErrorRes(
         HTTP_STATUS.NOT_FOUND,
@@ -1035,7 +1039,7 @@ const getUserProfileById = async (req, res) => {
       res,
       "User profile fetched successfully",
       {
-        profile: profileData,
+        user: profileData,
       },
     );
   } catch (error) {
@@ -1256,113 +1260,6 @@ const verifyUniversalOtp = async (req, res) => {
   }
 };
 
-router.post(
-  "/customer/signup",
-  perApiLimiter(),
-  validateRequest(customerSignupSchema),
-  customerSignupInit,
-);
-router.post(
-  "/customer/verify-otp",
-  perApiLimiter(),
-  validateRequest(otpVerificationSchema),
-  customerSignupVerify,
-);
-
-router.post(
-  "/organizer/signup",
-  perApiLimiter(),
-  validateRequest(organizerSignupSchema),
-  organizerSignupInit,
-);
-router.post(
-  "/organizer/verify-otp",
-  perApiLimiter(),
-  validateRequest(otpVerificationSchema),
-  organizerSignupVerify,
-);
-
-router.post(
-  "/resend-otp",
-  perApiLimiter(),
-  validateRequest(resendOtpSchema),
-  resendOtp,
-);
-
-// Upload endpoint - accepts multiple files
-router.post(
-  "/upload",
-  perApiLimiter(),
-  upload.array("files", 10),
-  uploadDocument,
-);
-
-router.post(
-  "/login/init",
-  perApiLimiter(),
-  validateRequest(loginInitSchema),
-  loginInit,
-);
-
-router.post(
-  "/login/verify",
-  perApiLimiter(),
-  validateRequest(otpVerificationSchema),
-  loginVerify,
-);
-
-router.post(
-  "/login/resend-otp",
-  perApiLimiter(),
-  validateRequest(resendOtpSchema),
-  resendLoginOtp,
-);
-
-router.post(
-  "/admin/login",
-  perApiLimiter(),
-  validateRequest(loginInitSchema), // Reuse schema as it has email & password
-  adminLogin,
-);
-
-router.post(
-  "/social-login",
-  perApiLimiter(),
-  validateRequest(socialLoginSchema),
-  socialLogin,
-);
-
-router.post(
-  "/update-profile",
-  perApiLimiter(),
-  validateRequest(updateUserSchema),
-  updateUserProfile,
-);
-
-router.get("/selfProfile", selfProfile);
-
-router.get("/userList", checkRole([roleId.SUPER_ADMIN]), userList);
-router.patch(
-  "/toggle-disable/:userId",
-  checkRole([roleId.SUPER_ADMIN]),
-  toggleUserDisable,
-);
-router.delete("/delete/:userId", checkRole([roleId.SUPER_ADMIN]), deleteUser);
-
-// Delete My Account
-router.delete("/delete-account", perApiLimiter(), deleteMyAccount);
-
-// Get User Profile By ID
-router.get("/profile/:userId", perApiLimiter(), getUserProfileById);
-
-router.post(
-  "/verify-otp",
-  perApiLimiter(),
-  // Use the specific schema that validates 'type'
-  validateRequest(universalOtpSchema),
-  verifyUniversalOtp,
-);
-
 // Forgot Password - Step 1: Init
 const forgotPasswordInit = async (req, res) => {
   try {
@@ -1528,10 +1425,112 @@ const resetPassword = async (req, res) => {
   }
 };
 
-const {
-  forgotPasswordInitSchema,
-  resetPasswordSchema,
-} = require("../services/validations/userValidation");
+router.post(
+  "/customer/signup",
+  perApiLimiter(),
+  validateRequest(customerSignupSchema),
+  customerSignupInit,
+);
+router.post(
+  "/customer/verify-otp",
+  perApiLimiter(),
+  validateRequest(otpVerificationSchema),
+  customerSignupVerify,
+);
+
+router.post(
+  "/organizer/signup",
+  perApiLimiter(),
+  validateRequest(organizerSignupSchema),
+  organizerSignupInit,
+);
+router.post(
+  "/organizer/verify-otp",
+  perApiLimiter(),
+  validateRequest(otpVerificationSchema),
+  organizerSignupVerify,
+);
+
+router.post(
+  "/resend-otp",
+  perApiLimiter(),
+  validateRequest(resendOtpSchema),
+  resendOtp,
+);
+
+// Upload endpoint - accepts multiple files
+router.post(
+  "/upload",
+  perApiLimiter(),
+  upload.array("files", 10),
+  uploadDocument,
+);
+
+router.post(
+  "/login/init",
+  perApiLimiter(),
+  validateRequest(loginInitSchema),
+  loginInit,
+);
+
+router.post(
+  "/login/verify",
+  perApiLimiter(),
+  validateRequest(otpVerificationSchema),
+  loginVerify,
+);
+
+router.post(
+  "/login/resend-otp",
+  perApiLimiter(),
+  validateRequest(resendOtpSchema),
+  resendLoginOtp,
+);
+
+router.post(
+  "/admin/login",
+  perApiLimiter(),
+  validateRequest(loginInitSchema), // Reuse schema as it has email & password
+  adminLogin,
+);
+
+router.post(
+  "/social-login",
+  perApiLimiter(),
+  validateRequest(socialLoginSchema),
+  socialLogin,
+);
+
+router.post(
+  "/update-profile",
+  perApiLimiter(),
+  validateRequest(updateUserSchema),
+  updateUserProfile,
+);
+
+router.get("/selfProfile", selfProfile);
+
+router.get("/userList", checkRole([roleId.SUPER_ADMIN]), userList);
+router.patch(
+  "/toggle-disable/:userId",
+  checkRole([roleId.SUPER_ADMIN]),
+  toggleUserDisable,
+);
+router.delete("/delete/:userId", checkRole([roleId.SUPER_ADMIN]), deleteUser);
+
+// Delete My Account
+router.delete("/delete-account", perApiLimiter(), deleteMyAccount);
+
+// Get User Profile By ID
+router.get("/profile/:userId", perApiLimiter(), getUserProfileById);
+
+router.post(
+  "/verify-otp",
+  perApiLimiter(),
+  // Use the specific schema that validates 'type'
+  validateRequest(universalOtpSchema),
+  verifyUniversalOtp,
+);
 
 router.post(
   "/forgot-password/init",

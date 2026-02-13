@@ -86,6 +86,7 @@ const UserSchema = new Schema(
       address: String,
       state: String,
       zipcode: String,
+      // default: null,
     },
     language: {
       type: String,
@@ -209,7 +210,6 @@ function getLatestDocsByName(documents) {
 
   return Array.from(map.values());
 }
-
 
 UserSchema.pre("save", function (next) {
   const REQUIRED_DOCS = ["Business Proof", "Gov ID"];
