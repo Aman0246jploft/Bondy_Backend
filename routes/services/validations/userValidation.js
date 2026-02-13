@@ -92,6 +92,16 @@ const socialLoginSchema = Joi.object({
   fmcToken: Joi.string().optional().allow(null, ""),
 });
 
+const forgotPasswordInitSchema = Joi.object({
+  email: Joi.string().email().required(),
+});
+
+const resetPasswordSchema = Joi.object({
+  newPassword: Joi.string().min(6).required(),
+  confirmPassword: Joi.string().valid(Joi.ref("newPassword")).required().strict(),
+  resetToken: Joi.string().optional(), // In case it's passed in body, though headers is better
+});
+
 module.exports = {
   customerSignupSchema,
   organizerSignupSchema,
@@ -102,4 +112,6 @@ module.exports = {
   socialLoginSchema,
   universalOtpSchema,
   universalResendOtpSchema,
+  forgotPasswordInitSchema,
+  resetPasswordSchema,
 };

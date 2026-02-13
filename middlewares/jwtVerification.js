@@ -29,12 +29,15 @@ const publicRoutes = [
 
   "/api/v1/user/verify-otp",
   "/api/v1/user/resendOtp",
+  "/api/v1/user/forgot-password/init",
+  "/api/v1/user/forgot-password/verify",
+  "/api/v1/user/reset-password",
+  "/api/v1/user/reset-password",
 
 
-  
 
-  
-  
+
+
 ];
 
 function jwtVerification() {
