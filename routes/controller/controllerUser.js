@@ -467,7 +467,7 @@ const loginVerify = async (req, res) => {
     }
 
     // Find User
-    const user = await User.findOne({ email, isDeleted: false });
+    const user = await User.findOne({ email, isDeleted: false }).populate('categories');
     if (!user) {
       return apiErrorRes(
         HTTP_STATUS.NOT_FOUND,
@@ -751,7 +751,7 @@ const updateUserProfile = async (req, res) => {
 
     const updatedUser = await User.findByIdAndUpdate(userId, updateData, {
       new: true,
-    }).lean();
+    }).populate("categories").lean();
 
     if (!updatedUser) {
       return apiErrorRes(
@@ -1035,7 +1035,7 @@ const getUserProfileById = async (req, res) => {
       res,
       "User profile fetched successfully",
       {
-        profile: profileData,
+        user: profileData,
       },
     );
   } catch (error) {

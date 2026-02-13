@@ -82,6 +82,9 @@ const getVerificationRequests = async (req, res) => {
 
     if (status) {
       query.organizerVerificationStatus = status;
+    } else {
+      // By default, exclude unverified users
+      query.organizerVerificationStatus = { $ne: "unverified" };
     }
 
     // Search logic
@@ -106,6 +109,10 @@ const getVerificationRequests = async (req, res) => {
         .lean(),
       User.countDocuments(query),
     ]);
+
+    // Show all documents for each user
+    // Users can have mixed document statuses (e.g., one approved, one pending)
+    // while their overall organizerVerificationStatus is still "pending"
 
     return apiSuccessRes(
       HTTP_STATUS.OK,
