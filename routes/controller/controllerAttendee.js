@@ -551,7 +551,7 @@ const scanQRAndCheckIn = async (req, res) => {
       );
     }
 
-    // --- Perform Check-in ---
+    // Perform Check-in
     if (!attendee) {
       // Case: Transaction-level Check-in (via TICKET- QR or User ID QR)
       let currentAttendees = await Attendee.find({
@@ -633,10 +633,10 @@ const scanQRAndCheckIn = async (req, res) => {
         type: "TRANSACTION",
         attendee: firstAvailable
           ? {
-              firstName: firstAvailable.firstName,
-              lastName: firstAvailable.lastName,
-              ticketNumber: firstAvailable.ticketNumber,
-            }
+            firstName: firstAvailable.firstName,
+            lastName: firstAvailable.lastName,
+            ticketNumber: firstAvailable.ticketNumber,
+          }
           : null,
         event: {
           eventTitle: title,
