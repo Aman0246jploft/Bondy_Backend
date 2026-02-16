@@ -171,7 +171,7 @@ const getEvents = async (req, res) => {
 
           city = user?.location?.city || null;
           country = user?.location?.country || null;
-        } catch (err) { }
+        } catch (err) {}
       }
 
       // 🔹 CASE 3: CITY or COUNTRY FILTER
@@ -559,7 +559,7 @@ const getEventDetails = async (req, res) => {
           status: "PAID",
         });
         if (booking) isBooked = true;
-      } catch (err) { }
+      } catch (err) {}
     }
     event.isBooked = isBooked;
 
@@ -667,9 +667,9 @@ const getEventDetails = async (req, res) => {
       ...r,
       user: r.userId
         ? {
-          ...r.userId,
-          profileImage: formatResponseUrl(r.userId.profileImage),
-        }
+            ...r.userId,
+            profileImage: formatResponseUrl(r.userId.profileImage),
+          }
         : null,
     }));
 
@@ -677,9 +677,9 @@ const getEventDetails = async (req, res) => {
       ...c,
       user: c.user
         ? {
-          ...c.user,
-          profileImage: formatResponseUrl(c.user.profileImage),
-        }
+            ...c.user,
+            profileImage: formatResponseUrl(c.user.profileImage),
+          }
         : null,
     }));
 
@@ -1067,7 +1067,8 @@ const updateEvent = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.FORBIDDEN,
         res,
-        constantsMessage.UNAUTHORIZED_ACCESS || "You are not authorized to edit this event",
+        constantsMessage.UNAUTHORIZED_ACCESS ||
+          "You are not authorized to edit this event",
       );
     }
 
@@ -1077,19 +1078,25 @@ const updateEvent = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        constantsMessage.CANNOT_EDIT_PAST_EVENT || "Cannot edit an event that has already ended",
+        constantsMessage.CANNOT_EDIT_PAST_EVENT ||
+          "Cannot edit an event that has already ended",
       );
     }
 
     // 4. Validate date logic if dates are being updated
-    const startDate = updateData.startDate ? new Date(updateData.startDate) : new Date(existingEvent.startDate);
-    const endDate = updateData.endDate ? new Date(updateData.endDate) : new Date(existingEvent.endDate);
+    const startDate = updateData.startDate
+      ? new Date(updateData.startDate)
+      : new Date(existingEvent.startDate);
+    const endDate = updateData.endDate
+      ? new Date(updateData.endDate)
+      : new Date(existingEvent.endDate);
 
     if (startDate >= endDate) {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        constantsMessage.INVALID_DATE_RANGE || "Start date must be before end date",
+        constantsMessage.INVALID_DATE_RANGE ||
+          "Start date must be before end date",
       );
     }
 
@@ -1098,29 +1105,38 @@ const updateEvent = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        constantsMessage.CANNOT_SET_PAST_END_DATE || "Cannot set end date in the past",
+        constantsMessage.CANNOT_SET_PAST_END_DATE ||
+          "Cannot set end date in the past",
       );
     }
 
     // 5. Validate ticket quantity updates
-    if (updateData.totalTickets !== undefined || updateData.ticketQtyAvailable !== undefined) {
-      const totalTickets = updateData.totalTickets !== undefined
-        ? updateData.totalTickets
-        : existingEvent.totalTickets || 0;
+    if (
+      updateData.totalTickets !== undefined ||
+      updateData.ticketQtyAvailable !== undefined
+    ) {
+      const totalTickets =
+        updateData.totalTickets !== undefined
+          ? updateData.totalTickets
+          : existingEvent.totalTickets || 0;
 
-      const ticketQtyAvailable = updateData.ticketQtyAvailable !== undefined
-        ? updateData.ticketQtyAvailable
-        : existingEvent.ticketQtyAvailable || 0;
+      const ticketQtyAvailable =
+        updateData.ticketQtyAvailable !== undefined
+          ? updateData.ticketQtyAvailable
+          : existingEvent.ticketQtyAvailable || 0;
 
       // Calculate sold tickets
-      const soldTickets = (existingEvent.totalTickets || 0) - (existingEvent.ticketQtyAvailable || 0);
+      const soldTickets =
+        (existingEvent.totalTickets || 0) -
+        (existingEvent.ticketQtyAvailable || 0);
 
       // Cannot reduce total tickets below already sold
       if (totalTickets < soldTickets) {
         return apiErrorRes(
           HTTP_STATUS.BAD_REQUEST,
           res,
-          constantsMessage.CANNOT_REDUCE_TICKETS || `Cannot reduce total tickets below ${soldTickets} (already sold)`,
+          constantsMessage.CANNOT_REDUCE_TICKETS ||
+            `Cannot reduce total tickets below ${soldTickets} (already sold)`,
         );
       }
 
@@ -1129,7 +1145,8 @@ const updateEvent = async (req, res) => {
         return apiErrorRes(
           HTTP_STATUS.BAD_REQUEST,
           res,
-          constantsMessage.INVALID_TICKET_QTY || "Available tickets cannot exceed total tickets",
+          constantsMessage.INVALID_TICKET_QTY ||
+            "Available tickets cannot exceed total tickets",
         );
       }
     }
@@ -1138,17 +1155,22 @@ const updateEvent = async (req, res) => {
     if (updateData.ticketSelesStartDate || updateData.ticketSelesEndDate) {
       const salesStart = updateData.ticketSelesStartDate
         ? new Date(updateData.ticketSelesStartDate)
-        : existingEvent.ticketSelesStartDate ? new Date(existingEvent.ticketSelesStartDate) : null;
+        : existingEvent.ticketSelesStartDate
+          ? new Date(existingEvent.ticketSelesStartDate)
+          : null;
 
       const salesEnd = updateData.ticketSelesEndDate
         ? new Date(updateData.ticketSelesEndDate)
-        : existingEvent.ticketSelesEndDate ? new Date(existingEvent.ticketSelesEndDate) : null;
+        : existingEvent.ticketSelesEndDate
+          ? new Date(existingEvent.ticketSelesEndDate)
+          : null;
 
       if (salesStart && salesEnd && salesStart >= salesEnd) {
         return apiErrorRes(
           HTTP_STATUS.BAD_REQUEST,
           res,
-          constantsMessage.INVALID_SALES_DATE_RANGE || "Ticket sales start date must be before end date",
+          constantsMessage.INVALID_SALES_DATE_RANGE ||
+            "Ticket sales start date must be before end date",
         );
       }
 
@@ -1157,7 +1179,8 @@ const updateEvent = async (req, res) => {
         return apiErrorRes(
           HTTP_STATUS.BAD_REQUEST,
           res,
-          constantsMessage.SALES_END_AFTER_EVENT_START || "Ticket sales should end before event starts",
+          constantsMessage.SALES_END_AFTER_EVENT_START ||
+            "Ticket sales should end before event starts",
         );
       }
     }
@@ -1170,23 +1193,31 @@ const updateEvent = async (req, res) => {
         return apiErrorRes(
           HTTP_STATUS.BAD_REQUEST,
           res,
-          constantsMessage.INVALID_AGE_RESTRICTION || "Minimum age must be specified and non-negative for MIN_AGE type",
+          constantsMessage.INVALID_AGE_RESTRICTION ||
+            "Minimum age must be specified and non-negative for MIN_AGE type",
         );
       }
 
       if (type === "RANGE") {
-        if (minAge === undefined || maxAge === undefined || minAge < 0 || maxAge < 0) {
+        if (
+          minAge === undefined ||
+          maxAge === undefined ||
+          minAge < 0 ||
+          maxAge < 0
+        ) {
           return apiErrorRes(
             HTTP_STATUS.BAD_REQUEST,
             res,
-            constantsMessage.INVALID_AGE_RESTRICTION || "Both minimum and maximum age must be specified and non-negative for RANGE type",
+            constantsMessage.INVALID_AGE_RESTRICTION ||
+              "Both minimum and maximum age must be specified and non-negative for RANGE type",
           );
         }
         if (minAge >= maxAge) {
           return apiErrorRes(
             HTTP_STATUS.BAD_REQUEST,
             res,
-            constantsMessage.INVALID_AGE_RESTRICTION || "Minimum age must be less than maximum age",
+            constantsMessage.INVALID_AGE_RESTRICTION ||
+              "Minimum age must be less than maximum age",
           );
         }
       }
@@ -1197,15 +1228,34 @@ const updateEvent = async (req, res) => {
 
     // Simple fields
     const simpleFields = [
-      'eventTitle', 'eventCategory', 'posterImage', 'shortdesc', 'longdesc',
-      'tags', 'venueName', 'startDate', 'endDate', 'startTime', 'endTime',
-      'ticketName', 'ticketQtyAvailable', 'ticketSelesStartDate',
-      'ticketSelesEndDate', 'ticketPrice', 'totalTickets', 'refundPolicy',
-      'addOns', 'mediaLinks', 'shortTeaserVideo', 'accessAndPrivacy',
-      'ageRestriction', 'dressCode', 'isDraft'
+      "eventTitle",
+      "eventCategory",
+      "posterImage",
+      "shortdesc",
+      "longdesc",
+      "tags",
+      "venueName",
+      "startDate",
+      "endDate",
+      "startTime",
+      "endTime",
+      "ticketName",
+      "ticketQtyAvailable",
+      "ticketSelesStartDate",
+      "ticketSelesEndDate",
+      "ticketPrice",
+      "totalTickets",
+      "refundPolicy",
+      "addOns",
+      "mediaLinks",
+      "shortTeaserVideo",
+      "accessAndPrivacy",
+      "ageRestriction",
+      "dressCode",
+      "isDraft",
     ];
 
-    simpleFields.forEach(field => {
+    simpleFields.forEach((field) => {
       if (updateData[field] !== undefined) {
         updateObject[field] = updateData[field];
       }
@@ -1215,7 +1265,10 @@ const updateEvent = async (req, res) => {
     if (updateData.venueAddress) {
       updateObject.venueAddress = {
         type: "Point",
-        coordinates: [updateData.venueAddress.longitude, updateData.venueAddress.latitude],
+        coordinates: [
+          updateData.venueAddress.longitude,
+          updateData.venueAddress.latitude,
+        ],
         city: updateData.venueAddress.city,
         country: updateData.venueAddress.country,
         address: updateData.venueAddress.address,
@@ -1240,7 +1293,7 @@ const updateEvent = async (req, res) => {
     const updatedEvent = await Event.findByIdAndUpdate(
       eventId,
       { $set: updateObject },
-      { new: true, runValidators: true }
+      { new: true, runValidators: true },
     )
       .populate("eventCategory", "name image")
       .populate("createdBy", "firstName lastName profileImage")
@@ -1254,8 +1307,8 @@ const updateEvent = async (req, res) => {
     }
 
     if (Array.isArray(updatedEvent.shortTeaserVideo)) {
-      updatedEvent.shortTeaserVideo = updatedEvent.shortTeaserVideo.map((video) =>
-        formatResponseUrl(video),
+      updatedEvent.shortTeaserVideo = updatedEvent.shortTeaserVideo.map(
+        (video) => formatResponseUrl(video),
       );
     }
 
