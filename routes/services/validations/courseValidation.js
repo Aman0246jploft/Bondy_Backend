@@ -15,6 +15,9 @@ const createCourseSchema = Joi.object({
     courseTitle: Joi.string().required(),
     courseCategory: Joi.string().required(),
     posterImage: Joi.array().items(Joi.string()).optional(),
+    galleryImages: Joi.array().items(Joi.string()).optional(),
+    whatYouWillLearn: Joi.string().optional(),
+    isFeatured: Joi.boolean().default(false),
     venueAddress: Joi.object({
         latitude: Joi.number().required(),
         longitude: Joi.number().required(),
@@ -74,7 +77,46 @@ const getCoursesSchema = Joi.object({
     limit: Joi.number().integer().min(1).max(100).default(10),
 });
 
+const updateCourseParamsSchema = Joi.object({
+    courseId: Joi.string().required(),
+});
+
+const updateScheduleSchema = Joi.object({
+    startDate: Joi.date().required(),
+    endDate: Joi.date().min(Joi.ref('startDate')).required().messages({
+        'date.min': 'End date must be after or equal to start date'
+    }),
+    startTime: Joi.string().required(),
+    endTime: Joi.string().required(),
+    presentCount: Joi.number().min(0).optional(),
+});
+
+const updateCourseSchema = Joi.object({
+    courseTitle: Joi.string().optional(),
+    courseCategory: Joi.string().optional(),
+    posterImage: Joi.array().items(Joi.string()).optional(),
+    galleryImages: Joi.array().items(Joi.string()).optional(),
+    whatYouWillLearn: Joi.string().optional(),
+    isFeatured: Joi.boolean().optional(),
+    venueAddress: Joi.object({
+        latitude: Joi.number().required(),
+        longitude: Joi.number().required(),
+        city: Joi.string().required(),
+        country: Joi.string().required(),
+        address: Joi.string().required(),
+        state: Joi.string().optional(),
+        zipcode: Joi.string().optional(),
+    }).optional(),
+    shortdesc: Joi.string().optional(),
+    price: Joi.number().min(0).optional(),
+    totalSeats: Joi.number().min(1).optional(),
+    enrollmentType: Joi.string().valid("Ongoing", "fixedStart").optional(),
+    schedules: Joi.array().items(updateScheduleSchema).min(1).optional(),
+}).min(1); // At least one field must be provided
+
 module.exports = {
     createCourseSchema,
     getCoursesSchema,
+    updateCourseParamsSchema,
+    updateCourseSchema,
 };

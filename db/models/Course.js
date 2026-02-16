@@ -32,6 +32,9 @@ const courseSchema = new mongoose.Schema(
       ref: "Category",
     },
     posterImage: { type: [String] },
+    galleryImages: { type: [String] },
+    whatYouWillLearn: { type: String },
+    isFeatured: { type: Boolean, default: false },
     venueAddress: {
       type: {
         type: String,

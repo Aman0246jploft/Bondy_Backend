@@ -10,14 +10,15 @@ const {
 } = require("../../utils/globalFunction");
 const {
   createCourseSchema,
+  getCoursesSchema,
+  updateCourseSchema,
+  updateCourseParamsSchema,
 } = require("../services/validations/courseValidation");
 const validateRequest = require("../../middlewares/validateRequest");
 const perApiLimiter = require("../../middlewares/rateLimiter");
 const checkRole = require("../../middlewares/checkRole");
 const { roleId } = require("../../utils/Role");
-const {
-  getCoursesSchema,
-} = require("../services/validations/courseValidation");
+
 // Create Course
 const createCourse = async (req, res) => {
   try {
@@ -46,6 +47,13 @@ const createCourse = async (req, res) => {
     // Format poster image URLs if any
     if (Array.isArray(course.posterImage)) {
       course.posterImage = course.posterImage.map((img) =>
+        formatResponseUrl(img),
+      );
+    }
+
+    // Format gallery image URLs if any
+    if (Array.isArray(course.galleryImages)) {
+      course.galleryImages = course.galleryImages.map((img) =>
         formatResponseUrl(img),
       );
     }
@@ -271,7 +279,7 @@ const getCourses = async (req, res) => {
           process.env.JWT_SECRET_KEY,
         );
         viewerId = decoded.userId;
-      } catch {}
+      } catch { }
     }
 
     const bookedCourseIds = new Set(); // Set of "courseId"
@@ -332,6 +340,9 @@ const getCourses = async (req, res) => {
       if (Array.isArray(course.posterImage)) {
         course.posterImage = course.posterImage.map(formatResponseUrl);
       }
+      if (Array.isArray(course.galleryImages)) {
+        course.galleryImages = course.galleryImages.map(formatResponseUrl);
+      }
       if (course.courseCategory?.image) {
         course.courseCategory.image = formatResponseUrl(
           course.courseCategory.image,
@@ -369,10 +380,14 @@ const getCourses = async (req, res) => {
         isAvailable: !!currentSchedule,
         duration,
         acquiredSeats,
-        leftSeats: Math.max(0, course.totalSeats - acquiredSeats), // This might be misleading if it aggregates all schedules vs course capacity, but keeping consistent with prev logic
+        leftSeats: Math.max(0, course.totalSeats - acquiredSeats), // This might be misleading if it aggregates all schedules vs course capacity, but keeping consistent with prev logic.
         isBooked: bookedCourseIds.has(course._id.toString()),
       };
     });
+
+
+
+
 
     // ===============================
     // Sort by nearest schedule
@@ -453,6 +468,9 @@ const getCoursesAdmin = async (req, res) => {
       if (Array.isArray(course.posterImage)) {
         course.posterImage = course.posterImage.map(formatResponseUrl);
       }
+      if (Array.isArray(course.galleryImages)) {
+        course.galleryImages = course.galleryImages.map(formatResponseUrl);
+      }
       if (course.courseCategory && course.courseCategory.image) {
         course.courseCategory.image = formatResponseUrl(
           course.courseCategory.image,
@@ -509,12 +527,158 @@ const getCoursesAdmin = async (req, res) => {
   }
 };
 
+// Update Course
+const updateCourse = async (req, res) => {
+  try {
+    const { courseId } = req.params;
+    const userId = req.user.userId;
+    const updateData = req.body;
+
+    // 1. Check if course exists
+    const existingCourse = await Course.findById(courseId);
+    if (!existingCourse) {
+      return apiErrorRes(
+        HTTP_STATUS.NOT_FOUND,
+        res,
+        constantsMessage.NOT_FOUND || "Course not found"
+      );
+    }
+
+    // 2. Verify ownership - only creator can update
+    if (existingCourse.createdBy.toString() !== userId) {
+      return apiErrorRes(
+        HTTP_STATUS.FORBIDDEN,
+        res,
+        constantsMessage.UNAUTHORIZED_ACCESS || "You are not authorized to edit this course"
+      );
+    }
+
+    // 3. Handle totalSeats update safely
+    if (updateData.totalSeats !== undefined) {
+      // Count total enrolled students across all schedules
+      const enrolledCount = await Transaction.countDocuments({
+        courseId: courseId,
+        status: "PAID",
+      });
+
+      if (updateData.totalSeats < enrolledCount) {
+        return apiErrorRes(
+          HTTP_STATUS.BAD_REQUEST,
+          res,
+          `Cannot reduce total seats below ${enrolledCount} enrolled students`
+        );
+      }
+    }
+
+    // 4. Transform venueAddress to GeoJSON if provided
+    if (updateData.venueAddress) {
+      updateData.venueAddress = {
+        type: "Point",
+        coordinates: [
+          updateData.venueAddress.longitude,
+          updateData.venueAddress.latitude,
+        ],
+        city: updateData.venueAddress.city,
+        country: updateData.venueAddress.country,
+        address: updateData.venueAddress.address,
+        state: updateData.venueAddress.state,
+        zipcode: updateData.venueAddress.zipcode,
+      };
+    }
+
+    // 5. Validate schedules if provided
+    if (updateData.schedules) {
+      for (const schedule of updateData.schedules) {
+        const startDate = new Date(schedule.startDate);
+        const endDate = new Date(schedule.endDate);
+
+        if (startDate >= endDate) {
+          return apiErrorRes(
+            HTTP_STATUS.BAD_REQUEST,
+            res,
+            "Schedule start date must be before end date"
+          );
+        }
+      }
+
+      // Validate enrollment type vs schedules count
+      const enrollmentType = updateData.enrollmentType || existingCourse.enrollmentType;
+      if (enrollmentType === "fixedStart" && updateData.schedules.length !== 1) {
+        return apiErrorRes(
+          HTTP_STATUS.BAD_REQUEST,
+          res,
+          "Fixed start courses must have exactly one schedule"
+        );
+      }
+    }
+
+    // 6. Update the course
+    const updatedCourse = await Course.findByIdAndUpdate(
+      courseId,
+      { $set: updateData },
+      { new: true, runValidators: true }
+    )
+      .populate("courseCategory", "name image")
+      .populate("createdBy", "firstName lastName profileImage");
+
+    if (!updatedCourse) {
+      return apiErrorRes(
+        HTTP_STATUS.SERVER_ERROR,
+        res,
+        "Failed to update course"
+      );
+    }
+
+    // 7. Format response
+    const formattedCourse = updatedCourse.toObject();
+
+    if (Array.isArray(formattedCourse.posterImage)) {
+      formattedCourse.posterImage = formattedCourse.posterImage.map(
+        formatResponseUrl
+      );
+    }
+    if (Array.isArray(formattedCourse.galleryImages)) {
+      formattedCourse.galleryImages = formattedCourse.galleryImages.map(
+        formatResponseUrl
+      );
+    }
+    if (formattedCourse.courseCategory?.image) {
+      formattedCourse.courseCategory.image = formatResponseUrl(
+        formattedCourse.courseCategory.image
+      );
+    }
+    if (formattedCourse.createdBy?.profileImage) {
+      formattedCourse.createdBy.profileImage = formatResponseUrl(
+        formattedCourse.createdBy.profileImage
+      );
+    }
+
+    return apiSuccessRes(
+      HTTP_STATUS.OK,
+      res,
+      constantsMessage.SUCCESS || "Course updated successfully",
+      { course: formattedCourse }
+    );
+  } catch (error) {
+    console.error("Error in updateCourse:", error);
+    return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
+  }
+};
+
 router.post(
   "/create",
   perApiLimiter(),
   checkRole([roleId.ORGANIZER]),
   validateRequest(createCourseSchema),
   createCourse,
+);
+
+router.post(
+  "/edit/:courseId",
+  perApiLimiter(),
+  checkRole([roleId.ORGANIZER]),
+  validateRequest(updateCourseSchema),
+  updateCourse,
 );
 
 // ---------------------------------------------------------
@@ -575,7 +739,7 @@ const getCourseDetails = async (req, res) => {
           process.env.JWT_SECRET_KEY,
         );
         viewerId = decoded.userId;
-      } catch {}
+      } catch { }
     }
 
     if (viewerId) {
@@ -633,6 +797,9 @@ const getCourseDetails = async (req, res) => {
     // 6. Formatting Images
     if (Array.isArray(course.posterImage)) {
       course.posterImage = course.posterImage.map(formatResponseUrl);
+    }
+    if (Array.isArray(course.galleryImages)) {
+      course.galleryImages = course.galleryImages.map(formatResponseUrl);
     }
     if (course.courseCategory?.image) {
       course.courseCategory.image = formatResponseUrl(
@@ -698,6 +865,137 @@ router.get(
   checkRole([roleId.SUPER_ADMIN]),
   validateRequest(getCoursesSchema),
   getCoursesAdmin,
+);
+
+// ---------------------------------------------------------
+// Get Organizer Courses (for course management page)
+// ---------------------------------------------------------
+const getOrganizerCourses = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { categoryId, search, page = 1, limit = 10 } = req.query;
+
+    const skip = (page - 1) * limit;
+    let query = { createdBy: userId };
+
+    // Apply category filter
+    if (categoryId) {
+      query.courseCategory = categoryId;
+    }
+
+    // Apply search
+    if (search) {
+      query.$or = [
+        { courseTitle: { $regex: search, $options: "i" } },
+        { shortdesc: { $regex: search, $options: "i" } },
+      ];
+    }
+
+    const totalCourses = await Course.countDocuments(query);
+    const totalPages = Math.ceil(totalCourses / limit);
+
+    const courses = await Course.find(query)
+      .populate("courseCategory", "name image")
+      .populate("createdBy", "firstName lastName profileImage")
+      .skip(skip)
+      .limit(Number(limit))
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const courseIds = courses.map((c) => c._id);
+
+    // Aggregate revenue and enrollment stats
+    const stats = await Transaction.aggregate([
+      { $match: { courseId: { $in: courseIds }, status: "PAID" } },
+      {
+        $group: {
+          _id: "$courseId",
+          totalRevenue: { $sum: "$amount" },
+          totalEnrollments: { $sum: 1 },
+        },
+      },
+    ]);
+
+    const statsMap = {};
+    stats.forEach((stat) => {
+      statsMap[stat._id.toString()] = {
+        revenue: stat.totalRevenue,
+        enrollments: stat.totalEnrollments,
+      };
+    });
+
+    const formattedCourses = courses.map((course) => {
+      // Format images
+      if (Array.isArray(course.posterImage)) {
+        course.posterImage = course.posterImage.map(formatResponseUrl);
+      }
+      if (Array.isArray(course.galleryImages)) {
+        course.galleryImages = course.galleryImages.map(formatResponseUrl);
+      }
+      if (course.courseCategory?.image) {
+        course.courseCategory.image = formatResponseUrl(
+          course.courseCategory.image
+        );
+      }
+      if (course.createdBy?.profileImage) {
+        course.createdBy.profileImage = formatResponseUrl(
+          course.createdBy.profileImage
+        );
+      }
+
+      // Calculate duration from first schedule
+      let duration = null;
+      if (course.schedules && course.schedules.length > 0) {
+        const sched = course.schedules[0];
+        if (sched.startTime && sched.endTime) {
+          const [startH, startM] = sched.startTime.split(":").map(Number);
+          const [endH, endM] = sched.endTime.split(":").map(Number);
+          let diffMins = endH * 60 + endM - (startH * 60 + startM);
+          if (diffMins < 0) diffMins += 24 * 60;
+
+          if (diffMins > 0) {
+            const hours = Math.floor(diffMins / 60);
+            const minutes = diffMins % 60;
+            if (hours > 0 && minutes > 0) duration = `${hours}H ${minutes}min`;
+            else if (hours > 0) duration = `${hours}H`;
+            else duration = `${minutes}min`;
+          }
+        }
+      }
+
+      // Add stats
+      const courseStats = statsMap[course._id.toString()] || {
+        revenue: 0,
+        enrollments: 0,
+      };
+
+      return {
+        ...course,
+        duration,
+        totalRevenue: courseStats.revenue,
+        totalEnrollments: courseStats.enrollments,
+        leftSeats: Math.max(0, course.totalSeats - courseStats.enrollments),
+      };
+    });
+
+    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.SUCCESS, {
+      totalCourses,
+      currentPage: Number(page),
+      totalPages,
+      coursesPerPage: Number(limit),
+      courses: formattedCourses,
+    });
+  } catch (error) {
+    console.error("Error in getOrganizerCourses:", error);
+    return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
+  }
+};
+
+router.get(
+  "/organizer/list",
+  perApiLimiter(),
+  checkRole([roleId.ORGANIZER]),
+  getOrganizerCourses
 );
 
 module.exports = router;
