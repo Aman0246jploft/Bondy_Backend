@@ -21,6 +21,8 @@ const {
   createEventSchema,
   getEventsSchema,
   getEventDetailsSchema,
+  updateEventSchema,
+  updateEventParamsSchema,
 } = require("../services/validations/eventValidation");
 const validateRequest = require("../../middlewares/validateRequest");
 const perApiLimiter = require("../../middlewares/rateLimiter");
@@ -1043,6 +1045,250 @@ const getAllEventAttendees = async (req, res) => {
   }
 };
 
+// Update/Edit Event
+const updateEvent = async (req, res) => {
+  try {
+    const { eventId } = req.params;
+    const userId = req.user.userId;
+    const updateData = req.body;
+
+    // 1. Check if event exists
+    const existingEvent = await Event.findById(eventId).lean();
+    if (!existingEvent) {
+      return apiErrorRes(
+        HTTP_STATUS.NOT_FOUND,
+        res,
+        constantsMessage.EVENT_NOT_FOUND,
+      );
+    }
+
+    // 2. Check ownership - only the creator can edit
+    if (existingEvent.createdBy.toString() !== userId) {
+      return apiErrorRes(
+        HTTP_STATUS.FORBIDDEN,
+        res,
+        constantsMessage.UNAUTHORIZED_ACCESS || "You are not authorized to edit this event",
+      );
+    }
+
+    // 3. Prevent editing past events
+    const now = new Date();
+    if (existingEvent.endDate < now) {
+      return apiErrorRes(
+        HTTP_STATUS.BAD_REQUEST,
+        res,
+        constantsMessage.CANNOT_EDIT_PAST_EVENT || "Cannot edit an event that has already ended",
+      );
+    }
+
+    // 4. Validate date logic if dates are being updated
+    const startDate = updateData.startDate ? new Date(updateData.startDate) : new Date(existingEvent.startDate);
+    const endDate = updateData.endDate ? new Date(updateData.endDate) : new Date(existingEvent.endDate);
+
+    if (startDate >= endDate) {
+      return apiErrorRes(
+        HTTP_STATUS.BAD_REQUEST,
+        res,
+        constantsMessage.INVALID_DATE_RANGE || "Start date must be before end date",
+      );
+    }
+
+    // Prevent setting end date in the past
+    if (endDate < now) {
+      return apiErrorRes(
+        HTTP_STATUS.BAD_REQUEST,
+        res,
+        constantsMessage.CANNOT_SET_PAST_END_DATE || "Cannot set end date in the past",
+      );
+    }
+
+    // 5. Validate ticket quantity updates
+    if (updateData.totalTickets !== undefined || updateData.ticketQtyAvailable !== undefined) {
+      const totalTickets = updateData.totalTickets !== undefined
+        ? updateData.totalTickets
+        : existingEvent.totalTickets || 0;
+
+      const ticketQtyAvailable = updateData.ticketQtyAvailable !== undefined
+        ? updateData.ticketQtyAvailable
+        : existingEvent.ticketQtyAvailable || 0;
+
+      // Calculate sold tickets
+      const soldTickets = (existingEvent.totalTickets || 0) - (existingEvent.ticketQtyAvailable || 0);
+
+      // Cannot reduce total tickets below already sold
+      if (totalTickets < soldTickets) {
+        return apiErrorRes(
+          HTTP_STATUS.BAD_REQUEST,
+          res,
+          constantsMessage.CANNOT_REDUCE_TICKETS || `Cannot reduce total tickets below ${soldTickets} (already sold)`,
+        );
+      }
+
+      // Available tickets cannot exceed total tickets
+      if (ticketQtyAvailable > totalTickets) {
+        return apiErrorRes(
+          HTTP_STATUS.BAD_REQUEST,
+          res,
+          constantsMessage.INVALID_TICKET_QTY || "Available tickets cannot exceed total tickets",
+        );
+      }
+    }
+
+    // 6. Validate ticket sales dates if provided
+    if (updateData.ticketSelesStartDate || updateData.ticketSelesEndDate) {
+      const salesStart = updateData.ticketSelesStartDate
+        ? new Date(updateData.ticketSelesStartDate)
+        : existingEvent.ticketSelesStartDate ? new Date(existingEvent.ticketSelesStartDate) : null;
+
+      const salesEnd = updateData.ticketSelesEndDate
+        ? new Date(updateData.ticketSelesEndDate)
+        : existingEvent.ticketSelesEndDate ? new Date(existingEvent.ticketSelesEndDate) : null;
+
+      if (salesStart && salesEnd && salesStart >= salesEnd) {
+        return apiErrorRes(
+          HTTP_STATUS.BAD_REQUEST,
+          res,
+          constantsMessage.INVALID_SALES_DATE_RANGE || "Ticket sales start date must be before end date",
+        );
+      }
+
+      // Sales end date should be before or equal to event start date
+      if (salesEnd && salesEnd > startDate) {
+        return apiErrorRes(
+          HTTP_STATUS.BAD_REQUEST,
+          res,
+          constantsMessage.SALES_END_AFTER_EVENT_START || "Ticket sales should end before event starts",
+        );
+      }
+    }
+
+    // 7. Validate age restriction if provided
+    if (updateData.ageRestriction) {
+      const { type, minAge, maxAge } = updateData.ageRestriction;
+
+      if (type === "MIN_AGE" && (minAge === undefined || minAge < 0)) {
+        return apiErrorRes(
+          HTTP_STATUS.BAD_REQUEST,
+          res,
+          constantsMessage.INVALID_AGE_RESTRICTION || "Minimum age must be specified and non-negative for MIN_AGE type",
+        );
+      }
+
+      if (type === "RANGE") {
+        if (minAge === undefined || maxAge === undefined || minAge < 0 || maxAge < 0) {
+          return apiErrorRes(
+            HTTP_STATUS.BAD_REQUEST,
+            res,
+            constantsMessage.INVALID_AGE_RESTRICTION || "Both minimum and maximum age must be specified and non-negative for RANGE type",
+          );
+        }
+        if (minAge >= maxAge) {
+          return apiErrorRes(
+            HTTP_STATUS.BAD_REQUEST,
+            res,
+            constantsMessage.INVALID_AGE_RESTRICTION || "Minimum age must be less than maximum age",
+          );
+        }
+      }
+    }
+
+    // 8. Build update object
+    const updateObject = {};
+
+    // Simple fields
+    const simpleFields = [
+      'eventTitle', 'eventCategory', 'posterImage', 'shortdesc', 'longdesc',
+      'tags', 'venueName', 'startDate', 'endDate', 'startTime', 'endTime',
+      'ticketName', 'ticketQtyAvailable', 'ticketSelesStartDate',
+      'ticketSelesEndDate', 'ticketPrice', 'totalTickets', 'refundPolicy',
+      'addOns', 'mediaLinks', 'shortTeaserVideo', 'accessAndPrivacy',
+      'ageRestriction', 'dressCode', 'isDraft'
+    ];
+
+    simpleFields.forEach(field => {
+      if (updateData[field] !== undefined) {
+        updateObject[field] = updateData[field];
+      }
+    });
+
+    // 9. Transform venueAddress to GeoJSON if provided
+    if (updateData.venueAddress) {
+      updateObject.venueAddress = {
+        type: "Point",
+        coordinates: [updateData.venueAddress.longitude, updateData.venueAddress.latitude],
+        city: updateData.venueAddress.city,
+        country: updateData.venueAddress.country,
+        address: updateData.venueAddress.address,
+      };
+    }
+
+    // 10. Handle feature event fee if fetcherEvent flag changes
+    if (updateData.fetcherEvent !== undefined) {
+      let featureFee = 0;
+      if (updateData.fetcherEvent) {
+        const feeSetting = await GlobalSetting.findOne({
+          key: "FEATURE_EVENT_FEE",
+        });
+        if (feeSetting && feeSetting.value) {
+          featureFee = Number(feeSetting.value) || 0;
+        }
+      }
+      updateObject.featureEventFee = featureFee;
+    }
+
+    // 11. Perform the update
+    const updatedEvent = await Event.findByIdAndUpdate(
+      eventId,
+      { $set: updateObject },
+      { new: true, runValidators: true }
+    )
+      .populate("eventCategory", "name image")
+      .populate("createdBy", "firstName lastName profileImage")
+      .lean();
+
+    // 12. Format response URLs
+    if (Array.isArray(updatedEvent.posterImage)) {
+      updatedEvent.posterImage = updatedEvent.posterImage.map((img) =>
+        formatResponseUrl(img),
+      );
+    }
+
+    if (Array.isArray(updatedEvent.shortTeaserVideo)) {
+      updatedEvent.shortTeaserVideo = updatedEvent.shortTeaserVideo.map((video) =>
+        formatResponseUrl(video),
+      );
+    }
+
+    if (Array.isArray(updatedEvent.mediaLinks)) {
+      updatedEvent.mediaLinks = updatedEvent.mediaLinks.map((link) =>
+        formatResponseUrl(link),
+      );
+    }
+
+    if (updatedEvent.eventCategory?.image) {
+      updatedEvent.eventCategory.image = formatResponseUrl(
+        updatedEvent.eventCategory.image,
+      );
+    }
+
+    if (updatedEvent.createdBy?.profileImage) {
+      updatedEvent.createdBy.profileImage = formatResponseUrl(
+        updatedEvent.createdBy.profileImage,
+      );
+    }
+
+    return apiSuccessRes(
+      HTTP_STATUS.OK,
+      res,
+      constantsMessage.EVENT_UPDATED || "Event updated successfully",
+      { event: updatedEvent },
+    );
+  } catch (error) {
+    console.error("Error in updateEvent:", error);
+    return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
+  }
+};
+
 router.post(
   "/create",
   perApiLimiter(),
@@ -1084,5 +1330,13 @@ router.get(
 router.get("/details/:eventId", perApiLimiter(), getEventDetails);
 
 router.get("/attendees/:eventId", perApiLimiter(), getAllEventAttendees);
+
+router.post(
+  "/edit/:eventId",
+  perApiLimiter(),
+  checkRole([roleId.ORGANIZER]),
+  validateRequest(updateEventSchema),
+  updateEvent,
+);
 
 module.exports = router;

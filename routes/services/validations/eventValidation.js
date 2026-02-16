@@ -65,8 +65,54 @@ const getEventDetailsSchema = Joi.object({
     eventId: Joi.string().hex().length(24).required(),
 });
 
+const updateEventSchema = Joi.object({
+    eventTitle: Joi.string().optional(),
+    eventCategory: Joi.string().hex().length(24).optional(),
+    posterImage: Joi.array().items(Joi.string()).optional(),
+    shortdesc: Joi.string().optional(),
+    longdesc: Joi.string().optional(),
+    tags: Joi.array().items(Joi.string()).optional(),
+    venueName: Joi.string().optional(),
+    venueAddress: Joi.object({
+        latitude: Joi.number().required(),
+        longitude: Joi.number().required(),
+        city: Joi.string().required(),
+        country: Joi.string().required(),
+        address: Joi.string().required(),
+    }).optional(),
+    startDate: Joi.date().optional(),
+    endDate: Joi.date().optional(),
+    startTime: Joi.string().optional(),
+    endTime: Joi.string().optional(),
+    ticketName: Joi.string().optional(),
+    ticketQtyAvailable: Joi.number().min(0).optional(),
+    ticketSelesStartDate: Joi.date().optional(),
+    ticketSelesEndDate: Joi.date().optional(),
+    ticketPrice: Joi.number().min(0).optional(),
+    totalTickets: Joi.number().min(0).optional(),
+    refundPolicy: Joi.string().optional(),
+    addOns: Joi.string().optional(),
+    mediaLinks: Joi.array().items(Joi.string()).optional(),
+    shortTeaserVideo: Joi.array().items(Joi.string()).optional(),
+    accessAndPrivacy: Joi.boolean().optional(),
+    ageRestriction: Joi.object({
+        type: Joi.string().valid("ALL", "MIN_AGE", "RANGE").required(),
+        minAge: Joi.number().min(0).optional(),
+        maxAge: Joi.number().min(0).optional(),
+    }).optional(),
+    dressCode: Joi.string().optional(),
+    fetcherEvent: Joi.boolean().optional(),
+    isDraft: Joi.boolean().optional(),
+});
+
+const updateEventParamsSchema = Joi.object({
+    eventId: Joi.string().hex().length(24).required(),
+});
+
 module.exports = {
     createEventSchema,
     getEventsSchema,
-    getEventDetailsSchema
+    getEventDetailsSchema,
+    updateEventSchema,
+    updateEventParamsSchema
 };
