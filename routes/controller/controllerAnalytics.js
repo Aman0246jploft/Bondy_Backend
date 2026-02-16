@@ -16,10 +16,10 @@ router.get(
     try {
       const result = await analyticsService.getAdminStats();
       return apiSuccessRes(
-        result.status,
+        HTTP_STATUS.OK,
         res,
-        result.data,
         "Global stats fetched successfully",
+        result.data
       );
     } catch (error) {
       return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
@@ -37,10 +37,10 @@ router.get(
     try {
       const result = await analyticsService.getOrganizerStats(req.user.userId);
       return apiSuccessRes(
-        result.status,
+        HTTP_STATUS.OK,
         res,
-        result.data,
         "Organizer stats fetched successfully",
+        result.data
       );
     } catch (error) {
       return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
@@ -58,10 +58,10 @@ router.get(
     try {
       const result = await analyticsService.getCustomerStats(req.user.userId);
       return apiSuccessRes(
-        result.status,
+        HTTP_STATUS.OK,
         res,
-        result.data,
         "Customer stats fetched successfully",
+        result.data
       );
     } catch (error) {
       return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
@@ -80,10 +80,10 @@ router.get(
       const { userId } = req.params;
       const result = await analyticsService.getUserStatsForAdmin(userId);
       return apiSuccessRes(
-        result.status,
+        HTTP_STATUS.OK,
         res,
-        result.data,
         "User specific stats fetched successfully",
+        result.data
       );
     } catch (error) {
       return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);

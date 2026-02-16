@@ -1,4 +1,4 @@
-const { Transaction, User, Event, Course } = require("../../db");
+const { Transaction, User, Event, Course, SupportTicket, Payout } = require("../../db");
 const { roleId } = require("../../utils/Role");
 const { SUCCESS, SERVER_ERROR, DATA_NULL } = require("../../utils/constants");
 const { resultDb } = require("../../utils/globalFunction");
@@ -9,7 +9,16 @@ const mongoose = require("mongoose");
  */
 const getAdminStats = async () => {
   try {
-    const [userStats, eventStats, transactionStats] = await Promise.all([
+    const [
+      userStats,
+      eventStats,
+      courseStats,
+      transactionStats,
+      ticketStats,
+      verificationStats,
+      payoutStats
+    ] = await Promise.all([
+      // User Statistics
       User.aggregate([
         {
           $group: {
@@ -24,6 +33,8 @@ const getAdminStats = async () => {
           },
         },
       ]),
+
+      // Event Statistics
       Event.aggregate([
         {
           $group: {
@@ -38,14 +49,99 @@ const getAdminStats = async () => {
           },
         },
       ]),
-      Transaction.aggregate([
-        { $match: { status: "PAID" } },
+
+      // Course Statistics
+      Course.aggregate([
         {
           $group: {
             _id: null,
-            totalRevenue: { $sum: "$totalAmount" },
-            totalCommission: { $sum: "$commissionAmount" },
-            totalTicketsSold: { $sum: "$qty" },
+            totalCourses: { $sum: 1 },
+            featuredCourses: {
+              $sum: { $cond: [{ $eq: ["$isFeatured", true] }, 1, 0] },
+            },
+          },
+        },
+      ]),
+
+      // Transaction Statistics (Revenue + Course Enrollments)
+      Transaction.aggregate([
+        {
+          $facet: {
+            finance: [
+              { $match: { status: "PAID" } },
+              {
+                $group: {
+                  _id: null,
+                  totalRevenue: { $sum: "$totalAmount" },
+                  totalCommission: { $sum: "$commissionAmount" },
+                  totalTicketsSold: { $sum: "$qty" },
+                },
+              },
+            ],
+            courseEnrollments: [
+              { $match: { status: "PAID", bookingType: "COURSE" } },
+              {
+                $group: {
+                  _id: null,
+                  totalEnrollments: { $sum: "$qty" },
+                },
+              },
+            ],
+          },
+        },
+      ]),
+
+      // Support Ticket Statistics
+      SupportTicket.aggregate([
+        {
+          $group: {
+            _id: null,
+            totalTickets: { $sum: 1 },
+            pendingTickets: {
+              $sum: { $cond: [{ $eq: ["$status", "Pending"] }, 1, 0] },
+            },
+            openTickets: {
+              $sum: { $cond: [{ $eq: ["$status", "Open"] }, 1, 0] },
+            },
+            resolvedTickets: {
+              $sum: { $cond: [{ $eq: ["$status", "Resolved"] }, 1, 0] },
+            },
+          },
+        },
+      ]),
+
+      // Verification Statistics (Pending Organizer Documents)
+      User.aggregate([
+        {
+          $match: {
+            roleId: roleId.ORGANIZER,
+            "documents.0": { $exists: true },
+          },
+        },
+        { $unwind: "$documents" },
+        {
+          $group: {
+            _id: null,
+            pendingCount: {
+              $sum: { $cond: [{ $eq: ["$documents.status", "pending"] }, 1, 0] },
+            },
+            rejectedCount: {
+              $sum: { $cond: [{ $eq: ["$documents.status", "rejected"] }, 1, 0] },
+            },
+          },
+        },
+      ]),
+
+      // Payout Statistics
+      Payout.aggregate([
+        {
+          $match: { status: "PENDING" },
+        },
+        {
+          $group: {
+            _id: null,
+            pendingCount: { $sum: 1 },
+            pendingAmount: { $sum: "$amount" },
           },
         },
       ]),
@@ -62,10 +158,28 @@ const getAdminStats = async () => {
         upcomingEvents: 0,
         liveEvents: 0,
       },
-      finance: transactionStats[0] || {
+      courses: {
+        ...(courseStats[0] || { totalCourses: 0, featuredCourses: 0 }),
+        totalEnrollments: transactionStats[0]?.courseEnrollments[0]?.totalEnrollments || 0,
+      },
+      finance: transactionStats[0]?.finance[0] || {
         totalRevenue: 0,
         totalCommission: 0,
         totalTicketsSold: 0,
+      },
+      tickets: ticketStats[0] || {
+        totalTickets: 0,
+        pendingTickets: 0,
+        openTickets: 0,
+        resolvedTickets: 0,
+      },
+      verifications: verificationStats[0] || {
+        pendingCount: 0,
+        rejectedCount: 0,
+      },
+      payouts: payoutStats[0] || {
+        pendingCount: 0,
+        pendingAmount: 0,
       },
     };
 
