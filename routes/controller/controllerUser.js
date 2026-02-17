@@ -1207,13 +1207,13 @@ const deleteMyAccount = async (req, res) => {
 const resendUniversalOtp = async (req, res) => {
   try {
     const { type } = req.body;
-    // type: "LOGIN", "CUSTOMER", "ORGANIZER"
+    // type: "LOGIN", "CUSTOMER", "ORGANIZER", "FORGOT_PASSWORD"
 
     if (!type) {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        "Type is required (LOGIN, CUSTOMER, ORGANIZER).",
+        "Type is required (LOGIN, CUSTOMER, ORGANIZER, FORGOT_PASSWORD).",
       );
     }
 
@@ -1222,6 +1222,8 @@ const resendUniversalOtp = async (req, res) => {
     } else if (type === "CUSTOMER" || type === "ORGANIZER") {
       // Both customer and organizer signup use the general 'resendOtp' which uses 'signup_data' key
       return resendOtp(req, res);
+    } else if (type === "FORGOT_PASSWORD") {
+      return resendForgotPasswordOtp(req, res);
     } else {
       return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Invalid OTP type.");
     }
@@ -1333,6 +1335,47 @@ const verifyForgotPasswordOtp = async (req, res) => {
     );
   } catch (error) {
     console.error("Error in verifyForgotPasswordOtp:", error);
+    return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
+  }
+};
+
+// Forgot Password - Step 2.5: Resend OTP
+const resendForgotPasswordOtp = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    const user = await User.findOne({ email, isDeleted: false });
+    if (!user) {
+      return apiErrorRes(
+        HTTP_STATUS.NOT_FOUND,
+        res,
+        constantsMessage.USER_NOT_FOUND,
+      );
+    }
+
+    if (user.isDisable) {
+      return apiErrorRes(
+        HTTP_STATUS.FORBIDDEN,
+        res,
+        constantsMessage.ACCOUNT_DISABLED,
+      );
+    }
+
+    // Generate OTP
+    const otp =
+      process.env.NODE_ENV === "development" ? "12345" : generateOTP();
+
+    // Store in Redis
+    await setKeyWithTime(`forgot_otp:${email}`, otp, 10); // 10 mins
+
+    return apiSuccessRes(
+      HTTP_STATUS.OK,
+      res,
+      constantsMessage.OTP_RESENT_SUCCESS,
+      { otp },
+    );
+  } catch (error) {
+    console.error("Error in resendForgotPasswordOtp:", error);
     return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
   }
 };

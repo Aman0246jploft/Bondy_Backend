@@ -152,10 +152,10 @@ const getOrganizerTransactions = async (organizerId, filters = {}) => {
       commissionResult.length > 0
         ? commissionResult[0]
         : {
-            totalCommission: 0,
-            totalRevenue: 0,
-            totalOrganizerEarning: 0,
-          };
+          totalCommission: 0,
+          totalRevenue: 0,
+          totalOrganizerEarning: 0,
+        };
 
     return resultDb(SUCCESS, {
       transactions,

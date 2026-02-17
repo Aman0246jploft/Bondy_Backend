@@ -211,23 +211,56 @@ function getLatestDocsByName(documents) {
   return Array.from(map.values());
 }
 
-UserSchema.pre("save", function (next) {
-  const REQUIRED_DOCS = ["Business Proof", "Gov ID"];
+// UserSchema.pre("save", function (next) {
+//   const REQUIRED_DOCS = ["Business Proof", "Gov ID"];
 
+//   const latestDocs = getLatestDocsByName(this.documents);
+
+//   const approvedDocs = latestDocs.filter((doc) => doc.status === "approved");
+
+//   const approvedNames = approvedDocs.map((d) => d.name);
+
+//   const isVerified = REQUIRED_DOCS.every((docName) =>
+//     approvedNames.includes(docName),
+//   );
+
+//   this.isVerified = isVerified;
+
+//   // keep organizerVerificationStatus in sync
+//   if (isVerified) {
+//     this.organizerVerificationStatus = "approved";
+//   } else if (latestDocs.some((d) => d.status === "rejected")) {
+//     this.organizerVerificationStatus = "rejected";
+//   } else if (latestDocs.length) {
+//     this.organizerVerificationStatus = "pending";
+//   } else {
+//     this.organizerVerificationStatus = "unverified";
+//   }
+
+//   next();
+// });
+
+
+
+UserSchema.pre("save", function (next) {
   const latestDocs = getLatestDocsByName(this.documents);
 
-  const approvedDocs = latestDocs.filter((doc) => doc.status === "approved");
-
-  const approvedNames = approvedDocs.map((d) => d.name);
-
-  const isVerified = REQUIRED_DOCS.every((docName) =>
-    approvedNames.includes(docName),
+  const businessProof = latestDocs.find(
+    (doc) => doc.name === "Business Proof"
   );
 
-  this.isVerified = isVerified;
+  const govId = latestDocs.find(
+    (doc) => doc.name === "Gov ID"
+  );
 
-  // keep organizerVerificationStatus in sync
-  if (isVerified) {
+  const isBusinessApproved = businessProof?.status === "approved";
+  const isGovApproved = govId?.status === "approved";
+
+  // ✅ isVerified = true if ANY one is approved
+  this.isVerified = isBusinessApproved || isGovApproved;
+
+  // ✅ organizerVerificationStatus = approved ONLY if BOTH approved
+  if (isBusinessApproved && isGovApproved) {
     this.organizerVerificationStatus = "approved";
   } else if (latestDocs.some((d) => d.status === "rejected")) {
     this.organizerVerificationStatus = "rejected";
@@ -239,6 +272,8 @@ UserSchema.pre("save", function (next) {
 
   next();
 });
+
+
 
 UserSchema.options.toJSON = {
   transform: function (doc, ret, options) {

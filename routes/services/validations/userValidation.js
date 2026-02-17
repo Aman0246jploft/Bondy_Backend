@@ -52,7 +52,7 @@ const universalOtpSchema = Joi.object({
 const universalResendOtpSchema = Joi.object({
   email: Joi.string().email().required(),
   type: Joi.string()
-    .valid("LOGIN", "CUSTOMER", "ORGANIZER")
+    .valid("LOGIN", "CUSTOMER", "ORGANIZER", "FORGOT_PASSWORD")
     .required(),
 });
 
