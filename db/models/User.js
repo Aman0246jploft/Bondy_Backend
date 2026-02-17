@@ -240,18 +240,12 @@ function getLatestDocsByName(documents) {
 //   next();
 // });
 
-
-
 UserSchema.pre("save", function (next) {
   const latestDocs = getLatestDocsByName(this.documents);
 
-  const businessProof = latestDocs.find(
-    (doc) => doc.name === "Business Proof"
-  );
+  const businessProof = latestDocs.find((doc) => doc.name === "Business Proof");
 
-  const govId = latestDocs.find(
-    (doc) => doc.name === "Gov ID"
-  );
+  const govId = latestDocs.find((doc) => doc.name === "Gov ID");
 
   const isBusinessApproved = businessProof?.status === "approved";
   const isGovApproved = govId?.status === "approved";
@@ -272,8 +266,6 @@ UserSchema.pre("save", function (next) {
 
   next();
 });
-
-
 
 UserSchema.options.toJSON = {
   transform: function (doc, ret, options) {
