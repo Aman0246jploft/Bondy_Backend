@@ -189,7 +189,7 @@ const organizerSignupInit = async (req, res) => {
     const existingContact = await User.findOne({
       contactNumber,
       countryCode,
-      isDeleted: false, x
+      isDeleted: false,
     });
     if (existingContact) {
       return apiErrorRes(
@@ -1260,10 +1260,6 @@ const verifyUniversalOtp = async (req, res) => {
   }
 };
 
-
-
-
-
 // Forgot Password - Step 1: Init
 const forgotPasswordInit = async (req, res) => {
   try {
@@ -1428,7 +1424,6 @@ const resetPassword = async (req, res) => {
     return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
   }
 };
-
 
 router.post(
   "/customer/signup",

@@ -279,7 +279,7 @@ const getCourses = async (req, res) => {
           process.env.JWT_SECRET_KEY,
         );
         viewerId = decoded.userId;
-      } catch { }
+      } catch {}
     }
 
     const bookedCourseIds = new Set(); // Set of "courseId"
@@ -384,10 +384,6 @@ const getCourses = async (req, res) => {
         isBooked: bookedCourseIds.has(course._id.toString()),
       };
     });
-
-
-
-
 
     // ===============================
     // Sort by nearest schedule
@@ -540,7 +536,7 @@ const updateCourse = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.NOT_FOUND,
         res,
-        constantsMessage.NOT_FOUND || "Course not found"
+        constantsMessage.NOT_FOUND || "Course not found",
       );
     }
 
@@ -549,7 +545,8 @@ const updateCourse = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.FORBIDDEN,
         res,
-        constantsMessage.UNAUTHORIZED_ACCESS || "You are not authorized to edit this course"
+        constantsMessage.UNAUTHORIZED_ACCESS ||
+          "You are not authorized to edit this course",
       );
     }
 
@@ -565,7 +562,7 @@ const updateCourse = async (req, res) => {
         return apiErrorRes(
           HTTP_STATUS.BAD_REQUEST,
           res,
-          `Cannot reduce total seats below ${enrolledCount} enrolled students`
+          `Cannot reduce total seats below ${enrolledCount} enrolled students`,
         );
       }
     }
@@ -596,18 +593,22 @@ const updateCourse = async (req, res) => {
           return apiErrorRes(
             HTTP_STATUS.BAD_REQUEST,
             res,
-            "Schedule start date must be before end date"
+            "Schedule start date must be before end date",
           );
         }
       }
 
       // Validate enrollment type vs schedules count
-      const enrollmentType = updateData.enrollmentType || existingCourse.enrollmentType;
-      if (enrollmentType === "fixedStart" && updateData.schedules.length !== 1) {
+      const enrollmentType =
+        updateData.enrollmentType || existingCourse.enrollmentType;
+      if (
+        enrollmentType === "fixedStart" &&
+        updateData.schedules.length !== 1
+      ) {
         return apiErrorRes(
           HTTP_STATUS.BAD_REQUEST,
           res,
-          "Fixed start courses must have exactly one schedule"
+          "Fixed start courses must have exactly one schedule",
         );
       }
     }
@@ -616,7 +617,7 @@ const updateCourse = async (req, res) => {
     const updatedCourse = await Course.findByIdAndUpdate(
       courseId,
       { $set: updateData },
-      { new: true, runValidators: true }
+      { new: true, runValidators: true },
     )
       .populate("courseCategory", "name image")
       .populate("createdBy", "firstName lastName profileImage");
@@ -625,7 +626,7 @@ const updateCourse = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.SERVER_ERROR,
         res,
-        "Failed to update course"
+        "Failed to update course",
       );
     }
 
@@ -633,23 +634,21 @@ const updateCourse = async (req, res) => {
     const formattedCourse = updatedCourse.toObject();
 
     if (Array.isArray(formattedCourse.posterImage)) {
-      formattedCourse.posterImage = formattedCourse.posterImage.map(
-        formatResponseUrl
-      );
+      formattedCourse.posterImage =
+        formattedCourse.posterImage.map(formatResponseUrl);
     }
     if (Array.isArray(formattedCourse.galleryImages)) {
-      formattedCourse.galleryImages = formattedCourse.galleryImages.map(
-        formatResponseUrl
-      );
+      formattedCourse.galleryImages =
+        formattedCourse.galleryImages.map(formatResponseUrl);
     }
     if (formattedCourse.courseCategory?.image) {
       formattedCourse.courseCategory.image = formatResponseUrl(
-        formattedCourse.courseCategory.image
+        formattedCourse.courseCategory.image,
       );
     }
     if (formattedCourse.createdBy?.profileImage) {
       formattedCourse.createdBy.profileImage = formatResponseUrl(
-        formattedCourse.createdBy.profileImage
+        formattedCourse.createdBy.profileImage,
       );
     }
 
@@ -657,7 +656,7 @@ const updateCourse = async (req, res) => {
       HTTP_STATUS.OK,
       res,
       constantsMessage.SUCCESS || "Course updated successfully",
-      { course: formattedCourse }
+      { course: formattedCourse },
     );
   } catch (error) {
     console.error("Error in updateCourse:", error);
@@ -739,7 +738,7 @@ const getCourseDetails = async (req, res) => {
           process.env.JWT_SECRET_KEY,
         );
         viewerId = decoded.userId;
-      } catch { }
+      } catch {}
     }
 
     if (viewerId) {
@@ -934,12 +933,12 @@ const getOrganizerCourses = async (req, res) => {
       }
       if (course.courseCategory?.image) {
         course.courseCategory.image = formatResponseUrl(
-          course.courseCategory.image
+          course.courseCategory.image,
         );
       }
       if (course.createdBy?.profileImage) {
         course.createdBy.profileImage = formatResponseUrl(
-          course.createdBy.profileImage
+          course.createdBy.profileImage,
         );
       }
 
@@ -995,7 +994,7 @@ router.get(
   "/organizer/list",
   perApiLimiter(),
   checkRole([roleId.ORGANIZER]),
-  getOrganizerCourses
+  getOrganizerCourses,
 );
 
 module.exports = router;
