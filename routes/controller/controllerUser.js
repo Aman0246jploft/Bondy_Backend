@@ -786,7 +786,7 @@ const selfProfile = async (req, res) => {
     const userId = req.user.userId;
     req.params.userId = userId;
     await getUserProfileById(req, res);
-  } catch (error) {}
+  } catch (error) { }
 };
 
 const getUserProfileById = async (req, res) => {
@@ -1119,13 +1119,13 @@ const getUserProfileById = async (req, res) => {
       };
 
       profileData.events = {
-        next: nextEventsRaw.map(formatEvent),
-        past: pastEventsRaw.map(formatEvent),
+        upcoming_events: nextEventsRaw.map(formatEvent),
+        previous_events: pastEventsRaw.map(formatEvent),
       };
 
       profileData.courses = {
-        next: nextCoursesRaw.map(formatCourse),
-        past: pastCoursesRaw.map(formatCourse),
+        upcoming_courses: nextCoursesRaw.map(formatCourse),
+        previous_courses: pastCoursesRaw.map(formatCourse),
       };
     }
 
