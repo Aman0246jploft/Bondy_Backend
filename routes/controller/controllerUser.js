@@ -4,6 +4,7 @@ const { User, Event, Course, Transaction, Follow } = require("../../db");
 const CONSTANTS = require("../../utils/constants");
 const constantsMessage = require("../../utils/constantsMessage");
 const HTTP_STATUS = require("../../utils/statusCode");
+const mongoose = require("mongoose");
 const {
   apiErrorRes,
   apiSuccessRes,
@@ -926,6 +927,95 @@ const getUserProfileById = async (req, res) => {
         createdBy: userId,
       });
       profileData.totalCoursesAdded = totalCourses; // "total course he added"
+
+      const organizerObjectId = new mongoose.Types.ObjectId(userId);
+      const roundToTwo = (num) => Math.round((num + Number.EPSILON) * 100) / 100;
+
+      // 1. Total Upcoming Events
+      const totalUpcomingEvents = await Event.countDocuments({
+        createdBy: userId,
+        startDate: { $gte: new Date() },
+        status: "Upcoming",
+      });
+      profileData.totalUpcomingEvents = totalUpcomingEvents;
+
+      // 2. Total Tickets Sold
+      const ticketsSoldResult = await Transaction.aggregate([
+        {
+          $lookup: {
+            from: "events",
+            localField: "eventId",
+            foreignField: "_id",
+            as: "eventInfo",
+          },
+        },
+        {
+          $match: {
+            bookingType: "EVENT",
+            status: "PAID",
+            "eventInfo.createdBy": organizerObjectId,
+          },
+        },
+        {
+          $group: {
+            _id: null,
+            totalTickets: { $sum: "$qty" },
+          },
+        },
+      ]);
+      profileData.totalTicketSold = ticketsSoldResult[0]?.totalTickets || 0;
+
+      // 3. Net Earnings from Events
+      const eventEarningsResult = await Transaction.aggregate([
+        {
+          $lookup: {
+            from: "events",
+            localField: "eventId",
+            foreignField: "_id",
+            as: "eventInfo",
+          },
+        },
+        {
+          $match: {
+            bookingType: "EVENT",
+            status: "PAID",
+            "eventInfo.createdBy": organizerObjectId,
+          },
+        },
+        {
+          $group: {
+            _id: null,
+            totalEarnings: { $sum: "$organizerEarning" },
+          },
+        },
+      ]);
+      profileData.netEarningEvents = roundToTwo(eventEarningsResult[0]?.totalEarnings || 0);
+
+      // 4. Net Earnings from Courses
+      const courseEarningsResult = await Transaction.aggregate([
+        {
+          $lookup: {
+            from: "courses",
+            localField: "courseId",
+            foreignField: "_id",
+            as: "courseInfo",
+          },
+        },
+        {
+          $match: {
+            bookingType: "COURSE",
+            status: "PAID",
+            "courseInfo.createdBy": organizerObjectId,
+          },
+        },
+        {
+          $group: {
+            _id: null,
+            totalEarnings: { $sum: "$organizerEarning" },
+          },
+        },
+      ]);
+      profileData.netEarningCourses = roundToTwo(courseEarningsResult[0]?.totalEarnings || 0);
 
       const now = new Date();
 

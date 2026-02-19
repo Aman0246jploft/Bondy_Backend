@@ -503,6 +503,8 @@ const getOrganizerDashboardData = async (organizerId) => {
       .limit(5)
       .select("eventTitle startDate posterImage venueAddress totalTickets ticketPrice");
 
+
+
     return resultDb(SUCCESS, {
       totalEvents,
       totalTicketSold,
@@ -510,6 +512,8 @@ const getOrganizerDashboardData = async (organizerId) => {
       netEarningCourses,
       totalUpcomingEvents,
       // upcomingEvents,
+
+
     });
   } catch (error) {
     console.error("Error in getOrganizerDashboardData service:", error);
