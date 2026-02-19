@@ -103,8 +103,13 @@ const getEvents = async (req, res) => {
       search,
       page = 1,
       limit = 10,
+      userId,
     } = req.query;
 
+    let loginUser = null;
+    if (req.user) {
+      loginUser = req.user.userId;
+    }
     const now = new Date();
     const skip = (page - 1) * limit;
 
@@ -171,7 +176,7 @@ const getEvents = async (req, res) => {
 
           city = user?.location?.city || null;
           country = user?.location?.country || null;
-        } catch (err) {}
+        } catch (err) { }
       }
 
       // 🔹 CASE 3: CITY or COUNTRY FILTER
@@ -559,7 +564,7 @@ const getEventDetails = async (req, res) => {
           status: "PAID",
         });
         if (booking) isBooked = true;
-      } catch (err) {}
+      } catch (err) { }
     }
     event.isBooked = isBooked;
 
@@ -667,9 +672,9 @@ const getEventDetails = async (req, res) => {
       ...r,
       user: r.userId
         ? {
-            ...r.userId,
-            profileImage: formatResponseUrl(r.userId.profileImage),
-          }
+          ...r.userId,
+          profileImage: formatResponseUrl(r.userId.profileImage),
+        }
         : null,
     }));
 
@@ -677,9 +682,9 @@ const getEventDetails = async (req, res) => {
       ...c,
       user: c.user
         ? {
-            ...c.user,
-            profileImage: formatResponseUrl(c.user.profileImage),
-          }
+          ...c.user,
+          profileImage: formatResponseUrl(c.user.profileImage),
+        }
         : null,
     }));
 
@@ -1068,7 +1073,7 @@ const updateEvent = async (req, res) => {
         HTTP_STATUS.FORBIDDEN,
         res,
         constantsMessage.UNAUTHORIZED_ACCESS ||
-          "You are not authorized to edit this event",
+        "You are not authorized to edit this event",
       );
     }
 
@@ -1079,7 +1084,7 @@ const updateEvent = async (req, res) => {
         HTTP_STATUS.BAD_REQUEST,
         res,
         constantsMessage.CANNOT_EDIT_PAST_EVENT ||
-          "Cannot edit an event that has already ended",
+        "Cannot edit an event that has already ended",
       );
     }
 
@@ -1096,7 +1101,7 @@ const updateEvent = async (req, res) => {
         HTTP_STATUS.BAD_REQUEST,
         res,
         constantsMessage.INVALID_DATE_RANGE ||
-          "Start date must be before end date",
+        "Start date must be before end date",
       );
     }
 
@@ -1106,7 +1111,7 @@ const updateEvent = async (req, res) => {
         HTTP_STATUS.BAD_REQUEST,
         res,
         constantsMessage.CANNOT_SET_PAST_END_DATE ||
-          "Cannot set end date in the past",
+        "Cannot set end date in the past",
       );
     }
 
@@ -1136,7 +1141,7 @@ const updateEvent = async (req, res) => {
           HTTP_STATUS.BAD_REQUEST,
           res,
           constantsMessage.CANNOT_REDUCE_TICKETS ||
-            `Cannot reduce total tickets below ${soldTickets} (already sold)`,
+          `Cannot reduce total tickets below ${soldTickets} (already sold)`,
         );
       }
 
@@ -1146,7 +1151,7 @@ const updateEvent = async (req, res) => {
           HTTP_STATUS.BAD_REQUEST,
           res,
           constantsMessage.INVALID_TICKET_QTY ||
-            "Available tickets cannot exceed total tickets",
+          "Available tickets cannot exceed total tickets",
         );
       }
     }
@@ -1170,7 +1175,7 @@ const updateEvent = async (req, res) => {
           HTTP_STATUS.BAD_REQUEST,
           res,
           constantsMessage.INVALID_SALES_DATE_RANGE ||
-            "Ticket sales start date must be before end date",
+          "Ticket sales start date must be before end date",
         );
       }
 
@@ -1180,7 +1185,7 @@ const updateEvent = async (req, res) => {
           HTTP_STATUS.BAD_REQUEST,
           res,
           constantsMessage.SALES_END_AFTER_EVENT_START ||
-            "Ticket sales should end before event starts",
+          "Ticket sales should end before event starts",
         );
       }
     }
@@ -1194,7 +1199,7 @@ const updateEvent = async (req, res) => {
           HTTP_STATUS.BAD_REQUEST,
           res,
           constantsMessage.INVALID_AGE_RESTRICTION ||
-            "Minimum age must be specified and non-negative for MIN_AGE type",
+          "Minimum age must be specified and non-negative for MIN_AGE type",
         );
       }
 
@@ -1209,7 +1214,7 @@ const updateEvent = async (req, res) => {
             HTTP_STATUS.BAD_REQUEST,
             res,
             constantsMessage.INVALID_AGE_RESTRICTION ||
-              "Both minimum and maximum age must be specified and non-negative for RANGE type",
+            "Both minimum and maximum age must be specified and non-negative for RANGE type",
           );
         }
         if (minAge >= maxAge) {
@@ -1217,7 +1222,7 @@ const updateEvent = async (req, res) => {
             HTTP_STATUS.BAD_REQUEST,
             res,
             constantsMessage.INVALID_AGE_RESTRICTION ||
-              "Minimum age must be less than maximum age",
+            "Minimum age must be less than maximum age",
           );
         }
       }

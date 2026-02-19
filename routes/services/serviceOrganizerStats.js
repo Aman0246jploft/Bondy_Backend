@@ -12,6 +12,13 @@ const { resultDb } = require("../../utils/globalFunction");
 const mongoose = require("mongoose");
 
 /**
+ * Utility to round number to 2 decimal places
+ */
+const roundToTwo = (num) => {
+  return Math.round((num + Number.EPSILON) * 100) / 100;
+};
+
+/**
  * Get all transactions for a specific organizer with filters
  */
 const getOrganizerTransactions = async (organizerId, filters = {}) => {
@@ -44,7 +51,6 @@ const getOrganizerTransactions = async (organizerId, filters = {}) => {
         matchConditions.createdAt.$lte = new Date(endDate);
       }
     }
-    16031711969063;
     // Aggregation pipeline
     const pipeline = [
       {
@@ -392,9 +398,129 @@ const getOrganizerStatsSummary = async (organizerId) => {
   }
 };
 
+/**
+ * Get dashboard data for a specific organizer
+ */
+const getOrganizerDashboardData = async (organizerId) => {
+  try {
+    const organizerObjectId = new mongoose.Types.ObjectId(organizerId);
+
+    // 1. Total Events
+    const totalEvents = await Event.countDocuments({
+      createdBy: organizerObjectId,
+    });
+
+    // 2. Total Tickets Sold (from PAID EVENT transactions)
+    const ticketsSoldResult = await Transaction.aggregate([
+      {
+        $lookup: {
+          from: "events",
+          localField: "eventId",
+          foreignField: "_id",
+          as: "eventInfo",
+        },
+      },
+      {
+        $match: {
+          bookingType: "EVENT",
+          status: "PAID",
+          "eventInfo.createdBy": organizerObjectId,
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          totalTickets: { $sum: "$qty" },
+        },
+      },
+    ]);
+    const totalTicketSold = ticketsSoldResult[0]?.totalTickets || 0;
+
+    // 3. Net Earnings from Events
+    const eventEarningsResult = await Transaction.aggregate([
+      {
+        $lookup: {
+          from: "events",
+          localField: "eventId",
+          foreignField: "_id",
+          as: "eventInfo",
+        },
+      },
+      {
+        $match: {
+          bookingType: "EVENT",
+          status: "PAID",
+          "eventInfo.createdBy": organizerObjectId,
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          totalEarnings: { $sum: "$organizerEarning" },
+        },
+      },
+    ]);
+    const netEarningEvents = roundToTwo(eventEarningsResult[0]?.totalEarnings || 0);
+
+    // 4. Net Earnings from Courses
+    const courseEarningsResult = await Transaction.aggregate([
+      {
+        $lookup: {
+          from: "courses",
+          localField: "courseId",
+          foreignField: "_id",
+          as: "courseInfo",
+        },
+      },
+      {
+        $match: {
+          bookingType: "COURSE",
+          status: "PAID",
+          "courseInfo.createdBy": organizerObjectId,
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          totalEarnings: { $sum: "$organizerEarning" },
+        },
+      },
+    ]);
+    const netEarningCourses = roundToTwo(courseEarningsResult[0]?.totalEarnings || 0);
+
+    // 5. Upcoming Events (Limit 5)
+    // We want events created by this organizer with startDate > now, sorted by startDate asc.
+    const upcomingEventsQuery = {
+      createdBy: organizerObjectId,
+      startDate: { $gte: new Date() },
+      status: "Upcoming",
+    };
+
+    const totalUpcomingEvents = await Event.countDocuments(upcomingEventsQuery);
+
+    const upcomingEvents = await Event.find(upcomingEventsQuery)
+      .sort({ startDate: 1 })
+      .limit(5)
+      .select("eventTitle startDate posterImage venueAddress totalTickets ticketPrice");
+
+    return resultDb(SUCCESS, {
+      totalEvents,
+      totalTicketSold,
+      netEarningEvents,
+      netEarningCourses,
+      totalUpcomingEvents,
+      // upcomingEvents,
+    });
+  } catch (error) {
+    console.error("Error in getOrganizerDashboardData service:", error);
+    return resultDb(SERVER_ERROR, DATA_NULL);
+  }
+};
+
 module.exports = {
   getOrganizerTransactions,
   getOrganizerWalletHistory,
   getOrganizerPayouts,
   getOrganizerStatsSummary,
+  getOrganizerDashboardData,
 };
