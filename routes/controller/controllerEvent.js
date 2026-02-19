@@ -120,6 +120,10 @@ const getEvents = async (req, res) => {
         status: { $ne: "Past" },
       };
 
+      if (userId && mongoose.Types.ObjectId.isValid(userId)) {
+        baseMatch.createdBy = new mongoose.Types.ObjectId(userId);
+      }
+
       if (categoryId) {
         baseMatch.eventCategory = new mongoose.Types.ObjectId(categoryId);
       }
@@ -228,6 +232,10 @@ const getEvents = async (req, res) => {
       isDraft: false,
       status: { $ne: "Past" },
     };
+
+    if (userId && mongoose.Types.ObjectId.isValid(userId)) {
+      query.createdBy = userId;
+    }
 
     // Apply category filter if provided
     if (categoryId && categoryId !== "") {

@@ -786,7 +786,7 @@ const selfProfile = async (req, res) => {
     const userId = req.user.userId;
     req.params.userId = userId;
     await getUserProfileById(req, res);
-  } catch (error) { }
+  } catch (error) {}
 };
 
 const getUserProfileById = async (req, res) => {
@@ -929,7 +929,8 @@ const getUserProfileById = async (req, res) => {
       profileData.totalCoursesAdded = totalCourses; // "total course he added"
 
       const organizerObjectId = new mongoose.Types.ObjectId(userId);
-      const roundToTwo = (num) => Math.round((num + Number.EPSILON) * 100) / 100;
+      const roundToTwo = (num) =>
+        Math.round((num + Number.EPSILON) * 100) / 100;
 
       // 1. Total Upcoming Events
       const totalUpcomingEvents = await Event.countDocuments({
@@ -989,7 +990,9 @@ const getUserProfileById = async (req, res) => {
           },
         },
       ]);
-      profileData.netEarningEvents = roundToTwo(eventEarningsResult[0]?.totalEarnings || 0);
+      profileData.netEarningEvents = roundToTwo(
+        eventEarningsResult[0]?.totalEarnings || 0,
+      );
 
       // 4. Net Earnings from Courses
       const courseEarningsResult = await Transaction.aggregate([
@@ -1015,7 +1018,9 @@ const getUserProfileById = async (req, res) => {
           },
         },
       ]);
-      profileData.netEarningCourses = roundToTwo(courseEarningsResult[0]?.totalEarnings || 0);
+      profileData.netEarningCourses = roundToTwo(
+        courseEarningsResult[0]?.totalEarnings || 0,
+      );
 
       const now = new Date();
 
