@@ -156,8 +156,8 @@ const getCourses = async (req, res) => {
     // Fetch courses
     // ===============================
     let courses = await Course.find(query)
-      .populate("courseCategory", "name image")
-      .populate("createdBy")
+      .populate("courseCategory")
+      .populate("createdBy", "firstName lastName profileImage")
       .lean();
 
     // ===============================
