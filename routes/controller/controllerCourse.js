@@ -279,7 +279,7 @@ const getCourses = async (req, res) => {
           process.env.JWT_SECRET_KEY,
         );
         viewerId = decoded.userId;
-      } catch {}
+      } catch { }
     }
 
     const bookedCourseIds = new Set(); // Set of "courseId"
@@ -546,7 +546,7 @@ const updateCourse = async (req, res) => {
         HTTP_STATUS.FORBIDDEN,
         res,
         constantsMessage.UNAUTHORIZED_ACCESS ||
-          "You are not authorized to edit this course",
+        "You are not authorized to edit this course",
       );
     }
 
@@ -738,7 +738,7 @@ const getCourseDetails = async (req, res) => {
           process.env.JWT_SECRET_KEY,
         );
         viewerId = decoded.userId;
-      } catch {}
+      } catch { }
     }
 
     if (viewerId) {
@@ -858,25 +858,6 @@ const getCourseDetails = async (req, res) => {
     return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
   }
 };
-
-// Get Courses with Filters
-router.get(
-  "/list",
-  perApiLimiter(),
-  validateRequest(getCoursesSchema),
-  getCourses,
-);
-
-router.get("/details/:courseId", perApiLimiter(), getCourseDetails);
-
-// Admin List API
-router.get(
-  "/admin/list",
-  perApiLimiter(),
-  checkRole([roleId.SUPER_ADMIN]),
-  validateRequest(getCoursesSchema),
-  getCoursesAdmin,
-);
 
 // ---------------------------------------------------------
 // Get Organizer Courses (for course management page)
@@ -1001,6 +982,27 @@ const getOrganizerCourses = async (req, res) => {
     return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
   }
 };
+
+// Get Courses with Filters
+router.get(
+  "/list",
+  perApiLimiter(),
+  validateRequest(getCoursesSchema),
+  getCourses,
+);
+
+router.get("/details/:courseId", perApiLimiter(), getCourseDetails);
+
+// Admin List API
+router.get(
+  "/admin/list",
+  perApiLimiter(),
+  checkRole([roleId.SUPER_ADMIN]),
+  validateRequest(getCoursesSchema),
+  getCoursesAdmin,
+);
+
+
 
 router.get(
   "/organizer/list",
