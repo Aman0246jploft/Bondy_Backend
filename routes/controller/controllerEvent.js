@@ -531,7 +531,7 @@ const getEventDetails = async (req, res) => {
 
     // 1. Fetch Event with populated fields
     const event = await Event.findById(eventId)
-      .populate("eventCategory", "name image")
+      .populate("eventCategory")
       .populate("createdBy", "firstName lastName profileImage")
       .lean();
 

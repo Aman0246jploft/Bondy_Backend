@@ -141,19 +141,173 @@ const getCourses = async (req, res) => {
         );
       }
 
-      query.venueAddress = {
-        $nearSphere: {
-          $geometry: {
-            type: "Point",
-            coordinates: [parseFloat(longitude), parseFloat(latitude)],
+      const geoMatch = { ...query };
+
+      const geoAggCourses = await Course.aggregate([
+        {
+          $geoNear: {
+            near: {
+              type: "Point",
+              coordinates: [parseFloat(longitude), parseFloat(latitude)],
+            },
+            distanceField: "distance",
+            maxDistance: parseFloat(radius) * 1000,
+            spherical: true,
+            query: geoMatch,
           },
-          $maxDistance: radius * 1000,
         },
-      };
+        { $skip: parseInt(skip) },
+        { $limit: parseInt(limit) },
+        // Populate courseCategory
+        {
+          $lookup: {
+            from: "categories",
+            localField: "courseCategory",
+            foreignField: "_id",
+            as: "courseCategory",
+          },
+        },
+        {
+          $unwind: {
+            path: "$courseCategory",
+            preserveNullAndEmptyArrays: true,
+          },
+        },
+        // Populate createdBy
+        {
+          $lookup: {
+            from: "users",
+            localField: "createdBy",
+            foreignField: "_id",
+            pipeline: [
+              { $project: { firstName: 1, lastName: 1, profileImage: 1 } },
+            ],
+            as: "createdBy",
+          },
+        },
+        { $unwind: { path: "$createdBy", preserveNullAndEmptyArrays: true } },
+      ]);
+
+      // Format and enrich
+      const courseIds = geoAggCourses.map((c) => c._id);
+      const bookingCounts = await Transaction.aggregate([
+        { $match: { courseId: { $in: courseIds }, status: "PAID" } },
+        {
+          $group: {
+            _id: { course: "$courseId", schedule: "$scheduleId" },
+            count: { $sum: 1 },
+          },
+        },
+      ]);
+      const bookingMap = {};
+      const courseBookingMap = {};
+      bookingCounts.forEach((b) => {
+        const courseId = b._id.course.toString();
+        const scheduleId = b._id.schedule ? b._id.schedule.toString() : "null";
+        bookingMap[`${courseId}_${scheduleId}`] = b.count;
+        courseBookingMap[courseId] =
+          (courseBookingMap[courseId] || 0) + b.count;
+      });
+
+      let viewerId = null;
+      const authHeader = req.headers.authorization;
+      if (authHeader?.startsWith("Bearer ")) {
+        try {
+          const jwt = require("jsonwebtoken");
+          const decoded = jwt.verify(
+            authHeader.split(" ")[1],
+            process.env.JWT_SECRET_KEY,
+          );
+          viewerId = decoded.userId;
+        } catch {}
+      }
+      const bookedCourseIds = new Set();
+      const bookedScheduleMap = {};
+      if (viewerId) {
+        const bookings = await Transaction.find({
+          userId: viewerId,
+          courseId: { $in: courseIds },
+          status: "PAID",
+        }).select("courseId scheduleId");
+        bookings.forEach((b) => {
+          bookedCourseIds.add(b.courseId.toString());
+          if (b.scheduleId) {
+            const cId = b.courseId.toString();
+            if (!bookedScheduleMap[cId]) bookedScheduleMap[cId] = new Set();
+            bookedScheduleMap[cId].add(b.scheduleId.toString());
+          }
+        });
+      }
+
+      const formattedGeo = geoAggCourses.map((course) => {
+        if (course.schedules && Array.isArray(course.schedules)) {
+          course.schedules = course.schedules.map((schedule) => {
+            const schedId = schedule._id.toString();
+            const acquired = bookingMap[`${course._id}_${schedId}`] || 0;
+            const total = course.totalSeats;
+            const available = Math.max(0, total - acquired);
+            const userBookedSchedules =
+              bookedScheduleMap[course._id.toString()];
+            return {
+              ...schedule,
+              totalSeats: total,
+              acquiredSeats: acquired,
+              availableSeats: available,
+              isFull: available <= 0,
+              isBooked: userBookedSchedules
+                ? userBookedSchedules.has(schedId)
+                : false,
+            };
+          });
+        }
+        const currentSchedule = resolveCurrentSchedule(course.schedules);
+        const sessionStatus = getSessionStatus(currentSchedule);
+        if (Array.isArray(course.posterImage))
+          course.posterImage = course.posterImage.map(formatResponseUrl);
+        if (Array.isArray(course.galleryImages))
+          course.galleryImages = course.galleryImages.map(formatResponseUrl);
+        if (course.courseCategory?.image)
+          course.courseCategory.image = formatResponseUrl(
+            course.courseCategory.image,
+          );
+        if (course.createdBy?.profileImage)
+          course.createdBy.profileImage = formatResponseUrl(
+            course.createdBy.profileImage,
+          );
+        let duration = null;
+        if (currentSchedule?.startTime && currentSchedule?.endTime) {
+          const [sh, sm] = currentSchedule.startTime.split(":").map(Number);
+          const [eh, em] = currentSchedule.endTime.split(":").map(Number);
+          let mins = eh * 60 + em - (sh * 60 + sm);
+          if (mins < 0) mins += 1440;
+          const h = Math.floor(mins / 60);
+          const m = mins % 60;
+          duration = h ? (m ? `${h}H ${m}min` : `${h}H`) : `${m}min`;
+        }
+        const acquiredSeats = courseBookingMap[course._id.toString()] || 0;
+        return {
+          ...course,
+          currentSchedule,
+          sessionStatus,
+          isAvailable: !!currentSchedule,
+          duration,
+          acquiredSeats,
+          leftSeats: Math.max(0, course.totalSeats - acquiredSeats),
+          isBooked: bookedCourseIds.has(course._id.toString()),
+        };
+      });
+
+      return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.SUCCESS, {
+        totalCourses: formattedGeo.length,
+        currentPage: Number(page),
+        totalPages: Math.ceil(formattedGeo.length / limit),
+        coursesPerPage: Number(limit),
+        courses: formattedGeo,
+      });
     }
 
     // ===============================
-    // Fetch courses
+    // Fetch courses (all other filters)
     // ===============================
     let courses = await Course.find(query)
       .populate("courseCategory")
@@ -279,7 +433,7 @@ const getCourses = async (req, res) => {
           process.env.JWT_SECRET_KEY,
         );
         viewerId = decoded.userId;
-      } catch { }
+      } catch {}
     }
 
     const bookedCourseIds = new Set(); // Set of "courseId"
@@ -546,7 +700,7 @@ const updateCourse = async (req, res) => {
         HTTP_STATUS.FORBIDDEN,
         res,
         constantsMessage.UNAUTHORIZED_ACCESS ||
-        "You are not authorized to edit this course",
+          "You are not authorized to edit this course",
       );
     }
 
@@ -689,7 +843,7 @@ const getCourseDetails = async (req, res) => {
 
     // 1. Fetch Course
     const course = await Course.findById(courseId)
-      .populate("courseCategory", "name image")
+      .populate("courseCategory")
       .populate("createdBy", "firstName lastName profileImage")
       .lean();
 
@@ -738,7 +892,7 @@ const getCourseDetails = async (req, res) => {
           process.env.JWT_SECRET_KEY,
         );
         viewerId = decoded.userId;
-      } catch { }
+      } catch {}
     }
 
     if (viewerId) {
@@ -1001,8 +1155,6 @@ router.get(
   validateRequest(getCoursesSchema),
   getCoursesAdmin,
 );
-
-
 
 router.get(
   "/organizer/list",
