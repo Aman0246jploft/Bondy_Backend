@@ -41,7 +41,7 @@ const addReview = async (req, res) => {
     await newReview.save();
 
     // Populate user details for immediate display
-    await newReview.populate("userId", "firstName lastName profileImage");
+    await newReview.populate("userId", "firstName lastName profileImage isVerified");
 
     return apiSuccessRes(
       HTTP_STATUS.OK,
@@ -75,7 +75,7 @@ const updateReview = async (req, res) => {
     existingReview.review = review;
     await existingReview.save();
 
-    await existingReview.populate("userId", "firstName lastName profileImage");
+    await existingReview.populate("userId", "firstName lastName profileImage isVerified");
 
     return apiSuccessRes(
       HTTP_STATUS.OK,
@@ -130,7 +130,7 @@ const getReviews = async (req, res) => {
     const query = { entityId, entityModel };
 
     const reviews = await Review.find(query)
-      .populate("userId", "firstName lastName profileImage")
+      .populate("userId", "firstName lastName profileImage isVerified")
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(parseInt(limit))

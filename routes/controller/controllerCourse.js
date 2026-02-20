@@ -311,7 +311,7 @@ const getCourses = async (req, res) => {
     // ===============================
     let courses = await Course.find(query)
       .populate("courseCategory")
-      .populate("createdBy", "firstName lastName profileImage")
+      .populate("createdBy", "firstName lastName profileImage isVerified")
       .lean();
 
     // ===============================
@@ -596,7 +596,7 @@ const getCoursesAdmin = async (req, res) => {
 
     const courses = await Course.find(query)
       .populate("courseCategory", "name image")
-      .populate("createdBy", "firstName lastName profileImage")
+      .populate("createdBy", "firstName lastName profileImage isVerified")
       .skip(skip)
       .limit(Number(limit))
       .sort({ createdAt: -1 }) // Newest first
@@ -773,8 +773,8 @@ const updateCourse = async (req, res) => {
       { $set: updateData },
       { new: true, runValidators: true },
     )
-      .populate("courseCategory", "name image")
-      .populate("createdBy", "firstName lastName profileImage");
+      .populate("courseCategory")
+      .populate("createdBy", "firstName lastName profileImage isVerified");
 
     if (!updatedCourse) {
       return apiErrorRes(
@@ -844,7 +844,7 @@ const getCourseDetails = async (req, res) => {
     // 1. Fetch Course
     const course = await Course.findById(courseId)
       .populate("courseCategory")
-      .populate("createdBy", "firstName lastName profileImage")
+      .populate("createdBy", "firstName lastName profileImage   isVerified")
       .lean();
 
     if (!course) {
@@ -1042,7 +1042,7 @@ const getOrganizerCourses = async (req, res) => {
 
     const courses = await Course.find(query)
       .populate("courseCategory", "name image")
-      .populate("createdBy", "firstName lastName profileImage")
+      .populate("createdBy", "firstName lastName profileImage isVerified")
       .skip(skip)
       .limit(Number(limit))
       .sort({ createdAt: -1 })

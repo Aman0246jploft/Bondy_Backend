@@ -90,7 +90,7 @@ const getFollowers = async (req, res) => {
 
     const total = await Follow.countDocuments({ toUser: userId });
     const followers = await Follow.find({ toUser: userId })
-      .populate("fromUser", "firstName lastName profileImage email")
+      .populate("fromUser", "firstName lastName profileImage email  isVerified")
       .skip(skip)
       .limit(size)
       .lean();
@@ -126,7 +126,7 @@ const getFollowing = async (req, res) => {
 
     const total = await Follow.countDocuments({ fromUser: userId });
     const following = await Follow.find({ fromUser: userId })
-      .populate("toUser", "firstName lastName profileImage email")
+      .populate("toUser", "firstName lastName profileImage email isVerified")
       .skip(skip)
       .limit(size)
       .lean();

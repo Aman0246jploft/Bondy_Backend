@@ -254,7 +254,7 @@ const getEvents = async (req, res) => {
 
         const cityEvents = await Event.find(baseMatch)
           .populate("eventCategory")
-          .populate("createdBy", "firstName lastName profileImage")
+          .populate("createdBy", "firstName lastName profileImage isVerified")
           .sort({ startDate: 1 })
           .skip(parseInt(skip))
           .limit(parseInt(limit))
@@ -472,7 +472,7 @@ const getEvents = async (req, res) => {
     // Execute query with pagination
     let eventsQuery = Event.find(query)
       .populate("eventCategory")
-      .populate("createdBy", "firstName lastName profileImage");
+      .populate("createdBy", "firstName lastName profileImage isVerified");
 
     // Only apply explicit sort if NOT using geospatial query (nearYou)
     // $nearSphere automatically sorts by distance, and combining with other sorts is not allowed
@@ -532,7 +532,7 @@ const getEventDetails = async (req, res) => {
     // 1. Fetch Event with populated fields
     const event = await Event.findById(eventId)
       .populate("eventCategory")
-      .populate("createdBy", "firstName lastName profileImage")
+      .populate("createdBy", "firstName lastName profileImage isVerified")
       .lean();
 
     if (!event) {
@@ -634,14 +634,14 @@ const getEventDetails = async (req, res) => {
         Review.find({ entityId: eventId, entityModel: "Event" })
           .sort({ createdAt: -1 })
           .limit(5)
-          .populate("userId", "firstName lastName profileImage")
+          .populate("userId", "firstName lastName profileImage isVerified")
           .lean(),
 
         // Top 5 Comments
         Comment.find({ event: eventId, parentComment: null })
           .sort({ createdAt: -1 })
           .limit(5)
-          .populate("user", "firstName lastName profileImage")
+          .populate("user", "firstName lastName profileImage isVerified")
           .lean(),
 
         // Total Attendees Count (Sum of qty from PAID event transactions)
@@ -669,7 +669,7 @@ const getEventDetails = async (req, res) => {
         })
           .sort({ createdAt: -1 })
           .limit(10) // Limit to 10 to get some unique users
-          .populate("userId", "firstName lastName profileImage")
+          .populate("userId", "firstName lastName profileImage isVerified")
           .lean(),
       ]);
 
@@ -774,7 +774,7 @@ const getEventsByOrganizer = async (req, res) => {
     // Execute query
     const events = await Event.find(query)
       .populate("eventCategory", "name image")
-      .populate("createdBy", "firstName lastName profileImage")
+      .populate("createdBy", "firstName lastName profileImage isVerified")
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(parseInt(limit))
@@ -896,7 +896,7 @@ const getEventsAdmin = async (req, res) => {
     // Execute query
     const events = await Event.find(query)
       .populate("eventCategory", "name image")
-      .populate("createdBy", "firstName lastName profileImage")
+      .populate("createdBy", "firstName lastName profileImage isVerified")
       .sort({ createdAt: -1 }) // Newest created first for Admin
       .skip(skip)
       .limit(parseInt(limit))
@@ -1011,7 +1011,7 @@ const getAllEventAttendees = async (req, res) => {
     const { search } = req.query;
 
     const event = await Event.findById(eventId)
-      .populate("createdBy", "firstName lastName profileImage")
+      .populate("createdBy", "firstName lastName profileImage isVerified")
       .select("createdBy eventTitle")
       .lean();
 
@@ -1036,7 +1036,7 @@ const getAllEventAttendees = async (req, res) => {
       status: "PAID",
       bookingType: "EVENT",
     })
-      .populate("userId", "firstName lastName profileImage")
+      .populate("userId", "firstName lastName profileImage isVerified")
       .sort({ createdAt: -1 })
       .lean();
 
@@ -1326,7 +1326,7 @@ const updateEvent = async (req, res) => {
       { new: true, runValidators: true },
     )
       .populate("eventCategory", "name image")
-      .populate("createdBy", "firstName lastName profileImage")
+      .populate("createdBy", "firstName lastName profileImage isVerified")
       .lean();
 
     // 12. Format response URLs

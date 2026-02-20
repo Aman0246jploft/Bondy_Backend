@@ -100,7 +100,7 @@ const getUserNotifications = async (payload) => {
 
     const total = await Notification.countDocuments(query);
     const list = await Notification.find(query)
-      .populate("sender", "firstName lastName profileImage")
+      .populate("sender", "firstName lastName profileImage isVerified")
       .sort({ createdAt: -1 })
       .skip((pageNo - 1) * size)
       .limit(size)
