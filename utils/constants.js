@@ -18,4 +18,5 @@ module.exports = Object.freeze({
   USER_IS_DISABLED: 121,
   INSUFFICIENT_BALANCE: 1404,
   ALREADY_EXISTS: 1405,
+  SERVER_ERROR_CODE: 1500,
 });
