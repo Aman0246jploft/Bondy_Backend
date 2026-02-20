@@ -410,7 +410,7 @@ const getEvents = async (req, res) => {
     // Execute query with pagination
     let eventsQuery = Event.find(query)
       .populate("eventCategory", "name image")
-      .populate("createdBy", "firstName lastName profileImage");
+      .populate("createdBy");
 
     // Only apply explicit sort if NOT using geospatial query (nearYou)
     // $nearSphere automatically sorts by distance, and combining with other sorts is not allowed
