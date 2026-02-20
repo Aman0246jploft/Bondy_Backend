@@ -279,7 +279,7 @@ const getCourses = async (req, res) => {
           process.env.JWT_SECRET_KEY,
         );
         viewerId = decoded.userId;
-      } catch { }
+      } catch {}
     }
 
     const bookedCourseIds = new Set(); // Set of "courseId"
@@ -546,7 +546,7 @@ const updateCourse = async (req, res) => {
         HTTP_STATUS.FORBIDDEN,
         res,
         constantsMessage.UNAUTHORIZED_ACCESS ||
-        "You are not authorized to edit this course",
+          "You are not authorized to edit this course",
       );
     }
 
@@ -738,7 +738,7 @@ const getCourseDetails = async (req, res) => {
           process.env.JWT_SECRET_KEY,
         );
         viewerId = decoded.userId;
-      } catch { }
+      } catch {}
     }
 
     if (viewerId) {
