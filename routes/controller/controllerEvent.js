@@ -93,6 +93,42 @@ const createEvent = async (req, res) => {
 };
 
 // Get Events with Filters
+// ─── Shared event formatter ────────────────────────────────────────────────
+const formatEvent = (event, bookedEventIds = new Set()) => {
+  if (Array.isArray(event.posterImage)) {
+    event.posterImage = event.posterImage.map((img) => formatResponseUrl(img));
+  }
+  if (Array.isArray(event.shortTeaserVideo)) {
+    event.shortTeaserVideo = event.shortTeaserVideo.map((v) => formatResponseUrl(v));
+  }
+  if (Array.isArray(event.mediaLinks)) {
+    event.mediaLinks = event.mediaLinks.map((l) => formatResponseUrl(l));
+  }
+  if (event.eventCategory && event.eventCategory.image) {
+    event.eventCategory.image = formatResponseUrl(event.eventCategory.image);
+  }
+  if (event.createdBy && event.createdBy.profileImage) {
+    event.createdBy.profileImage = formatResponseUrl(event.createdBy.profileImage);
+  }
+  // Duration
+  let duration = null;
+  if (event.startDate && event.endDate) {
+    const diffMs = new Date(event.endDate) - new Date(event.startDate);
+    if (diffMs > 0) {
+      const hours = Math.floor(diffMs / (1000 * 60 * 60));
+      const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+      duration = hours > 0 && minutes > 0 ? `${hours}H ${minutes}min` : hours > 0 ? `${hours}H` : `${minutes}min`;
+    }
+  }
+  event.duration = duration;
+  event.totalSeats = event.totalTickets || 0;
+  event.leftSeats = event.ticketQtyAvailable || 0;
+  event.acquiredSeats = (event.totalTickets || 0) - (event.ticketQtyAvailable || 0);
+  event.isBooked = bookedEventIds.has(event._id.toString());
+  return event;
+};
+// ─────────────────────────────────────────────────────────────────────────────
+
 const getEvents = async (req, res) => {
   try {
     const {
@@ -139,7 +175,7 @@ const getEvents = async (req, res) => {
 
       // 🔹 CASE 1: lat + lng → GEO SEARCH
       if (latitude && longitude) {
-        const events = await Event.aggregate([
+        const geoAggEvents = await Event.aggregate([
           {
             $geoNear: {
               near: {
@@ -152,16 +188,40 @@ const getEvents = async (req, res) => {
               query: baseMatch,
             },
           },
-          { $skip: skip },
+          { $skip: parseInt(skip) },
           { $limit: parseInt(limit) },
+          // Populate eventCategory
+          {
+            $lookup: {
+              from: "categories",
+              localField: "eventCategory",
+              foreignField: "_id",
+              as: "eventCategory",
+            },
+          },
+          { $unwind: { path: "$eventCategory", preserveNullAndEmptyArrays: true } },
+          // Populate createdBy
+          {
+            $lookup: {
+              from: "users",
+              localField: "createdBy",
+              foreignField: "_id",
+              pipeline: [{ $project: { firstName: 1, lastName: 1, profileImage: 1 } }],
+              as: "createdBy",
+            },
+          },
+          { $unwind: { path: "$createdBy", preserveNullAndEmptyArrays: true } },
         ]);
+
+        const formattedGeo = geoAggEvents.map((e) => formatEvent(e));
 
         return apiSuccessRes(
           HTTP_STATUS.OK,
           res,
           constantsMessage.EVENTS_FETCHED,
           {
-            events,
+            events: formattedGeo,
+            total: formattedGeo.length,
             page: parseInt(page),
             limit: parseInt(limit),
           },
@@ -192,20 +252,23 @@ const getEvents = async (req, res) => {
           baseMatch["venueAddress.country"] = country;
         }
 
-        const events = await Event.find(baseMatch)
+        const cityEvents = await Event.find(baseMatch)
+          .populate("eventCategory")
+          .populate("createdBy", "firstName lastName profileImage")
           .sort({ startDate: 1 })
-          .skip(skip)
+          .skip(parseInt(skip))
           .limit(parseInt(limit))
           .lean();
 
         const total = await Event.countDocuments(baseMatch);
+        const formattedCity = cityEvents.map((e) => formatEvent(e));
 
         return apiSuccessRes(
           HTTP_STATUS.OK,
           res,
           constantsMessage.EVENTS_FETCHED,
           {
-            events,
+            events: formattedCity,
             total,
             page: parseInt(page),
             limit: parseInt(limit),
@@ -277,7 +340,6 @@ const getEvents = async (req, res) => {
           // If user has preferences, filter by their categories
           query.eventCategory = { $in: userCategories };
         }
-        console.log(query.eventCategory);
         // If no user categories or guestKey, just return upcoming events (base query already handles this)
         // We could add popularity sorting here if 'totalAttendees' was populated
         break;
@@ -447,72 +509,7 @@ const getEvents = async (req, res) => {
     }
 
     // Format image URLs
-    const formattedEvents = events.map((event) => {
-      if (Array.isArray(event.posterImage)) {
-        event.posterImage = event.posterImage.map((img) =>
-          formatResponseUrl(img),
-        );
-      }
-
-      if (Array.isArray(event.shortTeaserVideo)) {
-        event.shortTeaserVideo = event.shortTeaserVideo.map((video) =>
-          formatResponseUrl(video),
-        );
-      }
-
-      if (Array.isArray(event.mediaLinks)) {
-        event.mediaLinks = event.mediaLinks.map((link) =>
-          formatResponseUrl(link),
-        );
-      }
-
-      // Format category image
-      if (event.eventCategory && event.eventCategory.image) {
-        event.eventCategory.image = formatResponseUrl(
-          event.eventCategory.image,
-        );
-      }
-
-      // Format creator profile image
-      if (event.createdBy && event.createdBy.profileImage) {
-        event.createdBy.profileImage = formatResponseUrl(
-          event.createdBy.profileImage,
-        );
-      }
-
-      // Calculate Duration
-      let duration = null;
-      if (event.startDate && event.endDate) {
-        const start = new Date(event.startDate);
-        const end = new Date(event.endDate);
-        const diffMs = end - start;
-
-        if (diffMs > 0) {
-          const hours = Math.floor(diffMs / (1000 * 60 * 60));
-          const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-
-          if (hours > 0 && minutes > 0) {
-            duration = `${hours}H ${minutes}min`;
-          } else if (hours > 0) {
-            duration = `${hours}H`;
-          } else {
-            duration = `${minutes}min`;
-          }
-        }
-      }
-      event.duration = duration;
-
-      // Add seat statistics
-      event.totalSeats = event.totalTickets || 0;
-      event.leftSeats = event.ticketQtyAvailable || 0;
-      event.acquiredSeats =
-        (event.totalTickets || 0) - (event.ticketQtyAvailable || 0);
-
-      // Add booking status
-      event.isBooked = bookedEventIds.has(event._id.toString());
-
-      return event;
-    });
+    const formattedEvents = events.map((event) => formatEvent(event, bookedEventIds));
 
     return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.EVENTS_FETCHED, {
       events: formattedEvents,
