@@ -38,4 +38,5 @@ module.exports = {
   SupportTicket: require("./models/SupportTicket"),
   Notification: require("./models/Notification"),
   Attendee: require("./models/Attendee"),
+  Wishlist: require("./models/Wishlist"),
 };

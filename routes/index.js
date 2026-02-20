@@ -23,6 +23,7 @@ module.exports = {
   contact: require("./controller/controllerContact"),
   supportTicket: require("./controller/controllerSupportTicket"),
   organizerStats: require("./controller/controllerOrganizerStats"),
+  wishlist: require("./controller/controllerWishlist"),
 };
 
 

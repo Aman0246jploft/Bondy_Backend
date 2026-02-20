@@ -9,6 +9,7 @@ const {
   Review,
   Comment,
   Attendee,
+  Wishlist,
 } = require("../../db");
 const constantsMessage = require("../../utils/constantsMessage");
 const HTTP_STATUS = require("../../utils/statusCode");
@@ -575,6 +576,25 @@ const getEventDetails = async (req, res) => {
       } catch (err) { }
     }
     event.isBooked = isBooked;
+
+    // Check Wishlist Status
+    let isWishlisted = false;
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      try {
+        const token = authHeader.split(" ")[1];
+        const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY);
+        const userId = decoded.userId;
+
+        const wishlistItem = await Wishlist.findOne({
+          userId: userId,
+          entityId: eventId,
+          entityModel: "Event",
+        });
+
+        if (wishlistItem) isWishlisted = true;
+      } catch (err) { }
+    }
+    event.isWishlisted = isWishlisted;
 
     // Format Event Images
     if (Array.isArray(event.posterImage)) {

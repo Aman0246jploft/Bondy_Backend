@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const { Course, Transaction, User } = require("../../db");
+const { Course, Transaction, User, Wishlist } = require("../../db");
 const constantsMessage = require("../../utils/constantsMessage");
 const HTTP_STATUS = require("../../utils/statusCode");
 const {
@@ -279,7 +279,7 @@ const getCourses = async (req, res) => {
           process.env.JWT_SECRET_KEY,
         );
         viewerId = decoded.userId;
-      } catch {}
+      } catch { }
     }
 
     const bookedCourseIds = new Set(); // Set of "courseId"
@@ -546,7 +546,7 @@ const updateCourse = async (req, res) => {
         HTTP_STATUS.FORBIDDEN,
         res,
         constantsMessage.UNAUTHORIZED_ACCESS ||
-          "You are not authorized to edit this course",
+        "You are not authorized to edit this course",
       );
     }
 
@@ -738,7 +738,7 @@ const getCourseDetails = async (req, res) => {
           process.env.JWT_SECRET_KEY,
         );
         viewerId = decoded.userId;
-      } catch {}
+      } catch { }
     }
 
     if (viewerId) {
@@ -754,6 +754,17 @@ const getCourseDetails = async (req, res) => {
           if (b.scheduleId) bookedScheduleIds.add(b.scheduleId.toString());
         });
       }
+    }
+
+    // Check Wishlist Status
+    let isWishlisted = false;
+    if (viewerId) {
+      const wishlistItem = await Wishlist.findOne({
+        userId: viewerId,
+        entityId: courseId,
+        entityModel: "Course",
+      });
+      if (wishlistItem) isWishlisted = true;
     }
 
     // 4. Enrich Schedules
@@ -833,6 +844,7 @@ const getCourseDetails = async (req, res) => {
       acquiredSeats: totalAcquiredSeats,
       leftSeats: Math.max(0, course.totalSeats - totalAcquiredSeats),
       isBooked,
+      isWishlisted,
     };
 
     return apiSuccessRes(
