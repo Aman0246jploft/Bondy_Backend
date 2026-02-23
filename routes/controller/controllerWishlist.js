@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const Wishlist = require("../../db/models/Wishlist");
-const { apiSuccessRes, apiErrorRes, formatResponseUrl } = require("../../utils/globalFunction");
+const { apiSuccessRes, apiErrorRes, formatResponseUrl, toObjectId } = require("../../utils/globalFunction");
 const HTTP_STATUS = require("../../utils/statusCode");
 const validateRequest = require("../../middlewares/validateRequest");
 const {
@@ -78,9 +78,9 @@ const removeFromWishlist = async (req, res) => {
 const getUserWishlist = async (req, res) => {
     try {
         const userId = req.user.userId;
-        const { page = 1, limit = 10, type } = req.query;
+        const { page = 1, limit = 100000000000000, type } = req.query;
 
-        const query = { userId };
+        const query = { userId: toObjectId(userId) };
         if (type) { // Filter by type (Event/Course)
             const modelType = type.charAt(0).toUpperCase() + type.slice(1).toLowerCase(); // Capitalize
             if (['Event', 'Course'].includes(modelType)) {
