@@ -7,8 +7,32 @@ const {
   messageListSchema,
   deleteMessageSchema,
 } = require("../validations/socketValidation");
+const { formatResponseUrl } = require("../../utils/globalFunction");
 
 const onlineUsers = new Map(); // userId -> socketId
+
+// Helper to format user object
+const formatUser = (user) => {
+  if (!user) return user;
+  const userObj = user.toObject ? user.toObject() : user;
+  if (userObj.profileImage) {
+    userObj.profileImage = formatResponseUrl(userObj.profileImage);
+  }
+  return userObj;
+};
+
+// Helper to format message object
+const formatMessage = (message) => {
+  if (!message) return message;
+  const msgObj = message.toObject ? message.toObject() : message;
+  if (msgObj.fileUrl) {
+    msgObj.fileUrl = formatResponseUrl(msgObj.fileUrl);
+  }
+  if (msgObj.sender && typeof msgObj.sender === "object") {
+    msgObj.sender = formatUser(msgObj.sender);
+  }
+  return msgObj;
+};
 
 // Helper to get socketId by userId
 const getSocketId = (userId) => onlineUsers.get(userId.toString());
@@ -16,6 +40,31 @@ const getSocketId = (userId) => onlineUsers.get(userId.toString());
 const chatSocketController = (io, socket) => {
   const userObj = socket.user;
   const userId = (userObj.userId || userObj._id || userObj.id).toString();
+
+  // Format chat object with unread counts and online status
+  const formatChatForUser = (chatDoc, targetUserId) => {
+    if (!chatDoc) return null;
+    const chatObj = chatDoc.toObject ? chatDoc.toObject() : chatDoc;
+    chatObj.unreadCount =
+      chatDoc.unreadCounts && chatDoc.unreadCounts.get
+        ? chatDoc.unreadCounts.get(targetUserId.toString()) || 0
+        : chatObj.unreadCounts
+          ? chatObj.unreadCounts[targetUserId.toString()] || 0
+          : 0;
+
+    chatObj.participants = chatObj.participants.map((p) => {
+      const formattedP = formatUser(p);
+      return {
+        ...formattedP,
+        isOnline: onlineUsers.has(p._id.toString()),
+      };
+    });
+
+    chatObj.otherUser = chatObj.participants.find(
+      (p) => p._id.toString() !== targetUserId.toString(),
+    );
+    return chatObj;
+  };
 
   // 1. Handle Online Status
   onlineUsers.set(userId, socket.id);
@@ -100,7 +149,13 @@ const chatSocketController = (io, socket) => {
             if (receiverSocket) {
               receiverSocket.join(chatId);
               // Also emit new_chat so they know a new room exists
-              io.to(receiverSocketId).emit("new_chat", chat);
+              // Format chat for receiver
+              const initialChat = await Chat.findById(chatId).populate(
+                "participants",
+                "firstName lastName profileImage",
+              );
+              const formattedInitial = formatChatForUser(initialChat, receiverId);
+              io.to(receiverSocketId).emit("new_chat", formattedInitial);
             }
           }
         } else {
@@ -156,18 +211,6 @@ const chatSocketController = (io, socket) => {
         "firstName lastName profileImage",
       );
 
-      // Format chat object with unread counts and online status
-      const formatChatForUser = (chatDoc, targetUserId) => {
-        const chatObj = chatDoc.toObject();
-        chatObj.unreadCount =
-          chatDoc.unreadCounts.get(targetUserId.toString()) || 0;
-        chatObj.participants = chatObj.participants.map((p) => {
-          p.isOnline = onlineUsers.has(p._id.toString());
-          return p;
-        });
-        return chatObj;
-      };
-
       // Emit 'update_chat_list' to all participants individually to ensure correct unread counts
       chat.participants.forEach((pId) => {
         const pIdStr = pId.toString();
@@ -179,10 +222,14 @@ const chatSocketController = (io, socket) => {
       });
 
       // Emit to Room (standard message receive)
-      socket.to(chatId).emit("receive_message", populatedMessage);
+      socket.to(chatId).emit("receive_message", formatMessage(populatedMessage));
 
       if (typeof ack === "function") {
-        ack({ status: "ok", data: populatedMessage, chatId: chatId }); // Return chatId just in case
+        ack({
+          status: "ok",
+          data: formatMessage(populatedMessage),
+          chatId: chatId,
+        }); // Return chatId just in case
       }
     } catch (err) {
       console.error("SendMessage Error:", err);
@@ -239,10 +286,13 @@ const chatSocketController = (io, socket) => {
 
         chatObj.unreadCount = chat.unreadCounts.get(currentUserId) || 0;
 
-        chatObj.participants = chatObj.participants.map((p) => ({
-          ...p,
-          isOnline: onlineUsers.has(p._id.toString()),
-        }));
+        chatObj.participants = chatObj.participants.map((p) => {
+          const formattedP = formatUser(p);
+          return {
+            ...formattedP,
+            isOnline: onlineUsers.has(p._id.toString()),
+          };
+        });
 
         // ✅ ADD THIS (important)
         chatObj.otherUser = chatObj.participants.find(
@@ -305,7 +355,8 @@ const chatSocketController = (io, socket) => {
       chat.unreadCounts.set(userId.toString(), 0);
       await chat.save();
 
-      const payload = { status: "ok", data: messages };
+      const formattedMessages = messages.map((m) => formatMessage(m));
+      const payload = { status: "ok", data: formattedMessages };
 
       if (typeof ack === "function") ack(payload);
       else socket.emit("get_message_list_response", payload);
