@@ -185,10 +185,10 @@ const initiateBooking = async (req, res) => {
       transactionId: transaction._id,
       bookingId: transaction.bookingId,
       breakdown: {
-        basePrice: Number(basePrice),
-        discountAmount: Number(discountAmount),
-        taxAmount: Number(taxAmount),
-        totalAmount: Number(finalAmount),
+        basePrice: roundToTwo(basePrice),
+        discountAmount: roundToTwo(discountAmount),
+        taxAmount: roundToTwo(taxAmount),
+        totalAmount: roundToTwo(finalAmount),
       },
     });
   } catch (error) {
@@ -292,15 +292,15 @@ const calculateBooking = async (req, res) => {
       "Booking calculation successful",
       {
         breakdown: {
-          basePrice: Number(basePrice),
-          discountAmount: Number(discountAmount),
-          taxAmount: Number(taxAmount),
-          totalAmount: Number(finalAmount),
+          basePrice: roundToTwo(basePrice),
+          discountAmount: roundToTwo(discountAmount),
+          taxAmount: roundToTwo(taxAmount),
+          totalAmount: roundToTwo(finalAmount),
         },
         appliedTaxes: appliedTaxes.map((tax) => ({
           ...tax,
-          value: Number(tax.value),
-          calculatedAmount: Number(tax.calculatedAmount),
+          value: roundToTwo(tax.value),
+          calculatedAmount: roundToTwo(tax.calculatedAmount),
         })),
       },
     );
