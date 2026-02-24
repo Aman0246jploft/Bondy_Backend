@@ -263,23 +263,15 @@ const chatSocketController = (io, socket) => {
     const skip = (page - 1) * limit;
 
     try {
-      const chats = await Chat.find({ participants: userId })
-        .populate("participants", "firstName lastName profileImage")
-        .sort({ "lastMessage.createdAt": -1 })
-        .skip(skip)
-        .limit(limit);
+      const [chats, totalChats] = await Promise.all([
+        Chat.find({ participants: userId })
+          .populate("participants", "firstName lastName profileImage")
+          .sort({ "lastMessage.createdAt": -1 })
+          .skip(skip)
+          .limit(limit),
+        Chat.countDocuments({ participants: userId }),
+      ]);
 
-      // const chatsWithCount = chats.map((chat) => {
-      //   const chatObj = chat.toObject();
-      //   chatObj.unreadCount = chat.unreadCounts.get(userId.toString()) || 0;
-
-      //   chatObj.participants = chatObj.participants.map((p) => ({
-      //     ...p,
-      //     isOnline: onlineUsers.has(p._id.toString()),
-      //   }));
-
-      //   return chatObj;
-      // });
       const chatsWithCount = chats.map((chat) => {
         const chatObj = chat.toObject();
         const currentUserId = userId.toString();
@@ -294,7 +286,6 @@ const chatSocketController = (io, socket) => {
           };
         });
 
-        // ✅ ADD THIS (important)
         chatObj.otherUser = chatObj.participants.find(
           (p) => p._id.toString() !== currentUserId,
         );
@@ -302,7 +293,8 @@ const chatSocketController = (io, socket) => {
         return chatObj;
       });
 
-      const payload = { status: "ok", data: chatsWithCount };
+      const hasMore = skip + chats.length < totalChats;
+      const payload = { status: "ok", data: chatsWithCount, page, limit, hasMore };
 
       if (typeof ack === "function") {
         ack(payload); // real clients
@@ -333,7 +325,17 @@ const chatSocketController = (io, socket) => {
     const { chatId, page = 1, limit = 50 } = value;
 
     try {
-      const chat = await Chat.findOne({ _id: chatId, participants: userId });
+      const msgQuery = {
+        chat: chatId,
+        isDeletedForEveryone: false,
+        deletedFor: { $ne: userId },
+      };
+
+      const [chat, totalMessages] = await Promise.all([
+        Chat.findOne({ _id: chatId, participants: userId }),
+        Message.countDocuments(msgQuery),
+      ]);
+
       if (!chat) {
         const payload = { status: "error", message: "Chat not found" };
 
@@ -342,21 +344,20 @@ const chatSocketController = (io, socket) => {
         return;
       }
 
-      const messages = await Message.find({
-        chat: chatId,
-        isDeletedForEveryone: false,
-        deletedFor: { $ne: userId },
-      })
+      const msgSkip = (page - 1) * limit;
+
+      const messages = await Message.find(msgQuery)
         .populate("sender", "firstName lastName profileImage")
         .sort({ createdAt: -1 })
-        .skip((page - 1) * limit)
+        .skip(msgSkip)
         .limit(limit);
 
       chat.unreadCounts.set(userId.toString(), 0);
       await chat.save();
 
       const formattedMessages = messages.map((m) => formatMessage(m));
-      const payload = { status: "ok", data: formattedMessages };
+      const hasMore = msgSkip + messages.length < totalMessages;
+      const payload = { status: "ok", data: formattedMessages, page, limit, hasMore };
 
       if (typeof ack === "function") ack(payload);
       else socket.emit("get_message_list_response", payload);
