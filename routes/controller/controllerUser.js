@@ -783,7 +783,7 @@ const updateUserProfile = async (req, res) => {
 
 const selfProfile = async (req, res) => {
   try {
-    const userId = req.user.userId;
+    let userId = req.user.userId;
     req.params.userId = userId;
     await getUserProfileById(req, res);
   } catch (error) { }

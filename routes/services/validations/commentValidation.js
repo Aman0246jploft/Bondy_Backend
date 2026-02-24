@@ -2,8 +2,9 @@ const Joi = require("joi");
 
 const createCommentSchema = Joi.object({
     content: Joi.string().required(),
-    eventId: Joi.string().required(), // Assuming ObjectId string
-    parentCommentId: Joi.string().allow(null, ""), // Optional for replies
+    entityId: Joi.string().required().hex().length(24),
+    entityModel: Joi.string().valid("Event", "Course").required(),
+    parentCommentId: Joi.string().allow(null, "").hex().length(24), // Optional for replies
 });
 
 const updateCommentSchema = Joi.object({
@@ -11,7 +12,8 @@ const updateCommentSchema = Joi.object({
 });
 
 const getCommentsSchema = Joi.object({
-    eventId: Joi.string().required(),
+    entityId: Joi.string().required().hex().length(24),
+    entityModel: Joi.string().valid("Event", "Course").required(),
     page: Joi.number().integer().min(1).default(1),
     limit: Joi.number().integer().min(1).default(10),
 });

@@ -6,10 +6,15 @@ const commentSchema = new mongoose.Schema(
             type: String,
             required: true,
         },
-        event: {
+        entityId: {
             type: mongoose.Schema.Types.ObjectId,
-            ref: "Event",
             required: true,
+            refPath: "entityModel",
+        },
+        entityModel: {
+            type: String,
+            required: true,
+            enum: ["Event", "Course"],
         },
         user: {
             type: mongoose.Schema.Types.ObjectId,

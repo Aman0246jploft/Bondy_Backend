@@ -507,8 +507,20 @@ const getTicketList = async (req, res) => {
 
     const filter = { userId, status: "PAID" };
     const transactions = await Transaction.find(filter)
-      .populate("eventId")
-      .populate("courseId")
+        .populate({
+        path: "eventId",
+        populate: {
+          path: "eventCategory",
+          model: "Category",
+        },
+      })
+      .populate({
+        path: "courseId",
+        populate: {
+          path: "courseCategory",
+          model: "Category",
+        },
+      })
       .sort({ createdAt: -1 });
 
     const now = new Date();
@@ -547,9 +559,28 @@ const getTicketDetail = async (req, res) => {
       _id: transactionId,
       userId,
     })
-      .populate("eventId")
-      .populate("courseId")
-      .populate("userId");
+      .populate({
+        path: "userId",
+        populate: {
+          path: "categories",
+          model: "Category",
+        },
+      })
+      .populate({
+        path: "eventId",
+        populate: {
+          path: "eventCategory",
+          model: "Category",
+        },
+      })
+      .populate({
+        path: "courseId",
+        populate: {
+          path: "courseCategory",
+          model: "Category",
+        },
+      });
+
 
     if (!transaction) {
       return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Ticket not found");

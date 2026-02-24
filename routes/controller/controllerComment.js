@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const { Comment, Event, User } = require("../../db");
+const { Comment, Event, User, Course } = require("../../db");
 const constantsMessage = require("../../utils/constantsMessage");
 const HTTP_STATUS = require("../../utils/statusCode");
 const { apiErrorRes, apiSuccessRes } = require("../../utils/globalFunction");
@@ -17,15 +17,22 @@ const perApiLimiter = require("../../middlewares/rateLimiter");
 // Create Comment or Reply
 const createComment = async (req, res) => {
   try {
-    const { content, eventId, MOdelId, parentCommentId } = req.body;
+    const { content, entityId, entityModel, parentCommentId } = req.body;
     const userId = req.user.userId;
 
-    const event = await Event.findById(eventId || MOdelId);
-    if (!event) {
+    let targetModel;
+    if (entityModel === "Event") targetModel = Event;
+    else if (entityModel === "Course") targetModel = Course;
+    else {
+      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Invalid entity model");
+    }
+
+    const entity = await targetModel.findById(entityId);
+    if (!entity) {
       return apiErrorRes(
         HTTP_STATUS.NOT_FOUND,
         res,
-        constantsMessage.EVENT_NOT_FOUND || "Event not found",
+        `${entityModel} not found`,
       );
     }
 
@@ -42,7 +49,8 @@ const createComment = async (req, res) => {
 
     const newComment = new Comment({
       content,
-      event: eventId || MOdelId,
+      entityId,
+      entityModel,
       user: userId,
       parentComment: parentCommentId || null,
     });
@@ -67,14 +75,14 @@ const createComment = async (req, res) => {
 // Get Comments for an Event
 const getComments = async (req, res) => {
   try {
-    const { eventId, page = 1, limit = 50 } = req.query; // Higher limit for comments usually
+    const { entityId, entityModel, page = 1, limit = 50 } = req.query; // Higher limit for comments usually
     const skip = (page - 1) * limit;
 
-    const query = { event: eventId };
+    const query = { entityId, entityModel };
 
-    // Fetch all comments for the event (paginated at top level could be tricky if we want full threading)
+    // Fetch all comments for the entity (paginated at top level could be tricky if we want full threading)
     // approach: Fetch flat list and let frontend thread, or fetch top-level and their children.
-    // simpler approach for now: Fetch all for the event paginated by creation time.
+    // simpler approach for now: Fetch all for the entity paginated by creation time.
 
     // To support "reply on reply", we just need to return the parentComment ID.
     // The frontend can reconstruct the tree.
