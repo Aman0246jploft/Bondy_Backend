@@ -509,17 +509,31 @@ const getTicketList = async (req, res) => {
     const transactions = await Transaction.find(filter)
       .populate({
         path: "eventId",
-        populate: {
-          path: "eventCategory",
-          model: "Category",
-        },
+        populate: [
+          {
+            path: "eventCategory",
+            model: "Category",
+          },
+          {
+            path: "createdBy",
+            model: "User",
+            select: "firstName lastName email profileImage",
+          },
+        ],
       })
       .populate({
         path: "courseId",
-        populate: {
-          path: "courseCategory",
-          model: "Category",
-        },
+        populate: [
+          {
+            path: "courseCategory",
+            model: "Category",
+          },
+          {
+            path: "createdBy",
+            model: "User",
+            select: "firstName lastName email profileImage",
+          },
+        ],
       })
       .sort({ createdAt: -1 });
 
@@ -549,9 +563,14 @@ const getTicketList = async (req, res) => {
         const ev = tObj.eventId;
         ev.posterImage = (ev.posterImage || []).map(formatResponseUrl);
         ev.mediaLinks = (ev.mediaLinks || []).map(formatResponseUrl);
-        ev.shortTeaserVideo = (ev.shortTeaserVideo || []).map(formatResponseUrl);
+        ev.shortTeaserVideo = (ev.shortTeaserVideo || []).map(
+          formatResponseUrl,
+        );
         if (ev.eventCategory?.image) {
           ev.eventCategory.image = formatResponseUrl(ev.eventCategory.image);
+        }
+        if (ev.createdBy?.profileImage) {
+          ev.createdBy.profileImage = formatResponseUrl(ev.createdBy.profileImage);
         }
       } else if (t.bookingType === "COURSE" && tObj.courseId) {
         const co = tObj.courseId;
@@ -559,6 +578,9 @@ const getTicketList = async (req, res) => {
         co.galleryImages = (co.galleryImages || []).map(formatResponseUrl);
         if (co.courseCategory?.image) {
           co.courseCategory.image = formatResponseUrl(co.courseCategory.image);
+        }
+        if (co.createdBy?.profileImage) {
+          co.createdBy.profileImage = formatResponseUrl(co.createdBy.profileImage);
         }
       }
 
@@ -592,19 +614,32 @@ const getTicketDetail = async (req, res) => {
       })
       .populate({
         path: "eventId",
-        populate: {
-          path: "eventCategory",
-          model: "Category",
-        },
+        populate: [
+          {
+            path: "eventCategory",
+            model: "Category",
+          },
+          {
+            path: "createdBy",
+            model: "User",
+            select: "firstName lastName email profileImage",
+          },
+        ],
       })
       .populate({
         path: "courseId",
-        populate: {
-          path: "courseCategory",
-          model: "Category",
-        },
+        populate: [
+          {
+            path: "courseCategory",
+            model: "Category",
+          },
+          {
+            path: "createdBy",
+            model: "User",
+            select: "firstName lastName email profileImage",
+          },
+        ],
       });
-
 
     if (!transaction) {
       return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Ticket not found");
@@ -618,12 +653,32 @@ const getTicketDetail = async (req, res) => {
       event.shortTeaserVideo = (event.shortTeaserVideo || []).map(
         formatResponseUrl,
       );
+      if (event.eventCategory?.image) {
+        event.eventCategory.image = formatResponseUrl(event.eventCategory.image);
+      }
+      if (event.createdBy?.profileImage) {
+        event.createdBy.profileImage = formatResponseUrl(event.createdBy.profileImage);
+      }
     } else if (
       transaction.bookingType === "COURSE" &&
       transactionObj.courseId
     ) {
       const course = transactionObj.courseId;
       course.posterImage = (course.posterImage || []).map(formatResponseUrl);
+      course.galleryImages = (course.galleryImages || []).map(formatResponseUrl);
+      if (course.courseCategory?.image) {
+        course.courseCategory.image = formatResponseUrl(course.courseCategory.image);
+      }
+      if (course.createdBy?.profileImage) {
+        course.createdBy.profileImage = formatResponseUrl(course.createdBy.profileImage);
+      }
+    }
+
+    // Format buyer profile image
+    if (transactionObj.userId?.profileImage) {
+      transactionObj.userId.profileImage = formatResponseUrl(
+        transactionObj.userId.profileImage,
+      );
     }
 
     // const checkInStatus = {
