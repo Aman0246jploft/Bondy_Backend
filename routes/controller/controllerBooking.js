@@ -524,7 +524,7 @@ const getTicketList = async (req, res) => {
       .sort({ createdAt: -1 });
 
     const now = new Date();
-    const result = transactions.filter((t) => {
+    const filtered = transactions.filter((t) => {
       const item = t.eventId || t.courseId;
       if (!item) return false;
 
@@ -533,7 +533,7 @@ const getTicketList = async (req, res) => {
         endDate = item.endDate;
       } else {
         const schedule = item.schedules.id(t.scheduleId);
-        endDate = schedule ? schedule.endDate : item.createdAt; // fallback
+        endDate = schedule ? schedule.endDate : item.createdAt;
       }
 
       if (type === "upcoming") return new Date(endDate) >= now;
@@ -541,8 +541,32 @@ const getTicketList = async (req, res) => {
       return true;
     });
 
+    // Convert to plain objects and format all media URLs
+    const tickets = filtered.map((t) => {
+      const tObj = t.toObject();
+
+      if (t.bookingType === "EVENT" && tObj.eventId) {
+        const ev = tObj.eventId;
+        ev.posterImage = (ev.posterImage || []).map(formatResponseUrl);
+        ev.mediaLinks = (ev.mediaLinks || []).map(formatResponseUrl);
+        ev.shortTeaserVideo = (ev.shortTeaserVideo || []).map(formatResponseUrl);
+        if (ev.eventCategory?.image) {
+          ev.eventCategory.image = formatResponseUrl(ev.eventCategory.image);
+        }
+      } else if (t.bookingType === "COURSE" && tObj.courseId) {
+        const co = tObj.courseId;
+        co.posterImage = (co.posterImage || []).map(formatResponseUrl);
+        co.galleryImages = (co.galleryImages || []).map(formatResponseUrl);
+        if (co.courseCategory?.image) {
+          co.courseCategory.image = formatResponseUrl(co.courseCategory.image);
+        }
+      }
+
+      return tObj;
+    });
+
     return apiSuccessRes(HTTP_STATUS.OK, res, "Ticket list fetched", {
-      tickets: result,
+      tickets,
     });
   } catch (error) {
     console.error("Error in getTicketList:", error);
