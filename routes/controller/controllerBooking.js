@@ -507,7 +507,7 @@ const getTicketList = async (req, res) => {
 
     const filter = { userId, status: "PAID" };
     const transactions = await Transaction.find(filter)
-        .populate({
+      .populate({
         path: "eventId",
         populate: {
           path: "eventCategory",
