@@ -63,6 +63,12 @@ const chatSocketController = (io, socket) => {
     chatObj.otherUser = chatObj.participants.find(
       (p) => p._id.toString() !== targetUserId.toString(),
     );
+
+    // Format lastMessage.sender if populated
+    if (chatObj.lastMessage && chatObj.lastMessage.sender && typeof chatObj.lastMessage.sender === "object") {
+      chatObj.lastMessage.sender = formatUser(chatObj.lastMessage.sender);
+    }
+
     return chatObj;
   };
 
@@ -209,10 +215,9 @@ const chatSocketController = (io, socket) => {
       );
 
       // Populate chat to send as update
-      const populatedChat = await Chat.findById(chatId).populate(
-        "participants",
-        "firstName lastName profileImage",
-      );
+      const populatedChat = await Chat.findById(chatId)
+        .populate("participants", "firstName lastName profileImage")
+        .populate("lastMessage.sender", "firstName lastName profileImage");
 
       // Emit 'update_chat_list' to all participants individually to ensure correct unread counts
       chat.participants.forEach((pId) => {
