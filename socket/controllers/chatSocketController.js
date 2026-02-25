@@ -86,6 +86,7 @@ const chatSocketController = (io, socket) => {
   console.log("onlineUsers", onlineUsers);
   // 3. Join Chat Room
   socket.on("join_chat", ({ chatId }) => {
+
     socket.join(chatId);
     console.log(`User ${userId} joined chat ${chatId}`);
   });
