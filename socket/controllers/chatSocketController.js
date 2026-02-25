@@ -269,6 +269,7 @@ const chatSocketController = (io, socket) => {
       const [chats, totalChats] = await Promise.all([
         Chat.find({ participants: userId })
           .populate("participants", "firstName lastName profileImage")
+          .populate("lastMessage.sender", "firstName lastName profileImage")
           .sort({ "lastMessage.createdAt": -1 })
           .skip(skip)
           .limit(limit),
@@ -292,6 +293,11 @@ const chatSocketController = (io, socket) => {
         chatObj.otherUser = chatObj.participants.find(
           (p) => p._id.toString() !== currentUserId,
         );
+
+        // Format lastMessage.sender
+        if (chatObj.lastMessage && chatObj.lastMessage.sender && typeof chatObj.lastMessage.sender === "object") {
+          chatObj.lastMessage.sender = formatUser(chatObj.lastMessage.sender);
+        }
 
         return chatObj;
       });
