@@ -173,6 +173,9 @@ const chatSocketController = (io, socket) => {
         return;
       }
 
+      // Format fileUrl to full URL before saving (e.g. "uploads/x/img.jpg" → "http://…/uploads/x/img.jpg")
+      if (fileUrl) fileUrl = formatResponseUrl(fileUrl);
+
       // Create Message
       const newMessage = await Message.create({
         chat: chatId,

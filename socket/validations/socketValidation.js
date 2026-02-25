@@ -4,7 +4,7 @@ const sendMessageSchema = Joi.object({
     chatId: Joi.string().optional(),
     receiverId: Joi.string().optional(),
     content: Joi.string().allow(""),
-    fileUrl: Joi.string().uri().allow(null, ""),
+    fileUrl: Joi.string().allow(null, ""),
     fileType: Joi.string().valid("image", "video", "document", "audio").allow(null),
 })
     .or("content", "fileUrl") // Content or File required
