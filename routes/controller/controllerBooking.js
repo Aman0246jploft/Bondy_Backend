@@ -503,9 +503,12 @@ const confirmPayment = async (req, res) => {
 const getTicketList = async (req, res) => {
   try {
     const userId = req.user.userId;
-    const { type } = req.query;
+    const { type, bookingType } = req.query;
 
     const filter = { userId, status: "PAID" };
+    if (bookingType) {
+      filter.bookingType = bookingType;
+    }
     const transactions = await Transaction.find(filter)
       .populate({
         path: "eventId",
