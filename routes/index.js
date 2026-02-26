@@ -24,6 +24,7 @@ module.exports = {
   supportTicket: require("./controller/controllerSupportTicket"),
   organizerStats: require("./controller/controllerOrganizerStats"),
   wishlist: require("./controller/controllerWishlist"),
+  userSetting: require("./controller/controllerUserSetting"),
 };
 
 

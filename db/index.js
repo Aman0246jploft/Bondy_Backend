@@ -39,4 +39,5 @@ module.exports = {
   Notification: require("./models/Notification"),
   Attendee: require("./models/Attendee"),
   Wishlist: require("./models/Wishlist"),
+  UserSetting: require("./models/UserSetting"),
 };

@@ -185,6 +185,7 @@ UserSchema.pre("save", function (next) {
     this.organizerVerificationStatus = "approved";
   }
 
+  this.wasNew = this.isNew;
   next();
 });
 
@@ -274,5 +275,22 @@ UserSchema.options.toJSON = {
     return ret;
   },
 };
+
+UserSchema.post("save", async function (doc, next) {
+  try {
+    if (doc.wasNew) {
+      const UserSetting = mongoose.model("UserSetting");
+      // Check if setting already exists (just to be safe)
+      const existingSetting = await UserSetting.findOne({ userId: doc._id });
+      if (!existingSetting) {
+        await UserSetting.create({ userId: doc._id });
+      }
+    }
+    next();
+  } catch (err) {
+    console.error("Error creating default user setting:", err);
+    next(err);
+  }
+});
 
 module.exports = mongoose.model("User", UserSchema, "User");
