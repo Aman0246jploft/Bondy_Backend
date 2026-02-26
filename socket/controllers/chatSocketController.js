@@ -6,6 +6,7 @@ const {
   chatListSchema,
   messageListSchema,
   deleteMessageSchema,
+  createChatSchema,
 } = require("../validations/socketValidation");
 const { formatResponseUrl } = require("../../utils/globalFunction");
 
@@ -89,6 +90,78 @@ const chatSocketController = (io, socket) => {
 
     socket.join(chatId);
     console.log(`User ${userId} joined chat ${chatId}`);
+  });
+
+  // 3.1 Create/Find Chat
+  socket.on("create_chat", async (data, ack) => {
+    const { error, value } = createChatSchema.validate(data);
+    if (error) {
+      if (typeof ack === "function") {
+        return ack({ status: "error", message: error.details[0].message });
+      }
+      return;
+    }
+
+    const { receiverId } = value;
+
+    if (receiverId === userId) {
+      if (typeof ack === "function") {
+        return ack({ status: "error", message: "Cannot chat with yourself" });
+      }
+      return;
+    }
+
+    try {
+      // Find existing chat with these 2 participants
+      let chat = await Chat.findOne({
+        participants: { $all: [userId, receiverId], $size: 2 },
+      });
+
+      if (!chat) {
+        // Create new chat
+        chat = await Chat.create({
+          participants: [userId, receiverId],
+          unreadCounts: {
+            [receiverId]: 0,
+            [userId]: 0,
+          },
+        });
+
+        // Notify receiver if online
+        const receiverSocketId = getSocketId(receiverId);
+        if (receiverSocketId) {
+          const receiverSocket = io.sockets.sockets.get(receiverSocketId);
+          if (receiverSocket) {
+            receiverSocket.join(chat._id.toString());
+            const populatedForReceiver = await Chat.findById(chat._id)
+              .populate("participants", "firstName lastName profileImage");
+            const formattedForReceiver = formatChatForUser(populatedForReceiver, receiverId);
+            io.to(receiverSocketId).emit("new_chat", formattedForReceiver);
+          }
+        }
+      }
+
+      // Join the sender room
+      socket.join(chat._id.toString());
+
+      // Return formatted chat to sender
+      const populatedChat = await Chat.findById(chat._id)
+        .populate("participants", "firstName lastName profileImage")
+        .populate("lastMessage.sender", "firstName lastName profileImage");
+
+      const formattedChat = formatChatForUser(populatedChat, userId);
+
+      if (typeof ack === "function") {
+        ack({ status: "ok", data: formattedChat });
+      } else {
+        socket.emit("create_chat_response", { status: "ok", data: formattedChat });
+      }
+    } catch (err) {
+      console.error("CreateChat Error:", err);
+      if (typeof ack === "function") {
+        ack({ status: "error", message: "Internal Server Error" });
+      }
+    }
   });
 
   // 4. Send Message

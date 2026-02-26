@@ -30,10 +30,15 @@ const deleteMessageSchema = Joi.object({
     deleteType: Joi.string().valid("me", "everyone").required(),
 });
 
+const createChatSchema = Joi.object({
+    receiverId: Joi.string().required(),
+});
+
 module.exports = {
     sendMessageSchema,
     joinChatSchema,
     chatListSchema,
     messageListSchema,
     deleteMessageSchema,
+    createChatSchema,
 };
