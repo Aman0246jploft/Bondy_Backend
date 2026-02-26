@@ -23,11 +23,11 @@ const UserSettingSchema = new Schema(
         },
         whatsappNotification: {
             type: Boolean,
-            default: false,
+            default: true,
         },
         smsNotification: {
             type: Boolean,
-            default: false,
+            default: true,
         },
         appTheme: {
             type: String,
