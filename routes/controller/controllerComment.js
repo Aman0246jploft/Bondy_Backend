@@ -21,6 +21,69 @@ const { userRole } = require("../../utils/Role");
 // const { roleId } = require("../../utils/Role");
 
 // Create Comment or Reply
+// const createComment = async (req, res) => {
+//   try {
+//     const { content, entityId, entityModel, parentCommentId } = req.body;
+//     const userId = req.user.userId;
+
+//     let targetModel;
+//     if (entityModel === "Event") targetModel = Event;
+//     else if (entityModel === "Course") targetModel = Course;
+//     else {
+//       return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Invalid entity model");
+//     }
+
+//     const entity = await targetModel.findById(entityId);
+//     if (!entity) {
+//       return apiErrorRes(
+//         HTTP_STATUS.NOT_FOUND,
+//         res,
+//         `${entityModel} not found`,
+//       );
+//     }
+
+//     if (parentCommentId) {
+//       const parent = await Comment.findById(parentCommentId);
+//       if (!parent) {
+//         return apiErrorRes(
+//           HTTP_STATUS.NOT_FOUND,
+//           res,
+//           "Parent comment not found",
+//         );
+//       }
+//     }
+
+//     const newComment = new Comment({
+//       content,
+//       entityId,
+//       entityModel,
+//       user: userId,
+//       parentComment: parentCommentId || null,
+//     });
+
+//     await newComment.save();
+
+//     // Populate user details for immediate display
+//     await newComment.populate("user", "firstName lastName profileImage");
+
+//     if (newComment.user && newComment.user.profileImage) {
+//       newComment.user.profileImage = formatResponseUrl(
+//         newComment.user.profileImage,
+//       );
+//     }
+
+//     return apiSuccessRes(
+//       HTTP_STATUS.CREATED,
+//       res,
+//       "Comment added successfully",
+//       { comment: newComment },
+//     );
+//   } catch (error) {
+//     console.error("Error in createComment:", error);
+//     return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
+//   }
+// };
+
 const createComment = async (req, res) => {
   try {
     const { content, entityId, entityModel, parentCommentId } = req.body;
@@ -30,7 +93,11 @@ const createComment = async (req, res) => {
     if (entityModel === "Event") targetModel = Event;
     else if (entityModel === "Course") targetModel = Course;
     else {
-      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Invalid entity model");
+      return apiErrorRes(
+        HTTP_STATUS.BAD_REQUEST,
+        res,
+        "Invalid entity model"
+      );
     }
 
     const entity = await targetModel.findById(entityId);
@@ -38,7 +105,7 @@ const createComment = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.NOT_FOUND,
         res,
-        `${entityModel} not found`,
+        `${entityModel} not found`
       );
     }
 
@@ -48,7 +115,7 @@ const createComment = async (req, res) => {
         return apiErrorRes(
           HTTP_STATUS.NOT_FOUND,
           res,
-          "Parent comment not found",
+          "Parent comment not found"
         );
       }
     }
@@ -63,26 +130,100 @@ const createComment = async (req, res) => {
 
     await newComment.save();
 
-    // Populate user details for immediate display
-    await newComment.populate("user", "firstName lastName profileImage");
+    // 🔥 Fetch newly created comment with same structure as getComments
+    const createdComment = await Comment.aggregate([
+      {
+        $match: {
+          _id: newComment._id,
+        },
+      },
 
-    if (newComment.user && newComment.user.profileImage) {
-      newComment.user.profileImage = formatResponseUrl(
-        newComment.user.profileImage,
+      // Count replies
+      {
+        $lookup: {
+          from: "comments",
+          localField: "_id",
+          foreignField: "parentComment",
+          as: "replies",
+        },
+      },
+      {
+        $addFields: {
+          totalReplies: { $size: "$replies" },
+        },
+      },
+      {
+        $project: {
+          replies: 0,
+        },
+      },
+
+      // Populate user
+      {
+        $lookup: {
+          from: "User", // make sure this matches your actual collection name
+          localField: "user",
+          foreignField: "_id",
+          as: "user",
+        },
+      },
+      {
+        $unwind: {
+          path: "$user",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+
+      {
+        $project: {
+          content: 1,
+          entityId: 1,
+          entityModel: 1,
+          parentComment: 1,
+          createdAt: 1,
+          totalReplies: 1,
+          "user._id": 1,
+          "user.firstName": 1,
+          "user.lastName": 1,
+          "user.profileImage": 1,
+          "user.roleId": 1,
+        },
+      },
+    ]);
+
+    let formattedComment = createdComment[0];
+
+    if (formattedComment?.user?.profileImage) {
+      formattedComment.user.profileImage = formatResponseUrl(
+        formattedComment.user.profileImage
       );
+    }
+
+    if (formattedComment?.user?.roleId) {
+      formattedComment.user.userRole =
+        userRole[formattedComment.user.roleId] || null;
+
+      delete formattedComment.user.roleId;
     }
 
     return apiSuccessRes(
       HTTP_STATUS.CREATED,
       res,
       "Comment added successfully",
-      { comment: newComment },
+      { ...formattedComment }
     );
   } catch (error) {
     console.error("Error in createComment:", error);
-    return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
+    return apiErrorRes(
+      HTTP_STATUS.SERVER_ERROR,
+      res,
+      error.message
+    );
   }
 };
+
+
+
 
 // Get Comments for an Event
 // const getComments = async (req, res) => {
