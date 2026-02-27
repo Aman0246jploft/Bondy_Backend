@@ -93,11 +93,7 @@ const createComment = async (req, res) => {
     if (entityModel === "Event") targetModel = Event;
     else if (entityModel === "Course") targetModel = Course;
     else {
-      return apiErrorRes(
-        HTTP_STATUS.BAD_REQUEST,
-        res,
-        "Invalid entity model"
-      );
+      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Invalid entity model");
     }
 
     const entity = await targetModel.findById(entityId);
@@ -105,7 +101,7 @@ const createComment = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.NOT_FOUND,
         res,
-        `${entityModel} not found`
+        `${entityModel} not found`,
       );
     }
 
@@ -115,7 +111,7 @@ const createComment = async (req, res) => {
         return apiErrorRes(
           HTTP_STATUS.NOT_FOUND,
           res,
-          "Parent comment not found"
+          "Parent comment not found",
         );
       }
     }
@@ -195,7 +191,7 @@ const createComment = async (req, res) => {
 
     if (formattedComment?.user?.profileImage) {
       formattedComment.user.profileImage = formatResponseUrl(
-        formattedComment.user.profileImage
+        formattedComment.user.profileImage,
       );
     }
 
@@ -210,20 +206,13 @@ const createComment = async (req, res) => {
       HTTP_STATUS.CREATED,
       res,
       "Comment added successfully",
-      { ...formattedComment }
+      { ...formattedComment },
     );
   } catch (error) {
     console.error("Error in createComment:", error);
-    return apiErrorRes(
-      HTTP_STATUS.SERVER_ERROR,
-      res,
-      error.message
-    );
+    return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
   }
 };
-
-
-
 
 // Get Comments for an Event
 // const getComments = async (req, res) => {
@@ -350,21 +339,21 @@ const getComments = async (req, res) => {
         },
       },
     ]);
-const formattedReplies = comments.map((reply) => {
-  if (reply.user && reply.user.profileImage) {
-    reply.user.profileImage = formatResponseUrl(reply.user.profileImage);
-        reply.user.userRole  = userRole[reply.user.roleId] || null;
-            delete reply.user.roleId;
-  }
-  return reply;
-});
+    const formattedReplies = comments.map((reply) => {
+      if (reply.user && reply.user.profileImage) {
+        reply.user.profileImage = formatResponseUrl(reply.user.profileImage);
+        reply.user.userRole = userRole[reply.user.roleId] || null;
+        delete reply.user.roleId;
+      }
+      return reply;
+    });
     const totalCount = await Comment.countDocuments({
       entityId: objectEntityId,
       parentComment: null,
     });
 
     return apiSuccessRes(HTTP_STATUS.OK, res, "Comments fetched successfully", {
-      comments:formattedReplies,
+      comments: formattedReplies,
       total: totalCount,
       page: parseInt(page),
       limit: parseInt(limit),
@@ -417,7 +406,7 @@ const updateComment = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.NOT_FOUND,
         res,
-        "Comment not found or you are not authorized"
+        "Comment not found or you are not authorized",
       );
     }
 
@@ -490,7 +479,7 @@ const updateComment = async (req, res) => {
     if (formattedComment?.user) {
       if (formattedComment.user.profileImage) {
         formattedComment.user.profileImage = formatResponseUrl(
-          formattedComment.user.profileImage
+          formattedComment.user.profileImage,
         );
       }
 
@@ -500,12 +489,9 @@ const updateComment = async (req, res) => {
       delete formattedComment.user.roleId;
     }
 
-    return apiSuccessRes(
-      HTTP_STATUS.OK,
-      res,
-      "Comment updated successfully",
-      {...formattedComment }
-    );
+    return apiSuccessRes(HTTP_STATUS.OK, res, "Comment updated successfully", {
+      ...formattedComment,
+    });
   } catch (error) {
     console.error("Error in updateComment:", error);
     return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
@@ -551,11 +537,6 @@ const deleteComment = async (req, res) => {
   }
 };
 
-
-
-
-
-
 // Toggle Like
 const toggleLike = async (req, res) => {
   try {
@@ -598,7 +579,7 @@ const getReplies = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        "parentCommentId is required"
+        "parentCommentId is required",
       );
     }
 
@@ -608,7 +589,11 @@ const getReplies = async (req, res) => {
     // Verify parent comment exists
     const parentExists = await Comment.findById(objectParentCommentId);
     if (!parentExists) {
-      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Parent comment not found");
+      return apiErrorRes(
+        HTTP_STATUS.NOT_FOUND,
+        res,
+        "Parent comment not found",
+      );
     }
 
     const replies = await Comment.aggregate([
@@ -668,41 +653,29 @@ const getReplies = async (req, res) => {
           "user.firstName": 1,
           "user.lastName": 1,
           "user.profileImage": 1,
-            "user.roleId": 1,
+          "user.roleId": 1,
         },
       },
     ]);
-
-
-
-
-    
-
-
 
     const totalCount = await Comment.countDocuments({
       parentComment: objectParentCommentId,
     });
 
-
-
-    
-
-const formattedReplies = replies.map((reply) => {
-  if (reply.user && reply.user.profileImage) {
-    reply.user.profileImage = formatResponseUrl(reply.user.profileImage);
-            reply.user.userRole  = userRole[reply.user.roleId] || null;
-            delete reply.user.roleId;
-    
-  }
-  return reply;
-});
+    const formattedReplies = replies.map((reply) => {
+      if (reply.user && reply.user.profileImage) {
+        reply.user.profileImage = formatResponseUrl(reply.user.profileImage);
+        reply.user.userRole = userRole[reply.user.roleId] || null;
+        delete reply.user.roleId;
+      }
+      return reply;
+    });
 
     return apiSuccessRes(HTTP_STATUS.OK, res, "Replies fetched successfully", {
-      comments:replies,
+      comments: replies,
       total: totalCount,
       page: parseInt(page),
-      limit: parseInt(limit)
+      limit: parseInt(limit),
     });
   } catch (error) {
     console.error("Error in getReplies:", error);
@@ -740,10 +713,6 @@ router.post(
   toggleLike,
 );
 
-router.get(
-  "/replies",
-  perApiLimiter(),
-  getReplies
-);
+router.get("/replies", perApiLimiter(), getReplies);
 
 module.exports = router;
