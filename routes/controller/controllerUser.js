@@ -708,90 +708,11 @@ const socialLogin = async (req, res) => {
 };
 
 // Update User Profile
-// const updateUserProfile = async (req, res) => {
-//   try {
-//     const userId = req.user.userId;
-
-//     if (req.user.roleId === roleId.SUPER_ADMIN) {
-//       return apiErrorRes(
-//         HTTP_STATUS.FORBIDDEN,
-//         res,
-//         constantsMessage.SUPER_ADMIN_UPDATE_NOT_ALLOWED,
-//       );
-//     }
-
-//     const { email, location, ...updateData } = req.body;
-
-//     // Check if email already exists (if email is being updated)
-//     if (email) {
-//       const existingUser = await User.findOne({
-//         email,
-//         isDeleted: false,
-//         _id: { $ne: userId },
-//       });
-//       if (existingUser) {
-//         return apiErrorRes(
-//           HTTP_STATUS.BAD_REQUEST,
-//           res,
-//           constantsMessage.EMAIL_ALREADY_EXISTS,
-//         );
-//       }
-//       updateData.email = email;
-//     }
-
-//     // Handle location update
-//     if (location) {
-//       updateData.location = {
-//         type: "Point",
-//         coordinates: [location.longitude, location.latitude],
-//         city: location.city,
-//         country: location.country,
-//         address: location.address,
-//         state: location.state,
-//         zipcode: location.zipcode,
-//       };
-//     }
-
-//     const updatedUser = await User.findByIdAndUpdate(userId, updateData, {
-//       new: true,
-//     })
-//       .populate("categories")
-//       .lean();
-
-//     if (!updatedUser) {
-//       return apiErrorRes(
-//         HTTP_STATUS.NOT_FOUND,
-//         res,
-//         constantsMessage.USER_NOT_FOUND,
-//       );
-//     }
-//     if (updatedUser.profileImage) {
-//       updatedUser.profileImage = `${BACKEND_URL}/${updatedUser.profileImage}`;
-//     }
-
-//     return apiSuccessRes(
-//       HTTP_STATUS.OK,
-//       res,
-//       constantsMessage.PROFILE_UPDATED,
-//       { user: updatedUser },
-//     );
-//   } catch (error) {
-//     console.error("Error in updateUserProfile:", error);
-//     return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
-//   }
-// };
 const updateUserProfile = async (req, res) => {
   try {
-    console.log("===== updateUserProfile API Called =====");
-
     const userId = req.user.userId;
-    console.log("User ID:", userId);
-    console.log("User Role:", req.user.roleId);
 
-    // Prevent SUPER_ADMIN from updating
     if (req.user.roleId === roleId.SUPER_ADMIN) {
-      console.log("SUPER_ADMIN attempted profile update - Blocked");
-
       return apiErrorRes(
         HTTP_STATUS.FORBIDDEN,
         res,
@@ -801,40 +722,25 @@ const updateUserProfile = async (req, res) => {
 
     const { email, location, ...updateData } = req.body;
 
-    console.log("Incoming Request Body:", req.body);
-    console.log("Email to update:", email);
-    console.log("Location to update:", location);
-
-    // Check if email already exists
+    // Check if email already exists (if email is being updated)
     if (email) {
-      console.log("Checking if email already exists...");
-
       const existingUser = await User.findOne({
         email,
         isDeleted: false,
         _id: { $ne: userId },
       });
-
-      console.log("Existing user with same email:", existingUser);
-
       if (existingUser) {
-        console.log("Email already exists. Aborting update.");
-
         return apiErrorRes(
           HTTP_STATUS.BAD_REQUEST,
           res,
           constantsMessage.EMAIL_ALREADY_EXISTS,
         );
       }
-
-      console.log("Email is unique. Adding to updateData.");
       updateData.email = email;
     }
 
     // Handle location update
     if (location) {
-      console.log("Processing location update...");
-
       updateData.location = {
         type: "Point",
         coordinates: [location.longitude, location.latitude],
@@ -844,54 +750,37 @@ const updateUserProfile = async (req, res) => {
         state: location.state,
         zipcode: location.zipcode,
       };
-
-      console.log("Formatted Location Object:", updateData.location);
     }
 
-    console.log("Final updateData before DB update:", updateData);
-
-    // Update user
     const updatedUser = await User.findByIdAndUpdate(userId, updateData, {
       new: true,
     })
       .populate("categories")
       .lean();
 
-    console.log("Database update response:", updatedUser);
-
     if (!updatedUser) {
-      console.log("User not found in database.");
-
       return apiErrorRes(
         HTTP_STATUS.NOT_FOUND,
         res,
         constantsMessage.USER_NOT_FOUND,
       );
     }
-
-    // Handle profile image URL
     if (updatedUser.profileImage) {
-      console.log("Formatting profile image URL");
-
       updatedUser.profileImage = `${BACKEND_URL}/${updatedUser.profileImage}`;
     }
-
-    console.log("Final user response object:", updatedUser);
-    console.log("===== updateUserProfile Success =====");
 
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
       constantsMessage.PROFILE_UPDATED,
-      { user: updatedUser },
+      { user: { ...updatedUser, userRole: userRole[updatedUser.roleId] } },
     );
   } catch (error) {
-    console.error("===== Error in updateUserProfile =====");
-    console.error(error);
-
+    console.error("Error in updateUserProfile:", error);
     return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
   }
 };
+
 
 const selfProfile = async (req, res) => {
   try {
