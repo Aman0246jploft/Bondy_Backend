@@ -31,6 +31,9 @@ const publicRoutes = [
   "/api/v1/user/forgot-password/init",
   "/api/v1/user/forgot-password/verify",
   "/api/v1/user/reset-password",
+  "/api/v1/user/resend-otp",
+
+  
   "/api/v1/contact/createContact",
   
 
