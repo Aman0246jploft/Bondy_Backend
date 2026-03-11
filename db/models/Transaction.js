@@ -29,9 +29,16 @@ const transactionSchema = new mongoose.Schema(
         },
         bookingType: {
             type: String,
-            enum: ["EVENT", "COURSE"],
+            enum: ["EVENT", "COURSE", "PROMOTION"],
             required: true,
             default: "EVENT",
+        },
+        promotionPackageId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "PromotionPackage",
+            required: function () {
+                return this.bookingType === "PROMOTION";
+            },
         },
         bookingId: {
             type: String,

@@ -76,6 +76,19 @@ const eventSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    isFeatured: {
+      type: Boolean,
+      default: false,
+    },
+    featuredExpiry: {
+      type: Date,
+      default: null,
+    },
+    activePromotionPackage: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "PromotionPackage",
+      default: null,
+    },
 
     status: {
       type: String,

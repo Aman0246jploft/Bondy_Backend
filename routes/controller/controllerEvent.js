@@ -199,6 +199,7 @@ const getEvents = async (req, res) => {
               query: baseMatch,
             },
           },
+          { $sort: { isFeatured: -1, distance: 1 } },
           { $skip: parseInt(skip) },
           { $limit: parseInt(limit) },
           // Populate eventCategory
@@ -273,7 +274,7 @@ const getEvents = async (req, res) => {
         const cityEvents = await Event.find(baseMatch)
           .populate("eventCategory")
           .populate("createdBy", "firstName lastName profileImage isVerified")
-          .sort({ startDate: 1 })
+          .sort({ isFeatured: -1, startDate: 1 })
           .skip(parseInt(skip))
           .limit(parseInt(limit))
           .lean();
@@ -495,7 +496,7 @@ const getEvents = async (req, res) => {
     // Only apply explicit sort if NOT using geospatial query (nearYou)
     // $nearSphere automatically sorts by distance, and combining with other sorts is not allowed
     if (filter !== "nearYou") {
-      eventsQuery = eventsQuery.sort({ startDate: 1 });
+      eventsQuery = eventsQuery.sort({ isFeatured: -1, startDate: 1 });
     }
 
     const events = await eventsQuery.skip(skip).limit(parseInt(limit)).lean();

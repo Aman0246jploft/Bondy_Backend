@@ -35,6 +35,12 @@ const courseSchema = new mongoose.Schema(
     galleryImages: { type: [String] },
     whatYouWillLearn: { type: String },
     isFeatured: { type: Boolean, default: false },
+    featuredExpiry: { type: Date, default: null },
+    activePromotionPackage: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "PromotionPackage",
+      default: null,
+    },
     venueAddress: {
       type: {
         type: String,

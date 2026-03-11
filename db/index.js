@@ -11,6 +11,7 @@ mongoose
     console.log(`✅ DB Connected successfully in ${endTime - startTime}ms`);
     require("../cron/eventStatus.cron");
     require("../cron/bookingCleanup.cron");
+    require("../cron/promotionExpiryCron");
   })
   .catch((err) => {
     console.error("❌ DB Connection Error:", err.message);
@@ -40,4 +41,5 @@ module.exports = {
   Attendee: require("./models/Attendee"),
   Wishlist: require("./models/Wishlist"),
   UserSetting: require("./models/UserSetting"),
+  PromotionPackage: require("./models/PromotionPackage"),
 };

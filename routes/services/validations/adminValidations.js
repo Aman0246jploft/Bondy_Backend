@@ -72,6 +72,26 @@ const getByIdSchema = Joi.object({
   id: Joi.string().required(),
 });
 
+// PromotionPackage Schemas
+const createPromotionPackageSchema = Joi.object({
+  name: Joi.string().required(),
+  durationInDays: Joi.number().min(1).required(),
+  packageType: Joi.string().valid("EVENT", "COURSE").default("EVENT"),
+  placements: Joi.array().items(Joi.string()).optional(),
+  price: Joi.number().min(0).required(),
+  isActive: Joi.boolean().default(true),
+});
+
+const updatePromotionPackageSchema = Joi.object({
+  id: Joi.string().required(),
+  name: Joi.string().optional(),
+  durationInDays: Joi.number().min(1).optional(),
+  packageType: Joi.string().valid("EVENT", "COURSE").optional(),
+  placements: Joi.array().items(Joi.string()).optional(),
+  price: Joi.number().min(0).optional(),
+  isActive: Joi.boolean().optional(),
+});
+
 module.exports = {
   createTaxSchema,
   updateTaxSchema,
@@ -82,4 +102,6 @@ module.exports = {
   reportUserSchema,
   verifyStatusSchema,
   getByIdSchema,
+  createPromotionPackageSchema,
+  updatePromotionPackageSchema,
 };

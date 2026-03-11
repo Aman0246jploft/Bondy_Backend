@@ -177,6 +177,7 @@ const getCourses = async (req, res) => {
             query: geoMatch,
           },
         },
+        { $sort: { isFeatured: -1, distance: 1 } },
         { $skip: parseInt(skip) },
         { $limit: parseInt(limit) },
         // Populate courseCategory
@@ -406,7 +407,12 @@ const getCourses = async (req, res) => {
     const totalPages = Math.ceil(totalCourses / limit);
 
     courses = courses
-      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+      .sort((a, b) => {
+        if (a.isFeatured !== b.isFeatured) {
+          return a.isFeatured ? -1 : 1;
+        }
+        return new Date(b.createdAt) - new Date(a.createdAt);
+      })
       .slice(skip, skip + Number(limit));
 
     // ===============================
@@ -564,6 +570,9 @@ const getCourses = async (req, res) => {
     // Sort by nearest schedule
     // ===============================
     formattedCourses.sort((a, b) => {
+      if (a.isFeatured !== b.isFeatured) {
+        return a.isFeatured ? -1 : 1;
+      }
       if (a.currentSchedule && !b.currentSchedule) return -1;
       if (!a.currentSchedule && b.currentSchedule) return 1;
       if (a.currentSchedule && b.currentSchedule) {

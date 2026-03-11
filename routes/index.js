@@ -25,6 +25,9 @@ module.exports = {
   organizerStats: require("./controller/controllerOrganizerStats"),
   wishlist: require("./controller/controllerWishlist"),
   userSetting: require("./controller/controllerUserSetting"),
+  "promotion-package": require("./controller/controllerPromotionPackage"),
+  "event-promotion": require("./controller/controllerEventPromotion"),
+  "course-promotion": require("./controller/controllerCoursePromotion"),
 };
 
 
