@@ -105,4 +105,7 @@ courseSchema.set("toJSON", {
   },
 });
 
+// Add index for $geoNear queries
+courseSchema.index({ venueAddress: "2dsphere" });
+
 module.exports = mongoose.model("Course", courseSchema);
