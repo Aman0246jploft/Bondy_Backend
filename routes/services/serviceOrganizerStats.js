@@ -405,13 +405,72 @@ const getOrganizerDashboardData = async (organizerId) => {
   try {
     const organizerObjectId = new mongoose.Types.ObjectId(organizerId);
 
-    // 1. Total Events
-    const totalEvents = await Event.countDocuments({
-      createdBy: organizerObjectId,
-    });
+    // 1. Event Statistics (Draft, Pending, Live, Completed, Attendees)
+    const eventStatsResult = await Event.aggregate([
+      { $match: { createdBy: organizerObjectId } },
+      {
+        $group: {
+          _id: null,
+          totalDraftEvents: {
+            $sum: { $cond: [{ $eq: ["$isDraft", true] }, 1, 0] },
+          },
+          totalPendingEvents: {
+            $sum: {
+              $cond: [
+                {
+                  $and: [
+                    { $eq: ["$isDraft", false] },
+                    { $eq: ["$status", "Upcoming"] },
+                  ],
+                },
+                1,
+                0,
+              ],
+            },
+          },
+          totalLiveEvents: {
+            $sum: {
+              $cond: [
+                {
+                  $and: [
+                    { $eq: ["$isDraft", false] },
+                    { $eq: ["$status", "Live"] },
+                  ],
+                },
+                1,
+                0,
+              ],
+            },
+          },
+          totalCompletedEvents: {
+            $sum: {
+              $cond: [
+                {
+                  $and: [
+                    { $eq: ["$isDraft", false] },
+                    { $eq: ["$status", "Past"] },
+                  ],
+                },
+                1,
+                0,
+              ],
+            },
+          },
+          totalAttendees: { $sum: { $ifNull: ["$totalAttendees", 0] } },
+        },
+      },
+    ]);
 
-    // 2. Total Tickets Sold (from PAID EVENT transactions)
-    const ticketsSoldResult = await Transaction.aggregate([
+    const eventStats = eventStatsResult[0] || {
+      totalDraftEvents: 0,
+      totalPendingEvents: 0,
+      totalLiveEvents: 0,
+      totalCompletedEvents: 0,
+      totalAttendees: 0,
+    };
+
+    // 2. Transaction Statistics (Tickets Sold, Net Revenue)
+    const transactionStatsResult = await Transaction.aggregate([
       {
         $lookup: {
           from: "events",
@@ -420,50 +479,6 @@ const getOrganizerDashboardData = async (organizerId) => {
           as: "eventInfo",
         },
       },
-      {
-        $match: {
-          bookingType: "EVENT",
-          status: "PAID",
-          "eventInfo.createdBy": organizerObjectId,
-        },
-      },
-      {
-        $group: {
-          _id: null,
-          totalTickets: { $sum: "$qty" },
-        },
-      },
-    ]);
-    const totalTicketSold = ticketsSoldResult[0]?.totalTickets || 0;
-
-    // 3. Net Earnings from Events
-    const eventEarningsResult = await Transaction.aggregate([
-      {
-        $lookup: {
-          from: "events",
-          localField: "eventId",
-          foreignField: "_id",
-          as: "eventInfo",
-        },
-      },
-      {
-        $match: {
-          bookingType: "EVENT",
-          status: "PAID",
-          "eventInfo.createdBy": organizerObjectId,
-        },
-      },
-      {
-        $group: {
-          _id: null,
-          totalEarnings: { $sum: "$organizerEarning" },
-        },
-      },
-    ]);
-    const netEarningEvents = roundToTwo(eventEarningsResult[0]?.totalEarnings || 0);
-
-    // 4. Net Earnings from Courses
-    const courseEarningsResult = await Transaction.aggregate([
       {
         $lookup: {
           from: "courses",
@@ -474,46 +489,35 @@ const getOrganizerDashboardData = async (organizerId) => {
       },
       {
         $match: {
-          bookingType: "COURSE",
           status: "PAID",
-          "courseInfo.createdBy": organizerObjectId,
+          $or: [
+            { "eventInfo.createdBy": organizerObjectId },
+            { "courseInfo.createdBy": organizerObjectId },
+          ],
         },
       },
       {
         $group: {
           _id: null,
-          totalEarnings: { $sum: "$organizerEarning" },
+          totalTicketsSold: { $sum: "$qty" },
+          netRevenue: { $sum: "$organizerEarning" },
         },
       },
     ]);
-    const netEarningCourses = roundToTwo(courseEarningsResult[0]?.totalEarnings || 0);
 
-    // 5. Upcoming Events (Limit 5)
-    // We want events created by this organizer with startDate > now, sorted by startDate asc.
-    const upcomingEventsQuery = {
-      createdBy: organizerObjectId,
-      startDate: { $gte: new Date() },
-      status: "Upcoming",
+    const transactionStats = transactionStatsResult[0] || {
+      totalTicketsSold: 0,
+      netRevenue: 0,
     };
 
-    const totalUpcomingEvents = await Event.countDocuments(upcomingEventsQuery);
-
-    const upcomingEvents = await Event.find(upcomingEventsQuery)
-      .sort({ startDate: 1 })
-      .limit(5)
-      .select("eventTitle startDate posterImage venueAddress totalTickets ticketPrice");
-
-
-
     return resultDb(SUCCESS, {
-      totalEvents,
-      totalTicketSold,
-      netEarningEvents,
-      netEarningCourses,
-      totalUpcomingEvents,
-      // upcomingEvents,
-
-
+      totalDraftEvents: eventStats.totalDraftEvents,
+      totalPendingEvents: eventStats.totalPendingEvents,
+      totalLiveEvents: eventStats.totalLiveEvents,
+      totalCompletedEvents: eventStats.totalCompletedEvents,
+      totalTicketsSold: transactionStats.totalTicketsSold,
+      netRevenue: roundToTwo(transactionStats.netRevenue),
+      totalAttendees: eventStats.totalAttendees,
     });
   } catch (error) {
     console.error("Error in getOrganizerDashboardData service:", error);

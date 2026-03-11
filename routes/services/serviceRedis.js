@@ -4,12 +4,12 @@ const CONSTANTS = require("../../utils/constants");
 const { resultDb } = require("../../utils/globalFunction");
 // Redis connection options
 const REDIS_CONFIG = {
-  username: "default",
-  password: "ynEIIf8wNVtXNfvuEXsYYZ8TfHfU7YNe",
-  socket: {
-    host: "redis-15412.c212.ap-south-1-1.ec2.cloud.redislabs.com",
-    port: 15412,
-  },
+  // username: "default",
+  // password: "ynEIIf8wNVtXNfvuEXsYYZ8TfHfU7YNe",
+  // socket: {
+  //   host: "redis-15412.c212.ap-south-1-1.ec2.cloud.redislabs.com",
+  //   port: 15412,
+  // },
 };
 
 // Main client for general Redis operations

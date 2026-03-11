@@ -132,6 +132,27 @@ const getCourses = async (req, res) => {
       ];
     }
 
+    if (filter === "recommended") {
+      let userCategories = [];
+      const authHeader = req.headers.authorization;
+      if (authHeader && authHeader.startsWith("Bearer ")) {
+        try {
+          const jwt = require("jsonwebtoken");
+          const token = authHeader.split(" ")[1];
+          const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY);
+          const user = await User.findById(decoded.userId).lean();
+
+          if (user && user.categories && user.categories.length > 0) {
+            userCategories = user.categories;
+          }
+        } catch (err) { }
+      }
+
+      if (userCategories.length > 0) {
+        query.courseCategory = { $in: userCategories };
+      }
+    }
+
     if (filter === "nearYou") {
       if (!latitude || !longitude) {
         return apiErrorRes(
@@ -219,7 +240,7 @@ const getCourses = async (req, res) => {
             process.env.JWT_SECRET_KEY,
           );
           viewerId = decoded.userId;
-        } catch {}
+        } catch { }
       }
       const bookedCourseIds = new Set();
       const bookedScheduleMap = {};
@@ -433,7 +454,7 @@ const getCourses = async (req, res) => {
           process.env.JWT_SECRET_KEY,
         );
         viewerId = decoded.userId;
-      } catch {}
+      } catch { }
     }
 
     const bookedCourseIds = new Set(); // Set of "courseId"
@@ -700,7 +721,7 @@ const updateCourse = async (req, res) => {
         HTTP_STATUS.FORBIDDEN,
         res,
         constantsMessage.UNAUTHORIZED_ACCESS ||
-          "You are not authorized to edit this course",
+        "You are not authorized to edit this course",
       );
     }
 
@@ -844,7 +865,7 @@ const getCourseDetails = async (req, res) => {
     // 1. Fetch Course
     const course = await Course.findById(courseId)
       .populate("courseCategory")
-      .populate("createdBy", "firstName lastName profileImage   isVerified")
+      .populate("createdBy", "firstName lastName profileImage  isVerified")
       .lean();
 
     if (!course) {
@@ -892,7 +913,7 @@ const getCourseDetails = async (req, res) => {
           process.env.JWT_SECRET_KEY,
         );
         viewerId = decoded.userId;
-      } catch {}
+      } catch { }
     }
 
     if (viewerId) {

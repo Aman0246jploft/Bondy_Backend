@@ -202,43 +202,35 @@ router.get(
 /**
  * Get dashboard data for the logged-in organizer
  */
-router.get(
-  "/dashboard",
-  checkRole([roleId.ORGANIZER]),
-  async (req, res) => {
-    try {
-      const organizerId = req.user.userId; // Extracted from token
+router.get("/dashboard", checkRole([roleId.ORGANIZER]), async (req, res) => {
+  try {
+    const organizerId = req.user.userId; // Extracted from token
 
-      if (!validateObjectId(organizerId)) {
-        return apiErrorRes(
-          HTTP_STATUS.BAD_REQUEST,
-          res,
-          "Invalid organizer ID",
-        );
-      }
-
-      const result =
-        await organizerStatsService.getOrganizerDashboardData(organizerId);
-
-      if (result.statusCode === SUCCESS) {
-        return apiSuccessRes(
-          HTTP_STATUS.OK,
-          res,
-          "Organizer dashboard data fetched successfully",
-          result.data,
-        );
-      } else {
-        return apiErrorRes(
-          HTTP_STATUS.INTERNAL_SERVER_ERROR,
-          res,
-          "Failed to fetch dashboard data",
-        );
-      }
-    } catch (error) {
-      console.error("Error in getOrganizerDashboardData controller:", error);
-      return apiErrorRes(HTTP_STATUS.INTERNAL_SERVER_ERROR, res, error.message);
+    if (!validateObjectId(organizerId)) {
+      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Invalid organizer ID");
     }
-  },
-);
+
+    const result =
+      await organizerStatsService.getOrganizerDashboardData(organizerId);
+
+    if (result.statusCode === SUCCESS) {
+      return apiSuccessRes(
+        HTTP_STATUS.OK,
+        res,
+        "Organizer dashboard data fetched successfully",
+        result.data,
+      );
+    } else {
+      return apiErrorRes(
+        HTTP_STATUS.INTERNAL_SERVER_ERROR,
+        res,
+        "Failed to fetch dashboard data",
+      );
+    }
+  } catch (error) {
+    console.error("Error in getOrganizerDashboardData controller:", error);
+    return apiErrorRes(HTTP_STATUS.INTERNAL_SERVER_ERROR, res, error.message);
+  }
+});
 
 module.exports = router;

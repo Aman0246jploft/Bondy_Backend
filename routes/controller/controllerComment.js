@@ -283,7 +283,7 @@ const getComments = async (req, res) => {
         },
       },
 
-      { $sort: { createdAt: 1 } },
+      { $sort: { createdAt: -1 } },
       { $skip: skip },
       { $limit: parseInt(limit) },
 
@@ -602,7 +602,7 @@ const getReplies = async (req, res) => {
           parentComment: objectParentCommentId, // ✅ FETCH BY PARENT ID
         },
       },
-      { $sort: { createdAt: 1 } },
+      { $sort: { createdAt: -1 } },
       { $skip: skip },
       { $limit: parseInt(limit) },
 
