@@ -140,6 +140,8 @@ const getUserWishlist = async (req, res) => {
             res,
             "Wishlist fetched successfully",
             {
+                eventList: wishlist.filter(item => item.entityModel === "Event"),
+                courseList: wishlist.filter(item => item.entityModel === "Course"),
                 docs: wishlist,
                 totalDocs,
                 limit: options.limit,
