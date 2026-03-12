@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const { User, Event, Course, Transaction, Follow } = require("../../db");
+const { User, Event, Course, Transaction, Follow, Referral, WalletHistory, Notification } = require("../../db");
 const CONSTANTS = require("../../utils/constants");
 const constantsMessage = require("../../utils/constantsMessage");
 const HTTP_STATUS = require("../../utils/statusCode");
@@ -204,8 +204,12 @@ const organizerSignupInit = async (req, res) => {
     const otp =
       process.env.NODE_ENV === "development" ? "12345" : generateOTP(); // TODO: Implement SMS/Email service for production
 
+    // Capture referralCode from body OR query param (?ref=CODE)
+    const referralCode = req.body.referralCode || req.query.ref || null;
+    const dataToStore = { ...req.body, ...(referralCode ? { referralCode } : {}) };
+
     // Save data to Redis
-    await setKeyWithTime(`signup_data:${email}`, JSON.stringify(req.body), 10);
+    await setKeyWithTime(`signup_data:${email}`, JSON.stringify(dataToStore), 10);
     await setKeyWithTime(`signup_otp:${email}`, otp, 10);
 
     return apiSuccessRes(
@@ -293,6 +297,53 @@ const organizerSignupVerify = async (req, res) => {
 
     await removeKey(`signup_otp:${email}`);
     await removeKey(`signup_data:${email}`);
+
+    // ── Referral completion (non-blocking) ──────────────────────────────────
+    if (userData.referralCode) {
+      try {
+        const referral = await Referral.findOne({
+          referralCode: userData.referralCode,
+          status: "PENDING",
+          refereeEmail: email.toLowerCase(),
+        });
+        if (referral) {
+          // Mark referral as COMPLETED immediately on signup
+          referral.referee = user._id;
+          referral.status = "COMPLETED";
+          referral.rewardedAt = new Date();
+          await referral.save();
+
+          // Credit reward to the referrer's wallet
+          const referrer = await User.findById(referral.referrer);
+          if (referrer) {
+            const rewardAmount = referral.rewardAmount || 75000;
+            referrer.payoutBalance = (referrer.payoutBalance || 0) + rewardAmount;
+            await referrer.save();
+
+            // Log wallet history
+            await WalletHistory.create({
+              userId: referrer._id,
+              amount: rewardAmount,
+              type: "REFERRAL",
+              balanceAfter: referrer.payoutBalance,
+              description: `Referral reward — new organizer ${email} signed up using your code.`,
+            });
+
+            // Notify referrer
+            await Notification.create({
+              recipient: referrer._id,
+              type: "SYSTEM",
+              title: "Referral Reward Credited! 🎉",
+              message: `You earned ₮${rewardAmount.toLocaleString()} for referring ${email} to Bondy!`,
+              relatedId: referral._id,
+            });
+          }
+        }
+      } catch (refErr) {
+        console.error("Referral completion error (non-blocking):", refErr.message);
+      }
+    }
+    // ────────────────────────────────────────────────────────────────────────
 
     const token = signToken({ userId: user._id, roleId: user.roleId });
 

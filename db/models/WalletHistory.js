@@ -19,6 +19,7 @@ const walletHistorySchema = new mongoose.Schema(
                 "PAYOUT_REJECTED",
                 "REFUND",
                 "ADJUSTMENT",
+                "REFERRAL",
             ],
             required: true,
         },

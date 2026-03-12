@@ -28,6 +28,7 @@ module.exports = {
   "promotion-package": require("./controller/controllerPromotionPackage"),
   "event-promotion": require("./controller/controllerEventPromotion"),
   "course-promotion": require("./controller/controllerCoursePromotion"),
+  referral: require("./controller/controllerReferral"),
 };
 
 

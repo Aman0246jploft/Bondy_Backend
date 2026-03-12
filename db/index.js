@@ -42,4 +42,5 @@ module.exports = {
   Wishlist: require("./models/Wishlist"),
   UserSetting: require("./models/UserSetting"),
   PromotionPackage: require("./models/PromotionPackage"),
+  Referral: require("./models/Referral"),
 };
