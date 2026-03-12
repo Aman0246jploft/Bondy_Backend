@@ -30,7 +30,7 @@ router.post("/checkout", async (req, res) => {
     }
 
     const { courseId, packageId } = req.body;
-    const userId = req.user._id;
+    const userId = req.user.userId;
 
     // Verify course exists and belongs to the user
     const course = await Course.findById(courseId);
@@ -80,10 +80,12 @@ router.post("/checkout", async (req, res) => {
     const admins = await User.find({ role: "admin" }).select("_id");
     if (admins && admins.length > 0) {
       const adminNotifs = admins.map(admin => ({
-        user: admin._id,
-        type: "System",
+        recipient: admin._id,
+        type: "SYSTEM",
         title: "Course Promotion Purchased",
-        content: `Organizer promoted course "${course.courseTitle}" with package "${promoPackage.name}".`,
+        message: `Organizer promoted course "${course.courseTitle}" with package "${promoPackage.name}".`,
+        relatedId: course._id,
+        onModel: "Course",
         isRead: false
       }));
       await Notification.insertMany(adminNotifs);
@@ -91,10 +93,12 @@ router.post("/checkout", async (req, res) => {
 
     // To Organizer
     await Notification.create({
-      user: userId,
-      type: "System",
+      recipient: userId,
+      type: "SYSTEM",
       title: "Course Promotion Successful",
-      content: `Your course "${course.courseTitle}" is now featured until ${expiryDate.toLocaleDateString()}.`,
+      message: `Your course "${course.courseTitle}" is now featured until ${expiryDate.toLocaleDateString()}.`,
+      relatedId: course._id,
+      onModel: "Course",
       isRead: false
     });
 

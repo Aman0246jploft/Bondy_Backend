@@ -95,19 +95,23 @@ const checkoutPromotion = async (req, res) => {
     const adminUser = await User.findOne({ roleId: 1 }); // Assuming 1 is ADMIN
     if (adminUser) {
       await Notification.create({
-        userId: adminUser._id,
+        recipient: adminUser._id,
         title: "New Event Promotion Purchased",
         message: `Organizer of event "${event.eventTitle}" purchased a ${pkg.durationInDays}-day promotion.`,
-        type: "SYSTEM", // Or relevant type
+        type: "SYSTEM",
+        relatedId: event._id,
+        onModel: "Event",
       });
     }
 
     // Notify Organizer
     await Notification.create({
-      userId: userId,
+      recipient: userId,
       title: "Promotion Activated",
       message: `Your event "${event.eventTitle}" is now actively featured for ${pkg.durationInDays} days!`,
       type: "SYSTEM",
+      relatedId: event._id,
+      onModel: "Event",
     });
 
     return apiSuccessRes(

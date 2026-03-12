@@ -24,11 +24,12 @@ cron.schedule("0 * * * *", async () => {
         await event.save();
 
         await Notification.create({
-          user: event.createdBy,
+          recipient: event.createdBy,
           title: "Event Promotion Expired",
-          content: `Your event's featured promotion has ended. Promote again to stay on top!`,
-          type: "System",
-          isRead: false
+          message: `Your event's featured promotion has ended. Promote again to stay on top!`,
+          type: "SYSTEM",
+          relatedId: event._id,
+          onModel: "Event",
         });
 
         console.log(`[${now.toISOString()}] Expired promotion for Event ID: ${event._id}`);
@@ -53,11 +54,12 @@ cron.schedule("0 * * * *", async () => {
         await course.save();
 
         await Notification.create({
-          user: course.createdBy,
+          recipient: course.createdBy,
           title: "Course Promotion Expired",
-          content: `Your course's featured promotion has ended. Promote again to stay on top!`,
-          type: "System",
-          isRead: false
+          message: `Your course's featured promotion has ended. Promote again to stay on top!`,
+          type: "SYSTEM",
+          relatedId: course._id,
+          onModel: "Course",
         });
 
         console.log(`[${now.toISOString()}] Expired promotion for Course ID: ${course._id}`);
