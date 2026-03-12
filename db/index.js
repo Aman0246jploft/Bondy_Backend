@@ -18,7 +18,7 @@ mongoose
       const GlobalSetting = require("./models/GlobalSetting");
       await GlobalSetting.findOneAndUpdate(
         { key: "REFERRAL_REWARD_AMOUNT" },
-        { $setOnInsert: { key: "REFERRAL_REWARD_AMOUNT", value: 75000, description: "Referral reward credited to organizer who invited a verified new organizer (in MNT)" } },
+        { $setOnInsert: { key: "REFERRAL_REWARD_AMOUNT", value: 75000, description: "Referral reward credited to organizer who invited a verified new organizer (in $)" } },
         { upsert: true, new: true }
       );
       console.log("✅ REFERRAL_REWARD_AMOUNT setting seeded");
