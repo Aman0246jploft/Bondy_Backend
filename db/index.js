@@ -6,12 +6,25 @@ const startTime = Date.now();
 
 mongoose
   .connect(DB_STRING)
-  .then(() => {
+  .then(async () => {
     const endTime = Date.now();
     console.log(`✅ DB Connected successfully in ${endTime - startTime}ms`);
     require("../cron/eventStatus.cron");
     require("../cron/bookingCleanup.cron");
     require("../cron/promotionExpiryCron");
+
+    // Seed default global settings (only if not already set)
+    try {
+      const GlobalSetting = require("./models/GlobalSetting");
+      await GlobalSetting.findOneAndUpdate(
+        { key: "REFERRAL_REWARD_AMOUNT" },
+        { $setOnInsert: { key: "REFERRAL_REWARD_AMOUNT", value: 75000, description: "Referral reward credited to organizer who invited a verified new organizer (in MNT)" } },
+        { upsert: true, new: true }
+      );
+      console.log("✅ REFERRAL_REWARD_AMOUNT setting seeded");
+    } catch (seedErr) {
+      console.error("Seed error:", seedErr.message);
+    }
   })
   .catch((err) => {
     console.error("❌ DB Connection Error:", err.message);

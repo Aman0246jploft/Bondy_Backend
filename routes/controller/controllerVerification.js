@@ -6,6 +6,7 @@ const { apiSuccessRes, apiErrorRes } = require("../../utils/globalFunction");
 
 const HTTP_STATUS = require("../../utils/statusCode");
 const User = require("../../db/models/User");
+const { Referral, WalletHistory, Notification, GlobalSetting } = require("../../db");
 const { roleId } = require("../../utils/Role");
 const checkRole = require("../../middlewares/checkRole");
 // Assuming there might be a middleware to check auth like 'verifyToken', using checkRole which likely includes auth check
@@ -189,7 +190,70 @@ const verifyOrganizer = async (req, res) => {
       document.reason = reason;
     }
 
-    await user.save(); // This will trigger the pre-save hook to update organizerVerificationStatus
+    await user.save(); // pre-save hook updates organizerVerificationStatus
+
+    // ── Referral: credit reward when organizer gets verified ─────────────────────
+    console.log("[REFERRAL] action:", action, "| user.isVerified:", user.isVerified, "| userId:", user._id);
+    if (action === "approve" && user.isVerified === true) {
+      try {
+        const referral = await Referral.findOne({
+          referee: user._id,
+          status: "SIGNED_UP",
+        });
+
+        if (!referral) {
+          console.warn("[REFERRAL] No SIGNED_UP referral found for referee:", user._id);
+        } else {
+          console.log("[REFERRAL] Found SIGNED_UP referral:", referral._id, "| referrer:", referral.referrer);
+
+          const referrer = await User.findById(referral.referrer);
+          if (!referrer) {
+            console.warn("[REFERRAL] Referrer not found for id:", referral.referrer);
+          } else {
+            // Read reward amount from GlobalSetting (admin-configurable)
+            const rewardSetting = await GlobalSetting.findOne({ key: "REFERRAL_REWARD_AMOUNT" });
+            const rewardAmount = rewardSetting ? Number(rewardSetting.value) : 75000;
+            console.log("[REFERRAL] Crediting ₮", rewardAmount, "to referrer:", referrer.email);
+
+            // Complete referral
+            referral.status = "COMPLETED";
+            referral.rewardedAt = new Date();
+            await referral.save();
+            console.log("[REFERRAL] Referral marked COMPLETED");
+
+            // Credit referrer wallet
+            referrer.payoutBalance = (referrer.payoutBalance || 0) + rewardAmount;
+            await referrer.save();
+            console.log("[REFERRAL] Referrer payoutBalance updated to:", referrer.payoutBalance);
+
+            // Log wallet history
+            await WalletHistory.create({
+              userId: referrer._id,
+              amount: rewardAmount,
+              type: "REFERRAL",
+              balanceAfter: referrer.payoutBalance,
+              description: `Referral reward — ${user.firstName} ${user.lastName} (${user.email}) got verified on Bondy.`,
+            });
+            console.log("[REFERRAL] WalletHistory entry created");
+
+            // Notify referrer
+            await Notification.create({
+              recipient: referrer._id,
+              type: "SYSTEM",
+              title: "Referral Reward Credited! 🎉",
+              message: `You earned ₮${rewardAmount.toLocaleString()} because your referral ${user.email} was successfully verified!`,
+              relatedId: referral._id,
+            });
+            console.log("[REFERRAL] Notification sent to referrer");
+          }
+        }
+      } catch (refErr) {
+        console.error("[REFERRAL] Credit error:", refErr.message, refErr.stack);
+      }
+    }
+    // ────────────────────────────────────────────────────────────────────────
+
+
 
     return apiSuccessRes(
       HTTP_STATUS.OK,

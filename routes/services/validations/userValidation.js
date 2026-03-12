@@ -23,10 +23,10 @@ const organizerSignupSchema = Joi.object({
       Joi.object({
         name: Joi.string().optional(),
         file: Joi.string().required(),
-        // status will be set to pending by default in backend
       })
     )
     .optional(),
+  referralCode: Joi.string().optional().allow(null, ""),
 });
 
 const loginInitSchema = Joi.object({

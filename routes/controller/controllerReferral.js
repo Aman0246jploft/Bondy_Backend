@@ -1,11 +1,18 @@
 const express = require("express");
 const router = express.Router();
 const crypto = require("crypto");
-const { Referral, User, WalletHistory, Notification } = require("../../db");
+const { Referral, User, WalletHistory, Notification, GlobalSetting } = require("../../db");
 const HTTP_STATUS = require("../../utils/statusCode");
 const { apiErrorRes, apiSuccessRes } = require("../../utils/globalFunction");
 const perApiLimiter = require("../../middlewares/rateLimiter");
 const { roleId } = require("../../utils/Role");
+
+// ─── Helper: get reward amount from DB (admin-configurable) ───────────────────
+const DEFAULT_REWARD = 75000;
+const getRewardAmount = async () => {
+  const setting = await GlobalSetting.findOne({ key: "REFERRAL_REWARD_AMOUNT" });
+  return setting ? Number(setting.value) : DEFAULT_REWARD;
+};
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -121,11 +128,13 @@ router.post("/invite", perApiLimiter(), async (req, res) => {
 
     // Create individual referral for this email
     const inviteCode = generateReferralCode(userId + email);
+    const rewardAmount = await getRewardAmount();
     const newReferral = await Referral.create({
       referrer: userId,
       refereeEmail: email.toLowerCase().trim(),
       referralCode: inviteCode,
       status: "PENDING",
+      rewardAmount,
     });
 
     // In a real system, send an email here via nodemailer/sendgrid
@@ -171,7 +180,7 @@ router.post("/complete", perApiLimiter(), async (req, res) => {
     await referral.save();
 
     // Credit reward to referrer wallet
-    const rewardAmount = referral.rewardAmount || 75000;
+    const rewardAmount = await getRewardAmount();
     referrer.payoutBalance = (referrer.payoutBalance || 0) + rewardAmount;
     await referrer.save();
 

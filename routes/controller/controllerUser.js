@@ -298,52 +298,51 @@ const organizerSignupVerify = async (req, res) => {
     await removeKey(`signup_otp:${email}`);
     await removeKey(`signup_data:${email}`);
 
-    // ── Referral completion (non-blocking) ──────────────────────────────────
+
+
+
+    // ── Referral: mark SIGNED_UP (reward credited on admin approval) ─────────────
     if (userData.referralCode) {
+      console.log("[REFERRAL] referralCode found in signup data:", userData.referralCode);
       try {
         const referral = await Referral.findOne({
           referralCode: userData.referralCode,
           status: "PENDING",
-          refereeEmail: email.toLowerCase(),
         });
-        if (referral) {
-          // Mark referral as COMPLETED immediately on signup
-          referral.referee = user._id;
-          referral.status = "COMPLETED";
-          referral.rewardedAt = new Date();
-          await referral.save();
 
-          // Credit reward to the referrer's wallet
-          const referrer = await User.findById(referral.referrer);
-          if (referrer) {
-            const rewardAmount = referral.rewardAmount || 75000;
-            referrer.payoutBalance = (referrer.payoutBalance || 0) + rewardAmount;
-            await referrer.save();
+        if (!referral) {
+          console.warn("[REFERRAL] No PENDING referral found for code:", userData.referralCode);
+        } else {
+          console.log("[REFERRAL] Found referral:", referral._id, "| refereeEmail:", referral.refereeEmail);
 
-            // Log wallet history
-            await WalletHistory.create({
-              userId: referrer._id,
-              amount: rewardAmount,
-              type: "REFERRAL",
-              balanceAfter: referrer.payoutBalance,
-              description: `Referral reward — new organizer ${email} signed up using your code.`,
+          if (referral.refereeEmail === "__self__") {
+            // Link-based signup — seed record stays, create a tracking entry
+            const crypto = require("crypto");
+            const trackingCode = crypto.randomBytes(6).toString("hex").toUpperCase();
+            const created = await Referral.create({
+              referrer: referral.referrer,
+              refereeEmail: email.toLowerCase(),
+              referee: user._id,
+              referralCode: trackingCode,
+              status: "SIGNED_UP",
+              rewardAmount: referral.rewardAmount || 75000,
             });
-
-            // Notify referrer
-            await Notification.create({
-              recipient: referrer._id,
-              type: "SYSTEM",
-              title: "Referral Reward Credited! 🎉",
-              message: `You earned ₮${rewardAmount.toLocaleString()} for referring ${email} to Bondy!`,
-              relatedId: referral._id,
-            });
+            console.log("[REFERRAL] Tracking entry created (link-based):", created._id);
+          } else {
+            // Email-invite signup — update existing record
+            referral.referee = user._id;
+            referral.status = "SIGNED_UP";
+            await referral.save();
+            console.log("[REFERRAL] Email-invite referral updated to SIGNED_UP:", referral._id);
           }
         }
       } catch (refErr) {
-        console.error("Referral completion error (non-blocking):", refErr.message);
+        console.error("[REFERRAL] SIGNED_UP error:", refErr.message, refErr.stack);
       }
+    } else {
+      console.log("[REFERRAL] No referralCode in signup data, skipping.");
     }
-    // ────────────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────
 
     const token = signToken({ userId: user._id, roleId: user.roleId });
 
