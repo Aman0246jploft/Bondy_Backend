@@ -254,7 +254,7 @@ const verifyOrganizer = async (req, res) => {
         console.error("[REFERRAL] Credit error:", refErr.message, refErr.stack);
       }
     }
-    // ────────────────────────────────────────────────────────────────────────
+    // ──────────────────────────────────────────────────────────────────────── 66K
 
     // Notify the organizer about their verification result (non-blocking)
     notifyVerificationResult(String(userId), action, reason)
