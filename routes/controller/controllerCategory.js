@@ -6,6 +6,7 @@ const {
   apiErrorRes,
   apiSuccessRes,
   BACKEND_URL,
+  formatResponseUrl,
 } = require("../../utils/globalFunction");
 const perApiLimiter = require("../../middlewares/rateLimiter");
 const checkRole = require("../../middlewares/checkRole");
@@ -100,11 +101,10 @@ const getCategoryList = async (req, res) => {
       .limit(limitNum)
       .sort({ createdAt: -1 })
       .lean();
-    const backendUrl = BACKEND_URL;
 
     const formattedCategories = categories.map((cat) => ({
       ...cat,
-      image: cat.image ? `${backendUrl}/${cat.image}` : null,
+      image: cat.image ? formatResponseUrl(cat.image) : null,
     }));
 
     return apiSuccessRes(
