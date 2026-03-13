@@ -492,7 +492,7 @@ const getCourses = async (req, res) => {
       // Enrich schedules with seat info
       if (course.schedules && Array.isArray(course.schedules)) {
         course.schedules = course.schedules.map((schedule) => {
-          const schedId = schedule._id.toString();
+          const schedId = schedule._id?.toString();
           const acquired = bookingMap[`${course._id}_${schedId}`] || 0;
           const total = course.totalSeats; // Course-level total seats applies to each schedule
           const available = Math.max(0, total - acquired);
@@ -954,7 +954,7 @@ const getCourseDetails = async (req, res) => {
     // 4. Enrich Schedules
     if (course.schedules && Array.isArray(course.schedules)) {
       course.schedules = course.schedules.map((schedule) => {
-        const schedId = schedule._id.toString();
+        const schedId = schedule?._id?.toString();
         const acquired = bookingMap[schedId] || 0;
         const total = course.totalSeats;
         const available = Math.max(0, total - acquired);
