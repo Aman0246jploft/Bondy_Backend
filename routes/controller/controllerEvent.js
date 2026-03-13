@@ -309,7 +309,7 @@ const getEvents = async (req, res) => {
       );
     }
 
-    // Base query - ALWAYS exclude past events and drafts
+    // Base query - exclude past events and drafts (overridden by the "past" filter case)
     let query = {
       endDate: { $gte: now }, // Event must not have ended yet
       isDraft: false,
@@ -470,6 +470,14 @@ const getEvents = async (req, res) => {
         };
         break;
 
+      case "past":
+        // Show only events that have already ended
+        // Remove the "active events only" constraints from the base query
+        delete query.endDate;
+        delete query.status;
+        query.endDate = { $lt: now }; // endDate is in the past
+        break;
+
       default:
         return apiErrorRes(
           HTTP_STATUS.BAD_REQUEST,
@@ -496,7 +504,12 @@ const getEvents = async (req, res) => {
     // Only apply explicit sort if NOT using geospatial query (nearYou)
     // $nearSphere automatically sorts by distance, and combining with other sorts is not allowed
     if (filter !== "nearYou") {
-      eventsQuery = eventsQuery.sort({ isFeatured: -1, startDate: 1 });
+      // Past events: most recently ended first; all others: featured first then soonest start
+      const sortOrder =
+        filter === "past"
+          ? { endDate: -1 }
+          : { isFeatured: -1, startDate: 1 };
+      eventsQuery = eventsQuery.sort(sortOrder);
     }
 
     const events = await eventsQuery.skip(skip).limit(parseInt(limit)).lean();
