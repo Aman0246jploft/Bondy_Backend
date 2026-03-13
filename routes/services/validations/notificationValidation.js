@@ -3,7 +3,7 @@ const Joi = require("joi");
 const getNotifications = Joi.object({
     pageNo: Joi.number().integer().min(1).optional(),
     size: Joi.number().integer().min(1).optional(),
-    type: Joi.string().valid("EVENT", "COURSE", "CHAT", "FOLLOW", "USER", "SYSTEM").optional(),
+    type: Joi.string().valid("EVENT", "COURSE", "CHAT", "FOLLOW", "USER", "SYSTEM", "REVIEW", "PAYOUT").optional(),
     isRead: Joi.boolean().optional(),
 });
 

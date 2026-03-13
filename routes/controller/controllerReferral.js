@@ -1,11 +1,12 @@
 const express = require("express");
 const router = express.Router();
 const crypto = require("crypto");
-const { Referral, User, WalletHistory, Notification, GlobalSetting } = require("../../db");
+const { Referral, User, WalletHistory, GlobalSetting } = require("../../db");
 const HTTP_STATUS = require("../../utils/statusCode");
 const { apiErrorRes, apiSuccessRes } = require("../../utils/globalFunction");
 const perApiLimiter = require("../../middlewares/rateLimiter");
 const { roleId } = require("../../utils/Role");
+const { notifyReferralReward } = require("../services/serviceNotification");
 
 // ─── Helper: get reward amount from DB (admin-configurable) ───────────────────
 const DEFAULT_REWARD = 75000;
@@ -193,14 +194,13 @@ router.post("/complete", perApiLimiter(), async (req, res) => {
       description: `Referral reward for inviting a new organizer (code: ${referralCode})`,
     });
 
-    // Notify referrer
-    await Notification.create({
-      recipient: referrer._id,
-      type: "SYSTEM",
-      title: "Referral Reward Credited! 🎉",
-      message: `You earned ₮${rewardAmount.toLocaleString()} for successfully referring a new organizer to Bondy!`,
-      relatedId: referral._id,
-    });
+    // Notify referrer (non-blocking via queue)
+    notifyReferralReward(
+      String(referrer._id),
+      rewardAmount,
+      `referral code ${referralCode}`,
+      String(referral._id)
+    ).catch((e) => console.error("[Notification] notifyReferralReward (complete):", e));
 
     return apiSuccessRes(HTTP_STATUS.OK, res, "Referral completed and reward credited", {
       rewardAmount,

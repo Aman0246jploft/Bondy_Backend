@@ -17,6 +17,10 @@ const {
 const validateRequest = require("../../middlewares/validateRequest");
 const perApiLimiter = require("../../middlewares/rateLimiter");
 const { userRole } = require("../../utils/Role");
+const {
+  notifyCommentOnEntity,
+  notifyReplyToComment,
+} = require("../services/serviceNotification");
 // const checkRole = require("../../middlewares/checkRole"); // Enable if needed
 // const { roleId } = require("../../utils/Role");
 
@@ -125,6 +129,45 @@ const createComment = async (req, res) => {
     });
 
     await newComment.save();
+
+    // ── Queue notifications (non-blocking) ──────────────────────────────────
+    try {
+      const commenter = await User.findById(userId).select("firstName lastName");
+      const commenterName = commenter ? `${commenter.firstName} ${commenter.lastName}` : "Someone";
+
+      if (parentCommentId) {
+        // Reply: notify the parent comment author (skip if replying to own comment)
+        const parentComment = await Comment.findById(parentCommentId).select("user");
+        if (parentComment && String(parentComment.user) !== String(userId)) {
+          notifyReplyToComment(
+            String(parentComment.user),
+            commenterName,
+            entityModel,
+            String(entityId),
+            String(parentCommentId),
+            String(userId)
+          ).catch((e) => console.error("[Notification] notifyReplyToComment:", e));
+        }
+      } else {
+        // Top-level comment: notify entity owner (skip if commenter IS the owner)
+        const targetModel = entityModel === "Event" ? Event : Course;
+        const entityDoc = await targetModel.findById(entityId).select("createdBy eventTitle courseTitle");
+        if (entityDoc && String(entityDoc.createdBy) !== String(userId)) {
+          const entityTitle = entityDoc.eventTitle || entityDoc.courseTitle || "your post";
+          notifyCommentOnEntity(
+            String(entityDoc.createdBy),
+            commenterName,
+            entityModel,
+            String(entityId),
+            entityTitle,
+            String(userId)
+          ).catch((e) => console.error("[Notification] notifyCommentOnEntity:", e));
+        }
+      }
+    } catch (notifErr) {
+      console.error("[Notification] Comment notification error:", notifErr.message);
+    }
+    // ───────────────────────────────────────────────────────────────────────
 
     // 🔥 Fetch newly created comment with same structure as getComments
     const createdComment = await Comment.aggregate([

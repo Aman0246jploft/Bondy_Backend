@@ -6,9 +6,13 @@ const { apiSuccessRes, apiErrorRes } = require("../../utils/globalFunction");
 
 const HTTP_STATUS = require("../../utils/statusCode");
 const User = require("../../db/models/User");
-const { Referral, WalletHistory, Notification, GlobalSetting } = require("../../db");
+const { Referral, WalletHistory, GlobalSetting } = require("../../db");
 const { roleId } = require("../../utils/Role");
 const checkRole = require("../../middlewares/checkRole");
+const {
+  notifyReferralReward,
+  notifyVerificationResult,
+} = require("../services/serviceNotification");
 // Assuming there might be a middleware to check auth like 'verifyToken', using checkRole which likely includes auth check
 // If checkRole doesn't imply auth, we might need an auth middleware.
 // Assuming checkRole([]) works as "must be authenticated" or "must have one of these roles"
@@ -236,15 +240,14 @@ const verifyOrganizer = async (req, res) => {
             });
             console.log("[REFERRAL] WalletHistory entry created");
 
-            // Notify referrer
-            await Notification.create({
-              recipient: referrer._id,
-              type: "SYSTEM",
-              title: "Referral Reward Credited! 🎉",
-              message: `You earned ₮${rewardAmount.toLocaleString()} because your referral ${user.email} was successfully verified!`,
-              relatedId: referral._id,
-            });
-            console.log("[REFERRAL] Notification sent to referrer");
+            // Notify referrer via BullMQ queue (non-blocking)
+            notifyReferralReward(
+              String(referrer._id),
+              rewardAmount,
+              `${user.email}`,
+              String(referral._id)
+            ).catch((e) => console.error("[Notification] notifyReferralReward:", e));
+            console.log("[REFERRAL] Referral reward notification queued");
           }
         }
       } catch (refErr) {
@@ -253,7 +256,9 @@ const verifyOrganizer = async (req, res) => {
     }
     // ────────────────────────────────────────────────────────────────────────
 
-
+    // Notify the organizer about their verification result (non-blocking)
+    notifyVerificationResult(String(userId), action, reason)
+      .catch((e) => console.error("[Notification] notifyVerificationResult:", e));
 
     return apiSuccessRes(
       HTTP_STATUS.OK,

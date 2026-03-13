@@ -28,6 +28,10 @@ const validateRequest = require("../../middlewares/validateRequest");
 const perApiLimiter = require("../../middlewares/rateLimiter");
 const checkRole = require("../../middlewares/checkRole");
 const { roleId } = require("../../utils/Role");
+const {
+  notifyBookingConfirmed,
+  notifyOrganizerNewBooking,
+} = require("../services/serviceNotification");
 
 // Helper to round amount to 2 decimal places
 const roundToTwo = (num) => {
@@ -459,6 +463,33 @@ const confirmPayment = async (req, res) => {
         }`,
     });
     await walletEntry.save();
+
+    // ── Queue notifications (non-blocking) ──────────────────────────────────
+    const itemForNotif = transaction.eventId || transaction.courseId;
+    const itemTitle =
+      transaction.bookingType === "EVENT"
+        ? itemForNotif?.eventTitle || "Event"
+        : itemForNotif?.courseTitle || "Course";
+
+    // Notify buyer
+    notifyBookingConfirmed(
+      userId,
+      transaction.bookingType,
+      itemTitle,
+      String(transaction._id)
+    ).catch((e) => console.error("[Notification] notifyBookingConfirmed:", e));
+
+    // Notify organizer
+    const buyer = await User.findById(userId).select("firstName lastName");
+    const buyerName = buyer ? `${buyer.firstName} ${buyer.lastName}` : "A customer";
+    notifyOrganizerNewBooking(
+      String(organizerId),
+      buyerName,
+      transaction.bookingType,
+      itemTitle,
+      String(itemForNotif?._id)
+    ).catch((e) => console.error("[Notification] notifyOrganizerNewBooking:", e));
+    // ────────────────────────────────────────────────────────────────────────
 
     if (transaction.discountCode) {
       await PromoCode.updateOne(

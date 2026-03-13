@@ -1,9 +1,10 @@
 const express = require("express");
 const router = express.Router();
-const { PromotionPackage, Course, Transaction, User, Notification } = require("../../db");
+const { PromotionPackage, Course, Transaction, User } = require("../../db");
 const HTTP_STATUS = require("../../utils/statusCode");
 const { apiErrorRes, apiSuccessRes } = require("../../utils/globalFunction");
 const { checkoutPromotionSchema } = require("../services/validations/coursePromotionValidation");
+const { notifyPromotion, queueNotification } = require("../services/serviceNotification");
 
 
 // @route   GET /api/v1/course-promotion/packages
@@ -75,32 +76,31 @@ router.post("/checkout", async (req, res) => {
     course.activePromotionPackage = packageId;
     await course.save();
 
-    // 3. Send Notifications
+    // 3. Send Notifications (non-blocking via queue)
     // To Admin
     const admins = await User.find({ role: "admin" }).select("_id");
     if (admins && admins.length > 0) {
-      const adminNotifs = admins.map(admin => ({
-        recipient: admin._id,
-        type: "SYSTEM",
-        title: "Course Promotion Purchased",
-        message: `Organizer promoted course "${course.courseTitle}" with package "${promoPackage.name}".`,
-        relatedId: course._id,
-        onModel: "Course",
-        isRead: false
-      }));
-      await Notification.insertMany(adminNotifs);
+      admins.forEach((admin) => {
+        queueNotification({
+          recipient: String(admin._id),
+          sender: null,
+          type: "SYSTEM",
+          title: "Course Promotion Purchased",
+          message: `Organizer promoted course "${course.courseTitle}" with package "${promoPackage.name}".`,
+          relatedId: String(course._id),
+          onModel: "Course",
+        }).catch((e) => console.error("[Notification] admin course promo:", e));
+      });
     }
 
     // To Organizer
-    await Notification.create({
-      recipient: userId,
-      type: "SYSTEM",
-      title: "Course Promotion Successful",
-      message: `Your course "${course.courseTitle}" is now featured until ${expiryDate.toLocaleDateString()}.`,
-      relatedId: course._id,
-      onModel: "Course",
-      isRead: false
-    });
+    notifyPromotion(
+      String(userId),
+      "Course",
+      course.courseTitle,
+      String(course._id),
+      promoPackage.durationInDays
+    ).catch((e) => console.error("[Notification] notifyPromotion (course):", e));
 
     return apiSuccessRes(HTTP_STATUS.OK, res, "Promotion activated successfully", {
       transactionId: transaction._id,

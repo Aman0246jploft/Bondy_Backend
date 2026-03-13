@@ -1,12 +1,13 @@
 const express = require("express");
 const router = express.Router();
-const { PromotionPackage, Event, Transaction, User, Notification } = require("../../db");
+const { PromotionPackage, Event, Transaction, User } = require("../../db");
 const HTTP_STATUS = require("../../utils/statusCode");
 const { apiErrorRes, apiSuccessRes } = require("../../utils/globalFunction");
 const constantsMessage = require("../../utils/constantsMessage");
 const perApiLimiter = require("../../middlewares/rateLimiter");
 const validateRequest = require("../../middlewares/validateRequest");
 const { checkoutPromotionSchema } = require("../services/validations/eventPromotionValidation");
+const { notifyPromotion, queueNotification } = require("../services/serviceNotification");
 
 // Get Active Packages for Organizer
 const getActivePackages = async (req, res) => {
@@ -90,29 +91,28 @@ const checkoutPromotion = async (req, res) => {
     event.activePromotionPackage = pkg._id;
     await event.save();
 
-    // Notify Admin (Assuming Admin has roleId 1 or we just save a system notification)
-    // Find admin user
-    const adminUser = await User.findOne({ roleId: 1 }); // Assuming 1 is ADMIN
+    // Notify Admin (non-blocking via queue)
+    const adminUser = await User.findOne({ roleId: 1 });
     if (adminUser) {
-      await Notification.create({
-        recipient: adminUser._id,
+      queueNotification({
+        recipient: String(adminUser._id),
+        sender: null,
+        type: "SYSTEM",
         title: "New Event Promotion Purchased",
         message: `Organizer of event "${event.eventTitle}" purchased a ${pkg.durationInDays}-day promotion.`,
-        type: "SYSTEM",
-        relatedId: event._id,
+        relatedId: String(event._id),
         onModel: "Event",
-      });
+      }).catch((e) => console.error("[Notification] admin event promo:", e));
     }
 
-    // Notify Organizer
-    await Notification.create({
-      recipient: userId,
-      title: "Promotion Activated",
-      message: `Your event "${event.eventTitle}" is now actively featured for ${pkg.durationInDays} days!`,
-      type: "SYSTEM",
-      relatedId: event._id,
-      onModel: "Event",
-    });
+    // Notify Organizer (non-blocking via queue)
+    notifyPromotion(
+      String(userId),
+      "Event",
+      event.eventTitle,
+      String(event._id),
+      pkg.durationInDays
+    ).catch((e) => console.error("[Notification] notifyPromotion (event):", e));
 
     return apiSuccessRes(
       HTTP_STATUS.OK,

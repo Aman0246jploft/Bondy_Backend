@@ -5,6 +5,7 @@ const HTTP_STATUS = require("../../utils/statusCode");
 const { apiErrorRes, apiSuccessRes } = require("../../utils/globalFunction");
 const constantsMessage = require("../../utils/constantsMessage");
 const perApiLimiter = require("../../middlewares/rateLimiter");
+const { notifyFollow } = require("../services/serviceNotification");
 
 // Follow a user
 const followUser = async (req, res) => {
@@ -31,6 +32,16 @@ const followUser = async (req, res) => {
 
     const newFollow = new Follow({ fromUser, toUser });
     await newFollow.save();
+
+    // Queue a FOLLOW notification (non-blocking)
+    const follower = await User.findById(fromUser).select("firstName lastName");
+    if (follower) {
+      notifyFollow(
+        fromUser,
+        toUser,
+        `${follower.firstName} ${follower.lastName}`
+      ).catch((err) => console.error("[Notification] notifyFollow error:", err));
+    }
 
     return apiSuccessRes(
       HTTP_STATUS.OK,

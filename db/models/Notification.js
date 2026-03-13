@@ -21,7 +21,9 @@ const notificationSchema = new mongoose.Schema(
                 "CHAT",
                 "FOLLOW",
                 "USER",
-                "SYSTEM"
+                "SYSTEM",
+                "REVIEW",
+                "PAYOUT"
             ],
             required: true,
         },
@@ -41,7 +43,7 @@ const notificationSchema = new mongoose.Schema(
         // The model name for populated deep links if necessary
         onModel: {
             type: String,
-            enum: ["Event", "Course", "User", "Chat"],
+            enum: ["Event", "Course", "User", "Chat", "Payout"],
             default: null,
         },
         // Metadata for specialized deep linking or extra context

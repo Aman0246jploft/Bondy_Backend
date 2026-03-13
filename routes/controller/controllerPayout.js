@@ -11,6 +11,7 @@ const HTTP_STATUS = require("../../utils/statusCode");
 const { apiErrorRes, apiSuccessRes } = require("../../utils/globalFunction");
 const checkRole = require("../../middlewares/checkRole");
 const { roleId } = require("../../utils/Role");
+const { notifyPayoutResult } = require("../services/serviceNotification");
 
 // --- Organizer APIs ---
 
@@ -293,6 +294,15 @@ router.post(
       // Just log history? Optional, since 'PAYOUT_REQUEST' already logged the debit.
       // Maybe log a 'PAYOUT_COMPLETED' event?
 
+      // Notify the organizer (non-blocking)
+      notifyPayoutResult(
+        String(payout.organizerId),
+        "approved",
+        payout.amount,
+        String(payout._id),
+        adminNote
+      ).catch((e) => console.error("[Notification] notifyPayoutResult (approved):", e));
+
       return apiSuccessRes(HTTP_STATUS.OK, res, "Payout approved");
     } catch (e) {
       return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, e.message);
@@ -340,6 +350,15 @@ router.post(
         description: `Payout rejected: ${adminNote || "No reason provided"}`,
       });
       await walletEntry.save();
+
+      // Notify the organizer (non-blocking)
+      notifyPayoutResult(
+        String(payout.organizerId),
+        "rejected",
+        payout.amount,
+        String(payout._id),
+        adminNote
+      ).catch((e) => console.error("[Notification] notifyPayoutResult (rejected):", e));
 
       return apiSuccessRes(HTTP_STATUS.OK, res, "Payout rejected and refunded");
     } catch (e) {

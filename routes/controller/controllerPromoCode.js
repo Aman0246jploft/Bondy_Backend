@@ -60,7 +60,7 @@ const updatePromoCode = async (req, res) => {
         return apiErrorRes(
           HTTP_STATUS.BAD_REQUEST,
           res,
-          "Promo code already exists.",
+          "Promo code already exists.", 
         );
       }
       updateData.code = code;
