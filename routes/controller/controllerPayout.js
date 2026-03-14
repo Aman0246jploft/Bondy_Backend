@@ -465,6 +465,51 @@ const getAllPayouts = async (req, res) => {
   }
 };
 
+// ─── Admin: All Transactions (paginated) ──────────────────────────────────────
+const getAllTransactions = async (req, res) => {
+  try {
+    const { page = 1, limit = 10, search } = req.query;
+    const query = { status: "PAID", bookingType: { $in: ["EVENT", "COURSE"] } };
+
+    let transactionsQuery = Transaction.find(query)
+      .sort({ createdAt: -1 })
+      .populate("userId", "firstName lastName email")
+      .populate("eventId", "eventTitle")
+      .populate("courseId", "courseTitle")
+      .lean();
+
+    let allTransactions = await transactionsQuery;
+
+    if (search) {
+      const q = search.toLowerCase();
+      allTransactions = allTransactions.filter(
+        (t) =>
+          String(t._id).toLowerCase().includes(q) ||
+          t.userId?.firstName?.toLowerCase().includes(q) ||
+          t.userId?.lastName?.toLowerCase().includes(q) ||
+          t.userId?.email?.toLowerCase().includes(q) ||
+          t.eventId?.eventTitle?.toLowerCase().includes(q) ||
+          t.courseId?.courseTitle?.toLowerCase().includes(q)
+      );
+    }
+
+    const total = allTransactions.length;
+    const skip = (Number(page) - 1) * Number(limit);
+    const paginatedTransactions = allTransactions.slice(skip, skip + Number(limit));
+
+    return apiSuccessRes(HTTP_STATUS.OK, res, "Transactions fetched", {
+      transactions: paginatedTransactions,
+      total,
+      page: Number(page),
+      limit: Number(limit),
+      totalPages: Math.ceil(total / Number(limit)),
+    });
+  } catch (error) {
+    console.error("Error in getAllTransactions:", error);
+    return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
+  }
+};
+
 // --- Routes Definitions ---
 
 // Organizer Routes
@@ -481,6 +526,7 @@ router.get(
 router.post("/mark-paid", checkRole([roleId.SUPER_ADMIN]), markPayoutAsPaid);
 router.get("/finance-stats", checkRole([roleId.SUPER_ADMIN]), getFinanceStats);
 router.get("/all-payouts", checkRole([roleId.SUPER_ADMIN]), getAllPayouts);
+router.get("/all-transactions", checkRole([roleId.SUPER_ADMIN]), getAllTransactions);
 router.get("/admin-stats", checkRole([roleId.SUPER_ADMIN]), getAdminStats);
 
 module.exports = router;
