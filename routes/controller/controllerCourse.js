@@ -87,6 +87,7 @@ const getCourses = async (req, res) => {
       longitude,
       radius = 50,
       categoryId,
+      userId,
       search,
       page = 1,
       limit = 10,
@@ -115,6 +116,19 @@ const getCourses = async (req, res) => {
     // Base query (NO time logic here)
     // ===============================
     let query = {};
+
+    if (userId) {
+      const mongoose = require("mongoose");
+      if (mongoose.Types.ObjectId.isValid(userId)) {
+        query.createdBy = userId;
+      } else {
+        return apiErrorRes(
+          HTTP_STATUS.BAD_REQUEST,
+          res,
+          "Invalid userId format"
+        );
+      }
+    }
 
     if (categoryId) {
       const catIds = categoryId.split(",");
@@ -398,6 +412,13 @@ const getCourses = async (req, res) => {
             new Date(s.startDate) <= endOfNextWeek,
         ),
       );
+    }
+
+    if (filter === "past") {
+      courses = courses.filter((c) => {
+        if (!c.schedules || c.schedules.length === 0) return true;
+        return c.schedules.every((s) => new Date(s.endDate) < now);
+      });
     }
 
     // ===============================
