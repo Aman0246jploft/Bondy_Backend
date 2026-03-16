@@ -12,6 +12,7 @@ mongoose
     require("../cron/eventStatus.cron");
     require("../cron/bookingCleanup.cron");
     require("../cron/promotionExpiryCron");
+    require("../cron/courseStatus.cron")
 
     // Seed default global settings (only if not already set)
     try {

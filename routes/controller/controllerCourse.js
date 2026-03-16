@@ -139,6 +139,24 @@ const getCourses = async (req, res) => {
       }
     }
 
+    if (filter === "upcoming") {
+      query.$or = [
+        { status: { $in: ["Upcoming", "Live"] } },
+        { "schedules.startDate": { $gt: now } } // fallback for older data
+      ];
+    }
+
+    if (filter === "past") {
+      query.$or = [
+        { status: "Past" },
+        {
+          schedules: {
+            $not: { $elemMatch: { endDate: { $gte: now } } },
+          },
+        }
+      ];
+    }
+
     if (search) {
       query.$or = [
         { courseTitle: { $regex: search, $options: "i" } },
@@ -353,11 +371,6 @@ const getCourses = async (req, res) => {
     // ===============================
     // Filter by time (JS, not Mongo)
     // ===============================
-    if (filter === "upcoming") {
-      courses = courses.filter((c) =>
-        (c.schedules || []).some((s) => new Date(s.startDate) > now),
-      );
-    }
 
     if (filter === "thisWeek") {
       const startOfWeek = new Date(now);
@@ -412,13 +425,6 @@ const getCourses = async (req, res) => {
             new Date(s.startDate) <= endOfNextWeek,
         ),
       );
-    }
-
-    if (filter === "past") {
-      courses = courses.filter((c) => {
-        if (!c.schedules || c.schedules.length === 0) return true;
-        return c.schedules.every((s) => new Date(s.endDate) < now);
-      });
     }
 
     // ===============================

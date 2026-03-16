@@ -8,6 +8,7 @@ const app = express();
 const http = require("http");
 const jwtVerification = require("./middlewares/jwtVerification");
 // require("./cron/eventStatus.cron");
+// require("./cron/courseStatus.cron");
 // require("./cron/bookingCleanup.cron");
 // const requestLogger = require('./middlewares/requestLogger');
 const server = http.createServer(app);
