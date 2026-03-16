@@ -635,16 +635,16 @@ const resendLoginOtp = async (req, res) => {
     }
 
     // Check Organizer Status
-    if (
-      user.roleId === roleId.ORGANIZER &&
-      user.organizerVerificationStatus !== "approved"
-    ) {
-      return apiErrorRes(
-        HTTP_STATUS.FORBIDDEN,
-        res,
-        `${constantsMessage.ACCOUNT_STATUS_PREFIX}${user.organizerVerificationStatus}${constantsMessage.WAIT_FOR_ADMIN_APPROVAL}`,
-      );
-    }
+    // if (
+    //   user.roleId === roleId.ORGANIZER &&
+    //   user.organizerVerificationStatus !== "approved"
+    // ) {
+    //   return apiErrorRes(
+    //     HTTP_STATUS.FORBIDDEN,
+    //     res,
+    //     `${constantsMessage.ACCOUNT_STATUS_PREFIX}${user.organizerVerificationStatus}${constantsMessage.WAIT_FOR_ADMIN_APPROVAL}`,
+    //   );
+    // }
 
     // Generate OTP
     const otp =
