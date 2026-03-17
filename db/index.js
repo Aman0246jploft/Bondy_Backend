@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const GlobalSetting = require("./models/GlobalSetting");
 
 const { DB_STRING } = process.env;
 
@@ -16,13 +17,17 @@ mongoose
 
     // Seed default global settings (only if not already set)
     try {
-      const GlobalSetting = require("./models/GlobalSetting");
       await GlobalSetting.findOneAndUpdate(
-        { key: "REFERRAL_REWARD_AMOUNT" },
-        { $setOnInsert: { key: "REFERRAL_REWARD_AMOUNT", value: 75000, description: "Referral reward credited to organizer who invited a verified new organizer (in $)" } },
+        { key: "MIN_PAYOUT_CONFIG" },
+        { $setOnInsert: { key: "MIN_PAYOUT_CONFIG", value: "1000", description: "Minimum payout amount allowed for organizers (e.g. 1000)" } },
         { upsert: true, new: true }
       );
-      console.log("✅ REFERRAL_REWARD_AMOUNT setting seeded");
+      await GlobalSetting.findOneAndUpdate(
+        { key: "COMMISSION_CONFIG" },
+        { $setOnInsert: { key: "COMMISSION_CONFIG", value: "10", description: "Default platform commission percentage (e.g. 10 for 10%)" } },
+        { upsert: true, new: true }
+      );
+      console.log("✅ Default global settings seeded");
     } catch (seedErr) {
       console.error("Seed error:", seedErr.message);
     }

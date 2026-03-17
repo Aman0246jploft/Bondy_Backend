@@ -31,12 +31,16 @@ const getOrganizerEarnings = async (req, res) => {
       .sort({ createdAt: -1 })
       .limit(50); // Limit to last 50 transactions
 
+    const minPayoutSetting = await GlobalSetting.findOne({ key: "MIN_PAYOUT_CONFIG" });
+    const minPayout = minPayoutSetting ? Number(minPayoutSetting.value) : 1000;
+
     return apiSuccessRes(HTTP_STATUS.OK, res, "Earnings fetched successfully", {
       totalEarnings: user.totalEarnings,
       payoutBalance: user.payoutBalance,
       bankDetails: user.bankDetails,
       payoutHistory,
       walletHistory: history,
+      minPayout,
     });
   } catch (error) {
     console.error("Error in getOrganizerEarnings:", error);
@@ -86,12 +90,14 @@ const requestPayout = async (req, res) => {
       return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Invalid amount");
     }
 
-    const MIN_PAYOUT = 1000;
-    if (amount < MIN_PAYOUT) {
+    const minPayoutSetting = await GlobalSetting.findOne({ key: "MIN_PAYOUT_CONFIG" });
+    const minPayout = minPayoutSetting ? Number(minPayoutSetting.value) : 1000;
+
+    if (amount < minPayout) {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        `Minimum payout amount is ₮${MIN_PAYOUT.toLocaleString()}`
+        `Minimum payout amount is ₮${minPayout.toLocaleString()}`
       );
     }
 
