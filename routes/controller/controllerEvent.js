@@ -232,6 +232,23 @@ const getEvents = async (req, res) => {
           { $unwind: { path: "$createdBy", preserveNullAndEmptyArrays: true } },
         ]);
 
+        const totalCountAgg = await Event.aggregate([
+          {
+            $geoNear: {
+              near: {
+                type: "Point",
+                coordinates: [parseFloat(longitude), parseFloat(latitude)],
+              },
+              distanceField: "distance",
+              maxDistance: radius * 1000,
+              spherical: true,
+              query: baseMatch,
+            },
+          },
+          { $count: "total" },
+        ]);
+        const total = totalCountAgg[0]?.total || 0;
+
         const formattedGeo = geoAggEvents.map((e) => formatEvent(e));
 
         return apiSuccessRes(
@@ -240,7 +257,8 @@ const getEvents = async (req, res) => {
           constantsMessage.EVENTS_FETCHED,
           {
             events: formattedGeo,
-            total: formattedGeo.length,
+            total,
+            totalPages: Math.ceil(total / limit),
             page: parseInt(page),
             limit: parseInt(limit),
           },
@@ -289,6 +307,7 @@ const getEvents = async (req, res) => {
           {
             events: formattedCity,
             total,
+            totalPages: Math.ceil(total / limit),
             page: parseInt(page),
             limit: parseInt(limit),
           },
@@ -303,6 +322,7 @@ const getEvents = async (req, res) => {
         {
           events: [],
           total: 0,
+          totalPages: 0,
           page: parseInt(page),
           limit: parseInt(limit),
         },
@@ -547,8 +567,8 @@ const getEvents = async (req, res) => {
 
     return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.EVENTS_FETCHED, {
       events: formattedEvents,
-
       total: totalCount,
+      totalPages: Math.ceil(totalCount / limit),
       page: parseInt(page),
       limit: parseInt(limit),
     });

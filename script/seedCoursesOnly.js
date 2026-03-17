@@ -1056,8 +1056,15 @@ const seed = async () => {
       }
 
       // Use collection.insertOne to bypass any pre-save hooks
+      // Ensure each schedule has a unique _id
+      const schedulesWithIds = co.schedules.map(s => ({
+        _id: new mongoose.Types.ObjectId(),
+        ...s
+      }));
+
       await Course.collection.insertOne({
         ...co,
+        schedules: schedulesWithIds,
         createdAt: new Date(),
         updatedAt: new Date(),
       });

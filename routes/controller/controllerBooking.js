@@ -205,7 +205,8 @@ const initiateBooking = async (req, res) => {
 const calculateBooking = async (req, res) => {
   try {
     const { eventId, courseId, scheduleId, qty, discountCode } = req.body;
-
+    let promoApplied = false;
+    let promoMessage = "";
     let targetItem;
     let baseTicketPrice;
 
@@ -269,6 +270,10 @@ const calculateBooking = async (req, res) => {
         }
         if (discountAmount > basePrice) discountAmount = basePrice;
         finalAmount -= discountAmount;
+           promoApplied = true;
+    promoMessage = "Promo code applied successfully";
+      }else{
+        promoMessage = "Invalid or expired promo code";
       }
     }
 
@@ -300,6 +305,8 @@ const calculateBooking = async (req, res) => {
           discountAmount: roundToTwo(discountAmount),
           taxAmount: roundToTwo(taxAmount),
           totalAmount: roundToTwo(finalAmount),
+          promoApplied,
+  promoMessage,
         },
         appliedTaxes: appliedTaxes.map((tax) => ({
           ...tax,
@@ -457,10 +464,11 @@ const confirmPayment = async (req, res) => {
       type: "TICKET_SALE",
       transactionId: transaction._id,
       balanceAfter: (await User.findById(organizerId)).payoutBalance, // Fetch fresh or calculate
-      description: `Ticket Sale: ${transaction.bookingType === "EVENT"
-        ? transaction.eventId.eventTitle || "Event"
-        : transaction.courseId.courseTitle || "Course"
-        }`,
+      description: `Ticket Sale: ${
+        transaction.bookingType === "EVENT"
+          ? transaction.eventId.eventTitle || "Event"
+          : transaction.courseId.courseTitle || "Course"
+      }`,
     });
     await walletEntry.save();
 
@@ -476,19 +484,23 @@ const confirmPayment = async (req, res) => {
       userId,
       transaction.bookingType,
       itemTitle,
-      String(transaction._id)
+      String(transaction._id),
     ).catch((e) => console.error("[Notification] notifyBookingConfirmed:", e));
 
     // Notify organizer
     const buyer = await User.findById(userId).select("firstName lastName");
-    const buyerName = buyer ? `${buyer.firstName} ${buyer.lastName}` : "A customer";
+    const buyerName = buyer
+      ? `${buyer.firstName} ${buyer.lastName}`
+      : "A customer";
     notifyOrganizerNewBooking(
       String(organizerId),
       buyerName,
       transaction.bookingType,
       itemTitle,
-      String(itemForNotif?._id)
-    ).catch((e) => console.error("[Notification] notifyOrganizerNewBooking:", e));
+      String(itemForNotif?._id),
+    ).catch((e) =>
+      console.error("[Notification] notifyOrganizerNewBooking:", e),
+    );
     // ────────────────────────────────────────────────────────────────────────
 
     if (transaction.discountCode) {
@@ -604,7 +616,9 @@ const getTicketList = async (req, res) => {
           ev.eventCategory.image = formatResponseUrl(ev.eventCategory.image);
         }
         if (ev.createdBy?.profileImage) {
-          ev.createdBy.profileImage = formatResponseUrl(ev.createdBy.profileImage);
+          ev.createdBy.profileImage = formatResponseUrl(
+            ev.createdBy.profileImage,
+          );
         }
       } else if (t.bookingType === "COURSE" && tObj.courseId) {
         const co = tObj.courseId;
@@ -614,7 +628,9 @@ const getTicketList = async (req, res) => {
           co.courseCategory.image = formatResponseUrl(co.courseCategory.image);
         }
         if (co.createdBy?.profileImage) {
-          co.createdBy.profileImage = formatResponseUrl(co.createdBy.profileImage);
+          co.createdBy.profileImage = formatResponseUrl(
+            co.createdBy.profileImage,
+          );
         }
       }
 
@@ -688,10 +704,14 @@ const getTicketDetail = async (req, res) => {
         formatResponseUrl,
       );
       if (event.eventCategory?.image) {
-        event.eventCategory.image = formatResponseUrl(event.eventCategory.image);
+        event.eventCategory.image = formatResponseUrl(
+          event.eventCategory.image,
+        );
       }
       if (event.createdBy?.profileImage) {
-        event.createdBy.profileImage = formatResponseUrl(event.createdBy.profileImage);
+        event.createdBy.profileImage = formatResponseUrl(
+          event.createdBy.profileImage,
+        );
       }
     } else if (
       transaction.bookingType === "COURSE" &&
@@ -699,12 +719,18 @@ const getTicketDetail = async (req, res) => {
     ) {
       const course = transactionObj.courseId;
       course.posterImage = (course.posterImage || []).map(formatResponseUrl);
-      course.galleryImages = (course.galleryImages || []).map(formatResponseUrl);
+      course.galleryImages = (course.galleryImages || []).map(
+        formatResponseUrl,
+      );
       if (course.courseCategory?.image) {
-        course.courseCategory.image = formatResponseUrl(course.courseCategory.image);
+        course.courseCategory.image = formatResponseUrl(
+          course.courseCategory.image,
+        );
       }
       if (course.createdBy?.profileImage) {
-        course.createdBy.profileImage = formatResponseUrl(course.createdBy.profileImage);
+        course.createdBy.profileImage = formatResponseUrl(
+          course.createdBy.profileImage,
+        );
       }
     }
 
@@ -993,11 +1019,11 @@ const getEventAttendeesList = async (req, res) => {
           checkedInAt: transaction.checkedInAt,
           checkedInBy: checkedInByUser
             ? {
-              _id: checkedInByUser._id,
-              firstName: checkedInByUser.firstName,
-              lastName: checkedInByUser.lastName,
-              email: checkedInByUser.email,
-            }
+                _id: checkedInByUser._id,
+                firstName: checkedInByUser.firstName,
+                lastName: checkedInByUser.lastName,
+                email: checkedInByUser.email,
+              }
             : null,
         },
         bookingDate: transaction.createdAt,
