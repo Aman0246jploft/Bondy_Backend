@@ -1247,23 +1247,31 @@ const getRecentBookings = async (req, res) => {
     ]);
 
     const formattedBookings = transactions.map((t) => {
-      const b = t.toObject();
-      if (b.eventId) {
-        b.eventId.posterImage = (b.eventId.posterImage || []).map(formatResponseUrl);
-        if (b.eventId.eventCategory && b.eventId.eventCategory.image) {
-          b.eventId.eventCategory.image = formatResponseUrl(b.eventId.eventCategory.image);
-        }
+      const u = t.userId;
+      const item = t.eventId || t.courseId || t.promotionPackageId;
+      let itemName = "Unknown Item";
+      let categoryName = null;
+
+      if (t.bookingType === "EVENT" && t.eventId) {
+        itemName = t.eventId.eventTitle;
+        categoryName = t.eventId.eventCategory?.name || null;
+      } else if (t.bookingType === "COURSE" && t.courseId) {
+        itemName = t.courseId.courseTitle;
+        categoryName = t.courseId.courseCategory?.name || null;
+      } else if (t.bookingType === "PROMOTION" && t.promotionPackageId) {
+        itemName = t.promotionPackageId.packageName;
       }
-      if (b.courseId) {
-        b.courseId.posterImage = (b.courseId.posterImage || []).map(formatResponseUrl);
-        if (b.courseId.courseCategory && b.courseId.courseCategory.image) {
-          b.courseId.courseCategory.image = formatResponseUrl(b.courseId.courseCategory.image);
-        }
-      }
-      if (b.userId && b.userId.profileImage) {
-        b.userId.profileImage = formatResponseUrl(b.userId.profileImage);
-      }
-      return b;
+
+      return {
+        _id: t._id,
+        userName: u ? `${u.firstName} ${u.lastName}`.trim() : "Guest",
+        userProfileImage: u && u.profileImage ? formatResponseUrl(u.profileImage) : null,
+        totalTickets: t.qty,
+        eventName: itemName,
+        categoryName: categoryName,
+        bookingDate: t.createdAt,
+        // status: t.status,
+      };
     });
 
     return apiSuccessRes(HTTP_STATUS.OK, res, "Recent bookings fetched successfully", {
