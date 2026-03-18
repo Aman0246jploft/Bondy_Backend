@@ -270,9 +270,9 @@ const calculateBooking = async (req, res) => {
         }
         if (discountAmount > basePrice) discountAmount = basePrice;
         finalAmount -= discountAmount;
-           promoApplied = true;
-    promoMessage = "Promo code applied successfully";
-      }else{
+        promoApplied = true;
+        promoMessage = "Promo code applied successfully";
+      } else {
         promoMessage = "Invalid or expired promo code";
       }
     }
@@ -306,7 +306,7 @@ const calculateBooking = async (req, res) => {
           taxAmount: roundToTwo(taxAmount),
           totalAmount: roundToTwo(finalAmount),
           promoApplied,
-  promoMessage,
+          promoMessage,
         },
         appliedTaxes: appliedTaxes.map((tax) => ({
           ...tax,
@@ -464,11 +464,10 @@ const confirmPayment = async (req, res) => {
       type: "TICKET_SALE",
       transactionId: transaction._id,
       balanceAfter: (await User.findById(organizerId)).payoutBalance, // Fetch fresh or calculate
-      description: `Ticket Sale: ${
-        transaction.bookingType === "EVENT"
-          ? transaction.eventId.eventTitle || "Event"
-          : transaction.courseId.courseTitle || "Course"
-      }`,
+      description: `Ticket Sale: ${transaction.bookingType === "EVENT"
+        ? transaction.eventId.eventTitle || "Event"
+        : transaction.courseId.courseTitle || "Course"
+        }`,
     });
     await walletEntry.save();
 
@@ -1019,11 +1018,11 @@ const getEventAttendeesList = async (req, res) => {
           checkedInAt: transaction.checkedInAt,
           checkedInBy: checkedInByUser
             ? {
-                _id: checkedInByUser._id,
-                firstName: checkedInByUser.firstName,
-                lastName: checkedInByUser.lastName,
-                email: checkedInByUser.email,
-              }
+              _id: checkedInByUser._id,
+              firstName: checkedInByUser.firstName,
+              lastName: checkedInByUser.lastName,
+              email: checkedInByUser.email,
+            }
             : null,
         },
         bookingDate: transaction.createdAt,
@@ -1141,6 +1140,144 @@ const getEventAttendeeStats = async (req, res) => {
   }
 };
 
+// 8. Get Recent Bookings List (Organizer or Admin)
+const getRecentBookings = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const {
+      organizerId,
+      eventId,
+      courseId,
+      status,
+      bookingType,
+      limit = 10,
+      page = 1,
+    } = req.query;
+
+    let filter = {};
+
+    // By default, only show ticket bookings (Events/Courses)
+    if (bookingType) {
+      filter.bookingType = bookingType;
+    } else {
+      filter.bookingType = { $in: ["EVENT", "COURSE"] };
+    }
+
+    if (status) filter.status = status;
+
+    // 1. Role-based restrictions & Organiser Filter
+    if (req.user.roleId === roleId.ORGANIZER) {
+      const [myEvents, myCourses] = await Promise.all([
+        Event.find({ createdBy: userId }).select("_id"),
+        Course.find({ createdBy: userId }).select("_id"),
+      ]);
+
+      const myEventIds = myEvents.map((e) => e._id);
+      const myCourseIds = myCourses.map((c) => c._id);
+
+      // Restriction: Organizer can ONLY see their own items
+      let scopeFilter = {
+        $or: [
+          { eventId: { $in: myEventIds } },
+          { courseId: { $in: myCourseIds } },
+        ],
+      };
+
+      // If they passed a specific eventId/courseId in query, we must apply it within their scope
+      if (eventId) {
+        filter.eventId = eventId;
+      }
+      if (courseId) {
+        filter.courseId = courseId;
+      }
+
+      // Combine general filters with the role scope
+      filter = { $and: [filter, scopeFilter] };
+
+    } else if (req.user.roleId === roleId.SUPER_ADMIN) {
+      // Admin can filter by anything
+      if (organizerId) {
+        const [orgEvents, orgCourses] = await Promise.all([
+          Event.find({ createdBy: organizerId }).select("_id"),
+          Course.find({ createdBy: organizerId }).select("_id"),
+        ]);
+        const orgEventIds = orgEvents.map((e) => e._id);
+        const orgCourseIds = orgCourses.map((c) => c._id);
+
+        filter.$or = [
+          { eventId: { $in: orgEventIds } },
+          { courseId: { $in: orgCourseIds } },
+        ];
+      }
+
+      if (eventId) filter.eventId = eventId;
+      if (courseId) filter.courseId = courseId;
+    } else {
+      return apiErrorRes(HTTP_STATUS.FORBIDDEN, res, "Unauthorized access");
+    }
+
+    // 2. Additional filters are now integrated above
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    const [transactions, totalCount] = await Promise.all([
+      Transaction.find(filter)
+        .populate("userId", "firstName lastName email profileImage contactNumber countryCode")
+        .populate({
+          path: "eventId",
+          select: "eventTitle eventCategory startDate endDate posterImage createdBy",
+          populate: [
+            { path: "eventCategory", select: "name" },
+            { path: "createdBy", select: "firstName lastName email" },
+          ],
+        })
+        .populate({
+          path: "courseId",
+          select: "courseTitle courseCategory posterImage createdBy",
+          populate: [
+            { path: "courseCategory", select: "name" },
+            { path: "createdBy", select: "firstName lastName email" },
+          ],
+        })
+        .populate("promotionPackageId", "packageName price duration")
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(parseInt(limit)),
+      Transaction.countDocuments(filter),
+    ]);
+
+    const formattedBookings = transactions.map((t) => {
+      const b = t.toObject();
+      if (b.eventId) {
+        b.eventId.posterImage = (b.eventId.posterImage || []).map(formatResponseUrl);
+        if (b.eventId.eventCategory && b.eventId.eventCategory.image) {
+          b.eventId.eventCategory.image = formatResponseUrl(b.eventId.eventCategory.image);
+        }
+      }
+      if (b.courseId) {
+        b.courseId.posterImage = (b.courseId.posterImage || []).map(formatResponseUrl);
+        if (b.courseId.courseCategory && b.courseId.courseCategory.image) {
+          b.courseId.courseCategory.image = formatResponseUrl(b.courseId.courseCategory.image);
+        }
+      }
+      if (b.userId && b.userId.profileImage) {
+        b.userId.profileImage = formatResponseUrl(b.userId.profileImage);
+      }
+      return b;
+    });
+
+    return apiSuccessRes(HTTP_STATUS.OK, res, "Recent bookings fetched successfully", {
+      bookings: formattedBookings,
+      total: totalCount,
+      page: parseInt(page),
+      totalPages: Math.ceil(totalCount / limit),
+    });
+  } catch (error) {
+    console.error("Error in getRecentBookings:", error);
+    return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
+  }
+};
+
 // Routes
 router.post(
   "/initiate",
@@ -1164,6 +1301,14 @@ router.post(
 );
 
 router.get("/list", perApiLimiter(), getTicketList);
+
+router.get(
+  "/recent",
+  perApiLimiter(),
+  checkRole([roleId.ORGANIZER, roleId.SUPER_ADMIN]),
+  getRecentBookings,
+);
+
 router.get("/detail/:transactionId", perApiLimiter(), getTicketDetail);
 
 // QR Code Scanning (Gate Keeper - Organizer or Admin)
