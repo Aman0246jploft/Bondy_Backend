@@ -17,7 +17,7 @@ const getActivePackages = async (req, res) => {
       HTTP_STATUS.OK,
       res,
       "Active promotion packages fetched successfully.",
-      packages,
+      {packages},
     );
   } catch (error) {
     return apiErrorRes(

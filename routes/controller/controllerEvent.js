@@ -1474,7 +1474,7 @@ router.post(
   "/edit/:eventId",
   perApiLimiter(),
   checkRole([roleId.ORGANIZER]),
-  validateRequest(updateEventSchema),
+  // validateRequest(updateEventSchema),
   updateEvent,
 );
 

@@ -31,7 +31,9 @@ const getOrganizerEarnings = async (req, res) => {
       .sort({ createdAt: -1 })
       .limit(50); // Limit to last 50 transactions
 
-    const minPayoutSetting = await GlobalSetting.findOne({ key: "MIN_PAYOUT_CONFIG" });
+    const minPayoutSetting = await GlobalSetting.findOne({
+      key: "MIN_PAYOUT_CONFIG",
+    });
     const minPayout = minPayoutSetting ? Number(minPayoutSetting.value) : 1000;
 
     return apiSuccessRes(HTTP_STATUS.OK, res, "Earnings fetched successfully", {
@@ -90,14 +92,16 @@ const requestPayout = async (req, res) => {
       return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Invalid amount");
     }
 
-    const minPayoutSetting = await GlobalSetting.findOne({ key: "MIN_PAYOUT_CONFIG" });
+    const minPayoutSetting = await GlobalSetting.findOne({
+      key: "MIN_PAYOUT_CONFIG",
+    });
     const minPayout = minPayoutSetting ? Number(minPayoutSetting.value) : 1000;
 
     if (amount < minPayout) {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        `Minimum payout amount is ₮${minPayout.toLocaleString()}`
+        `Minimum payout amount is ₮${minPayout.toLocaleString()}`,
       );
     }
 
@@ -315,8 +319,10 @@ router.post(
         "approved",
         payout.amount,
         String(payout._id),
-        adminNote
-      ).catch((e) => console.error("[Notification] notifyPayoutResult (approved):", e));
+        adminNote,
+      ).catch((e) =>
+        console.error("[Notification] notifyPayoutResult (approved):", e),
+      );
 
       return apiSuccessRes(HTTP_STATUS.OK, res, "Payout approved");
     } catch (e) {
@@ -372,8 +378,10 @@ router.post(
         "rejected",
         payout.amount,
         String(payout._id),
-        adminNote
-      ).catch((e) => console.error("[Notification] notifyPayoutResult (rejected):", e));
+        adminNote,
+      ).catch((e) =>
+        console.error("[Notification] notifyPayoutResult (rejected):", e),
+      );
 
       return apiSuccessRes(HTTP_STATUS.OK, res, "Payout rejected and refunded");
     } catch (e) {
@@ -383,21 +391,43 @@ router.post(
 );
 
 // ─── Admin: Finance Stats ────────────────────────────────────────────────────
-const getFinanceStats = async (req, res) => {
-  try {
-    const [paidTxns, pendingPayouts, paidPayouts, refundTxns] = await Promise.all([
-      Transaction.find({ status: "PAID", bookingType: { $in: ["EVENT", "COURSE"] } }),
-      Payout.find({ status: "PENDING" }).populate("organizerId", "firstName lastName email"),
-      Payout.find({ status: "PAID" }),
-      Transaction.find({ status: "REFUND_INITIATED" }),
-    ]);
+ const getFinanceStats = async (req, res) => {
+   try {
+    const [paidTxns, pendingPayouts, paidPayouts, refundTxns] =
+      await Promise.all([
+        Transaction.find({
+          status: "PAID",
+          bookingType: { $in: ["EVENT", "COURSE"] },
+        }),
+        Payout.find({ status: "PENDING" }).populate(
+          "organizerId",
+          "firstName lastName email",
+        ),
+        Payout.find({ status: "PAID" }),
+        Transaction.find({ status: "REFUND_INITIATED" }),
+      ]);
 
     const totalRevenue = paidTxns.reduce((s, t) => s + (t.totalAmount || 0), 0);
-    const totalCommission = paidTxns.reduce((s, t) => s + (t.commissionAmount || 0), 0);
-    const totalOrganizerEarnings = paidTxns.reduce((s, t) => s + (t.organizerEarning || 0), 0);
-    const totalPayoutsMade = paidPayouts.reduce((s, p) => s + (p.amount || 0), 0);
-    const pendingPayoutsAmount = pendingPayouts.reduce((s, p) => s + (p.amount || 0), 0);
-    const refundTotal = refundTxns.reduce((s, t) => s + (t.totalAmount || 0), 0);
+    const totalCommission = paidTxns.reduce(
+      (s, t) => s + (t.commissionAmount || 0),
+      0,
+    );
+    const totalOrganizerEarnings = paidTxns.reduce(
+      (s, t) => s + (t.organizerEarning || 0),
+      0,
+    );
+    const totalPayoutsMade = paidPayouts.reduce(
+      (s, p) => s + (p.amount || 0),
+      0,
+    );
+    const pendingPayoutsAmount = pendingPayouts.reduce(
+      (s, p) => s + (p.amount || 0),
+      0,
+    );
+    const refundTotal = refundTxns.reduce(
+      (s, t) => s + (t.totalAmount || 0),
+      0,
+    );
 
     // Recent 10 paid transactions
     const recentTransactions = await Transaction.find({
@@ -439,7 +469,10 @@ const getAllPayouts = async (req, res) => {
     const skip = (Number(page) - 1) * Number(limit);
 
     let payouts = await Payout.find(query)
-      .populate("organizerId", "firstName lastName email bankDetails payoutBalance")
+      .populate(
+        "organizerId",
+        "firstName lastName email bankDetails payoutBalance",
+      )
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(Number(limit))
@@ -452,7 +485,7 @@ const getAllPayouts = async (req, res) => {
           p.organizerId?.firstName?.toLowerCase().includes(q) ||
           p.organizerId?.lastName?.toLowerCase().includes(q) ||
           p.organizerId?.email?.toLowerCase().includes(q) ||
-          String(p._id).includes(q)
+          String(p._id).includes(q),
       );
     }
 
@@ -495,13 +528,16 @@ const getAllTransactions = async (req, res) => {
           t.userId?.lastName?.toLowerCase().includes(q) ||
           t.userId?.email?.toLowerCase().includes(q) ||
           t.eventId?.eventTitle?.toLowerCase().includes(q) ||
-          t.courseId?.courseTitle?.toLowerCase().includes(q)
+          t.courseId?.courseTitle?.toLowerCase().includes(q),
       );
     }
 
     const total = allTransactions.length;
     const skip = (Number(page) - 1) * Number(limit);
-    const paginatedTransactions = allTransactions.slice(skip, skip + Number(limit));
+    const paginatedTransactions = allTransactions.slice(
+      skip,
+      skip + Number(limit),
+    );
 
     return apiSuccessRes(HTTP_STATUS.OK, res, "Transactions fetched", {
       transactions: paginatedTransactions,
@@ -532,7 +568,11 @@ router.get(
 router.post("/mark-paid", checkRole([roleId.SUPER_ADMIN]), markPayoutAsPaid);
 router.get("/finance-stats", checkRole([roleId.SUPER_ADMIN]), getFinanceStats);
 router.get("/all-payouts", checkRole([roleId.SUPER_ADMIN]), getAllPayouts);
-router.get("/all-transactions", checkRole([roleId.SUPER_ADMIN]), getAllTransactions);
+router.get(
+  "/all-transactions",
+  checkRole([roleId.SUPER_ADMIN]),
+  getAllTransactions,
+);
 router.get("/admin-stats", checkRole([roleId.SUPER_ADMIN]), getAdminStats);
 
 module.exports = router;
