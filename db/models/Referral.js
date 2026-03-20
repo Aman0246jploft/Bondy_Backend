@@ -38,7 +38,7 @@ const referralSchema = new mongoose.Schema(
         // Reward amount given to referrer on COMPLETED
         rewardAmount: {
             type: Number,
-            default: 75000, // MNT
+            default: 0, // MNT
         },
         // When the reward was credited
         rewardedAt: {
