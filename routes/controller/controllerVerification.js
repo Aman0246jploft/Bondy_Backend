@@ -205,6 +205,8 @@ const verifyOrganizer = async (req, res) => {
           status: "SIGNED_UP",
         });
 
+console.log("55555555444444444444",referral)
+
         if (!referral) {
           console.warn("[REFERRAL] No SIGNED_UP referral found for referee:", user._id);
         } else {
