@@ -1,6 +1,16 @@
 const express = require("express");
 const router = express.Router();
-const { User, Event, Course, Transaction, Follow, Referral, WalletHistory, Notification } = require("../../db");
+const {
+  User,
+  Event,
+  Course,
+  Transaction,
+  Follow,
+  Referral,
+  WalletHistory,
+  Notification,
+  GlobalSetting,
+} = require("../../db");
 const CONSTANTS = require("../../utils/constants");
 const constantsMessage = require("../../utils/constantsMessage");
 const HTTP_STATUS = require("../../utils/statusCode");
@@ -36,6 +46,14 @@ const {
 const { roleId, userRole } = require("../../utils/Role");
 const { upload, storeImage } = require("../../utils/cloudinary");
 const checkRole = require("../../middlewares/checkRole");
+
+const DEFAULT_REWARD = 0;
+const getRewardAmount = async () => {
+  const setting = await GlobalSetting.findOne({
+    key: "REFERRAL_REWARD_AMOUNT",
+  });
+  return setting ? Number(setting.value) : DEFAULT_REWARD;
+};
 
 // Customer Signup - Step 1: Init
 const customerSignupInit = async (req, res) => {
@@ -206,10 +224,17 @@ const organizerSignupInit = async (req, res) => {
 
     // Capture referralCode from body OR query param (?ref=CODE)
     const referralCode = req.body.referralCode || req.query.ref || null;
-    const dataToStore = { ...req.body, ...(referralCode ? { referralCode } : {}) };
+    const dataToStore = {
+      ...req.body,
+      ...(referralCode ? { referralCode } : {}),
+    };
 
     // Save data to Redis
-    await setKeyWithTime(`signup_data:${email}`, JSON.stringify(dataToStore), 10);
+    await setKeyWithTime(
+      `signup_data:${email}`,
+      JSON.stringify(dataToStore),
+      10,
+    );
     await setKeyWithTime(`signup_otp:${email}`, otp, 10);
 
     return apiSuccessRes(
@@ -298,12 +323,14 @@ const organizerSignupVerify = async (req, res) => {
     await removeKey(`signup_otp:${email}`);
     await removeKey(`signup_data:${email}`);
 
-
-
+    let rewardAmount = await getRewardAmount();
 
     // ── Referral: mark SIGNED_UP (reward credited on admin approval) ─────────────
     if (userData.referralCode) {
-      console.log("[REFERRAL] referralCode found in signup data:", userData.referralCode);
+      console.log(
+        "[REFERRAL] referralCode found in signup data:",
+        userData.referralCode,
+      );
       try {
         const referral = await Referral.findOne({
           referralCode: userData.referralCode,
@@ -311,33 +338,55 @@ const organizerSignupVerify = async (req, res) => {
         });
 
         if (!referral) {
-          console.warn("[REFERRAL] No PENDING referral found for code:", userData.referralCode);
+          console.warn(
+            "[REFERRAL] No PENDING referral found for code:",
+            userData.referralCode,
+          );
         } else {
-          console.log("[REFERRAL] Found referral:", referral._id, "| refereeEmail:", referral.refereeEmail);
+          console.log(
+            "[REFERRAL] Found referral:",
+            referral._id,
+            "| refereeEmail:",
+            referral.refereeEmail,
+          );
 
           if (referral.refereeEmail === "__self__") {
             // Link-based signup — seed record stays, create a tracking entry
             const crypto = require("crypto");
-            const trackingCode = crypto.randomBytes(6).toString("hex").toUpperCase();
+            const trackingCode = crypto
+              .randomBytes(6)
+              .toString("hex")
+              .toUpperCase();
             const created = await Referral.create({
               referrer: referral.referrer,
               refereeEmail: email.toLowerCase(),
               referee: user._id,
               referralCode: trackingCode,
               status: "SIGNED_UP",
-              rewardAmount: referral.rewardAmount || 75000,
+
+              rewardAmount: referral.rewardAmount || rewardAmount,
             });
-            console.log("[REFERRAL] Tracking entry created (link-based):", created._id);
+            console.log(
+              "[REFERRAL] Tracking entry created (link-based):",
+              created._id,
+            );
           } else {
             // Email-invite signup — update existing record
             referral.referee = user._id;
             referral.status = "SIGNED_UP";
             await referral.save();
-            console.log("[REFERRAL] Email-invite referral updated to SIGNED_UP:", referral._id);
+            console.log(
+              "[REFERRAL] Email-invite referral updated to SIGNED_UP:",
+              referral._id,
+            );
           }
         }
       } catch (refErr) {
-        console.error("[REFERRAL] SIGNED_UP error:", refErr.message, refErr.stack);
+        console.error(
+          "[REFERRAL] SIGNED_UP error:",
+          refErr.message,
+          refErr.stack,
+        );
       }
     } else {
       console.log("[REFERRAL] No referralCode in signup data, skipping.");
@@ -831,13 +880,12 @@ const updateUserProfile = async (req, res) => {
   }
 };
 
-
 const selfProfile = async (req, res) => {
   try {
     let userId = req.user.userId;
     req.params.userId = userId;
     await getUserProfileById(req, res);
-  } catch (error) { }
+  } catch (error) {}
 };
 
 const getUserProfileById = async (req, res) => {

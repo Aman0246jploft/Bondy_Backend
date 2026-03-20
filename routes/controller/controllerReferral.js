@@ -9,8 +9,8 @@ const { roleId } = require("../../utils/Role");
 const { notifyReferralReward } = require("../services/serviceNotification");
 
 // ─── Helper: get reward amount from DB (admin-configurable) ───────────────────
-const DEFAULT_REWARD = 75000;
-const getRewardAmount = async () => {
+const DEFAULT_REWARD = 0;
+ const getRewardAmount = async () => {
   const setting = await GlobalSetting.findOne({ key: "REFERRAL_REWARD_AMOUNT" });
   return setting ? Number(setting.value) : DEFAULT_REWARD;
 };
@@ -40,6 +40,7 @@ router.get("/my-code", perApiLimiter(), async (req, res) => {
         refereeEmail: "__self__",
         referralCode: code,
         status: "PENDING",
+
       });
     }
 
