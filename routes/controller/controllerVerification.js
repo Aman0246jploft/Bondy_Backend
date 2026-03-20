@@ -205,7 +205,6 @@ const verifyOrganizer = async (req, res) => {
           status: "SIGNED_UP",
         });
 
-console.log("55555555444444444444",referral)
 
         if (!referral) {
           console.warn("[REFERRAL] No SIGNED_UP referral found for referee:", user._id);
@@ -217,7 +216,7 @@ console.log("55555555444444444444",referral)
             console.warn("[REFERRAL] Referrer not found for id:", referral.referrer);
           } else {
             // Read reward amount from GlobalSetting (admin-configurable)
-            const rewardSetting = await GlobalSetting.findOne({ key: "REFERRAL_REWARD_AMOUNT" });c
+            const rewardSetting = await GlobalSetting.findOne({ key: "REFERRAL_REWARD_AMOUNT" });
             const rewardAmount = rewardSetting ? Number(rewardSetting.value) : 75000;
             console.log("[REFERRAL] Crediting ₮", rewardAmount, "to referrer:", referrer.email);
 
