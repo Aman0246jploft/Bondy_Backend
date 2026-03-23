@@ -499,11 +499,25 @@ const getEvents = async (req, res) => {
         break;
 
       default:
-        return apiErrorRes(
-          HTTP_STATUS.BAD_REQUEST,
-          res,
-          constantsMessage.INVALID_FILTER_TYPE,
-        );
+        // Handle specific date if filter doesn't match and it's a valid date
+        if (req.query.date) {
+          const selectedDate = new Date(req.query.date);
+          if (!isNaN(selectedDate.getTime())) {
+            const startOfSelected = new Date(selectedDate);
+            startOfSelected.setHours(0, 0, 0, 0);
+            const endOfSelected = new Date(selectedDate);
+            endOfSelected.setHours(23, 59, 59, 999);
+
+            query.startDate = { $lte: endOfSelected };
+            query.endDate = { $gte: startOfSelected };
+          }
+        } else if (filter !== "all") {
+          return apiErrorRes(
+            HTTP_STATUS.BAD_REQUEST,
+            res,
+            constantsMessage.INVALID_FILTER_TYPE,
+          );
+        }
     }
 
     // Add search functionality if provided
