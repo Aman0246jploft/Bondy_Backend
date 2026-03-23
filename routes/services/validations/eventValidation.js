@@ -56,7 +56,7 @@ const getEventsSchema = Joi.object({
     }),
     radius: Joi.number().min(1).max(500).default(50), // in kilometers
     categoryId: Joi.string().hex().length(24).optional(),
-    search: Joi.string().optional(),
+    search: Joi.string().optional().allow('', null),
     page: Joi.number().integer().min(1).default(1),
     limit: Joi.number().integer().min(1).max(100).default(10),
     date: Joi.string().optional(),
