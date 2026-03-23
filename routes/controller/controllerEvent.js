@@ -146,7 +146,7 @@ const getEvents = async (req, res) => {
       filter = "all",
       latitude,
       longitude,
-      radius = 50,
+      radius = 100,
       categoryId,
       search,
       page = 1,

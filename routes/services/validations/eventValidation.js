@@ -59,6 +59,8 @@ const getEventsSchema = Joi.object({
     search: Joi.string().optional(),
     page: Joi.number().integer().min(1).default(1),
     limit: Joi.number().integer().min(1).max(100).default(10),
+    date: Joi.string().optional(),
+    userId: Joi.string().hex().length(24).optional(),
 });
 
 const getEventDetailsSchema = Joi.object({
