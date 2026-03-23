@@ -127,8 +127,8 @@ eventSchema.index({ venueAddress: "2dsphere" });
 eventSchema.pre("save", function (next) {
   const now = new Date();
 
-  // ❌ Block creating past events
-  if (this.endDate < now) {
+  // ❌ Block creating past events (only on creation or if endDate is changed to past)
+  if ((this.isNew || this.isModified("endDate")) && this.endDate < now) {
     return next(new Error("You cannot create an event in the past"));
   }
 
@@ -137,6 +137,8 @@ eventSchema.pre("save", function (next) {
     this.status = "Upcoming";
   } else if (now >= this.startDate && now <= this.endDate) {
     this.status = "Live";
+  } else if (this.endDate < now) {
+    this.status = "Past";
   }
 
   next();
