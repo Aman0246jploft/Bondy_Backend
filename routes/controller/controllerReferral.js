@@ -10,7 +10,7 @@ const { notifyReferralReward } = require("../services/serviceNotification");
 
 // ─── Helper: get reward amount from DB (admin-configurable) ───────────────────
 const DEFAULT_REWARD = 0;
- const getRewardAmount = async () => {
+const getRewardAmount = async () => {
   const setting = await GlobalSetting.findOne({ key: "REFERRAL_REWARD_AMOUNT" });
   return setting ? Number(setting.value) : DEFAULT_REWARD;
 };

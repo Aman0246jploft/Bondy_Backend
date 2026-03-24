@@ -50,7 +50,7 @@ const updatePackage = async (req, res) => {
     const updatedPackage = await PromotionPackage.findByIdAndUpdate(id, updateData, {
       new: true,
     });
-    
+
     if (!updatedPackage) {
       return apiErrorRes(
         HTTP_STATUS.NOT_FOUND,
@@ -81,7 +81,7 @@ const getPackageList = async (req, res) => {
     const pageNo = parseInt(req.query.pageNo) || 1;
     const size = parseInt(req.query.size) || 10;
     const skip = (pageNo - 1) * size;
-    
+
     const { isActive } = req.query;
     const query = {};
     if (isActive !== undefined) {
