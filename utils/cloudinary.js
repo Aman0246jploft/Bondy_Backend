@@ -54,7 +54,9 @@
 
 // }
 const multer = require("multer");
-const upload = multer();
+const upload = multer({
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50 MB
+});
 const path = require("path");
 const fs = require("fs");
 
