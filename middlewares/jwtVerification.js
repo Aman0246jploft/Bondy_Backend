@@ -21,6 +21,7 @@ const publicRoutes = [
   "/api/v1/faq/list",
   "/api/v1/globalsetting/all",
   "/api/v1/globalsetting/",
+
   "/api/v1/user/social-login",
 
   "/api/v1/category/list",
