@@ -72,7 +72,7 @@ const getCoursesSchema = Joi.object({
         otherwise: Joi.optional(),
     }),
     radius: Joi.number().min(1).max(500).default(50), // in kilometers
-    categoryId: Joi.string().optional(),
+    categoryId: Joi.string().optional().allow('', null),
     userId: Joi.string().optional(),
     search: Joi.string().optional().allow('', null),
     page: Joi.number().integer().min(1).default(1),

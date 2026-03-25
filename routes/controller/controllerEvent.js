@@ -152,6 +152,7 @@ const getEvents = async (req, res) => {
       page = 1,
       limit = 10,
       userId,
+      placement,
     } = req.query;
 
     let loginUser = null;
@@ -161,6 +162,7 @@ const getEvents = async (req, res) => {
     const now = new Date();
     const skip = (page - 1) * limit;
 
+    // 🔹 CASE 1: filter is "nearYou"
     if (filter === "nearYou") {
       const baseMatch = {
         endDate: { $gte: now },
@@ -172,8 +174,13 @@ const getEvents = async (req, res) => {
         baseMatch.createdBy = new mongoose.Types.ObjectId(userId);
       }
 
-      if (categoryId) {
-        baseMatch.eventCategory = new mongoose.Types.ObjectId(categoryId);
+      if (categoryId && categoryId !== "") {
+        const catIds = categoryId.split(",");
+        if (catIds.length > 1) {
+          baseMatch.eventCategory = { $in: catIds.map(id => new mongoose.Types.ObjectId(id)) };
+        } else {
+          baseMatch.eventCategory = new mongoose.Types.ObjectId(categoryId);
+        }
       }
 
       if (search) {
@@ -184,7 +191,7 @@ const getEvents = async (req, res) => {
         ];
       }
 
-      // 🔹 CASE 1: lat + lng → GEO SEARCH
+      // lat + lng provided → GEO SEARCH
       if (latitude && longitude) {
         const geoAggEvents = await Event.aggregate([
           {
@@ -199,10 +206,35 @@ const getEvents = async (req, res) => {
               query: baseMatch,
             },
           },
-          { $sort: { isFeatured: -1, distance: 1 } },
+          {
+            $lookup: {
+              from: "PromotionPackage",
+              localField: "activePromotionPackage",
+              foreignField: "_id",
+              as: "promoPkg",
+            },
+          },
+          { $unwind: { path: "$promoPkg", preserveNullAndEmptyArrays: true } },
+          {
+            $addFields: {
+              isPromoMatch: {
+                $cond: [
+                  {
+                    $and: [
+                      { $ne: [placement || null, null] },
+                      { $isArray: "$promoPkg.placements" },
+                      { $in: [placement, "$promoPkg.placements"] },
+                    ],
+                  },
+                  1,
+                  0,
+                ],
+              },
+            },
+          },
+          { $sort: { isPromoMatch: -1, fetcherEvent: -1, isFeatured: -1, distance: 1 } },
           { $skip: parseInt(skip) },
           { $limit: parseInt(limit) },
-          // Populate eventCategory
           {
             $lookup: {
               from: "categories",
@@ -211,21 +243,13 @@ const getEvents = async (req, res) => {
               as: "eventCategory",
             },
           },
-          {
-            $unwind: {
-              path: "$eventCategory",
-              preserveNullAndEmptyArrays: true,
-            },
-          },
-          // Populate createdBy
+          { $unwind: { path: "$eventCategory", preserveNullAndEmptyArrays: true } },
           {
             $lookup: {
               from: "users",
               localField: "createdBy",
               foreignField: "_id",
-              pipeline: [
-                { $project: { firstName: 1, lastName: 1, profileImage: 1 } },
-              ],
+              pipeline: [{ $project: { firstName: 1, lastName: 1, profileImage: 1 } }],
               as: "createdBy",
             },
           },
@@ -235,10 +259,7 @@ const getEvents = async (req, res) => {
         const totalCountAgg = await Event.aggregate([
           {
             $geoNear: {
-              near: {
-                type: "Point",
-                coordinates: [parseFloat(longitude), parseFloat(latitude)],
-              },
+              near: { type: "Point", coordinates: [parseFloat(longitude), parseFloat(latitude)] },
               distanceField: "distance",
               maxDistance: radius * 1000,
               spherical: true,
@@ -251,255 +272,199 @@ const getEvents = async (req, res) => {
 
         const formattedGeo = geoAggEvents.map((e) => formatEvent(e));
 
-        return apiSuccessRes(
-          HTTP_STATUS.OK,
-          res,
-          constantsMessage.EVENTS_FETCHED,
-          {
-            events: formattedGeo,
-            total,
-            totalPages: Math.ceil(total / limit),
-            page: parseInt(page),
-            limit: parseInt(limit),
-          },
-        );
+        return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.EVENTS_FETCHED, {
+          events: formattedGeo,
+          total,
+          totalPages: Math.ceil(total / limit),
+          page: parseInt(page),
+          limit: parseInt(limit),
+        });
       }
 
-      // 🔹 CASE 2: NO coords → GET USER LOCATION
-      let city = null;
-      let country = null;
-
+      // NO coords → GET USER LOCATION FALLBACK
+      let city = null, country = null;
       const authHeader = req.headers.authorization;
       if (authHeader && authHeader.startsWith("Bearer ")) {
         try {
           const token = authHeader.split(" ")[1];
           const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY);
           const user = await User.findById(decoded.userId).lean();
-
           city = user?.location?.city || null;
           country = user?.location?.country || null;
         } catch (err) { }
       }
 
-      // 🔹 CASE 3: CITY or COUNTRY FILTER
       if (city || country) {
-        if (city) {
-          baseMatch["venueAddress.city"] = city;
-        } else {
-          baseMatch["venueAddress.country"] = country;
-        }
+        if (city) baseMatch["venueAddress.city"] = city;
+        else baseMatch["venueAddress.country"] = country;
 
-        const cityEvents = await Event.find(baseMatch)
-          .populate("eventCategory")
-          .populate("createdBy", "firstName lastName profileImage isVerified")
-          .sort({ isFeatured: -1, startDate: 1 })
-          .skip(parseInt(skip))
-          .limit(parseInt(limit))
-          .lean();
+        let cityEvents = [];
+        if (placement) {
+          cityEvents = await Event.aggregate([
+            { $match: baseMatch },
+            {
+              $lookup: {
+                from: "PromotionPackage",
+                localField: "activePromotionPackage",
+                foreignField: "_id",
+                as: "promoPkg",
+              },
+            },
+            { $unwind: { path: "$promoPkg", preserveNullAndEmptyArrays: true } },
+            {
+              $addFields: {
+                isPromoMatch: {
+                  $cond: [
+                    {
+                      $and: [
+                        { $ne: [placement || null, null] },
+                        { $isArray: "$promoPkg.placements" },
+                        { $in: [placement, "$promoPkg.placements"] },
+                      ],
+                    },
+                    1,
+                    0,
+                  ],
+                },
+              },
+            },
+            { $sort: { isPromoMatch: -1, fetcherEvent: -1, isFeatured: -1, startDate: 1 } },
+            { $skip: parseInt(skip) },
+            { $limit: parseInt(limit) },
+            {
+              $lookup: {
+                from: "categories",
+                localField: "eventCategory",
+                foreignField: "_id",
+                as: "eventCategory",
+              },
+            },
+            { $unwind: { path: "$eventCategory", preserveNullAndEmptyArrays: true } },
+            {
+              $lookup: {
+                from: "users",
+                localField: "createdBy",
+                foreignField: "_id",
+                pipeline: [{ $project: { firstName: 1, lastName: 1, profileImage: 1, isVerified: 1 } }],
+                as: "createdBy",
+              },
+            },
+            { $unwind: { path: "$createdBy", preserveNullAndEmptyArrays: true } },
+          ]);
+        } else {
+          cityEvents = await Event.find(baseMatch)
+            .populate("eventCategory")
+            .populate("createdBy", "firstName lastName profileImage isVerified")
+            .sort({ isFeatured: -1, startDate: 1 })
+            .skip(parseInt(skip))
+            .limit(parseInt(limit))
+            .lean();
+        }
 
         const total = await Event.countDocuments(baseMatch);
         const formattedCity = cityEvents.map((e) => formatEvent(e));
 
-        return apiSuccessRes(
-          HTTP_STATUS.OK,
-          res,
-          constantsMessage.EVENTS_FETCHED,
-          {
-            events: formattedCity,
-            total,
-            totalPages: Math.ceil(total / limit),
-            page: parseInt(page),
-            limit: parseInt(limit),
-          },
-        );
+        return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.EVENTS_FETCHED, {
+          events: formattedCity, total, totalPages: Math.ceil(total / limit),
+          page: parseInt(page), limit: parseInt(limit),
+        });
       }
 
-      // 🔹 CASE 4: NOTHING FOUND → EMPTY RESPONSE
-      return apiSuccessRes(
-        HTTP_STATUS.OK,
-        res,
-        constantsMessage.EVENTS_FETCHED,
-        {
-          events: [],
-          total: 0,
-          totalPages: 0,
-          page: parseInt(page),
-          limit: parseInt(limit),
-        },
-      );
+      return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.EVENTS_FETCHED, {
+        events: [], total: 0, totalPages: 0, page: parseInt(page), limit: parseInt(limit),
+      });
     }
 
-    // Base query - exclude past events and drafts (overridden by the "past" filter case)
+    // 🔹 CASE 2: Other filters (Build query)
     let query = {
-      endDate: { $gte: now }, // Event must not have ended yet
+      endDate: { $gte: now },
       isDraft: false,
       status: { $ne: "Past" },
     };
 
     if (userId && mongoose.Types.ObjectId.isValid(userId)) {
-      query.createdBy = userId;
+      query.createdBy = new mongoose.Types.ObjectId(userId);
     }
 
-    // Apply category filter if provided
     if (categoryId && categoryId !== "") {
       const catIds = categoryId.split(",");
       if (catIds.length > 1) {
-        query.eventCategory = { $in: catIds };
+        query.eventCategory = { $in: catIds.map(id => new mongoose.Types.ObjectId(id)) };
       } else {
-        query.eventCategory = categoryId;
+        query.eventCategory = new mongoose.Types.ObjectId(categoryId);
       }
     }
 
-    // Apply filter-specific logic
     switch (filter) {
-      case "all":
-        // No additional filters - just return all non-past, non-draft events
-        break;
-
+      case "all": break;
       case "recommended":
-        // Try to identify user from token for personalization
         let userCategories = [];
         const authHeader = req.headers.authorization;
         if (authHeader && authHeader.startsWith("Bearer ")) {
-          const token = authHeader.split(" ")[1];
           try {
+            const token = authHeader.split(" ")[1];
             const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY);
             const user = await User.findById(decoded.userId).lean();
-
-            if (user && user.categories && user.categories.length > 0) {
-              userCategories = user.categories;
-            }
-          } catch (err) {
-            // Token invalid or expired - treat as guest (no personalization)
-            // No error response needed as per optional auth
-          }
+            if (user?.categories?.length > 0) userCategories = user.categories;
+          } catch (err) { }
         }
-
         if (userCategories.length > 0) {
-          // If user has preferences, filter by their categories
-          query.eventCategory = { $in: userCategories };
+          query.eventCategory = { $in: userCategories.map(id => new mongoose.Types.ObjectId(id)) };
         }
-        // If no user categories or guestKey, just return upcoming events (base query already handles this)
-        // We could add popularity sorting here if 'totalAttendees' was populated
         break;
-
-      // case "nearYou":
-      //   // Validate coordinates
-      //   if (!latitude || !longitude) {
-      //     return apiErrorRes(
-      //       HTTP_STATUS.BAD_REQUEST,
-      //       res,
-      //       constantsMessage.LOCATION_REQUIRED,
-      //     );
-      //   }
-
-      //   // Use geospatial query with $nearSphere
-      //   query.venueAddress = {
-      //     $nearSphere: {
-      //       $geometry: {
-      //         type: "Point",
-      //         coordinates: [parseFloat(longitude), parseFloat(latitude)],
-      //       },
-      //       $maxDistance: radius * 1000, // Convert km to meters
-      //     },
-      //   };
-      //   break;
-
-      case "upcoming":
-        // Events that haven't started yet
-        query.startDate = { $gt: now };
-        break;
-
+      case "upcoming": query.startDate = { $gt: now }; break;
       case "thisWeek":
-        // Get current week's Monday 00:00 and Sunday 23:59
         const startOfWeek = new Date(now);
         const dayOfWeek = startOfWeek.getDay();
-        const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek; // Adjust to Monday
+        const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
         startOfWeek.setDate(startOfWeek.getDate() + diff);
         startOfWeek.setHours(0, 0, 0, 0);
-
         const endOfWeek = new Date(startOfWeek);
-        endOfWeek.setDate(endOfWeek.getDate() + 6); // Sunday
+        endOfWeek.setDate(endOfWeek.getDate() + 6);
         endOfWeek.setHours(23, 59, 59, 999);
-
-        query.startDate = {
-          $gte: startOfWeek,
-          $lte: endOfWeek,
-        };
+        query.startDate = { $gte: startOfWeek, $lte: endOfWeek };
         break;
-
       case "thisWeekend":
-        // Get current week's Saturday 00:00 and Sunday 23:59
         const today = new Date(now);
         const currentDay = today.getDay();
-
-        // Calculate Saturday
         const startOfWeekend = new Date(today);
         const daysUntilSaturday = currentDay === 0 ? -1 : 6 - currentDay;
         startOfWeekend.setDate(startOfWeekend.getDate() + daysUntilSaturday);
         startOfWeekend.setHours(0, 0, 0, 0);
-
-        // Calculate Sunday
         const endOfWeekend = new Date(startOfWeekend);
         endOfWeekend.setDate(endOfWeekend.getDate() + 1);
         endOfWeekend.setHours(23, 59, 59, 999);
-
-        query.startDate = {
-          $gte: startOfWeekend,
-          $lte: endOfWeekend,
-        };
+        query.startDate = { $gte: startOfWeekend, $lte: endOfWeekend };
         break;
-
       case "thisYear":
-        // Get current year's Jan 1 00:00 and Dec 31 23:59
         const startOfYear = new Date(now.getFullYear(), 0, 1, 0, 0, 0, 0);
         const endOfYear = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
-
-        query.startDate = {
-          $gte: startOfYear,
-          $lte: endOfYear,
-        };
+        query.startDate = { $gte: startOfYear, $lte: endOfYear };
         break;
-
       case "today":
         const startOfToday = new Date(now);
         startOfToday.setHours(0, 0, 0, 0);
         const endOfToday = new Date(now);
         endOfToday.setHours(23, 59, 59, 999);
-
-        query.startDate = {
-          $gte: startOfToday,
-          $lte: endOfToday,
-        };
+        query.startDate = { $gte: startOfToday, $lte: endOfToday };
         break;
-
       case "nextWeek":
         const startOfNextWeek = new Date(now);
         const currentDayNW = startOfNextWeek.getDay();
         const diffNW = currentDayNW === 0 ? -6 : 1 - currentDayNW;
-        startOfNextWeek.setDate(startOfNextWeek.getDate() + diffNW + 7); // Next Monday
+        startOfNextWeek.setDate(startOfNextWeek.getDate() + diffNW + 7);
         startOfNextWeek.setHours(0, 0, 0, 0);
-
         const endOfNextWeek = new Date(startOfNextWeek);
-        endOfNextWeek.setDate(endOfNextWeek.getDate() + 6); // Next Sunday
+        endOfNextWeek.setDate(endOfNextWeek.getDate() + 6);
         endOfNextWeek.setHours(23, 59, 59, 999);
-
-        query.startDate = {
-          $gte: startOfNextWeek,
-          $lte: endOfNextWeek,
-        };
+        query.startDate = { $gte: startOfNextWeek, $lte: endOfNextWeek };
         break;
-
       case "past":
-        // Show only events that have already ended
-        // Remove the "active events only" constraints from the base query
         delete query.endDate;
         delete query.status;
-        query.endDate = { $lt: now }; // endDate is in the past
+        query.endDate = { $lt: now };
         break;
-
       default:
-        // Handle specific date if filter doesn't match and it's a valid date
         if (req.query.date) {
           const selectedDate = new Date(req.query.date);
           if (!isNaN(selectedDate.getTime())) {
@@ -507,20 +472,12 @@ const getEvents = async (req, res) => {
             startOfSelected.setHours(0, 0, 0, 0);
             const endOfSelected = new Date(selectedDate);
             endOfSelected.setHours(23, 59, 59, 999);
-
             query.startDate = { $lte: endOfSelected };
             query.endDate = { $gte: startOfSelected };
           }
-        } else if (filter !== "all") {
-          return apiErrorRes(
-            HTTP_STATUS.BAD_REQUEST,
-            res,
-            constantsMessage.INVALID_FILTER_TYPE,
-          );
         }
     }
 
-    // Add search functionality if provided
     if (search) {
       query.$or = [
         { eventTitle: { $regex: search, $options: "i" } },
@@ -529,39 +486,169 @@ const getEvents = async (req, res) => {
       ];
     }
 
-    // Execute query with pagination
-    // Execute query with pagination
-    let eventsQuery = Event.find(query)
-      .populate("eventCategory")
-      .populate("createdBy", "firstName lastName profileImage isVerified");
+    let events = [];
+    let totalCount = 0;
 
-    // Only apply explicit sort if NOT using geospatial query (nearYou)
-    // $nearSphere automatically sorts by distance, and combining with other sorts is not allowed
-    if (filter !== "nearYou") {
-      // Past events: most recently ended first; all others: featured first then soonest start
-      const sortOrder =
-        filter === "past"
-          ? { endDate: -1 }
-          : { isFeatured: -1, startDate: 1 };
-      eventsQuery = eventsQuery.sort(sortOrder);
+    // IF coords provided, use geo-aggregation for the current filter
+    if (latitude && longitude) {
+      const geoAgg = await Event.aggregate([
+        {
+          $geoNear: {
+            near: { type: "Point", coordinates: [parseFloat(longitude), parseFloat(latitude)] },
+            distanceField: "distance",
+            maxDistance: radius * 1000,
+            spherical: true,
+            query: query,
+          },
+        },
+        {
+          $lookup: {
+            from: "PromotionPackage",
+            localField: "activePromotionPackage",
+            foreignField: "_id",
+            as: "promoPkg",
+          },
+        },
+        { $unwind: { path: "$promoPkg", preserveNullAndEmptyArrays: true } },
+        {
+          $addFields: {
+            isPromoMatch: {
+              $cond: [
+                {
+                  $and: [
+                    { $ne: [placement || null, null] },
+                    { $isArray: "$promoPkg.placements" },
+                    { $in: [placement, "$promoPkg.placements"] },
+                  ],
+                },
+                1,
+                0,
+              ],
+            },
+          },
+        },
+        { $sort: { isPromoMatch: -1, fetcherEvent: -1, isFeatured: -1, distance: 1 } },
+        { $skip: parseInt(skip) },
+        { $limit: parseInt(limit) },
+        {
+          $lookup: {
+            from: "categories",
+            localField: "eventCategory",
+            foreignField: "_id",
+            as: "eventCategory",
+          },
+        },
+        { $unwind: { path: "$eventCategory", preserveNullAndEmptyArrays: true } },
+        {
+          $lookup: {
+            from: "users",
+            localField: "createdBy",
+            foreignField: "_id",
+            pipeline: [{ $project: { firstName: 1, lastName: 1, profileImage: 1 } }],
+            as: "createdBy",
+          },
+        },
+        { $unwind: { path: "$createdBy", preserveNullAndEmptyArrays: true } },
+      ]);
+
+      const countAgg = await Event.aggregate([
+        {
+          $geoNear: {
+            near: { type: "Point", coordinates: [parseFloat(longitude), parseFloat(latitude)] },
+            distanceField: "distance",
+            maxDistance: radius * 1000,
+            spherical: true,
+            query: query,
+          },
+        },
+        { $count: "total" },
+      ]);
+      events = geoAgg;
+      totalCount = countAgg[0]?.total || 0;
+    } else {
+      if (placement) {
+        const sortOrder = filter === "past" ? { endDate: -1 } : { isFeatured: -1, startDate: 1 };
+
+        events = await Event.aggregate([
+          { $match: query },
+          {
+            $lookup: {
+              from: "PromotionPackage",
+              localField: "activePromotionPackage",
+              foreignField: "_id",
+              as: "promoPkg",
+            },
+          },
+          { $unwind: { path: "$promoPkg", preserveNullAndEmptyArrays: true } },
+          {
+            $addFields: {
+              isPromoMatch: {
+                $cond: [
+                  {
+                    $and: [
+                      { $ne: [placement || null, null] },
+                      { $isArray: "$promoPkg.placements" },
+                      { $in: [placement, "$promoPkg.placements"] },
+                    ],
+                  },
+                  1,
+                  0,
+                ],
+              },
+            },
+          },
+          {
+            $sort: {
+              isPromoMatch: -1,
+              fetcherEvent: -1,
+              ...(filter === "past" ? { endDate: -1 } : { isFeatured: -1, startDate: 1 }),
+            },
+          },
+          { $skip: parseInt(skip) },
+          { $limit: parseInt(limit) },
+          {
+            $lookup: {
+              from: "categories",
+              localField: "eventCategory",
+              foreignField: "_id",
+              as: "eventCategory",
+            },
+          },
+          { $unwind: { path: "$eventCategory", preserveNullAndEmptyArrays: true } },
+          {
+            $lookup: {
+              from: "users",
+              localField: "createdBy",
+              foreignField: "_id",
+              pipeline: [{ $project: { firstName: 1, lastName: 1, profileImage: 1, isVerified: 1 } }],
+              as: "createdBy",
+            },
+          },
+          { $unwind: { path: "$createdBy", preserveNullAndEmptyArrays: true } },
+        ]);
+        totalCount = await Event.countDocuments(query);
+      } else {
+        let eventsQuery = Event.find(query)
+          .populate("eventCategory")
+          .populate("createdBy", "firstName lastName profileImage isVerified");
+
+        const sortOrder = filter === "past" ? { endDate: -1 } : { isFeatured: -1, startDate: 1 };
+        eventsQuery = eventsQuery.sort(sortOrder);
+
+        events = await eventsQuery.skip(skip).limit(parseInt(limit)).lean();
+        totalCount = await Event.countDocuments(query);
+      }
     }
 
-    const events = await eventsQuery.skip(skip).limit(parseInt(limit)).lean();
-
-    // Get total count for pagination
-    const totalCount = await Event.countDocuments(query);
-
-    // Check for logged-in user to determine isBooked status
+    // Determine viewer status and format response
     let viewerId = null;
     const authHeader = req.headers.authorization;
     if (authHeader && authHeader.startsWith("Bearer ")) {
-      const token = authHeader.split(" ")[1];
       try {
+        const token = authHeader.split(" ")[1];
         const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY);
         viewerId = decoded.userId;
-      } catch (err) {
-        // Invalid token - treat as guest
-      }
+      } catch (err) { }
     }
 
     const bookedEventIds = new Set();
@@ -574,10 +661,7 @@ const getEvents = async (req, res) => {
       bookings.forEach((b) => bookedEventIds.add(b.eventId.toString()));
     }
 
-    // Format image URLs
-    const formattedEvents = events.map((event) =>
-      formatEvent(event, bookedEventIds),
-    );
+    const formattedEvents = events.map((event) => formatEvent(event, bookedEventIds));
 
     return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.EVENTS_FETCHED, {
       events: formattedEvents,

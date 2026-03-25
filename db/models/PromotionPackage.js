@@ -19,7 +19,7 @@ const promotionPackageSchema = new mongoose.Schema(
       required: true,
     },
     placements: {
-      type: [String], // Array of placements, e.g., ["Discover Feed", "Homepage", "Map Highlight"]
+      type: [String], // Array of placements, e.g., ["homePage", "explorePage"]
     },
     price: {
       type: Number,

@@ -391,8 +391,8 @@ router.post(
 );
 
 // ─── Admin: Finance Stats ────────────────────────────────────────────────────
- const getFinanceStats = async (req, res) => {
-   try {
+const getFinanceStats = async (req, res) => {
+  try {
     const [paidTxns, pendingPayouts, paidPayouts, refundTxns] =
       await Promise.all([
         Transaction.find({
