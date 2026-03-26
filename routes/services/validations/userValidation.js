@@ -102,6 +102,15 @@ const resetPasswordSchema = Joi.object({
   resetToken: Joi.string().optional(), // In case it's passed in body, though headers is better
 });
 
+const changePasswordSchema = Joi.object({
+  oldPassword: Joi.string().required(),
+  newPassword: Joi.string().min(6).required(),
+  confirmPassword: Joi.string()
+    .valid(Joi.ref("newPassword"))
+    .required()
+    .strict(),
+});
+
 module.exports = {
   customerSignupSchema,
   organizerSignupSchema,
@@ -114,4 +123,5 @@ module.exports = {
   universalResendOtpSchema,
   forgotPasswordInitSchema,
   resetPasswordSchema,
+  changePasswordSchema,
 };

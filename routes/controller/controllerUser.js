@@ -35,6 +35,7 @@ const {
   socialLoginSchema,
   universalOtpSchema,
   universalResendOtpSchema,
+  changePasswordSchema,
 } = require("../services/validations/userValidation");
 const validateRequest = require("../../middlewares/validateRequest");
 const perApiLimiter = require("../../middlewares/rateLimiter");
@@ -1664,6 +1665,45 @@ const resetPassword = async (req, res) => {
   }
 };
 
+const changePassword = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { oldPassword, newPassword } = req.body;
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return apiErrorRes(
+        HTTP_STATUS.NOT_FOUND,
+        res,
+        constantsMessage.USER_NOT_FOUND,
+      );
+    }
+
+    // Verify Old Password
+    const isMatch = await verifyPassword(user.password, oldPassword);
+    if (!isMatch) {
+      return apiErrorRes(
+        HTTP_STATUS.BAD_REQUEST,
+        res,
+        "Invalid old password.",
+      );
+    }
+
+    // Update Password (hashed via pre-save hook)
+    user.password = newPassword;
+    await user.save();
+
+    return apiSuccessRes(
+      HTTP_STATUS.OK,
+      res,
+      "Password updated successfully.",
+    );
+  } catch (error) {
+    console.error("Error in changePassword:", error);
+    return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
+  }
+};
+
 router.post(
   "/customer/signup",
   perApiLimiter(),
@@ -1745,6 +1785,13 @@ router.post(
   perApiLimiter(),
   validateRequest(updateUserSchema),
   updateUserProfile,
+);
+
+router.post(
+  "/change-password",
+  perApiLimiter(),
+  validateRequest(changePasswordSchema),
+  changePassword,
 );
 
 router.get("/selfProfile", selfProfile);
