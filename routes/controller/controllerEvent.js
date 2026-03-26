@@ -153,6 +153,8 @@ const getEvents = async (req, res) => {
       limit = 10,
       userId,
       placement,
+      startDate: customStartDate,
+      endDate: customEndDate,
     } = req.query;
 
     let loginUser = null;
@@ -162,127 +164,143 @@ const getEvents = async (req, res) => {
     const now = new Date();
     const skip = (page - 1) * limit;
 
-    // 🔹 CASE 1: filter is "nearYou"
-    if (filter === "nearYou") {
-      const baseMatch = {
-        endDate: { $gte: now },
-        isDraft: false,
-        status: { $ne: "Past" },
-      };
+    const filters = filter.split(",").map((f) => f.trim().toLowerCase());
 
-      if (userId && mongoose.Types.ObjectId.isValid(userId)) {
-        baseMatch.createdBy = new mongoose.Types.ObjectId(userId);
+    // 1. Build Base Query
+    let query = { isDraft: false };
+
+    // Default time constraints (active events) - unless "past" filter is specifically requested
+    if (!filters.includes("past")) {
+      query.endDate = { $gte: now };
+      query.status = { $ne: "Past" };
+    } else {
+      query.endDate = { $lt: now };
+    }
+
+    // CreatedBy filter
+    if (userId && mongoose.Types.ObjectId.isValid(userId)) {
+      query.createdBy = new mongoose.Types.ObjectId(userId);
+    }
+
+    // Multiple Categories filter
+    if (categoryId && categoryId !== "") {
+      const catIds = categoryId
+        .split(",")
+        .filter((id) => mongoose.Types.ObjectId.isValid(id.trim()));
+      if (catIds.length > 1) {
+        query.eventCategory = {
+          $in: catIds.map((id) => new mongoose.Types.ObjectId(id.trim())),
+        };
+      } else if (catIds.length === 1) {
+        query.eventCategory = new mongoose.Types.ObjectId(catIds[0].trim());
       }
+    }
 
-      if (categoryId && categoryId !== "") {
-        const catIds = categoryId.split(",");
-        if (catIds.length > 1) {
-          baseMatch.eventCategory = { $in: catIds.map(id => new mongoose.Types.ObjectId(id)) };
-        } else {
-          baseMatch.eventCategory = new mongoose.Types.ObjectId(categoryId);
+    // Custom Date Range filter
+    if (customStartDate || customEndDate) {
+      // If custom dates are provided, they override the default "active" or "past" filters if they overlap inconsistently
+      // But we'll try to merge them.
+      if (customStartDate) {
+        const sD = new Date(customStartDate);
+        if (!isNaN(sD.getTime())) {
+          sD.setHours(0, 0, 0, 0);
+          query.startDate = { ...query.startDate, $gte: sD };
         }
       }
-
-      if (search) {
-        baseMatch.$or = [
-          { eventTitle: { $regex: search, $options: "i" } },
-          { shortdesc: { $regex: search, $options: "i" } },
-          { tags: { $regex: search, $options: "i" } },
-        ];
+      if (customEndDate) {
+        const eD = new Date(customEndDate);
+        if (!isNaN(eD.getTime())) {
+          eD.setHours(23, 59, 59, 999);
+          query.endDate = { ...query.endDate, $lte: eD };
+        }
       }
+    }
 
-      // lat + lng provided → GEO SEARCH
-      if (latitude && longitude) {
-        const geoAggEvents = await Event.aggregate([
-          {
-            $geoNear: {
-              near: {
-                type: "Point",
-                coordinates: [parseFloat(longitude), parseFloat(latitude)],
-              },
-              distanceField: "distance",
-              maxDistance: radius * 1000,
-              spherical: true,
-              query: baseMatch,
-            },
-          },
-          {
-            $lookup: {
-              from: "PromotionPackage",
-              localField: "activePromotionPackage",
-              foreignField: "_id",
-              as: "promoPkg",
-            },
-          },
-          { $unwind: { path: "$promoPkg", preserveNullAndEmptyArrays: true } },
-          {
-            $addFields: {
-              isPromoMatch: {
-                $cond: [
-                  {
-                    $and: [
-                      { $ne: [placement || null, null] },
-                      { $isArray: "$promoPkg.placements" },
-                      { $in: [placement, "$promoPkg.placements"] },
-                    ],
-                  },
-                  1,
-                  0,
-                ],
-              },
-            },
-          },
-          { $sort: { isPromoMatch: -1, fetcherEvent: -1, isFeatured: -1, distance: 1 } },
-          { $skip: parseInt(skip) },
-          { $limit: parseInt(limit) },
-          {
-            $lookup: {
-              from: "categories",
-              localField: "eventCategory",
-              foreignField: "_id",
-              as: "eventCategory",
-            },
-          },
-          { $unwind: { path: "$eventCategory", preserveNullAndEmptyArrays: true } },
-          {
-            $lookup: {
-              from: "users",
-              localField: "createdBy",
-              foreignField: "_id",
-              pipeline: [{ $project: { firstName: 1, lastName: 1, profileImage: 1 } }],
-              as: "createdBy",
-            },
-          },
-          { $unwind: { path: "$createdBy", preserveNullAndEmptyArrays: true } },
-        ]);
-
-        const totalCountAgg = await Event.aggregate([
-          {
-            $geoNear: {
-              near: { type: "Point", coordinates: [parseFloat(longitude), parseFloat(latitude)] },
-              distanceField: "distance",
-              maxDistance: radius * 1000,
-              spherical: true,
-              query: baseMatch,
-            },
-          },
-          { $count: "total" },
-        ]);
-        const total = totalCountAgg[0]?.total || 0;
-
-        const formattedGeo = geoAggEvents.map((e) => formatEvent(e));
-
-        return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.EVENTS_FETCHED, {
-          events: formattedGeo,
-          total,
-          totalPages: Math.ceil(total / limit),
-          page: parseInt(page),
-          limit: parseInt(limit),
-        });
+    // Apply Time-based filters
+    for (const f of filters) {
+      switch (f) {
+        case "upcoming":
+          query.startDate = { ...query.startDate, $gt: now };
+          break;
+        case "today":
+          const startOfToday = new Date(now);
+          startOfToday.setHours(0, 0, 0, 0);
+          const endOfToday = new Date(now);
+          endOfToday.setHours(23, 59, 59, 999);
+          query.startDate = { ...query.startDate, $gte: startOfToday, $lte: endOfToday };
+          break;
+        case "thisweek":
+          const startOfWeek = new Date(now);
+          const dayOfWeek = startOfWeek.getDay();
+          const diffW = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+          startOfWeek.setDate(startOfWeek.getDate() + diffW);
+          startOfWeek.setHours(0, 0, 0, 0);
+          const endOfWeek = new Date(startOfWeek);
+          endOfWeek.setDate(endOfWeek.getDate() + 6);
+          endOfWeek.setHours(23, 59, 59, 999);
+          query.startDate = { ...query.startDate, $gte: startOfWeek, $lte: endOfWeek };
+          break;
+        case "thisweekend":
+          const today = new Date(now);
+          const currentDay = today.getDay();
+          const startOfWeekend = new Date(today);
+          const daysUntilSaturday = currentDay === 0 ? -1 : 6 - currentDay;
+          startOfWeekend.setDate(startOfWeekend.getDate() + daysUntilSaturday);
+          startOfWeekend.setHours(0, 0, 0, 0);
+          const endOfWeekend = new Date(startOfWeekend);
+          endOfWeekend.setDate(endOfWeekend.getDate() + 1);
+          endOfWeekend.setHours(23, 59, 59, 999);
+          query.startDate = { ...query.startDate, $gte: startOfWeekend, $lte: endOfWeekend };
+          break;
+        case "thisyear":
+          const startOfYear = new Date(now.getFullYear(), 0, 1, 0, 0, 0, 0);
+          const endOfYear = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
+          query.startDate = { ...query.startDate, $gte: startOfYear, $lte: endOfYear };
+          break;
+        case "nextweek":
+          const startOfNextWeek = new Date(now);
+          const currentDayNW = startOfNextWeek.getDay();
+          const diffNW = currentDayNW === 0 ? -6 : 1 - currentDayNW;
+          startOfNextWeek.setDate(startOfNextWeek.getDate() + diffNW + 7);
+          startOfNextWeek.setHours(0, 0, 0, 0);
+          const endOfNextWeek = new Date(startOfNextWeek);
+          endOfNextWeek.setDate(endOfNextWeek.getDate() + 6);
+          endOfNextWeek.setHours(23, 59, 59, 999);
+          query.startDate = { ...query.startDate, $gte: startOfNextWeek, $lte: endOfNextWeek };
+          break;
+        case "recommended":
+          let userCategories = [];
+          const authHeader = req.headers.authorization;
+          if (authHeader && authHeader.startsWith("Bearer ")) {
+            try {
+              const token = authHeader.split(" ")[1];
+              const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY);
+              const user = await User.findById(decoded.userId).lean();
+              if (user?.categories?.length > 0) userCategories = user.categories;
+            } catch (err) { }
+          }
+          if (userCategories.length > 0) {
+            query.eventCategory = {
+              $in: userCategories.map((id) => new mongoose.Types.ObjectId(id)),
+            };
+          }
+          break;
       }
+    }
 
-      // NO coords → GET USER LOCATION FALLBACK
-      let city = null, country = null;
+    // Search filter
+    if (search) {
+      query.$or = [
+        { eventTitle: { $regex: search, $options: "i" } },
+        { shortdesc: { $regex: search, $options: "i" } },
+        { tags: { $regex: search, $options: "i" } },
+      ];
+    }
+
+    // Check for "nearYou" fallback if no coords
+    if (filters.includes("nearyou") && !(latitude && longitude)) {
+      let city = null,
+        country = null;
       const authHeader = req.headers.authorization;
       if (authHeader && authHeader.startsWith("Bearer ")) {
         try {
@@ -293,203 +311,24 @@ const getEvents = async (req, res) => {
           country = user?.location?.country || null;
         } catch (err) { }
       }
-
-      if (city || country) {
-        if (city) baseMatch["venueAddress.city"] = city;
-        else baseMatch["venueAddress.country"] = country;
-
-        let cityEvents = [];
-        if (placement) {
-          cityEvents = await Event.aggregate([
-            { $match: baseMatch },
-            {
-              $lookup: {
-                from: "PromotionPackage",
-                localField: "activePromotionPackage",
-                foreignField: "_id",
-                as: "promoPkg",
-              },
-            },
-            { $unwind: { path: "$promoPkg", preserveNullAndEmptyArrays: true } },
-            {
-              $addFields: {
-                isPromoMatch: {
-                  $cond: [
-                    {
-                      $and: [
-                        { $ne: [placement || null, null] },
-                        { $isArray: "$promoPkg.placements" },
-                        { $in: [placement, "$promoPkg.placements"] },
-                      ],
-                    },
-                    1,
-                    0,
-                  ],
-                },
-              },
-            },
-            { $sort: { isPromoMatch: -1, fetcherEvent: -1, isFeatured: -1, startDate: 1 } },
-            { $skip: parseInt(skip) },
-            { $limit: parseInt(limit) },
-            {
-              $lookup: {
-                from: "categories",
-                localField: "eventCategory",
-                foreignField: "_id",
-                as: "eventCategory",
-              },
-            },
-            { $unwind: { path: "$eventCategory", preserveNullAndEmptyArrays: true } },
-            {
-              $lookup: {
-                from: "users",
-                localField: "createdBy",
-                foreignField: "_id",
-                pipeline: [{ $project: { firstName: 1, lastName: 1, profileImage: 1, isVerified: 1 } }],
-                as: "createdBy",
-              },
-            },
-            { $unwind: { path: "$createdBy", preserveNullAndEmptyArrays: true } },
-          ]);
-        } else {
-          cityEvents = await Event.find(baseMatch)
-            .populate("eventCategory")
-            .populate("createdBy", "firstName lastName profileImage isVerified")
-            .sort({ isFeatured: -1, startDate: 1 })
-            .skip(parseInt(skip))
-            .limit(parseInt(limit))
-            .lean();
-        }
-
-        const total = await Event.countDocuments(baseMatch);
-        const formattedCity = cityEvents.map((e) => formatEvent(e));
-
+      if (city) query["venueAddress.city"] = city;
+      else if (country) query["venueAddress.country"] = country;
+      else if (!filters.includes("all") && filters.length === 1) {
+        // If only nearYou was requested and no location found, return empty
         return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.EVENTS_FETCHED, {
-          events: formattedCity, total, totalPages: Math.ceil(total / limit),
-          page: parseInt(page), limit: parseInt(limit),
+          events: [],
+          total: 0,
+          totalPages: 0,
+          page: parseInt(page),
+          limit: parseInt(limit),
         });
       }
-
-      return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.EVENTS_FETCHED, {
-        events: [], total: 0, totalPages: 0, page: parseInt(page), limit: parseInt(limit),
-      });
-    }
-
-    // 🔹 CASE 2: Other filters (Build query)
-    let query = {
-      endDate: { $gte: now },
-      isDraft: false,
-      status: { $ne: "Past" },
-    };
-
-    if (userId && mongoose.Types.ObjectId.isValid(userId)) {
-      query.createdBy = new mongoose.Types.ObjectId(userId);
-    }
-
-    if (categoryId && categoryId !== "") {
-      const catIds = categoryId.split(",");
-      if (catIds.length > 1) {
-        query.eventCategory = { $in: catIds.map(id => new mongoose.Types.ObjectId(id)) };
-      } else {
-        query.eventCategory = new mongoose.Types.ObjectId(categoryId);
-      }
-    }
-
-    switch (filter) {
-      case "all": break;
-      case "recommended":
-        let userCategories = [];
-        const authHeader = req.headers.authorization;
-        if (authHeader && authHeader.startsWith("Bearer ")) {
-          try {
-            const token = authHeader.split(" ")[1];
-            const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY);
-            const user = await User.findById(decoded.userId).lean();
-            if (user?.categories?.length > 0) userCategories = user.categories;
-          } catch (err) { }
-        }
-        if (userCategories.length > 0) {
-          query.eventCategory = { $in: userCategories.map(id => new mongoose.Types.ObjectId(id)) };
-        }
-        break;
-      case "upcoming": query.startDate = { $gt: now }; break;
-      case "thisWeek":
-        const startOfWeek = new Date(now);
-        const dayOfWeek = startOfWeek.getDay();
-        const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-        startOfWeek.setDate(startOfWeek.getDate() + diff);
-        startOfWeek.setHours(0, 0, 0, 0);
-        const endOfWeek = new Date(startOfWeek);
-        endOfWeek.setDate(endOfWeek.getDate() + 6);
-        endOfWeek.setHours(23, 59, 59, 999);
-        query.startDate = { $gte: startOfWeek, $lte: endOfWeek };
-        break;
-      case "thisWeekend":
-        const today = new Date(now);
-        const currentDay = today.getDay();
-        const startOfWeekend = new Date(today);
-        const daysUntilSaturday = currentDay === 0 ? -1 : 6 - currentDay;
-        startOfWeekend.setDate(startOfWeekend.getDate() + daysUntilSaturday);
-        startOfWeekend.setHours(0, 0, 0, 0);
-        const endOfWeekend = new Date(startOfWeekend);
-        endOfWeekend.setDate(endOfWeekend.getDate() + 1);
-        endOfWeekend.setHours(23, 59, 59, 999);
-        query.startDate = { $gte: startOfWeekend, $lte: endOfWeekend };
-        break;
-      case "thisYear":
-        const startOfYear = new Date(now.getFullYear(), 0, 1, 0, 0, 0, 0);
-        const endOfYear = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
-        query.startDate = { $gte: startOfYear, $lte: endOfYear };
-        break;
-      case "today":
-        const startOfToday = new Date(now);
-        startOfToday.setHours(0, 0, 0, 0);
-        const endOfToday = new Date(now);
-        endOfToday.setHours(23, 59, 59, 999);
-        query.startDate = { $gte: startOfToday, $lte: endOfToday };
-        break;
-      case "nextWeek":
-        const startOfNextWeek = new Date(now);
-        const currentDayNW = startOfNextWeek.getDay();
-        const diffNW = currentDayNW === 0 ? -6 : 1 - currentDayNW;
-        startOfNextWeek.setDate(startOfNextWeek.getDate() + diffNW + 7);
-        startOfNextWeek.setHours(0, 0, 0, 0);
-        const endOfNextWeek = new Date(startOfNextWeek);
-        endOfNextWeek.setDate(endOfNextWeek.getDate() + 6);
-        endOfNextWeek.setHours(23, 59, 59, 999);
-        query.startDate = { $gte: startOfNextWeek, $lte: endOfNextWeek };
-        break;
-      case "past":
-        delete query.endDate;
-        delete query.status;
-        query.endDate = { $lt: now };
-        break;
-      default:
-        if (req.query.date) {
-          const selectedDate = new Date(req.query.date);
-          if (!isNaN(selectedDate.getTime())) {
-            const startOfSelected = new Date(selectedDate);
-            startOfSelected.setHours(0, 0, 0, 0);
-            const endOfSelected = new Date(selectedDate);
-            endOfSelected.setHours(23, 59, 59, 999);
-            query.startDate = { $lte: endOfSelected };
-            query.endDate = { $gte: startOfSelected };
-          }
-        }
-    }
-
-    if (search) {
-      query.$or = [
-        { eventTitle: { $regex: search, $options: "i" } },
-        { shortdesc: { $regex: search, $options: "i" } },
-        { tags: { $regex: search, $options: "i" } },
-      ];
     }
 
     let events = [];
     let totalCount = 0;
 
-    // IF coords provided, use geo-aggregation for the current filter
+    // Execute query with Geo search if coords present
     if (latitude && longitude) {
       const geoAgg = await Event.aggregate([
         {
@@ -566,9 +405,8 @@ const getEvents = async (req, res) => {
       events = geoAgg;
       totalCount = countAgg[0]?.total || 0;
     } else {
+      // Regular query (with optional placement sorting)
       if (placement) {
-        const sortOrder = filter === "past" ? { endDate: -1 } : { isFeatured: -1, startDate: 1 };
-
         events = await Event.aggregate([
           { $match: query },
           {
@@ -601,7 +439,7 @@ const getEvents = async (req, res) => {
             $sort: {
               isPromoMatch: -1,
               fetcherEvent: -1,
-              ...(filter === "past" ? { endDate: -1 } : { isFeatured: -1, startDate: 1 }),
+              ...(filters.includes("past") ? { endDate: -1 } : { isFeatured: -1, startDate: 1 }),
             },
           },
           { $skip: parseInt(skip) },
@@ -628,14 +466,16 @@ const getEvents = async (req, res) => {
         ]);
         totalCount = await Event.countDocuments(query);
       } else {
-        let eventsQuery = Event.find(query)
+        const sortOrder = filters.includes("past")
+          ? { endDate: -1 }
+          : { isFeatured: -1, startDate: 1 };
+        events = await Event.find(query)
           .populate("eventCategory")
-          .populate("createdBy", "firstName lastName profileImage isVerified");
-
-        const sortOrder = filter === "past" ? { endDate: -1 } : { isFeatured: -1, startDate: 1 };
-        eventsQuery = eventsQuery.sort(sortOrder);
-
-        events = await eventsQuery.skip(skip).limit(parseInt(limit)).lean();
+          .populate("createdBy", "firstName lastName profileImage isVerified")
+          .sort(sortOrder)
+          .skip(skip)
+          .limit(parseInt(limit))
+          .lean();
         totalCount = await Event.countDocuments(query);
       }
     }

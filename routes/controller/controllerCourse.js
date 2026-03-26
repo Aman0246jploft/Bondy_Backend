@@ -91,14 +91,281 @@ const getCourses = async (req, res) => {
       search,
       page = 1,
       limit = 10,
+      startDate: customStartDate,
+      endDate: customEndDate,
     } = req.query;
 
     const now = new Date();
     const skip = (page - 1) * limit;
+    const filters = filter.split(",").map((f) => f.trim().toLowerCase());
 
     // ===============================
-    //Helper: resolve current schedule
+    // 1. Build MongoDB Query
     // ===============================
+    let query = {};
+    const mongoose = require("mongoose");
+
+    // User ID
+    if (userId && mongoose.Types.ObjectId.isValid(userId)) {
+      query.createdBy = new mongoose.Types.ObjectId(userId);
+    }
+
+    // Multiple Categories
+    if (categoryId) {
+      const catIds = categoryId
+        .split(",")
+        .filter((id) => mongoose.Types.ObjectId.isValid(id.trim()));
+      if (catIds.length > 0) {
+        query.courseCategory = { $in: catIds.map((id) => new mongoose.Types.ObjectId(id)) };
+      }
+    }
+
+    // Search
+    if (search) {
+      query.$or = [
+        { courseTitle: { $regex: search, $options: "i" } },
+        { shortdesc: { $regex: search, $options: "i" } },
+      ];
+    }
+
+    // Time-based Conditions (to be used with $elemMatch on schedules)
+    let scheduleAndConditions = [];
+
+    // Custom Date Range
+    if (customStartDate || customEndDate) {
+      let dateCond = {};
+      if (customStartDate) {
+        const sD = new Date(customStartDate);
+        if (!isNaN(sD.getTime())) {
+          sD.setHours(0, 0, 0, 0);
+          dateCond.$gte = sD;
+        }
+      }
+      if (customEndDate) {
+        const eD = new Date(customEndDate);
+        if (!isNaN(eD.getTime())) {
+          eD.setHours(23, 59, 59, 999);
+          dateCond.$lte = eD;
+        }
+      }
+      if (Object.keys(dateCond).length > 0) {
+        scheduleAndConditions.push({ startDate: dateCond });
+      }
+    }
+
+    // Apply specific filters
+    for (const f of filters) {
+      switch (f) {
+        case "upcoming":
+          query.$or = (query.$or || []).concat([
+            { status: { $in: ["Upcoming", "Live"] } },
+            { "schedules.startDate": { $gt: now } },
+          ]);
+          break;
+        case "past":
+          query.$or = (query.$or || []).concat([
+            { status: "Past" },
+            { schedules: { $not: { $elemMatch: { endDate: { $gte: now } } } } },
+          ]);
+          break;
+        case "today":
+          const startOfToday = new Date(now);
+          startOfToday.setHours(0, 0, 0, 0);
+          const endOfToday = new Date(now);
+          endOfToday.setHours(23, 59, 59, 999);
+          scheduleAndConditions.push({ startDate: { $gte: startOfToday, $lte: endOfToday } });
+          break;
+        case "thisweek":
+          const startOfWeek = new Date(now);
+          const currentDay = startOfWeek.getDay();
+          const diff = currentDay === 0 ? -6 : 1 - currentDay;
+          startOfWeek.setDate(startOfWeek.getDate() + diff);
+          startOfWeek.setHours(0, 0, 0, 0);
+          const endOfWeek = new Date(startOfWeek);
+          endOfWeek.setDate(startOfWeek.getDate() + 6);
+          endOfWeek.setHours(23, 59, 59, 999);
+          scheduleAndConditions.push({ startDate: { $gte: startOfWeek, $lte: endOfWeek } });
+          break;
+        case "nextweek":
+          const startOfNextWeek = new Date(now);
+          const currentDayNW = startOfNextWeek.getDay();
+          const diffNW = currentDayNW === 0 ? -6 : 1 - currentDayNW;
+          startOfNextWeek.setDate(startOfNextWeek.getDate() + diffNW + 7);
+          startOfNextWeek.setHours(0, 0, 0, 0);
+          const endOfNextWeek = new Date(startOfNextWeek);
+          endOfNextWeek.setDate(startOfNextWeek.getDate() + 6);
+          endOfNextWeek.setHours(23, 59, 59, 999);
+          scheduleAndConditions.push({ startDate: { $gte: startOfNextWeek, $lte: endOfNextWeek } });
+          break;
+        case "recommended":
+          let userCategories = [];
+          const authHeader = req.headers.authorization;
+          if (authHeader && authHeader.startsWith("Bearer ")) {
+            try {
+              const jwt = require("jsonwebtoken");
+              const token = authHeader.split(" ")[1];
+              const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY);
+              const user = await User.findById(decoded.userId).lean();
+              if (user?.categories?.length > 0) {
+                userCategories = user.categories;
+                query.courseCategory = { $in: userCategories.map((id) => new mongoose.Types.ObjectId(id)) };
+              }
+            } catch (err) {}
+          }
+          break;
+      }
+    }
+
+    if (scheduleAndConditions.length > 0) {
+      query.schedules = { $elemMatch: { $and: scheduleAndConditions } };
+    }
+
+    // nearYou fallback logic if no coords
+    if (filters.includes("nearyou") && !(latitude && longitude)) {
+      let city = null,
+        country = null;
+      const authHeader = req.headers.authorization;
+      if (authHeader && authHeader.startsWith("Bearer ")) {
+        try {
+          const jwt = require("jsonwebtoken");
+          const token = authHeader.split(" ")[1];
+          const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY);
+          const user = await User.findById(decoded.userId).lean();
+          city = user?.location?.city || null;
+          country = user?.location?.country || null;
+        } catch (err) {}
+      }
+      if (city) query["venueAddress.city"] = city;
+      else if (country) query["venueAddress.country"] = country;
+      else if (!filters.includes("all") && filters.length === 1) {
+        return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.SUCCESS, {
+          totalCourses: 0,
+          currentPage: Number(page),
+          totalPages: 0,
+          coursesPerPage: Number(limit),
+          courses: [],
+        });
+      }
+    }
+
+    // ===============================
+    // 2. Execute Query
+    // ===============================
+    let courses = [];
+    let totalCoursesCount = 0;
+
+    if (latitude && longitude) {
+      const geoAggCourses = await Course.aggregate([
+        {
+          $geoNear: {
+            near: { type: "Point", coordinates: [parseFloat(longitude), parseFloat(latitude)] },
+            distanceField: "distance",
+            maxDistance: parseFloat(radius) * 1000,
+            spherical: true,
+            query: query,
+          },
+        },
+        { $sort: { isFeatured: -1, distance: 1 } },
+        { $skip: parseInt(skip) },
+        { $limit: parseInt(limit) },
+        {
+          $lookup: {
+            from: "categories",
+            localField: "courseCategory",
+            foreignField: "_id",
+            as: "courseCategory",
+          },
+        },
+        { $unwind: { path: "$courseCategory", preserveNullAndEmptyArrays: true } },
+        {
+          $lookup: {
+            from: "users",
+            localField: "createdBy",
+            foreignField: "_id",
+            pipeline: [{ $project: { firstName: 1, lastName: 1, profileImage: 1, isVerified: 1 } }],
+            as: "createdBy",
+          },
+        },
+        { $unwind: { path: "$createdBy", preserveNullAndEmptyArrays: true } },
+      ]);
+
+      const countAgg = await Course.aggregate([
+        {
+          $geoNear: {
+            near: { type: "Point", coordinates: [parseFloat(longitude), parseFloat(latitude)] },
+            distanceField: "distance",
+            maxDistance: parseFloat(radius) * 1000,
+            spherical: true,
+            query: query,
+          },
+        },
+        { $count: "total" },
+      ]);
+      courses = geoAggCourses;
+      totalCoursesCount = countAgg[0]?.total || 0;
+    } else {
+      totalCoursesCount = await Course.countDocuments(query);
+      courses = await Course.find(query)
+        .populate("courseCategory")
+        .populate("createdBy", "firstName lastName profileImage isVerified")
+        .sort({ isFeatured: -1, createdAt: -1 })
+        .skip(skip)
+        .limit(Number(limit))
+        .lean();
+    }
+
+    // ===============================
+    // 3. Data Enrichment & Formatting
+    // ===============================
+    const courseIds = courses.map((c) => c._id);
+    const bookingCounts = await Transaction.aggregate([
+      { $match: { courseId: { $in: courseIds }, status: "PAID" } },
+      {
+        $group: {
+          _id: { course: "$courseId", schedule: "$scheduleId" },
+          count: { $sum: 1 },
+        },
+      },
+    ]);
+
+    const bookingMap = {};
+    const courseBookingMap = {};
+    bookingCounts.forEach((b) => {
+      const courseId = b._id.course.toString();
+      const scheduleId = b._id.schedule ? b._id.schedule.toString() : "null";
+      bookingMap[`${courseId}_${scheduleId}`] = b.count;
+      courseBookingMap[courseId] = (courseBookingMap[courseId] || 0) + b.count;
+    });
+
+    let viewerId = null;
+    const authHeader = req.headers.authorization;
+    if (authHeader?.startsWith("Bearer ")) {
+      try {
+        const jwt = require("jsonwebtoken");
+        const decoded = jwt.verify(authHeader.split(" ")[1], process.env.JWT_SECRET_KEY);
+        viewerId = decoded.userId;
+      } catch {}
+    }
+
+    const bookedCourseIds = new Set();
+    const bookedScheduleMap = {};
+    if (viewerId) {
+      const bookings = await Transaction.find({
+        userId: viewerId,
+        courseId: { $in: courseIds },
+        status: "PAID",
+      }).select("courseId scheduleId");
+      bookings.forEach((b) => {
+        bookedCourseIds.add(b.courseId.toString());
+        if (b.scheduleId) {
+          const cId = b.courseId.toString();
+          if (!bookedScheduleMap[cId]) bookedScheduleMap[cId] = new Set();
+          bookedScheduleMap[cId].add(b.scheduleId.toString());
+        }
+      });
+    }
+
+    // Helper: resolve current schedule
     function resolveCurrentSchedule(schedules = []) {
       return (
         schedules
@@ -112,431 +379,21 @@ const getCourses = async (req, res) => {
       );
     }
 
-    // ===============================
-    // Base query (NO time logic here)
-    // ===============================
-    let query = {};
-
-    if (userId) {
-      const mongoose = require("mongoose");
-      if (mongoose.Types.ObjectId.isValid(userId)) {
-        query.createdBy = userId;
-      } else {
-        return apiErrorRes(
-          HTTP_STATUS.BAD_REQUEST,
-          res,
-          "Invalid userId format"
-        );
-      }
-    }
-
-    if (categoryId) {
-      const catIds = categoryId.split(",");
-      if (catIds.length > 1) {
-        query.courseCategory = { $in: catIds };
-      } else {
-        query.courseCategory = categoryId;
-      }
-    }
-
-    if (filter === "upcoming") {
-      query.$or = [
-        { status: { $in: ["Upcoming", "Live"] } },
-        { "schedules.startDate": { $gt: now } } // fallback for older data
-      ];
-    }
-
-    if (filter === "past") {
-      query.$or = [
-        { status: "Past" },
-        {
-          schedules: {
-            $not: { $elemMatch: { endDate: { $gte: now } } },
-          },
-        }
-      ];
-    }
-
-    if (search) {
-      query.$or = [
-        { courseTitle: { $regex: search, $options: "i" } },
-        { shortdesc: { $regex: search, $options: "i" } },
-      ];
-    }
-
-    if (filter === "recommended") {
-      let userCategories = [];
-      const authHeader = req.headers.authorization;
-      if (authHeader && authHeader.startsWith("Bearer ")) {
-        try {
-          const jwt = require("jsonwebtoken");
-          const token = authHeader.split(" ")[1];
-          const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY);
-          const user = await User.findById(decoded.userId).lean();
-
-          if (user && user.categories && user.categories.length > 0) {
-            userCategories = user.categories;
-          }
-        } catch (err) { }
-      }
-
-      if (userCategories.length > 0) {
-        query.courseCategory = { $in: userCategories };
-      }
-    }
-
-    if (filter === "nearYou") {
-      if (!latitude || !longitude) {
-        return apiErrorRes(
-          HTTP_STATUS.BAD_REQUEST,
-          res,
-          constantsMessage.LOCATION_REQUIRED,
-        );
-      }
-
-      const geoMatch = { ...query };
-
-      const geoAggCourses = await Course.aggregate([
-        {
-          $geoNear: {
-            near: {
-              type: "Point",
-              coordinates: [parseFloat(longitude), parseFloat(latitude)],
-            },
-            distanceField: "distance",
-            maxDistance: parseFloat(radius) * 1000,
-            spherical: true,
-            query: geoMatch,
-          },
-        },
-        { $sort: { isFeatured: -1, distance: 1 } },
-        { $skip: parseInt(skip) },
-        { $limit: parseInt(limit) },
-        // Populate courseCategory
-        {
-          $lookup: {
-            from: "categories",
-            localField: "courseCategory",
-            foreignField: "_id",
-            as: "courseCategory",
-          },
-        },
-        {
-          $unwind: {
-            path: "$courseCategory",
-            preserveNullAndEmptyArrays: true,
-          },
-        },
-        // Populate createdBy
-        {
-          $lookup: {
-            from: "users",
-            localField: "createdBy",
-            foreignField: "_id",
-            pipeline: [
-              { $project: { firstName: 1, lastName: 1, profileImage: 1 } },
-            ],
-            as: "createdBy",
-          },
-        },
-        { $unwind: { path: "$createdBy", preserveNullAndEmptyArrays: true } },
-      ]);
-
-      // Format and enrich
-      const courseIds = geoAggCourses.map((c) => c._id);
-      const bookingCounts = await Transaction.aggregate([
-        { $match: { courseId: { $in: courseIds }, status: "PAID" } },
-        {
-          $group: {
-            _id: { course: "$courseId", schedule: "$scheduleId" },
-            count: { $sum: 1 },
-          },
-        },
-      ]);
-      const bookingMap = {};
-      const courseBookingMap = {};
-      bookingCounts.forEach((b) => {
-        const courseId = b._id.course.toString();
-        const scheduleId = b._id.schedule ? b._id.schedule.toString() : "null";
-        bookingMap[`${courseId}_${scheduleId}`] = b.count;
-        courseBookingMap[courseId] =
-          (courseBookingMap[courseId] || 0) + b.count;
-      });
-
-      let viewerId = null;
-      const authHeader = req.headers.authorization;
-      if (authHeader?.startsWith("Bearer ")) {
-        try {
-          const jwt = require("jsonwebtoken");
-          const decoded = jwt.verify(
-            authHeader.split(" ")[1],
-            process.env.JWT_SECRET_KEY,
-          );
-          viewerId = decoded.userId;
-        } catch { }
-      }
-      const bookedCourseIds = new Set();
-      const bookedScheduleMap = {};
-      if (viewerId) {
-        const bookings = await Transaction.find({
-          userId: viewerId,
-          courseId: { $in: courseIds },
-          status: "PAID",
-        }).select("courseId scheduleId");
-        bookings.forEach((b) => {
-          bookedCourseIds.add(b.courseId.toString());
-          if (b.scheduleId) {
-            const cId = b.courseId.toString();
-            if (!bookedScheduleMap[cId]) bookedScheduleMap[cId] = new Set();
-            bookedScheduleMap[cId].add(b.scheduleId.toString());
-          }
-        });
-      }
-
-      const formattedGeo = geoAggCourses.map((course) => {
-        if (course.schedules && Array.isArray(course.schedules)) {
-          course.schedules = course.schedules.map((schedule) => {
-            const schedId = schedule._id.toString();
-            const acquired = bookingMap[`${course._id}_${schedId}`] || 0;
-            const total = course.totalSeats;
-            const available = Math.max(0, total - acquired);
-            const userBookedSchedules =
-              bookedScheduleMap[course._id.toString()];
-            return {
-              ...schedule,
-              totalSeats: total,
-              acquiredSeats: acquired,
-              availableSeats: available,
-              isFull: available <= 0,
-              isBooked: userBookedSchedules
-                ? userBookedSchedules.has(schedId)
-                : false,
-            };
-          });
-        }
-        const currentSchedule = resolveCurrentSchedule(course.schedules);
-        const sessionStatus = getSessionStatus(currentSchedule);
-        if (Array.isArray(course.posterImage))
-          course.posterImage = course.posterImage.map(formatResponseUrl);
-        if (Array.isArray(course.galleryImages))
-          course.galleryImages = course.galleryImages.map(formatResponseUrl);
-        if (course.courseCategory?.image)
-          course.courseCategory.image = formatResponseUrl(
-            course.courseCategory.image,
-          );
-        if (course.createdBy?.profileImage)
-          course.createdBy.profileImage = formatResponseUrl(
-            course.createdBy.profileImage,
-          );
-        let duration = null;
-        if (currentSchedule?.startTime && currentSchedule?.endTime) {
-          const [sh, sm] = currentSchedule.startTime.split(":").map(Number);
-          const [eh, em] = currentSchedule.endTime.split(":").map(Number);
-          let mins = eh * 60 + em - (sh * 60 + sm);
-          if (mins < 0) mins += 1440;
-          const h = Math.floor(mins / 60);
-          const m = mins % 60;
-          duration = h ? (m ? `${h}H ${m}min` : `${h}H`) : `${m}min`;
-        }
-        const acquiredSeats = courseBookingMap[course._id.toString()] || 0;
-        return {
-          ...course,
-          currentSchedule,
-          sessionStatus,
-          isAvailable: !!currentSchedule,
-          duration,
-          acquiredSeats,
-          leftSeats: Math.max(0, course.totalSeats - acquiredSeats),
-          isBooked: bookedCourseIds.has(course._id.toString()),
-        };
-      });
-
-      return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.SUCCESS, {
-        totalCourses: formattedGeo.length,
-        currentPage: Number(page),
-        totalPages: Math.ceil(formattedGeo.length / limit),
-        coursesPerPage: Number(limit),
-        courses: formattedGeo,
-      });
-    }
-
-    // ===============================
-    // Fetch courses (all other filters)
-    // ===============================
-    let courses = await Course.find(query)
-      .populate("courseCategory")
-      .populate("createdBy", "firstName lastName profileImage isVerified")
-      .lean();
-
-    // ===============================
-    // Filter by time (JS, not Mongo)
-    // ===============================
-
-    if (filter === "thisWeek") {
-      const startOfWeek = new Date(now);
-      const currentDay = startOfWeek.getDay();
-      const diff = currentDay === 0 ? -6 : 1 - currentDay; // Adjust to Monday
-      startOfWeek.setDate(startOfWeek.getDate() + diff);
-      startOfWeek.setHours(0, 0, 0, 0);
-
-      const endOfWeek = new Date(startOfWeek);
-      endOfWeek.setDate(startOfWeek.getDate() + 6); // Sunday
-      endOfWeek.setHours(23, 59, 59, 999);
-
-      courses = courses.filter((c) =>
-        (c.schedules || []).some(
-          (s) =>
-            new Date(s.startDate) >= startOfWeek &&
-            new Date(s.startDate) <= endOfWeek,
-        ),
-      );
-    }
-
-    if (filter === "today") {
-      const startOfToday = new Date(now);
-      startOfToday.setHours(0, 0, 0, 0);
-      const endOfToday = new Date(now);
-      endOfToday.setHours(23, 59, 59, 999);
-
-      courses = courses.filter((c) =>
-        (c.schedules || []).some(
-          (s) =>
-            new Date(s.startDate) >= startOfToday &&
-            new Date(s.startDate) <= endOfToday,
-        ),
-      );
-    }
-
-    if (filter === "nextWeek") {
-      const startOfNextWeek = new Date(now);
-      const currentDayNW = startOfNextWeek.getDay();
-      const diffNW = currentDayNW === 0 ? -6 : 1 - currentDayNW;
-      startOfNextWeek.setDate(startOfNextWeek.getDate() + diffNW + 7); // Next Monday
-      startOfNextWeek.setHours(0, 0, 0, 0);
-
-      const endOfNextWeek = new Date(startOfNextWeek);
-      endOfNextWeek.setDate(endOfNextWeek.getDate() + 6); // Next Sunday
-      endOfNextWeek.setHours(23, 59, 59, 999);
-
-      courses = courses.filter((c) =>
-        (c.schedules || []).some(
-          (s) =>
-            new Date(s.startDate) >= startOfNextWeek &&
-            new Date(s.startDate) <= endOfNextWeek,
-        ),
-      );
-    }
-
-    // ===============================
-    // Pagination AFTER filtering
-    // ===============================
-    const totalCourses = courses.length;
-    const totalPages = Math.ceil(totalCourses / limit);
-
-    courses = courses
-      .sort((a, b) => {
-        if (a.isFeatured !== b.isFeatured) {
-          return a.isFeatured ? -1 : 1;
-        }
-        return new Date(b.createdAt) - new Date(a.createdAt);
-      })
-      .slice(skip, skip + Number(limit));
-
-    // ===============================
-    // Booking aggregation
-    // ===============================
-    const courseIds = courses.map((c) => c._id);
-
-    // Aggregate by Course (for general stats if needed) and Schedule
-    const bookingCounts = await Transaction.aggregate([
-      { $match: { courseId: { $in: courseIds }, status: "PAID" } },
-      {
-        $group: {
-          _id: { course: "$courseId", schedule: "$scheduleId" },
-          count: { $sum: 1 },
-        },
-      },
-    ]);
-
-    const bookingMap = {}; // Map: "courseId_scheduleId" -> count
-    const courseBookingMap = {}; // Map: "courseId" -> count (total for course)
-
-    bookingCounts.forEach((b) => {
-      const courseId = b._id.course.toString();
-      const scheduleId = b._id.schedule ? b._id.schedule.toString() : "null";
-
-      // Per schedule count
-      const key = `${courseId}_${scheduleId}`;
-      bookingMap[key] = b.count;
-
-      // Total course count
-      courseBookingMap[courseId] = (courseBookingMap[courseId] || 0) + b.count;
-    });
-
-    // ===============================
-    // Logged-in user booking status
-    // ===============================
-    let viewerId = null;
-    const authHeader = req.headers.authorization;
-
-    if (authHeader?.startsWith("Bearer ")) {
-      try {
-        const jwt = require("jsonwebtoken");
-        const decoded = jwt.verify(
-          authHeader.split(" ")[1],
-          process.env.JWT_SECRET_KEY,
-        );
-        viewerId = decoded.userId;
-      } catch { }
-    }
-
-    const bookedCourseIds = new Set(); // Set of "courseId"
-    const bookedScheduleMap = {}; // Map: "courseId" -> Set of "scheduleId"
-
-    if (viewerId) {
-      const bookings = await Transaction.find({
-        userId: viewerId,
-        courseId: { $in: courseIds },
-        status: "PAID",
-      }).select("courseId scheduleId");
-
-      bookings.forEach((b) => {
-        bookedCourseIds.add(b.courseId.toString());
-        if (b.scheduleId) {
-          const cId = b.courseId.toString();
-          if (!bookedScheduleMap[cId]) {
-            bookedScheduleMap[cId] = new Set();
-          }
-          bookedScheduleMap[cId].add(b.scheduleId.toString());
-        }
-      });
-    }
-
-    // ===============================
-    // Final formatting
-    // ===============================
     const formattedCourses = courses.map((course) => {
-      // Enrich schedules with seat info
       if (course.schedules && Array.isArray(course.schedules)) {
         course.schedules = course.schedules.map((schedule) => {
           const schedId = schedule._id?.toString();
           const acquired = bookingMap[`${course._id}_${schedId}`] || 0;
-          const total = course.totalSeats; // Course-level total seats applies to each schedule
+          const total = course.totalSeats;
           const available = Math.max(0, total - acquired);
-
-          // Check if this specific schedule is booked by user
           const userBookedSchedules = bookedScheduleMap[course._id.toString()];
-          const isScheduleBooked = userBookedSchedules
-            ? userBookedSchedules.has(schedId)
-            : false;
-
           return {
             ...schedule,
             totalSeats: total,
             acquiredSeats: acquired,
             availableSeats: available,
             isFull: available <= 0,
-            isBooked: isScheduleBooked,
+            isBooked: userBookedSchedules ? userBookedSchedules.has(schedId) : false,
           };
         });
       }
@@ -544,80 +401,50 @@ const getCourses = async (req, res) => {
       const currentSchedule = resolveCurrentSchedule(course.schedules);
       const sessionStatus = getSessionStatus(currentSchedule);
 
-      // images
-      if (Array.isArray(course.posterImage)) {
-        course.posterImage = course.posterImage.map(formatResponseUrl);
-      }
-      if (Array.isArray(course.galleryImages)) {
-        course.galleryImages = course.galleryImages.map(formatResponseUrl);
-      }
-      if (course.courseCategory?.image) {
-        course.courseCategory.image = formatResponseUrl(
-          course.courseCategory.image,
-        );
-      }
-      if (course.createdBy?.profileImage) {
-        course.createdBy.profileImage = formatResponseUrl(
-          course.createdBy.profileImage,
-        );
-      }
+      if (Array.isArray(course.posterImage)) course.posterImage = course.posterImage.map(formatResponseUrl);
+      if (Array.isArray(course.galleryImages)) course.galleryImages = course.galleryImages.map(formatResponseUrl);
+      if (course.courseCategory?.image) course.courseCategory.image = formatResponseUrl(course.courseCategory.image);
+      if (course.createdBy?.profileImage) course.createdBy.profileImage = formatResponseUrl(course.createdBy.profileImage);
 
-      // duration
       let duration = null;
       if (currentSchedule?.startTime && currentSchedule?.endTime) {
         const [sh, sm] = currentSchedule.startTime.split(":").map(Number);
         const [eh, em] = currentSchedule.endTime.split(":").map(Number);
         let mins = eh * 60 + em - (sh * 60 + sm);
         if (mins < 0) mins += 1440;
-
         const h = Math.floor(mins / 60);
         const m = mins % 60;
         duration = h ? (m ? `${h}H ${m}min` : `${h}H`) : `${m}min`;
       }
 
-      // Use course-level booking map for total acquired seats across all schedules (or specific logic?)
-      // Usually "acquiredSeats" on the course object implies generic popularity or total constraints?
-      // For "Ongoing" or "fixedStart", totalSeats is usually per schedule (class capacity).
-      // But let's stick to the requested aggregation logic.
-      const acquiredSeats = courseBookingMap[course._id.toString()] || 0;
-
+      const acquiredTotal = courseBookingMap[course._id.toString()] || 0;
       return {
         ...course,
         currentSchedule,
         sessionStatus,
         isAvailable: !!currentSchedule,
         duration,
-        acquiredSeats,
-        leftSeats: Math.max(0, course.totalSeats - acquiredSeats), // This might be misleading if it aggregates all schedules vs course capacity, but keeping consistent with prev logic.
+        acquiredSeats: acquiredTotal,
+        leftSeats: Math.max(0, course.totalSeats - acquiredTotal),
         isBooked: bookedCourseIds.has(course._id.toString()),
       };
     });
 
-    // ===============================
-    // Sort by nearest schedule
-    // ===============================
+    // Secondary sort: nearest schedule
     formattedCourses.sort((a, b) => {
-      if (a.isFeatured !== b.isFeatured) {
-        return a.isFeatured ? -1 : 1;
-      }
+      if (a.isFeatured !== b.isFeatured) return a.isFeatured ? -1 : 1;
       if (a.currentSchedule && !b.currentSchedule) return -1;
       if (!a.currentSchedule && b.currentSchedule) return 1;
       if (a.currentSchedule && b.currentSchedule) {
-        return (
-          new Date(a.currentSchedule.startDate) -
-          new Date(b.currentSchedule.startDate)
-        );
+        return new Date(a.currentSchedule.startDate) - new Date(b.currentSchedule.startDate);
       }
       return 0;
     });
 
-    // ===============================
-    // Response
-    // ===============================
     return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.SUCCESS, {
-      totalCourses,
+      totalCourses: totalCoursesCount,
       currentPage: Number(page),
-      totalPages,
+      totalPages: Math.ceil(totalCoursesCount / limit),
       coursesPerPage: Number(limit),
       courses: formattedCourses,
     });
