@@ -1377,7 +1377,7 @@ router.post(
 router.get(
   "/list",
   perApiLimiter(),
-  validateRequest(getEventsSchema),
+  // validateRequest(getEventsSchema),
   getEvents,
 );
 
