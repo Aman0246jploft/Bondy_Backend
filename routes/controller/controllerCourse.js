@@ -210,7 +210,7 @@ const getCourses = async (req, res) => {
                 userCategories = user.categories;
                 query.courseCategory = { $in: userCategories.map((id) => new mongoose.Types.ObjectId(id)) };
               }
-            } catch (err) {}
+            } catch (err) { }
           }
           break;
       }
@@ -233,7 +233,7 @@ const getCourses = async (req, res) => {
           const user = await User.findById(decoded.userId).lean();
           city = user?.location?.city || null;
           country = user?.location?.country || null;
-        } catch (err) {}
+        } catch (err) { }
       }
       if (city) query["venueAddress.city"] = city;
       else if (country) query["venueAddress.country"] = country;
@@ -344,7 +344,7 @@ const getCourses = async (req, res) => {
         const jwt = require("jsonwebtoken");
         const decoded = jwt.verify(authHeader.split(" ")[1], process.env.JWT_SECRET_KEY);
         viewerId = decoded.userId;
-      } catch {}
+      } catch { }
     }
 
     const bookedCourseIds = new Set();
