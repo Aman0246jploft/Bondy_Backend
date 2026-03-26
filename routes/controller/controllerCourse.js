@@ -85,7 +85,7 @@ const getCourses = async (req, res) => {
       filter = "all",
       latitude,
       longitude,
-      radius = 50,
+      radius = 200,
       categoryId,
       userId,
       search,
