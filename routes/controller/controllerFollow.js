@@ -109,14 +109,39 @@ const getFollowers = async (req, res) => {
         "fromUser",
         "firstName lastName profileImage email  isVerified",
       )
+      .populate(
+        "toUser",
+        "firstName lastName profileImage email  isVerified",
+      )
       .skip(skip)
       .limit(size)
       .lean();
 
-    // Format profile images
+    // Determine which followers the logged-in user is following
+    const loginUserId = req.user ? req.user.userId : null;
+    let followedUserIds = new Set();
+    if (loginUserId) {
+      const followerIds = followers.map((f) => f.fromUser?._id).filter(Boolean);
+      const follows = await Follow.find({
+        fromUser: loginUserId,
+        toUser: { $in: followerIds },
+      }).select("toUser").lean();
+      followedUserIds = new Set(follows.map((f) => f.toUser.toString()));
+    }
+
+    // Format profile images and add isFollowed status
     followers.forEach((f) => {
       if (f.fromUser && f.fromUser.profileImage) {
         f.fromUser.profileImage = formatResponseUrl(f.fromUser.profileImage);
+      }
+      if (f.toUser && f.toUser.profileImage) {
+        f.toUser.profileImage = formatResponseUrl(f.toUser.profileImage);
+      }
+
+      if (f.fromUser) {
+        f.isFollowed = followedUserIds.has(f.fromUser._id.toString());
+      } else {
+        f.isFollowed = false;
       }
     });
 
@@ -151,15 +176,37 @@ const getFollowing = async (req, res) => {
 
     const total = await Follow.countDocuments({ fromUser: userId });
     const following = await Follow.find({ fromUser: userId })
+      .populate("fromUser", "firstName lastName profileImage email isVerified")
       .populate("toUser", "firstName lastName profileImage email isVerified")
       .skip(skip)
       .limit(size)
       .lean();
 
-    // Format profile images
+    // Determine which of the followed users the logged-in user is also following
+    const loginUserId = req.user ? req.user.userId : null;
+    let followedUserIds = new Set();
+    if (loginUserId) {
+      const followingIds = following.map((f) => f.toUser?._id).filter(Boolean);
+      const follows = await Follow.find({
+        fromUser: loginUserId,
+        toUser: { $in: followingIds },
+      }).select("toUser").lean();
+      followedUserIds = new Set(follows.map((f) => f.toUser.toString()));
+    }
+
+    // Format profile images and add isFollowed status
     following.forEach((f) => {
+      if (f.fromUser && f.fromUser.profileImage) {
+        f.fromUser.profileImage = formatResponseUrl(f.fromUser.profileImage);
+      }
       if (f.toUser && f.toUser.profileImage) {
         f.toUser.profileImage = formatResponseUrl(f.toUser.profileImage);
+      }
+
+      if (f.toUser) {
+        f.isFollowed = followedUserIds.has(f.toUser._id.toString());
+      } else {
+        f.isFollowed = false;
       }
     });
 

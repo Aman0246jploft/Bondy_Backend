@@ -7,6 +7,7 @@ const {
   messageListSchema,
   deleteMessageSchema,
   createChatSchema,
+  clearChatSchema,
 } = require("../validations/socketValidation");
 const { formatResponseUrl } = require("../../utils/globalFunction");
 
@@ -241,6 +242,9 @@ const chatSocketController = (io, socket) => {
         } else {
           chatId = chat._id.toString();
         }
+
+        // If user has previously cleared this chat, make sure we don't accidentally hide the new message
+        // Though by default a new message will have createdAt > any existing clearedAt
       }
 
       // Block Check
@@ -373,9 +377,16 @@ const chatSocketController = (io, socket) => {
           (p) => p._id.toString() !== currentUserId,
         );
 
-        // Format lastMessage.sender
-        if (chatObj.lastMessage && chatObj.lastMessage.sender && typeof chatObj.lastMessage.sender === "object") {
-          chatObj.lastMessage.sender = formatUser(chatObj.lastMessage.sender);
+        // Check if chat was cleared for this user
+        const clearedAt = chat.clearedAt && chat.clearedAt.get
+          ? chat.clearedAt.get(currentUserId)
+          : chat.clearedAt
+            ? chat.clearedAt[currentUserId]
+            : null;
+
+        // If lastMessage is older than clearedAt, don't show it in the list
+        if (clearedAt && chatObj.lastMessage && new Date(chatObj.lastMessage.createdAt) <= new Date(clearedAt)) {
+          chatObj.lastMessage = null;
         }
 
         return chatObj;
@@ -419,10 +430,7 @@ const chatSocketController = (io, socket) => {
         deletedFor: { $ne: userId },
       };
 
-      const [chat, totalMessages] = await Promise.all([
-        Chat.findOne({ _id: chatId, participants: userId }),
-        Message.countDocuments(msgQuery),
-      ]);
+      const chat = await Chat.findOne({ _id: chatId, participants: userId });
 
       if (!chat) {
         const payload = { status: "error", message: "Chat not found" };
@@ -431,6 +439,20 @@ const chatSocketController = (io, socket) => {
         else socket.emit("get_message_list_response", payload);
         return;
       }
+
+      // Check for clearedAt filter
+      const clearedAt = chat.clearedAt && chat.clearedAt.get
+        ? chat.clearedAt.get(userId.toString())
+        : chat.clearedAt
+          ? chat.clearedAt[userId.toString()]
+          : null;
+
+      if (clearedAt) {
+        msgQuery.createdAt = { $gt: new Date(clearedAt) };
+      }
+
+      // Calculate total messages after applying all filters
+      const totalMessages = await Message.countDocuments(msgQuery);
 
       const msgSkip = (page - 1) * limit;
 
@@ -501,6 +523,45 @@ const chatSocketController = (io, socket) => {
       console.error("DeleteMessage Error", err);
       if (typeof ack === "function")
         ack({ status: "error", message: "Error deleting message" });
+    }
+  });
+
+  // 8.1 Clear Chat (Socket)
+  socket.on("clear_chat", async (data, ack) => {
+    const { error, value } = clearChatSchema.validate(data);
+    if (error) {
+      if (typeof ack === "function")
+        ack({ status: "error", message: error.details[0].message });
+      return;
+    }
+
+    const { chatId } = value;
+
+    try {
+      const chat = await Chat.findOne({ _id: chatId, participants: userId });
+      if (!chat) {
+        if (typeof ack === "function")
+          ack({ status: "error", message: "Chat not found" });
+        return;
+      }
+
+      // Set clearedAt for this user to CURRENT time
+      chat.clearedAt.set(userId, new Date());
+      await chat.save();
+
+      // Emit update to the user to refresh their chat list (to hide last message snippet)
+      const populatedChat = await Chat.findById(chatId)
+        .populate("participants", "firstName lastName profileImage")
+        .populate("lastMessage.sender", "firstName lastName profileImage");
+
+      const formattedChat = formatChatForUser(populatedChat, userId);
+      socket.emit("update_chat_list", formattedChat);
+
+      if (typeof ack === "function") ack({ status: "ok" });
+    } catch (err) {
+      console.error("ClearChat Error", err);
+      if (typeof ack === "function")
+        ack({ status: "error", message: "Error clearing chat" });
     }
   });
 

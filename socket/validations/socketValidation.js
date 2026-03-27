@@ -34,6 +34,10 @@ const createChatSchema = Joi.object({
     receiverId: Joi.string().required(),
 });
 
+const clearChatSchema = Joi.object({
+    chatId: Joi.string().required(),
+});
+
 module.exports = {
     sendMessageSchema,
     joinChatSchema,
@@ -41,4 +45,5 @@ module.exports = {
     messageListSchema,
     deleteMessageSchema,
     createChatSchema,
+    clearChatSchema,
 };

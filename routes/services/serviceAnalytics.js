@@ -73,8 +73,20 @@ const getAdminStats = async () => {
                 $group: {
                   _id: null,
                   totalRevenue: { $sum: "$totalAmount" },
+                  totalEventRevenue: {
+                    $sum: { $cond: [{ $eq: ["$bookingType", "EVENT"] }, "$totalAmount", 0] },
+                  },
+                  totalCourseRevenue: {
+                    $sum: { $cond: [{ $eq: ["$bookingType", "COURSE"] }, "$totalAmount", 0] },
+                  },
                   totalCommission: { $sum: "$commissionAmount" },
                   totalTicketsSold: { $sum: "$qty" },
+                  totalEventTicketsSold: {
+                    $sum: { $cond: [{ $eq: ["$bookingType", "EVENT"] }, "$qty", 0] },
+                  },
+                  totalCourseTicketsSold: {
+                    $sum: { $cond: [{ $eq: ["$bookingType", "COURSE"] }, "$qty", 0] },
+                  },
                 },
               },
             ],
@@ -82,8 +94,24 @@ const getAdminStats = async () => {
               { $match: { status: "PAID", bookingType: "COURSE" } },
               {
                 $group: {
-                  _id: null,
-                  totalEnrollments: { $sum: "$qty" },
+                  _id: "$courseId",
+                  enrollmentCount: { $sum: "$qty" },
+                },
+              },
+              {
+                $lookup: {
+                  from: "courses",
+                  localField: "_id",
+                  foreignField: "_id",
+                  as: "courseInfo",
+                },
+              },
+              { $unwind: "$courseInfo" },
+              {
+                $project: {
+                  courseId: "$_id",
+                  courseTitle: "$courseInfo.title",
+                  enrollmentCount: 1,
                 },
               },
             ],
@@ -160,12 +188,20 @@ const getAdminStats = async () => {
       },
       courses: {
         ...(courseStats[0] || { totalCourses: 0, featuredCourses: 0 }),
-        totalEnrollments: transactionStats[0]?.courseEnrollments[0]?.totalEnrollments || 0,
+        totalEnrollments: (transactionStats[0]?.courseEnrollments || []).reduce(
+          (sum, c) => sum + (c.enrollmentCount || 0),
+          0,
+        ),
+        perCourseEnrollments: transactionStats[0]?.courseEnrollments || [],
       },
       finance: transactionStats[0]?.finance[0] || {
         totalRevenue: 0,
+        totalEventRevenue: 0,
+        totalCourseRevenue: 0,
         totalCommission: 0,
         totalTicketsSold: 0,
+        totalEventTicketsSold: 0,
+        totalCourseTicketsSold: 0,
       },
       tickets: ticketStats[0] || {
         totalTickets: 0,
@@ -197,7 +233,7 @@ const getOrganizerStats = async (organizerId) => {
   try {
     const organizerObjectId = new mongoose.Types.ObjectId(organizerId);
 
-    const [eventStats, transactionStats] = await Promise.all([
+    const [eventStats, courseStats, transactionStats] = await Promise.all([
       Event.aggregate([
         { $match: { createdBy: organizerObjectId } },
         {
@@ -212,6 +248,18 @@ const getOrganizerStats = async (organizerId) => {
             },
             pastEvents: {
               $sum: { $cond: [{ $eq: ["$status", "Past"] }, 1, 0] },
+            },
+          },
+        },
+      ]),
+      Course.aggregate([
+        { $match: { createdBy: organizerObjectId } },
+        {
+          $group: {
+            _id: null,
+            totalCourses: { $sum: 1 },
+            featuredCourses: {
+              $sum: { $cond: [{ $eq: ["$isFeatured", true] }, 1, 0] },
             },
           },
         },
@@ -243,11 +291,54 @@ const getOrganizerStats = async (organizerId) => {
           },
         },
         {
-          $group: {
-            _id: null,
-            totalEarnings: { $sum: "$organizerEarning" },
-            totalTicketsSold: { $sum: "$qty" },
-            totalBookings: { $sum: 1 },
+          $facet: {
+            performance: [
+              {
+                $group: {
+                  _id: null,
+                  totalEarnings: { $sum: "$organizerEarning" },
+                  totalEventEarnings: {
+                    $sum: { $cond: [{ $eq: ["$bookingType", "EVENT"] }, "$organizerEarning", 0] },
+                  },
+                  totalCourseEarnings: {
+                    $sum: { $cond: [{ $eq: ["$bookingType", "COURSE"] }, "$organizerEarning", 0] },
+                  },
+                  totalTicketsSold: { $sum: "$qty" },
+                  totalEventTicketsSold: {
+                    $sum: { $cond: [{ $eq: ["$bookingType", "EVENT"] }, "$qty", 0] },
+                  },
+                  totalCourseTicketsSold: {
+                    $sum: { $cond: [{ $eq: ["$bookingType", "COURSE"] }, "$qty", 0] },
+                  },
+                  totalBookings: { $sum: 1 },
+                },
+              },
+            ],
+            courseEnrollments: [
+              { $match: { bookingType: "COURSE" } },
+              {
+                $group: {
+                  _id: "$courseId",
+                  enrollmentCount: { $sum: "$qty" },
+                },
+              },
+              {
+                $lookup: {
+                  from: "courses",
+                  localField: "_id",
+                  foreignField: "_id",
+                  as: "courseInfo",
+                },
+              },
+              { $unwind: "$courseInfo" },
+              {
+                $project: {
+                  courseId: "$_id",
+                  courseTitle: "$courseInfo.title",
+                  enrollmentCount: 1,
+                },
+              },
+            ],
           },
         },
       ]),
@@ -260,9 +351,21 @@ const getOrganizerStats = async (organizerId) => {
         liveEvents: 0,
         pastEvents: 0,
       },
-      performance: transactionStats[0] || {
+      courses: {
+        ...(courseStats[0] || { totalCourses: 0, featuredCourses: 0 }),
+        totalEnrollments: (transactionStats[0]?.courseEnrollments || []).reduce(
+          (sum, c) => sum + (c.enrollmentCount || 0),
+          0,
+        ),
+        perCourseEnrollments: transactionStats[0]?.courseEnrollments || [],
+      },
+      performance: transactionStats[0]?.performance[0] || {
         totalEarnings: 0,
+        totalEventEarnings: 0,
+        totalCourseEarnings: 0,
         totalTicketsSold: 0,
+        totalEventTicketsSold: 0,
+        totalCourseTicketsSold: 0,
         totalBookings: 0,
       },
     };

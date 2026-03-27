@@ -1024,7 +1024,7 @@ const getUserProfileById = async (req, res) => {
         user.organizerVerificationStatus;
       profileData.documents = user.documents;
 
-      // Calculate totalEventsHosted
+      // Calculate totalEventsHosted  
       const totalEventsHosted = await Event.countDocuments({
         createdBy: userId,
       });

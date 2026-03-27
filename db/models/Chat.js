@@ -26,6 +26,12 @@ const chatSchema = new mongoose.Schema(
                 ref: "User",
             },
         ],
+        // Map of UserId -> Date when they last cleared the chat
+        clearedAt: {
+            type: Map,
+            of: Date,
+            default: {},
+        },
     },
     {
         timestamps: true,
