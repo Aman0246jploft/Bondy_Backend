@@ -2,7 +2,11 @@ const express = require("express");
 const router = express.Router();
 const { Follow, User } = require("../../db");
 const HTTP_STATUS = require("../../utils/statusCode");
-const { apiErrorRes, apiSuccessRes } = require("../../utils/globalFunction");
+const {
+  apiErrorRes,
+  apiSuccessRes,
+  formatResponseUrl,
+} = require("../../utils/globalFunction");
 const constantsMessage = require("../../utils/constantsMessage");
 const perApiLimiter = require("../../middlewares/rateLimiter");
 const { notifyFollow } = require("../services/serviceNotification");
@@ -94,17 +98,27 @@ const unfollowUser = async (req, res) => {
 // Get Followers (users who follow me)
 const getFollowers = async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const userId = req.query.userId || req.user.userId;
     const pageNo = parseInt(req.query.pageNo) || 1;
     const size = parseInt(req.query.size) || 10;
     const skip = (pageNo - 1) * size;
 
     const total = await Follow.countDocuments({ toUser: userId });
     const followers = await Follow.find({ toUser: userId })
-      .populate("fromUser", "firstName lastName profileImage email  isVerified")
+      .populate(
+        "fromUser",
+        "firstName lastName profileImage email  isVerified",
+      )
       .skip(skip)
       .limit(size)
       .lean();
+
+    // Format profile images
+    followers.forEach((f) => {
+      if (f.fromUser && f.fromUser.profileImage) {
+        f.fromUser.profileImage = formatResponseUrl(f.fromUser.profileImage);
+      }
+    });
 
     return apiSuccessRes(
       HTTP_STATUS.OK,
@@ -130,7 +144,7 @@ const getFollowers = async (req, res) => {
 // Get Following (users I follow)
 const getFollowing = async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const userId = req.query.userId || req.user.userId;
     const pageNo = parseInt(req.query.pageNo) || 1;
     const size = parseInt(req.query.size) || 10;
     const skip = (pageNo - 1) * size;
@@ -141,6 +155,13 @@ const getFollowing = async (req, res) => {
       .skip(skip)
       .limit(size)
       .lean();
+
+    // Format profile images
+    following.forEach((f) => {
+      if (f.toUser && f.toUser.profileImage) {
+        f.toUser.profileImage = formatResponseUrl(f.toUser.profileImage);
+      }
+    });
 
     return apiSuccessRes(
       HTTP_STATUS.OK,

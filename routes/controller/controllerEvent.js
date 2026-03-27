@@ -35,16 +35,29 @@ const jwt = require("jsonwebtoken");
 // Create Event
 const createEvent = async (req, res) => {
   try {
-    const { venueAddress, ...eventData } = req.body;
+    const { id, venueAddress, isDraft: isDraftBody, ...eventData } = req.body;
+    const userId = req.user.userId;
 
-    // Transform venueAddress to GeoJSON Point
-    const location = {
-      type: "Point",
-      coordinates: [venueAddress.longitude, venueAddress.latitude],
-      city: venueAddress.city,
-      country: venueAddress.country,
-      address: venueAddress.address,
-    };
+    let event;
+    let isDraftValue = isDraftBody === true;
+
+    // "if he send it draft:true with id than check and and publish"
+    // If id exists and isDraft is true, it means we are publishing the draft.
+    if (id && isDraftValue) {
+      isDraftValue = false;
+    }
+
+    // Transform venueAddress to GeoJSON Point safely
+    let location = undefined;
+    if (venueAddress && venueAddress.longitude !== undefined && venueAddress.latitude !== undefined) {
+      location = {
+        type: "Point",
+        coordinates: [venueAddress.longitude, venueAddress.latitude],
+        city: venueAddress.city,
+        country: venueAddress.country,
+        address: venueAddress.address,
+      };
+    }
 
     let featureFee = 0;
     if (req.body.fetcherEvent) {
@@ -56,36 +69,77 @@ const createEvent = async (req, res) => {
       }
     }
 
-    const newEvent = new Event({
-      ...eventData,
-      venueAddress: location,
-      venueName: req.body.venueName,
-      createdBy: req.user.userId,
-      featureEventFee: featureFee,
-    });
+    if (id) {
+      // UPDATE existing event (Draft or Published)
+      event = await Event.findById(id);
+      if (!event) {
+        return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.EVENT_NOT_FOUND);
+      }
 
-    await newEvent.save();
-    const event = newEvent.toObject();
-    if (Array.isArray(event.posterImage)) {
-      event.posterImage = event.posterImage.map((img) =>
+      if (event.createdBy.toString() !== userId) {
+        return apiErrorRes(HTTP_STATUS.FORBIDDEN, res, "Unauthorized to update this event");
+      }
+
+      // Update fields
+      Object.assign(event, eventData);
+
+      // Update venueAddress safely
+      if (venueAddress) {
+        if (!event.venueAddress) {
+          event.venueAddress = { type: "Point", coordinates: [0, 0] };
+        }
+
+        if (venueAddress.longitude !== undefined && venueAddress.latitude !== undefined) {
+          event.venueAddress.coordinates = [venueAddress.longitude, venueAddress.latitude];
+        }
+        if (venueAddress.city !== undefined) event.venueAddress.city = venueAddress.city;
+        if (venueAddress.country !== undefined) event.venueAddress.country = venueAddress.country;
+        if (venueAddress.address !== undefined) event.venueAddress.address = venueAddress.address;
+      }
+
+      if (req.body.venueName !== undefined) event.venueName = req.body.venueName;
+      event.featureEventFee = featureFee;
+      event.isDraft = isDraftValue;
+
+      await event.save();
+    } else {
+      // CREATE new event
+      event = new Event({
+        ...eventData,
+        venueAddress: location,
+        venueName: req.body.venueName,
+        createdBy: userId,
+        featureEventFee: featureFee,
+        isDraft: isDraftValue,
+      });
+      await event.save();
+    }
+
+    const eventObj = event.toObject();
+    if (Array.isArray(eventObj.posterImage)) {
+      eventObj.posterImage = eventObj.posterImage.map((img) =>
         formatResponseUrl(img),
       );
     }
 
-    if (Array.isArray(event.shortTeaserVideo)) {
-      event.shortTeaserVideo = event.shortTeaserVideo.map((video) =>
+    if (Array.isArray(eventObj.shortTeaserVideo)) {
+      eventObj.shortTeaserVideo = eventObj.shortTeaserVideo.map((video) =>
         formatResponseUrl(video),
       );
     }
 
-    if (Array.isArray(event.mediaLinks)) {
-      event.mediaLinks = event.mediaLinks.map((link) =>
+    if (Array.isArray(eventObj.mediaLinks)) {
+      eventObj.mediaLinks = eventObj.mediaLinks.map((link) =>
         formatResponseUrl(link),
       );
     }
 
-    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.EVENT_CREATED, {
-      event: event,
+    const message = id
+      ? (isDraftValue ? "Draft updated" : "Event published successfully")
+      : (isDraftValue ? "Draft saved" : constantsMessage.EVENT_CREATED);
+
+    return apiSuccessRes(HTTP_STATUS.OK, res, message, {
+      event: eventObj,
     });
   } catch (error) {
     console.error("Error in createEvent:", error);
@@ -167,14 +221,24 @@ const getEvents = async (req, res) => {
     const filters = filter.split(",").map((f) => f.trim().toLowerCase());
 
     // 1. Build Base Query
-    let query = { isDraft: false };
+    let query = {};
 
-    // Default time constraints (active events) - unless "past" filter is specifically requested
-    if (!filters.includes("past")) {
-      query.endDate = { $gte: now };
-      query.status = { $ne: "Past" };
+    if (filters.includes("draft")) {
+      if (!loginUser) {
+        return apiErrorRes(HTTP_STATUS.UNAUTHORIZED, res, "Login required to view drafts");
+      }
+      query.isDraft = true;
+      query.createdBy = loginUser;
     } else {
-      query.endDate = { $lt: now };
+      query.isDraft = false;
+
+      // Default time constraints (active events) - unless "past" filter is specifically requested
+      if (!filters.includes("past")) {
+        query.endDate = { $gte: now };
+        query.status = { $ne: "Past" };
+      } else {
+        query.endDate = { $lt: now };
+      }
     }
 
     // CreatedBy filter

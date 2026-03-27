@@ -1,22 +1,54 @@
 const Joi = require("joi");
 
 const createEventSchema = Joi.object({
-    eventTitle: Joi.string().required(),
-    eventCategory: Joi.string().required(), // ObjectId as string
+    id: Joi.string().hex().length(24).optional(),
+    isDraft: Joi.boolean().optional(),
+    eventTitle: Joi.string().when(Joi.object({ isDraft: true, id: Joi.not().exist() }).unknown(), {
+        then: Joi.optional(),
+        otherwise: Joi.required(),
+    }),
+    eventCategory: Joi.string().when(Joi.object({ isDraft: true, id: Joi.not().exist() }).unknown(), {
+        then: Joi.optional(),
+        otherwise: Joi.required(),
+    }), // ObjectId as string
     posterImage: Joi.array().items(Joi.string()).optional(),
     shortdesc: Joi.string().optional(),
     longdesc: Joi.string().optional(),
     tags: Joi.array().items(Joi.string()).optional(),
     venueName: Joi.string().optional(),
     venueAddress: Joi.object({
-        latitude: Joi.number().required(),
-        longitude: Joi.number().required(),
-        city: Joi.string().required(),
-        country: Joi.string().required(),
-        address: Joi.string().required(),
-    }).required(),
-    startDate: Joi.date().required(),
-    endDate: Joi.date().required(),
+        latitude: Joi.number().when(Joi.object({ isDraft: true, id: Joi.not().exist() }).unknown(), {
+            then: Joi.optional(),
+            otherwise: Joi.required(),
+        }),
+        longitude: Joi.number().when(Joi.object({ isDraft: true, id: Joi.not().exist() }).unknown(), {
+            then: Joi.optional(),
+            otherwise: Joi.required(),
+        }),
+        city: Joi.string().when(Joi.object({ isDraft: true, id: Joi.not().exist() }).unknown(), {
+            then: Joi.optional(),
+            otherwise: Joi.required(),
+        }),
+        country: Joi.string().when(Joi.object({ isDraft: true, id: Joi.not().exist() }).unknown(), {
+            then: Joi.optional(),
+            otherwise: Joi.required(),
+        }),
+        address: Joi.string().when(Joi.object({ isDraft: true, id: Joi.not().exist() }).unknown(), {
+            then: Joi.optional(),
+            otherwise: Joi.required(),
+        }),
+    }).when(Joi.object({ isDraft: true, id: Joi.not().exist() }).unknown(), {
+        then: Joi.optional(),
+        otherwise: Joi.required(),
+    }),
+    startDate: Joi.date().when(Joi.object({ isDraft: true, id: Joi.not().exist() }).unknown(), {
+        then: Joi.optional(),
+        otherwise: Joi.required(),
+    }),
+    endDate: Joi.date().when(Joi.object({ isDraft: true, id: Joi.not().exist() }).unknown(), {
+        then: Joi.optional(),
+        otherwise: Joi.required(),
+    }),
     startTime: Joi.string().optional(),
     endTime: Joi.string().optional(),
     ticketName: Joi.string().optional(),
@@ -37,7 +69,6 @@ const createEventSchema = Joi.object({
     }).optional(),
     dressCode: Joi.string().optional(),
     fetcherEvent: Joi.boolean().optional(),
-    isDraft: Joi.boolean().optional(),
 });
 
 const getEventsSchema = Joi.object({

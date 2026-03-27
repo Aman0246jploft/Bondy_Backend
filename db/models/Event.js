@@ -21,14 +21,26 @@ const eventSchema = new mongoose.Schema(
       },
       coordinates: {
         type: [Number], // [longitude, latitude]
-        required: true,
+        required: function () {
+          return !this.isDraft;
+        },
       },
       city: String,
       country: String,
       address: String,
     },
-    startDate: { type: Date, required: true },
-    endDate: { type: Date, required: true },
+    startDate: {
+      type: Date,
+      required: function () {
+        return !this.isDraft;
+      },
+    },
+    endDate: {
+      type: Date,
+      required: function () {
+        return !this.isDraft;
+      },
+    },
     startTime: { type: String },
     endTime: { type: String },
     ticketName: { type: String },

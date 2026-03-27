@@ -997,7 +997,8 @@ const getUserProfileById = async (req, res) => {
       totalInterests: totalInterests,
       isFollowed: isFollowed,
       isMyProfile: isMyProfile,
-      totalFollowers: 0, // Default to 0, overwritten if organizer/relevant
+      totalFollowers: 0, // Default to 0, overwritten below
+      totalFollowing: 0, // Default to 0, overwritten below
     };
 
     // Calculate totalFollowers for everyone (or just organizers? Requirement says "toall followers API... if he is ORGANIZER".
@@ -1009,6 +1010,11 @@ const getUserProfileById = async (req, res) => {
       toUser: userId,
     });
     profileData.totalFollowers = totalFollowers;
+
+    const totalFollowing = await Follow.countDocuments({
+      fromUser: userId,
+    });
+    profileData.totalFollowing = totalFollowing;
 
     // If user is organizer, add additional data
     if (user.roleId === roleId.ORGANIZER) {
