@@ -91,4 +91,53 @@ router.get(
   },
 );
 
+/**
+ * Admin Revenue Analytics (Global)
+ */
+router.get(
+  "/admin/revenue-analytics",
+  checkRole([roleId.SUPER_ADMIN]),
+  async (req, res) => {
+    try {
+      const { filter, startDate, endDate } = req.query;
+      const result = await analyticsService.getRevenueAnalytics({ filter, startDate, endDate });
+      return apiSuccessRes(
+        HTTP_STATUS.OK,
+        res,
+        "Admin revenue analytics fetched successfully",
+        result.data
+      );
+    } catch (error) {
+      return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
+    }
+  },
+);
+
+/**
+ * Organizer Revenue Analytics (Specific to logged-in Organizer)
+ */
+router.get(
+  "/organizer/revenue-analytics",
+  checkRole([roleId.ORGANIZER]),
+  async (req, res) => {
+    try {
+      const { filter, startDate, endDate } = req.query;
+      const result = await analyticsService.getRevenueAnalytics({
+        filter,
+        startDate,
+        endDate,
+        organizerId: req.user.userId
+      });
+      return apiSuccessRes(
+        HTTP_STATUS.OK,
+        res,
+        "Organizer revenue analytics fetched successfully",
+        result.data
+      );
+    } catch (error) {
+      return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
+    }
+  },
+);
+
 module.exports = router;

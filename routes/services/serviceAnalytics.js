@@ -430,4 +430,114 @@ module.exports = {
   getOrganizerStats,
   getCustomerStats,
   getUserStatsForAdmin,
+  getRevenueAnalytics,
 };
+
+/**
+ * Get Revenue Analytics with Filters (for Charts)
+ */
+async function getRevenueAnalytics({ filter, startDate, endDate, organizerId = null }) {
+  try {
+    const now = new Date();
+    let start = new Date();
+    let groupFormat = "%Y-%m-%d"; // Default grouping by day
+
+    // 1. Determine Date Range & Grouping
+    if (filter === "7d") {
+      start.setDate(now.getDate() - 7);
+    } else if (filter === "14d") {
+      start.setDate(now.getDate() - 14);
+    } else if (filter === "1m") {
+      start.setMonth(now.getMonth() - 1);
+    } else if (filter === "6m") {
+      start.setMonth(now.getMonth() - 6);
+      groupFormat = "%Y-%m"; // Group by month
+    } else if (filter === "1y") {
+      start.setFullYear(now.getFullYear() - 1);
+      groupFormat = "%Y-%m"; // Group by month
+    } else if (filter === "custom" && startDate && endDate) {
+      start = new Date(startDate);
+      const end = new Date(endDate);
+      const diffDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+      if (diffDays > 60) groupFormat = "%Y-%m"; // Group by month if range > 60 days
+    } else {
+      // Default to 7 days if invalid filter
+      start.setDate(now.getDate() - 7);
+    }
+
+    // 2. Perform Aggregation
+    const pipeline = [];
+
+    // Initial match (status and date) - do this BEFORE lookups for optimization
+    const baseMatch = {
+      status: "PAID",
+      createdAt: { $gte: start },
+    };
+    if (filter === "custom" && endDate) {
+      baseMatch.createdAt.$lte = new Date(endDate);
+    }
+    pipeline.push({ $match: baseMatch });
+
+    // If organizerId, we need lookups to filter by creator
+    if (organizerId) {
+      const orgObjectId = new mongoose.Types.ObjectId(organizerId);
+      pipeline.push(
+        {
+          $lookup: {
+            from: "events",
+            localField: "eventId",
+            foreignField: "_id",
+            as: "eventInfo",
+          },
+        },
+        {
+          $lookup: {
+            from: "courses",
+            localField: "courseId",
+            foreignField: "_id",
+            as: "courseInfo",
+          },
+        },
+        {
+          $match: {
+            $or: [
+              { "eventInfo.createdBy": orgObjectId },
+              { "courseInfo.createdBy": orgObjectId },
+            ],
+          },
+        }
+      );
+    }
+
+    pipeline.push(
+      {
+        $group: {
+          _id: { $dateToString: { format: groupFormat, date: "$createdAt" } },
+          grossRevenue: { $sum: "$totalAmount" },
+          netAdminRevenue: { $sum: "$commissionAmount" },
+          netOrganizerRevenue: { $sum: "$organizerEarning" },
+          count: { $sum: 1 },
+        },
+      },
+      { $sort: { _id: 1 } }
+    );
+
+    const chartData = await Transaction.aggregate(pipeline);
+
+    // 3. Calculate Summary
+    const summary = chartData.reduce(
+      (acc, curr) => ({
+        totalGrossRevenue: acc.totalGrossRevenue + curr.grossRevenue,
+        totalNetAdminRevenue: acc.totalNetAdminRevenue + curr.netAdminRevenue,
+        totalNetOrganizerRevenue: acc.totalNetOrganizerRevenue + curr.netOrganizerRevenue,
+        totalTransactions: acc.totalTransactions + curr.count,
+      }),
+      { totalGrossRevenue: 0, totalNetAdminRevenue: 0, totalNetOrganizerRevenue: 0, totalTransactions: 0 }
+    );
+
+    return resultDb(SUCCESS, { summary, chartData });
+  } catch (error) {
+    console.error("Error in getRevenueAnalytics service:", error);
+    return resultDb(SERVER_ERROR, DATA_NULL);
+  }
+}
