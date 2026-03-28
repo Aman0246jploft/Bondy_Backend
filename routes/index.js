@@ -29,6 +29,7 @@ module.exports = {
   "event-promotion": require("./controller/controllerEventPromotion"),
   "course-promotion": require("./controller/controllerCoursePromotion"),
   referral: require("./controller/controllerReferral"),
+  bug: require("./controller/controllerBug"),
 };
 
 

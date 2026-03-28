@@ -249,6 +249,7 @@ const getOrganizerStats = async (organizerId) => {
             pastEvents: {
               $sum: { $cond: [{ $eq: ["$status", "Past"] }, 1, 0] },
             },
+            totalEventSeats: { $sum: "$totalTickets" },
           },
         },
       ]),
@@ -261,6 +262,7 @@ const getOrganizerStats = async (organizerId) => {
             featuredCourses: {
               $sum: { $cond: [{ $eq: ["$isFeatured", true] }, 1, 0] },
             },
+            totalCourseSeats: { $sum: "$totalSeats" },
           },
         },
       ]),
@@ -344,29 +346,45 @@ const getOrganizerStats = async (organizerId) => {
       ]),
     ]);
 
+    const perf = transactionStats[0]?.performance[0] || {
+      totalEarnings: 0,
+      totalEventEarnings: 0,
+      totalCourseEarnings: 0,
+      totalTicketsSold: 0,
+      totalEventTicketsSold: 0,
+      totalCourseTicketsSold: 0,
+      totalBookings: 0,
+    };
+
     const stats = {
-      events: eventStats[0] || {
-        totalEvents: 0,
-        upcomingEvents: 0,
-        liveEvents: 0,
-        pastEvents: 0,
+      events: {
+        ...(eventStats[0] || {
+          totalEvents: 0,
+          upcomingEvents: 0,
+          liveEvents: 0,
+          pastEvents: 0,
+          totalEventSeats: 0,
+        }),
+        totalTicketsSold: perf.totalEventTicketsSold,
+        totalEarnings: perf.totalEventEarnings,
       },
       courses: {
-        ...(courseStats[0] || { totalCourses: 0, featuredCourses: 0 }),
+        ...(courseStats[0] || {
+          totalCourses: 0,
+          featuredCourses: 0,
+          totalCourseSeats: 0,
+        }),
         totalEnrollments: (transactionStats[0]?.courseEnrollments || []).reduce(
           (sum, c) => sum + (c.enrollmentCount || 0),
           0,
         ),
+        totalEarnings: perf.totalCourseEarnings,
         perCourseEnrollments: transactionStats[0]?.courseEnrollments || [],
       },
-      performance: transactionStats[0]?.performance[0] || {
-        totalEarnings: 0,
-        totalEventEarnings: 0,
-        totalCourseEarnings: 0,
-        totalTicketsSold: 0,
-        totalEventTicketsSold: 0,
-        totalCourseTicketsSold: 0,
-        totalBookings: 0,
+      performance: {
+        totalEarnings: perf.totalEarnings,
+        totalBookings: perf.totalBookings,
+        totalTicketsSold: perf.totalTicketsSold,
       },
     };
 

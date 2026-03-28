@@ -62,4 +62,5 @@ module.exports = {
   UserSetting: require("./models/UserSetting"),
   PromotionPackage: require("./models/PromotionPackage"),
   Referral: require("./models/Referral"),
+  Bug: require("./models/Bug"),
 };

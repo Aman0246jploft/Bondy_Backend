@@ -990,6 +990,8 @@ const getUserProfileById = async (req, res) => {
       bio: user.bio,
       role: role,
       userRole: role,
+      averageRating: user.averageRating,
+      reviewCount: user.reviewCount,
       location: user.location || null,
       interestedCategories: interestedCategories,
       categories: categories,

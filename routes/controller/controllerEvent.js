@@ -41,11 +41,6 @@ const createEvent = async (req, res) => {
     let event;
     let isDraftValue = isDraftBody === true;
 
-    // "if he send it draft:true with id than check and and publish"
-    // If id exists and isDraft is true, it means we are publishing the draft.
-    if (id && isDraftValue) {
-      isDraftValue = false;
-    }
 
     // Transform venueAddress to GeoJSON Point safely
     let location = undefined;
@@ -213,14 +208,15 @@ const getEvents = async (req, res) => {
       placement,
       startDate: customStartDate,
       endDate: customEndDate,
+      isDraft,
     } = req.query;
 
-    console.log(`[getEvents] Fetching events with filters: ${filter}, Category: ${categoryId}, Search: ${search}, Location: [${latitude}, ${longitude}], Page: ${page}`);
+    // console.log(`[getEvents] Fetching events with filters: ${filter}, Category: ${categoryId}, Search: ${search}, Location: [${latitude}, ${longitude}], Page: ${page}, isDraft: ${isDraft}`);
 
     let loginUser = null;
     if (req.user) {
       loginUser = req.user.userId;
-      console.log(`[getEvents] Authenticated User ID: ${loginUser}`);
+      // console.log(`[getEvents] Authenticated User ID: ${loginUser}`);
     }
     const now = new Date();
     const skip = (page - 1) * limit;
@@ -230,14 +226,15 @@ const getEvents = async (req, res) => {
     // 1. Build Base Query
     let query = {};
 
-    if (filters.includes("draft")) {
+    // Draft filter (explicit param or through filter string)
+    if (isDraft === "true" || isDraft === true || filters.includes("draft")) {
       if (!loginUser) {
         console.warn(`[getEvents] Unauthorized attempt to access drafts`);
         return apiErrorRes(HTTP_STATUS.UNAUTHORIZED, res, "Login required to view drafts");
       }
       query.isDraft = true;
       query.createdBy = loginUser;
-      console.log(`[getEvents] Draft filter active for creator: ${loginUser}`);
+      // console.log(`[getEvents] Draft filter active for creator: ${loginUser}`);
     } else {
       query.isDraft = false;
 
@@ -245,17 +242,17 @@ const getEvents = async (req, res) => {
       if (!filters.includes("past")) {
         query.endDate = { $gte: now };
         query.status = { $ne: "Past" };
-        console.log(`[getEvents] Filtering for Active/Upcoming events (endDate >= now)`);
+        // console.log(`[getEvents] Filtering for Active/Upcoming events (endDate >= now)`);
       } else {
         query.endDate = { $lt: now };
-        console.log(`[getEvents] Filtering for Past events (endDate < now)`);
+        // console.log(`[getEvents] Filtering for Past events (endDate < now)`);
       }
     }
 
     // CreatedBy filter
     if (userId && mongoose.Types.ObjectId.isValid(userId)) {
       query.createdBy = new mongoose.Types.ObjectId(userId);
-      console.log(`[getEvents] Filtering by creator userId: ${userId}`);
+      // console.log(`[getEvents] Filtering by creator userId: ${userId}`);
     }
 
     // Multiple Categories filter
@@ -267,16 +264,16 @@ const getEvents = async (req, res) => {
         query.eventCategory = {
           $in: catIds.map((id) => new mongoose.Types.ObjectId(id.trim())),
         };
-        console.log(`[getEvents] Filtering by categories: ${catIds}`);
+        // console.log(`[getEvents] Filtering by categories: ${catIds}`);
       } else if (catIds.length === 1) {
         query.eventCategory = new mongoose.Types.ObjectId(catIds[0].trim());
-        console.log(`[getEvents] Filtering by single category: ${catIds[0]}`);
+        // console.log(`[getEvents] Filtering by single category: ${catIds[0]}`);
       }
     }
 
     // Custom Date Range filter
     if (customStartDate || customEndDate) {
-      console.log(`[getEvents] Applying custom date range. Start: ${customStartDate}, End: ${customEndDate}`);
+      // console.log(`[getEvents] Applying custom date range. Start: ${customStartDate}, End: ${customEndDate}`);
       if (customStartDate) {
         const sD = new Date(customStartDate);
         if (!isNaN(sD.getTime())) {
@@ -296,7 +293,7 @@ const getEvents = async (req, res) => {
     // Apply Time-based filters
     for (const f of filters) {
       if (["upcoming", "today", "thisweek", "thisweekend", "thisyear", "nextweek", "recommended"].includes(f)) {
-        console.log(`[getEvents] Applying time-based filter: ${f}`);
+        // console.log(`[getEvents] Applying time-based filter: ${f}`);
       }
       switch (f) {
         case "upcoming":
@@ -370,7 +367,7 @@ const getEvents = async (req, res) => {
 
     // Search filter
     if (search) {
-      console.log(`[getEvents] Search regex active for: ${search}`);
+      // console.log(`[getEvents] Search regex active for: ${search}`);
       query.$or = [
         { eventTitle: { $regex: search, $options: "i" } },
         { shortdesc: { $regex: search, $options: "i" } },
@@ -378,11 +375,11 @@ const getEvents = async (req, res) => {
       ];
     }
 
-    console.log(`[getEvents] Final Query built:`, JSON.stringify(query, null, 2));
+    // console.log(`[getEvents] Final Query built:`, JSON.stringify(query, null, 2));
 
     // Check for "nearYou" fallback if no coords
     if (filters.includes("nearyou") && !(latitude && longitude)) {
-      console.log(`[getEvents] NearYou fallback triggered (no coordinates)`);
+      // console.log(`[getEvents] NearYou fallback triggered (no coordinates)`);
       let city = null,
         country = null;
       const authHeader = req.headers.authorization;
@@ -397,12 +394,12 @@ const getEvents = async (req, res) => {
       }
       if (city) {
         query["venueAddress.city"] = city;
-        console.log(`[getEvents] Fallback: Filtering by City: ${city}`);
+        // console.log(`[getEvents] Fallback: Filtering by City: ${city}`);
       } else if (country) {
         query["venueAddress.country"] = country;
-        console.log(`[getEvents] Fallback: Filtering by Country: ${country}`);
+        // console.log(`[getEvents] Fallback: Filtering by Country: ${country}`);
       } else if (!filters.includes("all") && filters.length === 1) {
-        console.log(`[getEvents] Fallback: No location found for NearYou, returning empty result`);
+        // console.log(`[getEvents] Fallback: No location found for NearYou, returning empty result`);
         return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.EVENTS_FETCHED, {
           events: [],
           total: 0,
@@ -418,7 +415,7 @@ const getEvents = async (req, res) => {
 
     // Execute query with Geo search if coords present
     if (latitude && longitude) {
-      console.log(`[getEvents] Executing GeoNear Aggregate Query (Radius: ${radius}km)`);
+      // console.log(`[getEvents] Executing GeoNear Aggregate Query (Radius: ${radius}km)`);
       const geoAgg = await Event.aggregate([
         {
           $geoNear: {
@@ -496,7 +493,7 @@ const getEvents = async (req, res) => {
     } else {
       // Regular query (with optional placement sorting)
       if (placement) {
-        console.log(`[getEvents] Executing Aggregate Query with placement sorting: ${placement}`);
+        // console.log(`[getEvents] Executing Aggregate Query with placement sorting: ${placement}`);
         events = await Event.aggregate([
           { $match: query },
           {
@@ -556,7 +553,7 @@ const getEvents = async (req, res) => {
         ]);
         totalCount = await Event.countDocuments(query);
       } else {
-        console.log(`[getEvents] Executing standard find/sort Query`);
+        // console.log(`[getEvents] Executing standard find/sort Query`);
         const sortOrder = filters.includes("past")
           ? { endDate: -1 }
           : { isFeatured: -1, startDate: 1 };
@@ -571,7 +568,7 @@ const getEvents = async (req, res) => {
       }
     }
 
-    console.log(`[getEvents] Fetched ${events.length} events (Total matched: ${totalCount})`);
+    // console.log(`[getEvents] Fetched ${events.length} events (Total matched: ${totalCount})`);
 
     // Determine viewer status and format response
     let viewerId = null;
@@ -581,7 +578,7 @@ const getEvents = async (req, res) => {
         const token = authHeader.split(" ")[1];
         const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY);
         viewerId = decoded.userId;
-        console.log(`[getEvents] Viewer ID: ${viewerId}`);
+        // console.log(`[getEvents] Viewer ID: ${viewerId}`);
       } catch (err) { }
     }
 
@@ -593,7 +590,7 @@ const getEvents = async (req, res) => {
         status: "PAID",
       }).select("eventId");
       bookings.forEach((b) => bookedEventIds.add(b.eventId.toString()));
-      console.log(`[getEvents] Checked bookings for viewer. Found: ${bookedEventIds.size} bookings`);
+      // console.log(`[getEvents] Checked bookings for viewer. Found: ${bookedEventIds.size} bookings`);
     }
 
     const formattedEvents = events.map((event) => formatEvent(event, bookedEventIds));
