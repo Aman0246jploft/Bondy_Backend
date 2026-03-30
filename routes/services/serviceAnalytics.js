@@ -576,7 +576,7 @@ async function getRevenueAnalytics({ filter, startDate, endDate, organizerId = n
       while (current <= end) {
         const key = current.toISOString().slice(0, 10); // YYYY-MM-DD
         // For 7d, use day name, otherwise use date string
-        const label = filter === "7d" 
+        const label = filter === "7d"
           ? current.toLocaleDateString("en-US", { weekday: "short" }).toUpperCase()
           : key;
         labels.push(label);
