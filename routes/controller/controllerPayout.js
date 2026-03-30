@@ -20,16 +20,46 @@ const getOrganizerEarnings = async (req, res) => {
   try {
     const userId = req.user.userId;
     const user = await User.findById(userId).select(
-      "totalEarnings payoutBalance bankDetails",
+      "totalEarnings payoutBalance bankDetails roleId",
     );
+
+    if (!user) {
+      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "User not found");
+    }
 
     const payoutHistory = await Payout.find({ organizerId: userId }).sort({
       createdAt: -1,
     });
 
-    const history = await WalletHistory.find({ userId })
+    const walletHistory = await WalletHistory.find({ userId })
       .sort({ createdAt: -1 })
       .limit(50); // Limit to last 50 transactions
+
+    // Fetch user's own ticket/course purchases (Transaction model)
+    const userTransactions = await Transaction.find({ userId, status: "PAID" })
+      .populate("eventId", "eventTitle")
+      .populate("courseId", "courseTitle")
+      .sort({ createdAt: -1 })
+      .limit(50);
+
+    // Map Transactions to matched WalletHistory structure for a unified view
+    const mappedTransactions = userTransactions.map((t) => ({
+      _id: t._id,
+      amount: -t.totalAmount, // Negative to show expenditure
+      type: "PURCHASE",
+      description:
+        t.bookingType === "EVENT"
+          ? `Event: ${t.eventId?.eventTitle || "Unknown Event"}`
+          : `Course: ${t.courseId?.courseTitle || "Unknown Course"}`,
+      createdAt: t.createdAt,
+      bookingId: t.bookingId,
+      status: t.status,
+    }));
+
+    // Combine WalletHistory (earnings/payouts/referrals) and Transactions (purchases)
+    const combinedHistory = [...walletHistory, ...mappedTransactions]
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+      .slice(0, 50);
 
     const minPayoutSetting = await GlobalSetting.findOne({
       key: "MIN_PAYOUT_CONFIG",
@@ -41,7 +71,7 @@ const getOrganizerEarnings = async (req, res) => {
       payoutBalance: user.payoutBalance,
       bankDetails: user.bankDetails,
       payoutHistory,
-      walletHistory: history,
+      walletHistory: combinedHistory,
       minPayout,
     });
   } catch (error) {
