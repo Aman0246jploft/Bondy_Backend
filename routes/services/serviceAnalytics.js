@@ -540,20 +540,68 @@ async function getRevenueAnalytics({ filter, startDate, endDate, organizerId = n
       { $sort: { _id: 1 } }
     );
 
-    const chartData = await Transaction.aggregate(pipeline);
+    const aggResults = await Transaction.aggregate(pipeline);
 
-    // 3. Calculate Summary
-    const summary = chartData.reduce(
-      (acc, curr) => ({
-        totalGrossRevenue: acc.totalGrossRevenue + curr.grossRevenue,
-        totalNetAdminRevenue: acc.totalNetAdminRevenue + curr.netAdminRevenue,
-        totalNetOrganizerRevenue: acc.totalNetOrganizerRevenue + curr.netOrganizerRevenue,
-        totalTransactions: acc.totalTransactions + curr.count,
-      }),
-      { totalGrossRevenue: 0, totalNetAdminRevenue: 0, totalNetOrganizerRevenue: 0, totalTransactions: 0 }
-    );
+    // 3. Post-Process to match requested Response Structure
+    const labels = [];
+    const grossRevenueArr = [];
+    const netRevenueArr = [];
+    const monthNames = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 
-    return resultDb(SUCCESS, { summary, chartData });
+    // Map aggregation results for easy lookup
+    const resultMap = {};
+    aggResults.forEach((item) => {
+      resultMap[item._id] = item;
+    });
+
+    // Fill the timeline
+    const current = new Date(start);
+    const end = filter === "custom" && endDate ? new Date(endDate) : now;
+
+    if (groupFormat === "%Y-%m") {
+      // Monthly steps
+      while (current <= end) {
+        const key = current.toISOString().slice(0, 7); // YYYY-MM
+        const label = monthNames[current.getMonth()];
+        labels.push(label);
+
+        const data = resultMap[key] || { grossRevenue: 0, netAdminRevenue: 0, netOrganizerRevenue: 0 };
+        grossRevenueArr.push(data.grossRevenue);
+        netRevenueArr.push(organizerId ? data.netOrganizerRevenue : data.netAdminRevenue);
+
+        current.setMonth(current.getMonth() + 1);
+      }
+    } else {
+      // Daily steps
+      while (current <= end) {
+        const key = current.toISOString().slice(0, 10); // YYYY-MM-DD
+        // For 7d, use day name, otherwise use date string
+        const label = filter === "7d" 
+          ? current.toLocaleDateString("en-US", { weekday: "short" }).toUpperCase()
+          : key;
+        labels.push(label);
+
+        const data = resultMap[key] || { grossRevenue: 0, netAdminRevenue: 0, netOrganizerRevenue: 0 };
+        grossRevenueArr.push(data.grossRevenue);
+        netRevenueArr.push(organizerId ? data.netOrganizerRevenue : data.netAdminRevenue);
+
+        current.setDate(current.getDate() + 1);
+      }
+    }
+
+    const totalGross = grossRevenueArr.reduce((a, b) => a + b, 0);
+    const totalNet = netRevenueArr.reduce((a, b) => a + b, 0);
+
+    return resultDb(SUCCESS, {
+      labels,
+      grossRevenue: grossRevenueArr,
+      netRevenue: netRevenueArr,
+      summary: {
+        totalGross,
+        totalNet,
+        currency: "₮", // Defaulting to ₮ as seen in current localization requirements
+      },
+    });
   } catch (error) {
     console.error("Error in getRevenueAnalytics service:", error);
     return resultDb(SERVER_ERROR, DATA_NULL);
