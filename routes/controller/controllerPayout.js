@@ -555,7 +555,7 @@ const getAllTransactions = async (req, res) => {
 // --- Routes Definitions ---
 
 // Organizer Routes
-router.get("/earnings",  getOrganizerEarnings);
+router.get("/earnings", getOrganizerEarnings);
 router.put("/bank-details", checkRole([roleId.ORGANIZER]), updateBankDetails);
 router.post("/request-payout", checkRole([roleId.ORGANIZER]), requestPayout);
 
