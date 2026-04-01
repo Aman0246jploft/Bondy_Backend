@@ -85,6 +85,7 @@ const updateUserSchema = Joi.object({
 const socialLoginSchema = Joi.object({
   socialId: Joi.string().required(),
   socialType: Joi.string().required(),
+  type: Joi.string().valid("ORGANIZER", "CUSTOMER", "GUEST").required(),
   email: Joi.string().email().optional().allow(null, ""),
   firstName: Joi.string().optional().allow(null, ""),
   lastName: Joi.string().optional().allow(null, ""),

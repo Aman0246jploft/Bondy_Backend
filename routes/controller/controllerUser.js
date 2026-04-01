@@ -723,6 +723,7 @@ const socialLogin = async (req, res) => {
     const {
       socialId,
       socialType,
+      type,
       email,
       firstName,
       lastName,
@@ -738,6 +739,15 @@ const socialLogin = async (req, res) => {
     });
 
     if (user) {
+      // Role Check
+      if (userRole[user.roleId] !== type) {
+        return apiErrorRes(
+          HTTP_STATUS.FORBIDDEN,
+          res,
+          "Access denied. Invalid role.",
+        );
+      }
+
       // Check if account is disabled
       if (user.isDisable) {
         return apiErrorRes(
@@ -760,6 +770,15 @@ const socialLogin = async (req, res) => {
         });
 
         if (user) {
+          // Role Check
+          if (userRole[user.roleId] !== type) {
+            return apiErrorRes(
+              HTTP_STATUS.FORBIDDEN,
+              res,
+              "Access denied. Invalid role.",
+            );
+          }
+
           // Link social account to existing email account
           user.socialLogin = { socialId, socialType };
           if (!user.firstName && firstName) user.firstName = firstName;
@@ -780,10 +799,11 @@ const socialLogin = async (req, res) => {
           email: email ? email.toLowerCase() : undefined, // Sparse index handles undefined
           profileImage: profileImage || null,
           socialLogin: { socialId, socialType },
-          roleId: roleId.CUSTOMER,
+          roleId: roleId[type],
           fmcToken: fmcToken || null,
           lastLogin: new Date(),
-          organizerVerificationStatus: "approved", // auto-approve customers
+          organizerVerificationStatus:
+            type === "CUSTOMER" ? "approved" : "unverified",
         });
         await user.save();
       }
