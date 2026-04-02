@@ -2,7 +2,11 @@ const express = require("express");
 const router = express.Router();
 
 const perApiLimiter = require("../../middlewares/rateLimiter");
-const { apiSuccessRes, apiErrorRes } = require("../../utils/globalFunction");
+const {
+  apiSuccessRes,
+  apiErrorRes,
+  formatResponseUrl,
+} = require("../../utils/globalFunction");
 
 const HTTP_STATUS = require("../../utils/statusCode");
 const User = require("../../db/models/User");
@@ -67,7 +71,10 @@ const submitVerification = async (req, res) => {
       "Verification documents submitted successfully.",
       {
         organizerVerificationStatus: user.organizerVerificationStatus,
-        documents: user.documents,
+        documents: (user.documents || []).map((doc) => ({
+          ...doc.toObject(),
+          file: doc.file ? formatResponseUrl(doc.file) : null,
+        })),
       },
     );
   } catch (error) {
@@ -124,7 +131,10 @@ const getVerificationRequests = async (req, res) => {
 
       return {
         ...user,
-        documents: filteredDocs
+        documents: (filteredDocs || []).map((doc) => ({
+          ...doc,
+          file: doc.file ? formatResponseUrl(doc.file) : null,
+        })),
       };
     });
 
@@ -217,7 +227,7 @@ const verifyOrganizer = async (req, res) => {
           } else {
             // Read reward amount from GlobalSetting (admin-configurable)
             const rewardSetting = await GlobalSetting.findOne({ key: "REFERRAL_REWARD_AMOUNT" });
-            const rewardAmount = rewardSetting ? Number(rewardSetting.value) : 75000;
+            const rewardAmount = rewardSetting ? Number(rewardSetting.value) : 0;
             console.log("[REFERRAL] Crediting ₮", rewardAmount, "to referrer:", referrer.email);
 
             // Complete referral

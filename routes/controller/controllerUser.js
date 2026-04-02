@@ -886,7 +886,7 @@ const updateUserProfile = async (req, res) => {
       );
     }
     if (updatedUser.profileImage) {
-      updatedUser.profileImage = `${BACKEND_URL}/${updatedUser.profileImage}`;
+      updatedUser.profileImage = formatResponseUrl(updatedUser.profileImage);
     }
 
     return apiSuccessRes(
@@ -1044,7 +1044,10 @@ const getUserProfileById = async (req, res) => {
       profileData.businessType = user.businessType;
       profileData.organizerVerificationStatus =
         user.organizerVerificationStatus;
-      profileData.documents = user.documents;
+      profileData.documents = (user.documents || []).map((doc) => ({
+        ...doc,
+        file: doc.file ? formatResponseUrl(doc.file) : null,
+      }));
 
       // Calculate totalEventsHosted  
       const totalEventsHosted = await Event.countDocuments({
