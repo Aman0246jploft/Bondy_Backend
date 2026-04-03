@@ -591,7 +591,7 @@ const getTicketList = async (req, res) => {
       if (t.bookingType === "EVENT") {
         endDate = item.endDate;
       } else {
-        const schedule = item.schedules.id(t.scheduleId);
+        const schedule = item.schedules?.id(t.scheduleId);
         endDate = schedule ? schedule.endDate : item.createdAt;
       }
 
