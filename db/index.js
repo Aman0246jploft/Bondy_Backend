@@ -27,6 +27,34 @@ mongoose
         { $setOnInsert: { key: "COMMISSION_CONFIG", value: "10", description: "Default platform commission percentage (e.g. 10 for 10%)" } },
         { upsert: true, new: true }
       );
+      await GlobalSetting.findOneAndUpdate(
+        { key: "SOCIAL_LINKS" },
+        {
+          $setOnInsert: {
+            key: "SOCIAL_LINKS",
+            value: {
+              facebook: "#",
+              linkedin: "#",
+              instagram: "#",
+              youtube: "#",
+              apple_store: "#",
+              google_play: "#"
+            },
+            description: "Social media and app store links for the website footer"
+          }
+        },
+        { upsert: true, new: true }
+      );
+      await GlobalSetting.findOneAndUpdate(
+        { key: "FEATURE_EVENT_FEE" },
+        { $setOnInsert: { key: "FEATURE_EVENT_FEE", value: "0", description: "Fee for featuring an event" } },
+        { upsert: true, new: true }
+      );
+      await GlobalSetting.findOneAndUpdate(
+        { key: "REFERRAL_REWARD_AMOUNT" },
+        { $setOnInsert: { key: "REFERRAL_REWARD_AMOUNT", value: "0", description: "Reward amount for referrals" } },
+        { upsert: true, new: true }
+      );
       console.log("✅ Default global settings seeded");
     } catch (seedErr) {
       console.error("Seed error:", seedErr.message);
