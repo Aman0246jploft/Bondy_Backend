@@ -85,9 +85,11 @@ const getCategoryList = async (req, res) => {
 
     const query = { isDeleted: false };
 
-    // Filter by type if provided
+    // Filter by type if provided, otherwise default to "event" and "course"
     if (type) {
       query.type = type.toLowerCase();
+    } else {
+      query.type = { $in: ["event", "course"] };
     }
 
     // Search by name if provided
