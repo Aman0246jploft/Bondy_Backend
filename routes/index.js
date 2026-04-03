@@ -30,6 +30,7 @@ module.exports = {
   "course-promotion": require("./controller/controllerCoursePromotion"),
   referral: require("./controller/controllerReferral"),
   bug: require("./controller/controllerBug"),
+  stayUpdated: require("./controller/controllerStayUpdated"),
 };
 
 

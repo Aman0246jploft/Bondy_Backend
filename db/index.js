@@ -63,4 +63,5 @@ module.exports = {
   PromotionPackage: require("./models/PromotionPackage"),
   Referral: require("./models/Referral"),
   Bug: require("./models/Bug"),
+  StayUpdated: require("./models/StayUpdated"),
 };
