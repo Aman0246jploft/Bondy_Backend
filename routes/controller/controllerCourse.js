@@ -58,7 +58,7 @@ const createCourse = async (req, res) => {
       );
     }
 
-    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.SUCCESS, {
+    return apiSuccessRes(HTTP_STATUS.OK, res, 'Course created successfully', {
       course: course,
     });
   } catch (error) {
