@@ -28,8 +28,18 @@ const createCourseSchema = Joi.object({
         zipcode: Joi.string().optional(),
     }).required(),
     shortdesc: Joi.string().optional(),
-    totalSeats: Joi.number().min(1).required(),
-    price: Joi.number().min(0).required(),
+    totalSeats: Joi.number().min(1).max(99999999).required().messages({
+        'number.base': 'Total seats must be a valid number',
+        'number.min': 'Total seats must be at least 1',
+        'number.max': 'Total seats cannot exceed 99,999,999',
+        'any.required': 'Total seats is required',
+    }),
+    price: Joi.number().min(0).max(99999999).required().messages({
+        'number.base': 'Price must be a valid number',
+        'number.min': 'Price cannot be negative',
+        'number.max': 'Price cannot exceed 99,999,999',
+        'any.required': 'Price is required',
+    }),
     enrollmentType: Joi.string()
         .valid("Ongoing", "fixedStart")
         .default("Ongoing"),
@@ -110,8 +120,16 @@ const updateCourseSchema = Joi.object({
         zipcode: Joi.string().optional(),
     }).optional(),
     shortdesc: Joi.string().optional(),
-    price: Joi.number().min(0).optional(),
-    totalSeats: Joi.number().min(1).optional(),
+    price: Joi.number().min(0).max(99999999).optional().messages({
+        'number.base': 'Price must be a valid number',
+        'number.min': 'Price cannot be negative',
+        'number.max': 'Price cannot exceed 99,999,999',
+    }),
+    totalSeats: Joi.number().min(1).max(99999999).optional().messages({
+        'number.base': 'Total seats must be a valid number',
+        'number.min': 'Total seats must be at least 1',
+        'number.max': 'Total seats cannot exceed 99,999,999',
+    }),
     enrollmentType: Joi.string().valid("Ongoing", "fixedStart").optional(),
     schedules: Joi.array().items(updateScheduleSchema).min(1).optional(),
 }).min(1); // At least one field must be provided

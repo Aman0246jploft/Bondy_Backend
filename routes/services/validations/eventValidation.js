@@ -20,10 +20,16 @@ const createEventSchema = Joi.object({
         latitude: Joi.number().when(Joi.object({ isDraft: true, id: Joi.not().exist() }).unknown(), {
             then: Joi.optional(),
             otherwise: Joi.required(),
+        }).messages({
+            'number.base': 'Latitude must be a valid number',
+            'any.required': 'Event latitude is required',
         }),
         longitude: Joi.number().when(Joi.object({ isDraft: true, id: Joi.not().exist() }).unknown(), {
             then: Joi.optional(),
             otherwise: Joi.required(),
+        }).messages({
+            'number.base': 'Longitude must be a valid number',
+            'any.required': 'Event longitude is required',
         }),
         city: Joi.string().when(Joi.object({ isDraft: true, id: Joi.not().exist() }).unknown(), {
             then: Joi.optional(),
@@ -52,11 +58,23 @@ const createEventSchema = Joi.object({
     startTime: Joi.string().optional(),
     endTime: Joi.string().optional(),
     ticketName: Joi.string().optional(),
-    ticketQtyAvailable: Joi.number().optional(),
+    ticketQtyAvailable: Joi.number().min(0).max(99999999).optional().messages({
+        'number.base': 'Ticket quantity available must be a valid number',
+        'number.min': 'Ticket quantity cannot be negative',
+        'number.max': 'Ticket quantity cannot exceed 99,999,999',
+    }),
     ticketSelesStartDate: Joi.date().optional(),
     ticketSelesEndDate: Joi.date().optional(),
-    ticketPrice: Joi.number().optional(),
-    totalTickets: Joi.number().optional(),
+    ticketPrice: Joi.number().min(0).max(99999999).optional().messages({
+        'number.base': 'Ticket price must be a valid number',
+        'number.min': 'Ticket price cannot be negative',
+        'number.max': 'Ticket price cannot exceed 99,999,999',
+    }),
+    totalTickets: Joi.number().min(1).max(99999999).optional().messages({
+        'number.base': 'Total tickets must be a valid number',
+        'number.min': 'Total tickets must be at least 1',
+        'number.max': 'Total tickets cannot exceed 99,999,999',
+    }),
     refundPolicy: Joi.string().allow('', null).optional(),
     addOns: Joi.string().allow('', null).optional(),
     mediaLinks: Joi.array().items(Joi.string()).optional(),
@@ -108,22 +126,46 @@ const updateEventSchema = Joi.object({
     tags: Joi.array().items(Joi.string()).optional(),
     venueName: Joi.string().optional(),
     venueAddress: Joi.object({
-        latitude: Joi.number().required(),
-        longitude: Joi.number().required(),
-        city: Joi.string().required(),
-        country: Joi.string().required(),
-        address: Joi.string().required(),
+        latitude: Joi.number().required().messages({
+            'number.base': 'Latitude must be a valid number',
+            'any.required': 'Latitude is required',
+        }),
+        longitude: Joi.number().required().messages({
+            'number.base': 'Longitude must be a valid number',
+            'any.required': 'Longitude is required',
+        }),
+        city: Joi.string().required().messages({
+            'any.required': 'City is required',
+        }),
+        country: Joi.string().required().messages({
+            'any.required': 'Country is required',
+        }),
+        address: Joi.string().required().messages({
+            'any.required': 'Address is required',
+        }),
     }).optional(),
     startDate: Joi.date().optional(),
     endDate: Joi.date().optional(),
     startTime: Joi.string().optional(),
     endTime: Joi.string().optional(),
     ticketName: Joi.string().optional(),
-    ticketQtyAvailable: Joi.number().min(0).optional(),
+    ticketQtyAvailable: Joi.number().min(0).max(99999999).optional().messages({
+        'number.base': 'Ticket quantity must be a valid number',
+        'number.min': 'Ticket quantity cannot be negative',
+        'number.max': 'Ticket quantity cannot exceed 99,999,999',
+    }),
     ticketSelesStartDate: Joi.date().optional(),
     ticketSelesEndDate: Joi.date().optional(),
-    ticketPrice: Joi.number().min(0).optional(),
-    totalTickets: Joi.number().min(0).optional(),
+    ticketPrice: Joi.number().min(0).max(99999999).optional().messages({
+        'number.base': 'Ticket price must be a valid number',
+        'number.min': 'Ticket price cannot be negative',
+        'number.max': 'Ticket price cannot exceed 99,999,999',
+    }),
+    totalTickets: Joi.number().min(1).max(99999999).optional().messages({
+        'number.base': 'Total tickets must be a valid number',
+        'number.min': 'Total tickets must be at least 1',
+        'number.max': 'Total tickets cannot exceed 99,999,999',
+    }),
     refundPolicy: Joi.string().allow('', null).optional(),
     addOns: Joi.string().allow('', null).optional(),
     mediaLinks: Joi.array().items(Joi.string()).optional(),

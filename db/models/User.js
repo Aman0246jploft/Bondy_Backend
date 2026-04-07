@@ -156,6 +156,10 @@ const UserSchema = new Schema(
       type: Date,
       default: null,
     },
+    lastSeen: {
+      type: Date,
+      default: null,
+    },
     bankDetails: {
       accountName: { type: String, default: null },
       accountNumber: { type: String, default: null },

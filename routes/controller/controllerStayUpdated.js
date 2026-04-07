@@ -19,7 +19,7 @@ const signupForUpdates = async (req, res) => {
     // Check if already exists
     const existing = await StayUpdated.findOne({ email: lowerCaseEmail });
     if (existing) {
-        return apiSuccessRes(HTTP_STATUS.OK, res, "Your email is already on our updates list!");
+      return apiSuccessRes(HTTP_STATUS.OK, res, "Your email is already on our updates list!");
     }
 
     const newSignup = new StayUpdated({ email: lowerCaseEmail });

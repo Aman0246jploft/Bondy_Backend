@@ -208,9 +208,9 @@ const getReviews = async (req, res) => {
       ...r,
       userId: r.userId
         ? {
-            ...r.userId,
-            profileImage: formatResponseUrl(r.userId.profileImage),
-          }
+          ...r.userId,
+          profileImage: formatResponseUrl(r.userId.profileImage),
+        }
         : null,
     }));
 
@@ -251,17 +251,17 @@ const getOrganizerReviews = async (req, res) => {
       ...r,
       userId: r.userId
         ? {
-            ...r.userId,
-            profileImage: formatResponseUrl(r.userId.profileImage),
-          }
+          ...r.userId,
+          profileImage: formatResponseUrl(r.userId.profileImage),
+        }
         : null,
       entityId: r.entityId
         ? {
-            ...r.entityId,
-            posterImage: (r.entityId.posterImage || []).map((img) =>
-              formatResponseUrl(img),
-            ),
-          }
+          ...r.entityId,
+          posterImage: (r.entityId.posterImage || []).map((img) =>
+            formatResponseUrl(img),
+          ),
+        }
         : null,
     }));
 

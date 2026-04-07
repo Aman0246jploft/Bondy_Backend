@@ -1,5 +1,7 @@
 const Chat = require("../../db/models/Chat");
 const Message = require("../../db/models/Message");
+const User = require("../../db/models/User");
+const { userRole } = require("../../utils/Role");
 const {
   sendMessageSchema,
   joinChatSchema,
@@ -20,6 +22,12 @@ const formatUser = (user) => {
   if (userObj.profileImage) {
     userObj.profileImage = formatResponseUrl(userObj.profileImage);
   }
+
+  // Add role information
+  userObj.role = userObj.roleId || null;
+  userObj.userRole = userRole[userObj.roleId] || null;
+  // isVerified is already in userObj if populated
+
   return userObj;
 };
 
@@ -81,9 +89,17 @@ const chatSocketController = (io, socket) => {
   socket.emit("online_users_list", { userIds: Array.from(onlineUsers.keys()) });
 
   // 2. Disconnect
-  socket.on("disconnect", () => {
+  socket.on("disconnect", async () => {
     onlineUsers.delete(userId);
-    io.emit("user_offline", { userId });
+    const lastSeen = new Date();
+    io.emit("user_offline", { userId, lastSeen });
+
+    // Update lastSeen in database
+    try {
+      await User.findByIdAndUpdate(userId, { lastSeen });
+    } catch (err) {
+      console.error("Error updating lastSeen:", err);
+    }
   });
   console.log("onlineUsers", onlineUsers);
   // 3. Join Chat Room
@@ -135,7 +151,7 @@ const chatSocketController = (io, socket) => {
           if (receiverSocket) {
             receiverSocket.join(chat._id.toString());
             const populatedForReceiver = await Chat.findById(chat._id)
-              .populate("participants", "firstName lastName profileImage");
+              .populate("participants", "firstName lastName profileImage lastSeen roleId isVerified");
             const formattedForReceiver = formatChatForUser(populatedForReceiver, receiverId);
             io.to(receiverSocketId).emit("new_chat", formattedForReceiver);
           }
@@ -147,8 +163,8 @@ const chatSocketController = (io, socket) => {
 
       // Return formatted chat to sender
       const populatedChat = await Chat.findById(chat._id)
-        .populate("participants", "firstName lastName profileImage")
-        .populate("lastMessage.sender", "firstName lastName profileImage");
+        .populate("participants", "firstName lastName profileImage lastSeen roleId isVerified")
+        .populate("lastMessage.sender", "firstName lastName profileImage lastSeen roleId isVerified");
 
       const formattedChat = formatChatForUser(populatedChat, userId);
 
@@ -233,7 +249,7 @@ const chatSocketController = (io, socket) => {
               // Format chat for receiver
               const initialChat = await Chat.findById(chatId).populate(
                 "participants",
-                "firstName lastName profileImage",
+                "firstName lastName profileImage lastSeen roleId isVerified",
               );
               const formattedInitial = formatChatForUser(initialChat, receiverId);
               io.to(receiverSocketId).emit("new_chat", formattedInitial);
@@ -289,13 +305,13 @@ const chatSocketController = (io, socket) => {
       await chat.save();
       const populatedMessage = await newMessage.populate(
         "sender",
-        "firstName lastName profileImage",
+        "firstName lastName profileImage lastSeen roleId isVerified",
       );
 
       // Populate chat to send as update
       const populatedChat = await Chat.findById(chatId)
-        .populate("participants", "firstName lastName profileImage")
-        .populate("lastMessage.sender", "firstName lastName profileImage");
+        .populate("participants", "firstName lastName profileImage lastSeen roleId isVerified")
+        .populate("lastMessage.sender", "firstName lastName profileImage lastSeen roleId isVerified");
 
       // Emit 'update_chat_list' to all participants individually to ensure correct unread counts
       chat.participants.forEach((pId) => {
@@ -351,8 +367,8 @@ const chatSocketController = (io, socket) => {
     try {
       const [chats, totalChats] = await Promise.all([
         Chat.find({ participants: userId })
-          .populate("participants", "firstName lastName profileImage")
-          .populate("lastMessage.sender", "firstName lastName profileImage")
+          .populate("participants", "firstName lastName profileImage lastSeen roleId isVerified")
+          .populate("lastMessage.sender", "firstName lastName profileImage lastSeen roleId isVerified")
           .sort({ "lastMessage.createdAt": -1 })
           .skip(skip)
           .limit(limit),
@@ -457,7 +473,7 @@ const chatSocketController = (io, socket) => {
       const msgSkip = (page - 1) * limit;
 
       const messages = await Message.find(msgQuery)
-        .populate("sender", "firstName lastName profileImage")
+        .populate("sender", "firstName lastName profileImage lastSeen roleId isVerified")
         .sort({ createdAt: -1 })
         .skip(msgSkip)
         .limit(limit);
@@ -551,8 +567,8 @@ const chatSocketController = (io, socket) => {
 
       // Emit update to the user to refresh their chat list (to hide last message snippet)
       const populatedChat = await Chat.findById(chatId)
-        .populate("participants", "firstName lastName profileImage")
-        .populate("lastMessage.sender", "firstName lastName profileImage");
+        .populate("participants", "firstName lastName profileImage lastSeen roleId isVerified")
+        .populate("lastMessage.sender", "firstName lastName profileImage lastSeen roleId isVerified");
 
       const formattedChat = formatChatForUser(populatedChat, userId);
       socket.emit("update_chat_list", formattedChat);
