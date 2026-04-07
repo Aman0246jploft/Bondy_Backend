@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
-const { roleId } = require("../../utils/Role");
+const { roleId, userRole } = require("../../utils/Role");
 
 const Schema = mongoose.Schema;
 
@@ -284,6 +284,7 @@ UserSchema.options.toJSON = {
   transform: function (doc, ret, options) {
     delete ret.__v;
     delete ret.password; // Don't send password in JSON responses
+    ret.userRole = userRole[ret.roleId] || null;
     return ret;
   },
 };

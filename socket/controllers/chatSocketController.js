@@ -24,9 +24,9 @@ const formatUser = (user) => {
   }
 
   // Add role information
-  userObj.role = userObj.roleId || null;
-  userObj.userRole = userRole[userObj.roleId] || null;
-  // isVerified is already in userObj if populated
+  userObj.role = userRole[userObj.roleId] || null;
+  userObj.userRole = userObj.role;
+  userObj.isVerified = userObj.isVerified || false;
 
   return userObj;
 };
@@ -50,6 +50,7 @@ const getSocketId = (userId) => onlineUsers.get(userId.toString());
 const chatSocketController = (io, socket) => {
   const userObj = socket.user;
   const userId = (userObj.userId || userObj._id || userObj.id).toString();
+  console.log("User Connected:", userId);
 
   // Format chat object with unread counts and online status
   const formatChatForUser = (chatDoc, targetUserId) => {
@@ -90,15 +91,30 @@ const chatSocketController = (io, socket) => {
 
   // 2. Disconnect
   socket.on("disconnect", async () => {
+    console.log("User Disconnected:", userId);
+    if (!userId) {
+      console.error("Disconnect error: No userId found for socket", socket.id);
+      return;
+    }
+
     onlineUsers.delete(userId);
     const lastSeen = new Date();
     io.emit("user_offline", { userId, lastSeen });
 
     // Update lastSeen in database
     try {
-      await User.findByIdAndUpdate(userId, { lastSeen });
+      const updateResult = await User.updateOne(
+        { _id: userId },
+        { $set: { lastSeen: lastSeen } }
+      );
+      
+      if (updateResult.matchedCount === 0) {
+        console.warn(`No user found in DB with ID: ${userId} to update lastSeen`);
+      } else {
+        console.log(`Successfully updated lastSeen in DB for user: ${userId}`);
+      }
     } catch (err) {
-      console.error("Error updating lastSeen:", err);
+      console.error("Error updating lastSeen in DB:", err);
     }
   });
   console.log("onlineUsers", onlineUsers);
@@ -376,31 +392,16 @@ const chatSocketController = (io, socket) => {
       ]);
 
       const chatsWithCount = chats.map((chat) => {
-        const chatObj = chat.toObject();
+        const chatObj = formatChatForUser(chat, userId);
         const currentUserId = userId.toString();
 
-        chatObj.unreadCount = chat.unreadCounts.get(currentUserId) || 0;
-
-        chatObj.participants = chatObj.participants.map((p) => {
-          const formattedP = formatUser(p);
-          return {
-            ...formattedP,
-            isOnline: onlineUsers.has(p._id.toString()),
-          };
-        });
-
-        chatObj.otherUser = chatObj.participants.find(
-          (p) => p._id.toString() !== currentUserId,
-        );
-
-        // Check if chat was cleared for this user
+        // If lastMessage is older than clearedAt, don't show it in the list
         const clearedAt = chat.clearedAt && chat.clearedAt.get
           ? chat.clearedAt.get(currentUserId)
           : chat.clearedAt
             ? chat.clearedAt[currentUserId]
             : null;
 
-        // If lastMessage is older than clearedAt, don't show it in the list
         if (clearedAt && chatObj.lastMessage && new Date(chatObj.lastMessage.createdAt) <= new Date(clearedAt)) {
           chatObj.lastMessage = null;
         }
