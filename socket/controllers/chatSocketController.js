@@ -372,6 +372,9 @@ const chatSocketController = (io, socket) => {
 
     const { chatId } = value;
     const userName = `${userObj.firstName || ""} ${userObj.lastName || ""}`.trim() || "Someone";
+    
+    console.log(`[Socket] Typing: User ${userId} (${userName}) is typing in chat ${chatId}`);
+    
     socket.to(chatId).emit("typing", { chatId, userId, userName });
 
     if (typeof ack === "function") {
@@ -391,6 +394,8 @@ const chatSocketController = (io, socket) => {
     }
 
     const { chatId } = value;
+    console.log(`[Socket] Stop Typing: User ${userId} stopped typing in chat ${chatId}`);
+    
     socket.to(chatId).emit("stop_typing", { chatId, userId });
 
     if (typeof ack === "function") {
