@@ -101,8 +101,8 @@ const addDateSeparators = (messages, nextMessageDate = null) => {
     if (hasDateChange) {
       result.push({
         isDateSeparator: true,
-        text: formatDateText(currentDate),
-        date: currentDate.toISOString().split("T")[0],
+        seperatorText: formatDateText(currentDate),
+        seperatorDate: currentDate.toISOString().split("T")[0],
       });
     }
   }
