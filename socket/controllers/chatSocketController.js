@@ -52,6 +52,9 @@ const chatSocketController = (io, socket) => {
   const userId = (userObj.userId || userObj._id || userObj.id).toString();
   console.log("User Connected:", userId);
 
+  // Join private room for global notifications
+  socket.join(userId);
+
   // Format chat object with unread counts and online status
   const formatChatForUser = (chatDoc, targetUserId) => {
     if (!chatDoc) return null;
@@ -107,7 +110,7 @@ const chatSocketController = (io, socket) => {
         { _id: userId },
         { $set: { lastSeen: lastSeen } }
       );
-      
+
       if (updateResult.matchedCount === 0) {
         console.warn(`No user found in DB with ID: ${userId} to update lastSeen`);
       } else {
@@ -358,7 +361,8 @@ const chatSocketController = (io, socket) => {
 
   // 5. Typing Indicator
   socket.on("typing", ({ chatId }) => {
-    socket.to(chatId).emit("typing", { chatId, userId });
+    const userName = `${userObj.firstName || ""} ${userObj.lastName || ""}`.trim() || "Someone";
+    socket.to(chatId).emit("typing", { chatId, userId, userName });
   });
 
   socket.on("stop_typing", ({ chatId }) => {
