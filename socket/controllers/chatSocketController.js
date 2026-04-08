@@ -46,6 +46,69 @@ const formatMessage = (message) => {
   return msgObj;
 };
 
+// Helper to format date text for separators
+const formatDateText = (date) => {
+  const d = new Date(date);
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+
+  const msgDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+
+  if (msgDate.getTime() === today.getTime()) {
+    return "Today";
+  } else if (msgDate.getTime() === yesterday.getTime()) {
+    return "Yesterday";
+  } else {
+    return d.toLocaleDateString("en-GB", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    });
+  }
+};
+
+// Helper to add date separators to message list
+const addDateSeparators = (messages, nextMessageDate = null) => {
+  if (!messages || messages.length === 0) return messages;
+
+  const result = [];
+  for (let i = 0; i < messages.length; i++) {
+    result.push(messages[i]);
+
+    const currentDate = new Date(messages[i].createdAt);
+    let hasDateChange = false;
+
+    if (i < messages.length - 1) {
+      const nextDate = new Date(messages[i + 1].createdAt);
+      if (currentDate.toDateString() !== nextDate.toDateString()) {
+        hasDateChange = true;
+      }
+    } else {
+      // Last message in the current set
+      if (nextMessageDate) {
+        const nextDate = new Date(nextMessageDate);
+        if (currentDate.toDateString() !== nextDate.toDateString()) {
+          hasDateChange = true;
+        }
+      } else {
+        // No more messages in the chat
+        hasDateChange = true;
+      }
+    }
+
+    if (hasDateChange) {
+      result.push({
+        isDateSeparator: true,
+        text: formatDateText(currentDate),
+        date: currentDate.toISOString().split("T")[0],
+      });
+    }
+  }
+  return result;
+};
+
 // Helper to get socketId by userId
 const getSocketId = (userId) => onlineUsers.get(userId.toString());
 
@@ -568,14 +631,25 @@ const chatSocketController = (io, socket) => {
         .populate("sender", "firstName lastName profileImage lastSeen roleId isVerified")
         .sort({ createdAt: -1 })
         .skip(msgSkip)
-        .limit(limit);
+        .limit(limit + 1);
 
       chat.unreadCounts.set(userId.toString(), 0);
       await chat.save();
 
-      const formattedMessages = messages.map((m) => formatMessage(m));
-      const hasMore = msgSkip + messages.length < totalMessages;
-      const payload = { status: "ok", data: formattedMessages, page, limit, hasMore };
+      const hasMore = messages.length > limit;
+      const displayMessages = hasMore ? messages.slice(0, limit) : messages;
+      const nextMessageDate = hasMore ? messages[limit].createdAt : null;
+
+      const formattedMessages = displayMessages.map((m) => formatMessage(m));
+      const dataWithSeparators = addDateSeparators(formattedMessages, nextMessageDate);
+
+      const payload = {
+        status: "ok",
+        data: dataWithSeparators,
+        page,
+        limit,
+        hasMore,
+      };
 
       if (typeof ack === "function") ack(payload);
       else socket.emit("get_message_list_response", payload);
