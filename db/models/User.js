@@ -289,6 +289,8 @@ UserSchema.options.toJSON = {
   },
 };
 
+UserSchema.options.toObject = UserSchema.options.toJSON;
+
 UserSchema.post("save", async function (doc, next) {
   try {
     if (doc.wasNew) {

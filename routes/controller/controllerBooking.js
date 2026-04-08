@@ -27,7 +27,7 @@ const {
 const validateRequest = require("../../middlewares/validateRequest");
 const perApiLimiter = require("../../middlewares/rateLimiter");
 const checkRole = require("../../middlewares/checkRole");
-const { roleId } = require("../../utils/Role");
+const { roleId, userRole } = require("../../utils/Role");
 const {
   notifyBookingConfirmed,
   notifyOrganizerNewBooking,
@@ -562,7 +562,7 @@ const getTicketList = async (req, res) => {
           {
             path: "createdBy",
             model: "User",
-            select: "firstName lastName email profileImage",
+            select: "firstName lastName email profileImage roleId",
           },
         ],
       })
@@ -576,7 +576,7 @@ const getTicketList = async (req, res) => {
           {
             path: "createdBy",
             model: "User",
-            select: "firstName lastName email profileImage",
+            select: "firstName lastName email profileImage roleId",
           },
         ],
       })
@@ -972,7 +972,7 @@ const getEventAttendeesList = async (req, res) => {
     const transactions = await Transaction.find(filter)
       .populate(
         "userId",
-        "firstName lastName email profileImage contactNumber countryCode",
+        "firstName lastName email profileImage contactNumber countryCode roleId",
       )
       .populate("checkedInBy", "firstName lastName email")
       .sort({ createdAt: -1 });
@@ -1007,6 +1007,7 @@ const getEventAttendeesList = async (req, res) => {
             : null,
           contactNumber: user?.contactNumber,
           countryCode: user?.countryCode,
+          userRole: user?.roleId ? userRole[user.roleId] : null,
         },
         tickets: {
           totalQty: transaction.qty,
@@ -1083,7 +1084,7 @@ const getEventAttendeeStats = async (req, res) => {
       eventId: event._id,
       status: "PAID",
     })
-      .populate("userId", "firstName lastName email")
+      .populate("userId", "firstName lastName email roleId")
       .sort({ createdAt: -1 });
 
     // Calculate statistics
@@ -1222,7 +1223,7 @@ const getRecentBookings = async (req, res) => {
 
     const [transactions, totalCount] = await Promise.all([
       Transaction.find(filter)
-        .populate("userId", "firstName lastName email profileImage contactNumber countryCode")
+        .populate("userId", "firstName lastName email profileImage contactNumber countryCode roleId")
         .populate({
           path: "eventId",
           select: "eventTitle eventCategory startDate endDate posterImage createdBy",
@@ -1270,6 +1271,8 @@ const getRecentBookings = async (req, res) => {
         eventName: itemName,
         categoryName: categoryName,
         bookingDate: t.createdAt,
+        userId: u?._id,
+        userRole: u?.roleId ? userRole[u.roleId] : null,
         // status: t.status,
       };
     });
