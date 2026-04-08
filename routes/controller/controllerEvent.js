@@ -211,12 +211,9 @@ const getEvents = async (req, res) => {
       isDraft,
     } = req.query;
 
-    // console.log(`[getEvents] Fetching events with filters: ${filter}, Category: ${categoryId}, Search: ${search}, Location: [${latitude}, ${longitude}], Page: ${page}, isDraft: ${isDraft}`);
-
     let loginUser = null;
     if (req.user) {
       loginUser = req.user.userId;
-      // console.log(`[getEvents] Authenticated User ID: ${loginUser}`);
     }
     const now = new Date();
     const skip = (page - 1) * limit;
@@ -452,7 +449,7 @@ const getEvents = async (req, res) => {
             },
           },
         },
-        { $sort: { isPromoMatch: -1, fetcherEvent: -1, isFeatured: -1, distance: 1 } },
+        { $sort: { isPromoMatch: -1, fetcherEvent: -1, isFeatured: -1, startDate: 1, endDate: 1, distance: 1 } },
         { $skip: parseInt(skip) },
         { $limit: parseInt(limit) },
         {
@@ -526,7 +523,11 @@ const getEvents = async (req, res) => {
             $sort: {
               isPromoMatch: -1,
               fetcherEvent: -1,
-              ...(filters.includes("past") ? { endDate: -1 } : { isFeatured: -1, startDate: 1 }),
+              ...(filters.includes("past")
+                ? { endDate: -1, startDate: -1 }
+                : filters.includes("draft")
+                  ? { updatedAt: -1 }
+                  : { isFeatured: -1, startDate: 1, endDate: 1 }),
             },
           },
           { $skip: parseInt(skip) },
@@ -555,8 +556,10 @@ const getEvents = async (req, res) => {
       } else {
         // console.log(`[getEvents] Executing standard find/sort Query`);
         const sortOrder = filters.includes("past")
-          ? { endDate: -1 }
-          : { isFeatured: -1, startDate: 1 };
+          ? { fetcherEvent: -1, endDate: -1, startDate: -1 }
+          : filters.includes("draft")
+            ? { updatedAt: -1 }
+            : { fetcherEvent: -1, isFeatured: -1, startDate: 1, endDate: 1 };
         events = await Event.find(query)
           .populate("eventCategory")
           .populate("createdBy", "firstName lastName profileImage isVerified")
