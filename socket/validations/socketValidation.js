@@ -38,6 +38,10 @@ const clearChatSchema = Joi.object({
     chatId: Joi.string().required(),
 });
 
+const typingSchema = Joi.object({
+    chatId: Joi.string().required(),
+});
+
 module.exports = {
     sendMessageSchema,
     joinChatSchema,
@@ -46,4 +50,5 @@ module.exports = {
     deleteMessageSchema,
     createChatSchema,
     clearChatSchema,
+    typingSchema,
 };

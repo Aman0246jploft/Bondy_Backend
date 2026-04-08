@@ -10,6 +10,7 @@ const {
   deleteMessageSchema,
   createChatSchema,
   clearChatSchema,
+  typingSchema,
 } = require("../validations/socketValidation");
 const { formatResponseUrl } = require("../../utils/globalFunction");
 
@@ -360,13 +361,43 @@ const chatSocketController = (io, socket) => {
   });
 
   // 5. Typing Indicator
-  socket.on("typing", ({ chatId }) => {
+  socket.on("typing", (data, ack) => {
+    const { error, value } = typingSchema.validate(data);
+    if (error) {
+      if (typeof ack === "function") {
+        return ack({ status: "error", message: error.details[0].message });
+      }
+      return;
+    }
+
+    const { chatId } = value;
     const userName = `${userObj.firstName || ""} ${userObj.lastName || ""}`.trim() || "Someone";
     socket.to(chatId).emit("typing", { chatId, userId, userName });
+
+    if (typeof ack === "function") {
+      ack({ status: "ok" });
+    } else {
+      socket.emit("typing_response", { status: "ok", chatId });
+    }
   });
 
-  socket.on("stop_typing", ({ chatId }) => {
+  socket.on("stop_typing", (data, ack) => {
+    const { error, value } = typingSchema.validate(data);
+    if (error) {
+      if (typeof ack === "function") {
+        return ack({ status: "error", message: error.details[0].message });
+      }
+      return;
+    }
+
+    const { chatId } = value;
     socket.to(chatId).emit("stop_typing", { chatId, userId });
+
+    if (typeof ack === "function") {
+      ack({ status: "ok" });
+    } else {
+      socket.emit("stop_typing_response", { status: "ok", chatId });
+    }
   });
 
   // 6. Get Chat List (Socket)
