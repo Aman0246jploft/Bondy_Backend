@@ -373,14 +373,18 @@ const chatSocketController = (io, socket) => {
     const { chatId } = value;
     const userName = `${userObj.firstName || ""} ${userObj.lastName || ""}`.trim() || "Someone";
     
-    console.log(`[Socket] Typing: User ${userId} (${userName}) is typing in chat ${chatId}`);
+    // Count recipients (total in room minus sender)
+    const room = io.sockets.adapter.rooms.get(chatId);
+    const recipientCount = room ? (room.has(socket.id) ? room.size - 1 : room.size) : 0;
+
+    console.log(`[Socket] Firing typing listener: User ${userId} (${userName}) -> ${recipientCount} others in room ${chatId}`);
     
     socket.to(chatId).emit("typing", { chatId, userId, userName });
 
     if (typeof ack === "function") {
-      ack({ status: "ok" });
+      ack({ status: "ok", recipients: recipientCount });
     } else {
-      socket.emit("typing_response", { status: "ok", chatId });
+      socket.emit("typing_response", { status: "ok", chatId, recipients: recipientCount });
     }
   });
 
@@ -394,14 +398,19 @@ const chatSocketController = (io, socket) => {
     }
 
     const { chatId } = value;
-    console.log(`[Socket] Stop Typing: User ${userId} stopped typing in chat ${chatId}`);
+    
+    // Count recipients
+    const room = io.sockets.adapter.rooms.get(chatId);
+    const recipientCount = room ? (room.has(socket.id) ? room.size - 1 : room.size) : 0;
+
+    console.log(`[Socket] Firing stop_typing listener: User ${userId} -> ${recipientCount} others in room ${chatId}`);
     
     socket.to(chatId).emit("stop_typing", { chatId, userId });
 
     if (typeof ack === "function") {
-      ack({ status: "ok" });
+      ack({ status: "ok", recipients: recipientCount });
     } else {
-      socket.emit("stop_typing_response", { status: "ok", chatId });
+      socket.emit("stop_typing_response", { status: "ok", chatId, recipients: recipientCount });
     }
   });
 
