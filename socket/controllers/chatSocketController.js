@@ -15,6 +15,7 @@ const {
 const { formatResponseUrl } = require("../../utils/globalFunction");
 
 const onlineUsers = new Map(); // userId -> socketId
+const chatParticipantsCache = new Map(); // chatId -> [participantIdStrings]
 
 // Helper to format user object
 const formatUser = (user) => {
@@ -343,6 +344,9 @@ const chatSocketController = (io, socket) => {
         }
       });
 
+
+
+
       // Emit to Room (standard message receive)
       socket.to(chatId).emit("receive_message", formatMessage(populatedMessage));
 
@@ -361,7 +365,7 @@ const chatSocketController = (io, socket) => {
   });
 
   // 5. Typing Indicator
-  socket.on("typing", (data, ack) => {
+  socket.on("typing", async (data, ack) => {
     const { error, value } = typingSchema.validate(data);
     if (error) {
       if (typeof ack === "function") {
@@ -372,23 +376,42 @@ const chatSocketController = (io, socket) => {
 
     const { chatId } = value;
     const userName = `${userObj.firstName || ""} ${userObj.lastName || ""}`.trim() || "Someone";
-    
-    // Count recipients (total in room minus sender)
-    const room = io.sockets.adapter.rooms.get(chatId);
-    const recipientCount = room ? (room.has(socket.id) ? room.size - 1 : room.size) : 0;
 
-    console.log(`[Socket] Firing typing listener: User ${userId} (${userName}) -> ${recipientCount} others in room ${chatId}`);
-    
-    socket.to(chatId).emit("typing", { chatId, userId, userName });
+    try {
+      // 1. Get Participants (using cache)
+      let participants = chatParticipantsCache.get(chatId);
+      if (!participants) {
+        const chat = await Chat.findById(chatId).select("participants");
+        if (chat) {
+          participants = chat.participants.map(p => p.toString());
+          chatParticipantsCache.set(chatId, participants);
+        }
+      }
 
-    if (typeof ack === "function") {
-      ack({ status: "ok", recipients: recipientCount });
-    } else {
-      socket.emit("typing_response", { status: "ok", chatId, recipients: recipientCount });
+      // 2. Emit to each participant's private room
+      let firedCount = 0;
+      if (participants) {
+        participants.forEach(pId => {
+          if (pId !== userId) {
+            io.to(pId).emit("typing", { chatId, userId, userName });
+            firedCount++;
+          }
+        });
+      }
+
+      console.log(`[Socket/Global] Firing typing listener: User ${userId} (${userName}) -> ${firedCount} participants notified for chat ${chatId}`);
+
+      if (typeof ack === "function") {
+        ack({ status: "ok", recipients: firedCount });
+      } else {
+        socket.emit("typing_response", { status: "ok", chatId, recipients: firedCount });
+      }
+    } catch (err) {
+      console.error("Typing Event Error:", err);
     }
   });
 
-  socket.on("stop_typing", (data, ack) => {
+  socket.on("stop_typing", async (data, ack) => {
     const { error, value } = typingSchema.validate(data);
     if (error) {
       if (typeof ack === "function") {
@@ -398,19 +421,38 @@ const chatSocketController = (io, socket) => {
     }
 
     const { chatId } = value;
-    
-    // Count recipients
-    const room = io.sockets.adapter.rooms.get(chatId);
-    const recipientCount = room ? (room.has(socket.id) ? room.size - 1 : room.size) : 0;
 
-    console.log(`[Socket] Firing stop_typing listener: User ${userId} -> ${recipientCount} others in room ${chatId}`);
-    
-    socket.to(chatId).emit("stop_typing", { chatId, userId });
+    try {
+      // 1. Get Participants (using cache)
+      let participants = chatParticipantsCache.get(chatId);
+      if (!participants) {
+        const chat = await Chat.findById(chatId).select("participants");
+        if (chat) {
+          participants = chat.participants.map(p => p.toString());
+          chatParticipantsCache.set(chatId, participants);
+        }
+      }
 
-    if (typeof ack === "function") {
-      ack({ status: "ok", recipients: recipientCount });
-    } else {
-      socket.emit("stop_typing_response", { status: "ok", chatId, recipients: recipientCount });
+      // 2. Emit to each participant's private room
+      let firedCount = 0;
+      if (participants) {
+        participants.forEach(pId => {
+          if (pId !== userId) {
+            io.to(pId).emit("stop_typing", { chatId, userId });
+            firedCount++;
+          }
+        });
+      }
+
+      console.log(`[Socket/Global] Firing stop_typing listener: User ${userId} -> ${firedCount} participants notified for chat ${chatId}`);
+
+      if (typeof ack === "function") {
+        ack({ status: "ok", recipients: firedCount });
+      } else {
+        socket.emit("stop_typing_response", { status: "ok", chatId, recipients: firedCount });
+      }
+    } catch (err) {
+      console.error("StopTyping Event Error:", err);
     }
   });
 
