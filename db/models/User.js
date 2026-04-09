@@ -263,8 +263,10 @@ UserSchema.pre("save", function (next) {
   const isBusinessApproved = businessProof?.status === "approved";
   const isGovApproved = govId?.status === "approved";
 
-  // ✅ isVerified = true if ANY one is approved
-  this.isVerified = isBusinessApproved || isGovApproved;
+  // ✅ isVerified = true if ANY one is approved (Once true, it stays true)
+  if (this.isVerified || isBusinessApproved || isGovApproved) {
+    this.isVerified = true;
+  }
 
   // ✅ organizerVerificationStatus = approved ONLY if BOTH approved
   if (isBusinessApproved && isGovApproved) {
