@@ -197,6 +197,9 @@ const getCourses = async (req, res) => {
           endOfNextWeek.setHours(23, 59, 59, 999);
           scheduleAndConditions.push({ startDate: { $gte: startOfNextWeek, $lte: endOfNextWeek } });
           break;
+        case "featured":
+          query.isFeatured = true;
+          break;
         case "recommended":
           let userCategories = [];
           const authHeader = req.headers.authorization;

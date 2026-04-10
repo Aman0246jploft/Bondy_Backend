@@ -62,6 +62,7 @@ const getCoursesSchema = Joi.object({
             "thisWeekend",
             "thisYear",
             "recommended",
+            "featured",
             "today",
             "nextWeek",
             "past"
