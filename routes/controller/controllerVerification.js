@@ -40,10 +40,34 @@ const submitVerification = async (req, res) => {
       return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "User not found.");
     }
 
+    // Rule: If already verified, do not allow re-submission
+    if (user.isVerified) {
+      return apiErrorRes(
+        HTTP_STATUS.BAD_REQUEST,
+        res,
+        "You are already verified. Re-submission is not allowed.",
+      );
+    }
+
     const validNames = ["Business Proof", "Gov ID"];
 
-    // Format documents with initial status and validation
-    const newDocs = [];
+    // Merge logic: Preserve approved documents, update others to pending
+    const existingDocs = user.documents || [];
+    const updatedDocsMap = new Map();
+
+    // 1. Populate map with existing approved documents
+    existingDocs.forEach(doc => {
+      if (doc.status === "approved") {
+        updatedDocsMap.set(doc.name, {
+          name: doc.name,
+          file: doc.file,
+          status: "approved",
+          reason: null
+        });
+      }
+    });
+
+    // 2. Process new documents from request
     for (const doc of documents) {
       if (!doc.name || !validNames.includes(doc.name)) {
         return apiErrorRes(
@@ -52,7 +76,14 @@ const submitVerification = async (req, res) => {
           `Invalid document name. Allowed: ${validNames.join(", ")}`,
         );
       }
-      newDocs.push({
+
+      // Rule: If "Business Proof" is already approved, do not overwrite it
+      if (doc.name === "Business Proof" && updatedDocsMap.has("Business Proof")) {
+        continue;
+      }
+
+      // Add or Update to pending
+      updatedDocsMap.set(doc.name, {
         name: doc.name,
         file: doc.file,
         status: "pending",
@@ -60,19 +91,19 @@ const submitVerification = async (req, res) => {
       });
     }
 
-    // Update user: Add documents and set verification status to pending
-    user.documents = newDocs;
+    // Convert map back to array
+    user.documents = Array.from(updatedDocsMap.values());
     user.organizerVerificationStatus = "pending";
     await user.save();
 
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
-      "Verification documents submitted successfully.",
+      "Verification documents updated successfully.",
       {
         organizerVerificationStatus: user.organizerVerificationStatus,
         documents: (user.documents || []).map((doc) => ({
-          ...doc.toObject(),
+          ...doc.toObject ? doc.toObject() : doc,
           file: doc.file ? formatResponseUrl(doc.file) : null,
         })),
       },
@@ -193,6 +224,15 @@ const verifyOrganizer = async (req, res) => {
       document.status = "approved";
       document.reason = null;
     } else if (action === "reject") {
+      // Rule: If Business Proof is already approved, do not allow rejection
+      if (document.name === "Business Proof" && document.status === "approved") {
+        return apiErrorRes(
+          HTTP_STATUS.BAD_REQUEST,
+          res,
+          "Approved 'Business Proof' cannot be rejected.",
+        );
+      }
+
       if (!reason) {
         return apiErrorRes(
           HTTP_STATUS.BAD_REQUEST,
