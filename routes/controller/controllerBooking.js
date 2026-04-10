@@ -1299,7 +1299,7 @@ router.post(
 
 router.post(
   "/calculate",
-  perApiLimiter(),
+  // perApiLimiter(),
   validateRequest(initiateBookingSchema), // Reusing initiate schema as inputs are same
   calculateBooking,
 );
