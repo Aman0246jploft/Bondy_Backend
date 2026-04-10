@@ -193,7 +193,7 @@ const formatEvent = (event, bookedEventIds = new Set()) => {
   event.leftSeats = event.ticketQtyAvailable || 0;
   event.acquiredSeats =
     (event.totalTickets || 0) - (event.ticketQtyAvailable || 0);
-    event.isFewSeatsAvailable = checkFewSeatsAvailable(event.leftSeats, event.totalSeats, 10);
+  event.isFewSeatsAvailable = checkFewSeatsAvailable(event.leftSeats, event.totalSeats, 10);
   event.isBooked = bookedEventIds.has(event._id.toString());
   return event;
 };
@@ -1477,7 +1477,7 @@ router.post(
 // this is for the customer Pannel
 router.get(
   "/list",
-  perApiLimiter(),
+  // perApiLimiter(),
   // validateRequest(getEventsSchema),
   getEvents,
 );

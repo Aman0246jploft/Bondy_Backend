@@ -1027,7 +1027,7 @@ const getOrganizerCourses = async (req, res) => {
 // Get Courses with Filters
 router.get(
   "/list",
-  perApiLimiter(),
+  // perApiLimiter(),
   // validateRequest(getCoursesSchema),
   getCourses,
 );
