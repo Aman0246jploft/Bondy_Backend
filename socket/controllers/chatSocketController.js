@@ -148,6 +148,15 @@ const chatSocketController = (io, socket) => {
       chatObj.lastMessage.sender = formatUser(chatObj.lastMessage.sender);
     }
 
+    // Add block information
+    chatObj.isBlocked = !!(chatObj.blockedBy && chatObj.blockedBy.length > 0);
+    if (chatObj.blockedBy && Array.isArray(chatObj.blockedBy) && chatObj.blockedBy.length > 0) {
+      const firstBlocker = chatObj.blockedBy[0];
+      chatObj.blockedBy = typeof firstBlocker === "object" ? formatUser(firstBlocker) : firstBlocker;
+    } else {
+      chatObj.blockedBy = null;
+    }
+
     return chatObj;
   };
 
@@ -235,7 +244,8 @@ const chatSocketController = (io, socket) => {
           if (receiverSocket) {
             receiverSocket.join(chat._id.toString());
             const populatedForReceiver = await Chat.findById(chat._id)
-              .populate("participants", "firstName lastName profileImage lastSeen roleId isVerified");
+              .populate("participants", "firstName lastName profileImage lastSeen roleId isVerified")
+              .populate("blockedBy", "firstName lastName profileImage");
             const formattedForReceiver = formatChatForUser(populatedForReceiver, receiverId);
             io.to(receiverSocketId).emit("new_chat", formattedForReceiver);
           }
@@ -248,7 +258,8 @@ const chatSocketController = (io, socket) => {
       // Return formatted chat to sender
       const populatedChat = await Chat.findById(chat._id)
         .populate("participants", "firstName lastName profileImage lastSeen roleId isVerified")
-        .populate("lastMessage.sender", "firstName lastName profileImage lastSeen roleId isVerified");
+        .populate("lastMessage.sender", "firstName lastName profileImage lastSeen roleId isVerified")
+        .populate("blockedBy", "firstName lastName profileImage");
 
       const formattedChat = formatChatForUser(populatedChat, userId);
 
@@ -334,7 +345,7 @@ const chatSocketController = (io, socket) => {
               const initialChat = await Chat.findById(chatId).populate(
                 "participants",
                 "firstName lastName profileImage lastSeen roleId isVerified",
-              );
+              ).populate("blockedBy", "firstName lastName profileImage");
               const formattedInitial = formatChatForUser(initialChat, receiverId);
               io.to(receiverSocketId).emit("new_chat", formattedInitial);
             }
@@ -395,7 +406,8 @@ const chatSocketController = (io, socket) => {
       // Populate chat to send as update
       const populatedChat = await Chat.findById(chatId)
         .populate("participants", "firstName lastName profileImage lastSeen roleId isVerified")
-        .populate("lastMessage.sender", "firstName lastName profileImage lastSeen roleId isVerified");
+        .populate("lastMessage.sender", "firstName lastName profileImage lastSeen roleId isVerified")
+        .populate("blockedBy", "firstName lastName profileImage");
 
       // Emit 'update_chat_list' to all participants individually to ensure correct unread counts
       chat.participants.forEach((pId) => {
@@ -539,6 +551,7 @@ const chatSocketController = (io, socket) => {
         Chat.find({ participants: userId })
           .populate("participants", "firstName lastName profileImage lastSeen roleId isVerified")
           .populate("lastMessage.sender", "firstName lastName profileImage lastSeen roleId isVerified")
+          .populate("blockedBy", "firstName lastName profileImage")
           .sort({ "lastMessage.createdAt": -1 })
           .skip(skip)
           .limit(limit),
@@ -734,7 +747,8 @@ const chatSocketController = (io, socket) => {
       // Emit update to the user to refresh their chat list (to hide last message snippet)
       const populatedChat = await Chat.findById(chatId)
         .populate("participants", "firstName lastName profileImage lastSeen roleId isVerified")
-        .populate("lastMessage.sender", "firstName lastName profileImage lastSeen roleId isVerified");
+        .populate("lastMessage.sender", "firstName lastName profileImage lastSeen roleId isVerified")
+        .populate("blockedBy", "firstName lastName profileImage");
 
       const formattedChat = formatChatForUser(populatedChat, userId);
       socket.emit("update_chat_list", formattedChat);
