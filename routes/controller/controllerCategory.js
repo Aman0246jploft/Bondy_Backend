@@ -22,9 +22,10 @@ const {
 // Create Category
 const createCategory = async (req, res) => {
   try {
-    const { name, type, image } = req.body;
+    const { name, type, image, name_thi } = req.body;
     const lowerCaseName = name.toLowerCase().trim();
     const lowerCaseType = type.toLowerCase().trim();
+    const lowerCaseNameThi = name_thi ? name_thi.toLowerCase().trim() : null;
 
     // Check if category exists with same name AND type (including soft-deleted)
     const existingCategory = await Category.findOne({
@@ -59,6 +60,7 @@ const createCategory = async (req, res) => {
       name: lowerCaseName,
       type: lowerCaseType,
       image: image || null,
+      name_thi: lowerCaseNameThi,
     });
 
     await newCategory.save();
@@ -131,7 +133,7 @@ const getCategoryList = async (req, res) => {
 const updateCategory = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, type, image, isDisable } = req.body;
+    const { name, type, image, isDisable, name_thi } = req.body;
 
     const category = await Category.findOne({ _id: id, isDeleted: false });
     if (!category) {
@@ -176,6 +178,9 @@ const updateCategory = async (req, res) => {
     }
     if (isDisable !== undefined) {
       category.isDisable = isDisable;
+    }
+    if (name_thi !== undefined) {
+      category.name_thi = name_thi ? name_thi.toLowerCase().trim() : null;
     }
     await category.save();
 
