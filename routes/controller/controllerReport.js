@@ -145,7 +145,7 @@ const resolveReport = async (req, res) => {
     await report.save();
 
     // If banUser is true, disable the reported user (toUser)
-    if (banUser && status === "resolved") {
+    if (banUser && status === "approved") {
       await User.findByIdAndUpdate(report.toUser, { isDisable: true });
     }
 

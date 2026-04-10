@@ -95,7 +95,7 @@ const updatePromotionPackageSchema = Joi.object({
 // Report Resolution Schema
 const resolveReportSchema = Joi.object({
   id: Joi.string().required(),
-  status: Joi.string().valid("resolved", "dismissed").required(),
+  status: Joi.string().valid("approved", "rejected").required(),
   adminComment: Joi.string().optional().allow(""),
   banUser: Joi.boolean().optional(),
 });

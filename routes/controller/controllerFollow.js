@@ -95,6 +95,8 @@ const unfollowUser = async (req, res) => {
   }
 };
 
+const { roleId, userRole } = require("../../utils/Role");
+
 // Get Followers (users who follow me)
 const getFollowers = async (req, res) => {
   try {
@@ -107,11 +109,11 @@ const getFollowers = async (req, res) => {
     const followers = await Follow.find({ toUser: userId })
       .populate(
         "fromUser",
-        "firstName lastName profileImage email  isVerified",
+        "firstName lastName profileImage email isVerified roleId",
       )
       .populate(
         "toUser",
-        "firstName lastName profileImage email  isVerified",
+        "firstName lastName profileImage email isVerified roleId",
       )
       .skip(skip)
       .limit(size)
@@ -125,23 +127,29 @@ const getFollowers = async (req, res) => {
       const follows = await Follow.find({
         fromUser: loginUserId,
         toUser: { $in: followerIds },
-      }).select("toUser").lean();
+      })
+        .select("toUser")
+        .lean();
       followedUserIds = new Set(follows.map((f) => f.toUser.toString()));
     }
 
     // Format profile images and add isFollowed status
     followers.forEach((f) => {
-      if (f.fromUser && f.fromUser.profileImage) {
-        f.fromUser.profileImage = formatResponseUrl(f.fromUser.profileImage);
-      }
-      if (f.toUser && f.toUser.profileImage) {
-        f.toUser.profileImage = formatResponseUrl(f.toUser.profileImage);
-      }
-
       if (f.fromUser) {
+        if (f.fromUser.profileImage) {
+          f.fromUser.profileImage = formatResponseUrl(f.fromUser.profileImage);
+        }
+        f.fromUser.userRole = userRole[f.fromUser.roleId] || "GUEST";
         f.isFollowed = followedUserIds.has(f.fromUser._id.toString());
       } else {
         f.isFollowed = false;
+      }
+
+      if (f.toUser) {
+        if (f.toUser.profileImage) {
+          f.toUser.profileImage = formatResponseUrl(f.toUser.profileImage);
+        }
+        f.toUser.userRole = userRole[f.toUser.roleId] || "GUEST";
       }
     });
 
@@ -176,8 +184,14 @@ const getFollowing = async (req, res) => {
 
     const total = await Follow.countDocuments({ fromUser: userId });
     const following = await Follow.find({ fromUser: userId })
-      .populate("fromUser", "firstName lastName profileImage email isVerified")
-      .populate("toUser", "firstName lastName profileImage email isVerified")
+      .populate(
+        "fromUser",
+        "firstName lastName profileImage email isVerified roleId",
+      )
+      .populate(
+        "toUser",
+        "firstName lastName profileImage email isVerified roleId",
+      )
       .skip(skip)
       .limit(size)
       .lean();
@@ -190,20 +204,26 @@ const getFollowing = async (req, res) => {
       const follows = await Follow.find({
         fromUser: loginUserId,
         toUser: { $in: followingIds },
-      }).select("toUser").lean();
+      })
+        .select("toUser")
+        .lean();
       followedUserIds = new Set(follows.map((f) => f.toUser.toString()));
     }
 
     // Format profile images and add isFollowed status
     following.forEach((f) => {
-      if (f.fromUser && f.fromUser.profileImage) {
-        f.fromUser.profileImage = formatResponseUrl(f.fromUser.profileImage);
-      }
-      if (f.toUser && f.toUser.profileImage) {
-        f.toUser.profileImage = formatResponseUrl(f.toUser.profileImage);
+      if (f.fromUser) {
+        if (f.fromUser.profileImage) {
+          f.fromUser.profileImage = formatResponseUrl(f.fromUser.profileImage);
+        }
+        f.fromUser.userRole = userRole[f.fromUser.roleId] || "GUEST";
       }
 
       if (f.toUser) {
+        if (f.toUser.profileImage) {
+          f.toUser.profileImage = formatResponseUrl(f.toUser.profileImage);
+        }
+        f.toUser.userRole = userRole[f.toUser.roleId] || "GUEST";
         f.isFollowed = followedUserIds.has(f.toUser._id.toString());
       } else {
         f.isFollowed = false;
