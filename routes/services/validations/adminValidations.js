@@ -92,6 +92,14 @@ const updatePromotionPackageSchema = Joi.object({
   isActive: Joi.boolean().optional(),
 });
 
+// Report Resolution Schema
+const resolveReportSchema = Joi.object({
+  id: Joi.string().required(),
+  status: Joi.string().valid("resolved", "dismissed").required(),
+  adminComment: Joi.string().optional().allow(""),
+  banUser: Joi.boolean().optional(),
+});
+
 module.exports = {
   createTaxSchema,
   updateTaxSchema,
@@ -104,4 +112,5 @@ module.exports = {
   getByIdSchema,
   createPromotionPackageSchema,
   updatePromotionPackageSchema,
+  resolveReportSchema,
 };

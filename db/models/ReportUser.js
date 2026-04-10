@@ -19,6 +19,24 @@ const reportSchema = new mongoose.Schema(
     description: {
       type: String, // optional: more details about the report
     },
+    status: {
+      type: String,
+      enum: ["pending", "resolved", "dismissed"],
+      default: "pending",
+    },
+    adminComment: {
+      type: String,
+      default: null,
+    },
+    resolvedAt: {
+      type: Date,
+      default: null,
+    },
+    resolvedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
   },
   {
     timestamps: true, // automatically adds createdAt and updatedAt
