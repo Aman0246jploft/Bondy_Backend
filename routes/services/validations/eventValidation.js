@@ -91,7 +91,7 @@ const createEventSchema = Joi.object({
 
 const getEventsSchema = Joi.object({
     filter: Joi.string()
-        .valid("all", "nearYou", "upcoming", "thisWeek", "thisWeekend", "thisYear", "recommended")
+        .valid("all", "nearYou", "upcoming", "today", "tomorrow", "thisWeek", "thisWeekend", "thisYear", "nextWeek", "recommended")
         .default("all"),
     latitude: Joi.number().when("filter", {
         is: "nearYou",
@@ -111,6 +111,7 @@ const getEventsSchema = Joi.object({
     date: Joi.string().optional(),
     userId: Joi.string().hex().length(24).optional(),
     placement: Joi.string().valid("homePage", "explorePage").optional(),
+    timeOfDay: Joi.string().optional(),
 });
 
 const getEventDetailsSchema = Joi.object({

@@ -64,6 +64,7 @@ const getCoursesSchema = Joi.object({
             "recommended",
             "featured",
             "today",
+            "tomorrow",
             "nextWeek",
             "past"
         )
@@ -88,6 +89,7 @@ const getCoursesSchema = Joi.object({
     search: Joi.string().optional().allow('', null),
     page: Joi.number().integer().min(1).default(1),
     limit: Joi.number().integer().min(1).max(100).default(10),
+    timeOfDay: Joi.string().optional(),
 });
 
 const updateCourseParamsSchema = Joi.object({

@@ -93,6 +93,7 @@ const getCourses = async (req, res) => {
       limit = 10,
       startDate: customStartDate,
       endDate: customEndDate,
+      timeOfDay,
     } = req.query;
 
     const now = new Date();
@@ -175,6 +176,14 @@ const getCourses = async (req, res) => {
           endOfToday.setHours(23, 59, 59, 999);
           scheduleAndConditions.push({ startDate: { $gte: startOfToday, $lte: endOfToday } });
           break;
+        case "tomorrow":
+          const startOfTomorrow = new Date(now);
+          startOfTomorrow.setDate(startOfTomorrow.getDate() + 1);
+          startOfTomorrow.setHours(0, 0, 0, 0);
+          const endOfTomorrow = new Date(startOfTomorrow);
+          endOfTomorrow.setHours(23, 59, 59, 999);
+          scheduleAndConditions.push({ startDate: { $gte: startOfTomorrow, $lte: endOfTomorrow } });
+          break;
         case "thisweek":
           const startOfWeek = new Date(now);
           const currentDay = startOfWeek.getDay();
@@ -216,6 +225,27 @@ const getCourses = async (req, res) => {
             } catch (err) { }
           }
           break;
+      }
+    }
+
+    // Time of Day filter for Courses
+    if (timeOfDay && timeOfDay.toLowerCase() !== "anytime") {
+      const selectedSlots = timeOfDay.split(",").map((t) => t.trim().toLowerCase());
+      const expressions = [];
+
+      if (selectedSlots.includes("morning")) {
+        expressions.push({ $and: [{ $gte: [{ $hour: "$startDate" }, 6] }, { $lt: [{ $hour: "$startDate" }, 12] }] });
+      }
+      if (selectedSlots.includes("afternoon")) {
+        expressions.push({ $and: [{ $gte: [{ $hour: "$startDate" }, 12] }, { $lt: [{ $hour: "$startDate" }, 17] }] });
+      }
+      if (selectedSlots.includes("evening")) {
+        expressions.push({ $or: [{ $gte: [{ $hour: "$startDate" }, 17] }, { $lt: [{ $hour: "$startDate" }, 6] }] });
+      }
+
+      if (expressions.length > 0) {
+        const timeExpr = expressions.length === 1 ? expressions[0] : { $or: expressions };
+        scheduleAndConditions.push({ $expr: timeExpr });
       }
     }
 

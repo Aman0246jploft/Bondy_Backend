@@ -215,6 +215,7 @@ const getEvents = async (req, res) => {
       startDate: customStartDate,
       endDate: customEndDate,
       isDraft,
+      timeOfDay,
     } = req.query;
 
     let loginUser = null;
@@ -228,6 +229,9 @@ const getEvents = async (req, res) => {
 
     // 1. Build Base Query
     let query = {};
+    let startDateConditions = [];
+
+    // ... (Draft filter and Past filter logic remains same for now as they affect query.endDate or query.isDraft)
 
     // Draft filter (explicit param or through filter string)
     if (isDraft === "true" || isDraft === true || filters.includes("draft")) {
@@ -276,12 +280,11 @@ const getEvents = async (req, res) => {
 
     // Custom Date Range filter
     if (customStartDate || customEndDate) {
-      // console.log(`[getEvents] Applying custom date range. Start: ${customStartDate}, End: ${customEndDate}`);
       if (customStartDate) {
         const sD = new Date(customStartDate);
         if (!isNaN(sD.getTime())) {
           sD.setHours(0, 0, 0, 0);
-          query.startDate = { ...query.startDate, $gte: sD };
+          startDateConditions.push({ $gte: sD });
         }
       }
       if (customEndDate) {
@@ -295,19 +298,27 @@ const getEvents = async (req, res) => {
 
     // Apply Time-based filters
     for (const f of filters) {
-      if (["upcoming", "today", "thisweek", "thisweekend", "thisyear", "nextweek", "recommended"].includes(f)) {
+      if (["upcoming", "today", "tomorrow", "thisweek", "thisweekend", "thisyear", "nextweek", "recommended"].includes(f)) {
         // console.log(`[getEvents] Applying time-based filter: ${f}`);
       }
       switch (f) {
         case "upcoming":
-          query.startDate = { ...query.startDate, $gt: now };
+          startDateConditions.push({ $gt: now });
           break;
         case "today":
           const startOfToday = new Date(now);
           startOfToday.setHours(0, 0, 0, 0);
           const endOfToday = new Date(now);
           endOfToday.setHours(23, 59, 59, 999);
-          query.startDate = { ...query.startDate, $gte: startOfToday, $lte: endOfToday };
+          startDateConditions.push({ $gte: startOfToday, $lte: endOfToday });
+          break;
+        case "tomorrow":
+          const startOfTomorrow = new Date(now);
+          startOfTomorrow.setDate(startOfTomorrow.getDate() + 1);
+          startOfTomorrow.setHours(0, 0, 0, 0);
+          const endOfTomorrow = new Date(startOfTomorrow);
+          endOfTomorrow.setHours(23, 59, 59, 999);
+          startDateConditions.push({ $gte: startOfTomorrow, $lte: endOfTomorrow });
           break;
         case "thisweek":
           const startOfWeek = new Date(now);
@@ -316,26 +327,26 @@ const getEvents = async (req, res) => {
           startOfWeek.setDate(startOfWeek.getDate() + diffW);
           startOfWeek.setHours(0, 0, 0, 0);
           const endOfWeek = new Date(startOfWeek);
-          endOfWeek.setDate(endOfWeek.getDate() + 6);
+          endOfWeek.setDate(startOfWeek.getDate() + 6);
           endOfWeek.setHours(23, 59, 59, 999);
-          query.startDate = { ...query.startDate, $gte: startOfWeek, $lte: endOfWeek };
+          startDateConditions.push({ $gte: startOfWeek, $lte: endOfWeek });
           break;
         case "thisweekend":
-          const today = new Date(now);
-          const currentDay = today.getDay();
-          const startOfWeekend = new Date(today);
+          const tW = new Date(now);
+          const currentDay = tW.getDay();
+          const startOfWeekend = new Date(tW);
           const daysUntilSaturday = currentDay === 0 ? -1 : 6 - currentDay;
           startOfWeekend.setDate(startOfWeekend.getDate() + daysUntilSaturday);
           startOfWeekend.setHours(0, 0, 0, 0);
           const endOfWeekend = new Date(startOfWeekend);
           endOfWeekend.setDate(endOfWeekend.getDate() + 1);
           endOfWeekend.setHours(23, 59, 59, 999);
-          query.startDate = { ...query.startDate, $gte: startOfWeekend, $lte: endOfWeekend };
+          startDateConditions.push({ $gte: startOfWeekend, $lte: endOfWeekend });
           break;
         case "thisyear":
           const startOfYear = new Date(now.getFullYear(), 0, 1, 0, 0, 0, 0);
           const endOfYear = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
-          query.startDate = { ...query.startDate, $gte: startOfYear, $lte: endOfYear };
+          startDateConditions.push({ $gte: startOfYear, $lte: endOfYear });
           break;
         case "nextweek":
           const startOfNextWeek = new Date(now);
@@ -346,7 +357,7 @@ const getEvents = async (req, res) => {
           const endOfNextWeek = new Date(startOfNextWeek);
           endOfNextWeek.setDate(endOfNextWeek.getDate() + 6);
           endOfNextWeek.setHours(23, 59, 59, 999);
-          query.startDate = { ...query.startDate, $gte: startOfNextWeek, $lte: endOfNextWeek };
+          startDateConditions.push({ $gte: startOfNextWeek, $lte: endOfNextWeek });
           break;
         case "recommended":
           let userCategories = [];
@@ -368,6 +379,10 @@ const getEvents = async (req, res) => {
       }
     }
 
+    if (startDateConditions.length > 0) {
+      query.startDate = startDateConditions.length === 1 ? startDateConditions[0] : { $and: startDateConditions };
+    }
+
     // Search filter
     if (search) {
       // console.log(`[getEvents] Search regex active for: ${search}`);
@@ -376,6 +391,31 @@ const getEvents = async (req, res) => {
         { shortdesc: { $regex: search, $options: "i" } },
         { tags: { $regex: search, $options: "i" } },
       ];
+    }
+
+    // Time of Day filter
+    if (timeOfDay && timeOfDay.toLowerCase() !== "anytime") {
+      const selectedSlots = timeOfDay.split(",").map((t) => t.trim().toLowerCase());
+      const expressions = [];
+
+      if (selectedSlots.includes("morning")) {
+        expressions.push({ $and: [{ $gte: [{ $hour: "$startDate" }, 6] }, { $lt: [{ $hour: "$startDate" }, 12] }] });
+      }
+      if (selectedSlots.includes("afternoon")) {
+        expressions.push({ $and: [{ $gte: [{ $hour: "$startDate" }, 12] }, { $lt: [{ $hour: "$startDate" }, 17] }] });
+      }
+      if (selectedSlots.includes("evening")) {
+        expressions.push({ $or: [{ $gte: [{ $hour: "$startDate" }, 17] }, { $lt: [{ $hour: "$startDate" }, 6] }] });
+      }
+
+      if (expressions.length > 0) {
+        const timeExpr = expressions.length === 1 ? expressions[0] : { $or: expressions };
+        if (query.$expr) {
+          query.$expr = { $and: [query.$expr, timeExpr] };
+        } else {
+          query.$expr = timeExpr;
+        }
+      }
     }
 
     // console.log(`[getEvents] Final Query built:`, JSON.stringify(query, null, 2));
