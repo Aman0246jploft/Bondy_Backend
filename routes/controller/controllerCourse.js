@@ -231,21 +231,26 @@ const getCourses = async (req, res) => {
     // Time of Day filter for Courses
     if (timeOfDay && timeOfDay.toLowerCase() !== "anytime") {
       const selectedSlots = timeOfDay.split(",").map((t) => t.trim().toLowerCase());
-      const expressions = [];
+      const timeConditions = [];
 
       if (selectedSlots.includes("morning")) {
-        expressions.push({ $and: [{ $gte: [{ $hour: "$startDate" }, 6] }, { $lt: [{ $hour: "$startDate" }, 12] }] });
+        timeConditions.push({ startTime: { $gte: "06:00", $lt: "12:00" } });
       }
       if (selectedSlots.includes("afternoon")) {
-        expressions.push({ $and: [{ $gte: [{ $hour: "$startDate" }, 12] }, { $lt: [{ $hour: "$startDate" }, 17] }] });
+        timeConditions.push({ startTime: { $gte: "12:00", $lt: "17:00" } });
       }
       if (selectedSlots.includes("evening")) {
-        expressions.push({ $or: [{ $gte: [{ $hour: "$startDate" }, 17] }, { $lt: [{ $hour: "$startDate" }, 6] }] });
+        timeConditions.push({
+          $or: [
+            { startTime: { $gte: "17:00" } },
+            { startTime: { $lt: "06:00" } }
+          ],
+        });
       }
 
-      if (expressions.length > 0) {
-        const timeExpr = expressions.length === 1 ? expressions[0] : { $or: expressions };
-        scheduleAndConditions.push({ $expr: timeExpr });
+      if (timeConditions.length > 0) {
+        const combinedTimeFilter = timeConditions.length === 1 ? timeConditions[0] : { $or: timeConditions };
+        scheduleAndConditions.push(combinedTimeFilter);
       }
     }
 
