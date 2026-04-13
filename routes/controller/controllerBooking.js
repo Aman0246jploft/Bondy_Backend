@@ -1289,6 +1289,111 @@ const getRecentBookings = async (req, res) => {
   }
 };
 
+// 9. Get Public Ticket Detail (Public View)
+const getPublicTicketDetail = async (req, res) => {
+  try {
+    const { transactionId } = req.params;
+
+    const transaction = await Transaction.findById(transactionId)
+      .populate({
+        path: "userId",
+        select: "firstName lastName email profileImage",
+      })
+      .populate({
+        path: "eventId",
+        populate: [
+          {
+            path: "eventCategory",
+            model: "Category",
+          },
+          {
+            path: "createdBy",
+            model: "User",
+            select: "firstName lastName email profileImage",
+          },
+        ],
+      })
+      .populate({
+        path: "courseId",
+        populate: [
+          {
+            path: "courseCategory",
+            model: "Category",
+          },
+          {
+            path: "createdBy",
+            model: "User",
+            select: "firstName lastName email profileImage",
+          },
+        ],
+      });
+
+    if (!transaction) {
+      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Ticket not found");
+    }
+
+    const transactionObj = transaction.toObject();
+
+    // Format all media URLs
+    if (transaction.bookingType === "EVENT" && transactionObj.eventId) {
+      const event = transactionObj.eventId;
+      event.posterImage = (event.posterImage || []).map(formatResponseUrl);
+      event.mediaLinks = (event.mediaLinks || []).map(formatResponseUrl);
+      if (event.eventCategory?.image) {
+        event.eventCategory.image = formatResponseUrl(event.eventCategory.image);
+      }
+      if (event.createdBy?.profileImage) {
+        event.createdBy.profileImage = formatResponseUrl(event.createdBy.profileImage);
+      }
+    } else if (transaction.bookingType === "COURSE" && transactionObj.courseId) {
+      const course = transactionObj.courseId;
+      course.posterImage = (course.posterImage || []).map(formatResponseUrl);
+      if (course.courseCategory?.image) {
+        course.courseCategory.image = formatResponseUrl(course.courseCategory.image);
+      }
+      if (course.createdBy?.profileImage) {
+        course.createdBy.profileImage = formatResponseUrl(course.createdBy.profileImage);
+      }
+    }
+
+    if (transactionObj.userId?.profileImage) {
+      transactionObj.userId.profileImage = formatResponseUrl(transactionObj.userId.profileImage);
+    }
+
+    return apiSuccessRes(HTTP_STATUS.OK, res, "Public ticket detail fetched", {
+      ticket: transactionObj,
+    });
+  } catch (error) {
+    console.error("Error in getPublicTicketDetail:", error);
+    return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
+  }
+};
+
+// 10. Generate Share and Download URLs
+const generateTicketUrls = async (req, res) => {
+  try {
+    const { transactionId } = req.params;
+    const userId = req.user.userId;
+
+    const transaction = await Transaction.findOne({ _id: transactionId, userId });
+    if (!transaction) {
+      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Ticket not found or unauthorized");
+    }
+
+    const frontendUrl = process.env.FRONTEND_URL || "https://bondy-user.tasksplan.com";
+    const shareUrl = `${frontendUrl}/public/ticket?id=${transactionId}`;
+    const downloadUrl = `${frontendUrl}/public/ticket?id=${transactionId}&download=true`;
+
+    return apiSuccessRes(HTTP_STATUS.OK, res, "Ticket URLs generated", {
+      shareUrl,
+      downloadUrl,
+    });
+  } catch (error) {
+    console.error("Error in generateTicketUrls:", error);
+    return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
+  }
+};
+
 // Routes
 router.post(
   "/initiate",
@@ -1321,6 +1426,10 @@ router.get(
 );
 
 router.get("/detail/:transactionId", perApiLimiter(), getTicketDetail);
+
+// Public Ticket APIs
+router.get("/public/detail/:transactionId", getPublicTicketDetail);
+router.get("/public/generate-urls/:transactionId", generateTicketUrls);
 
 // QR Code Scanning (Gate Keeper - Organizer or Admin)
 router.post(

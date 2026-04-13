@@ -38,6 +38,7 @@ const publicRoutes = [
   "/api/v1/contact/createContact",
 
 
+  "/api/v1/booking/public/",
   "/uploads",
 ];
 
