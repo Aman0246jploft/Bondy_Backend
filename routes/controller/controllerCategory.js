@@ -226,6 +226,95 @@ const deleteCategory = async (req, res) => {
   }
 };
 
+// Get Category Statistics (Total counts and category-wise counts)
+const getCategoryStats = async (req, res) => {
+  try {
+    const { Event, Course } = require("../../db");
+
+    // Total counts for Upcoming/Live events and courses
+    const [totalEvents, totalCourses] = await Promise.all([
+      Event.countDocuments({
+        isDraft: false,
+        status: { $in: ["Upcoming", "Live"] },
+      }),
+      Course.countDocuments({
+        status: { $in: ["Upcoming", "Live"] },
+      }),
+    ]);
+
+    // Fetch all active event categories
+    const categories = await Category.find({
+      type: "event",
+      isDeleted: false,
+      isDisable: false,
+    }).lean();
+
+    // Calculate valid event count for each category
+    const categoryStats = await Promise.all(
+      categories.map(async (cat) => {
+        const count = await Event.countDocuments({
+          eventCategory: cat._id,
+          isDraft: false,
+          status: { $in: ["Upcoming", "Live"] },
+        });
+
+        return {
+          _id: cat._id,
+          name: cat.name,
+          name_thi: cat.name_thi,
+          image: cat.image ? formatResponseUrl(cat.image) : null,
+          eventCount: count,
+        };
+      })
+    );
+
+    return apiSuccessRes(
+      HTTP_STATUS.OK,
+      res,
+      "Category statistics fetched successfully",
+      {
+        totalEvents,
+        totalCourses,
+        categoryStats,
+      }
+    );
+  } catch (error) {
+    console.error("Error in getCategoryStats:", error);
+    return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
+  }
+};
+
+// Get Single Category Details
+const getCategoryDetails = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const category = await Category.findOne({ _id: id, isDeleted: false }).lean();
+
+    if (!category) {
+      return apiErrorRes(
+        HTTP_STATUS.NOT_FOUND,
+        res,
+        constantsMessage.CATEGORY_NOT_FOUND,
+      );
+    }
+
+    const formattedCategory = {
+      ...category,
+      image: category.image ? formatResponseUrl(category.image) : null,
+    };
+
+    return apiSuccessRes(
+      HTTP_STATUS.OK,
+      res,
+      constantsMessage.CATEGORIES_FETCHED, // Or a more specific message if needed
+      { category: formattedCategory }
+    );
+  } catch (error) {
+    console.error("Error in getCategoryDetails:", error);
+    return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
+  }
+};
+
 // Routes
 router.post(
   "/create",
@@ -240,6 +329,8 @@ router.get(
   validateRequest(categoryListSchema, "query"),
   getCategoryList,
 );
+router.get("/details/:id", perApiLimiter(), getCategoryDetails);
+router.get("/stats", perApiLimiter(), getCategoryStats);
 router.post(
   "/update/:id",
   perApiLimiter(),

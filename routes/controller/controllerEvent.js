@@ -206,7 +206,8 @@ const getEvents = async (req, res) => {
       latitude,
       longitude,
       radius = 100,
-      categoryId,
+      categoryId: cid,
+      category,
       search,
       page = 1,
       limit = 10,
@@ -217,6 +218,8 @@ const getEvents = async (req, res) => {
       isDraft,
       timeOfDay,
     } = req.query;
+
+    const categoryId = cid || category;
 
     let loginUser = null;
     if (req.user) {
