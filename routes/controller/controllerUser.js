@@ -154,6 +154,7 @@ const customerSignupVerify = async (req, res) => {
       user.contactNumber = userData.contactNumber;
       user.countryCode = userData.countryCode;
       user.roleId = roleId.CUSTOMER;
+      user.fmcToken = userData.fmcToken || user.fmcToken;
       // Reset other fields if necessary
       await user.save();
     } else {
@@ -164,6 +165,7 @@ const customerSignupVerify = async (req, res) => {
         contactNumber: userData.contactNumber,
         countryCode: userData.countryCode,
         roleId: roleId.CUSTOMER,
+        fmcToken: userData.fmcToken || null,
       });
       await user.save();
     }
@@ -299,6 +301,7 @@ const organizerSignupVerify = async (req, res) => {
       user.acceptTerms = userData.acceptTerms;
       user.documents = userData.documents;
       user.roleId = roleId.ORGANIZER;
+      user.fmcToken = userData.fmcToken || user.fmcToken;
       user.organizerVerificationStatus = "pending";
 
       await user.save();
@@ -316,6 +319,7 @@ const organizerSignupVerify = async (req, res) => {
         documents: userData.documents,
         roleId: roleId.ORGANIZER, // ORGANIZER
         organizerVerificationStatus: "pending",
+        fmcToken: userData.fmcToken || null,
       });
 
       await user.save();
@@ -540,6 +544,11 @@ const loginInit = async (req, res) => {
     // Store OTP in Redis (Login OTP key)
     await setKeyWithTime(`login_otp:${email}`, otp, 10); // 10 mins
 
+    // Store fmcToken if provided
+    if (req.body.fmcToken) {
+      await setKeyWithTime(`login_fmcToken:${email}`, req.body.fmcToken, 10);
+    }
+
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
@@ -581,6 +590,20 @@ const loginVerify = async (req, res) => {
 
     // Clear Redis
     await removeKey(`login_otp:${email}`);
+
+    // Handle fmcToken
+    let fmcToken = req.body.fmcToken;
+    if (!fmcToken) {
+      const redisFmcToken = await getKey(`login_fmcToken:${email}`);
+      if (redisFmcToken.statusCode === CONSTANTS.SUCCESS && redisFmcToken.data) {
+        fmcToken = redisFmcToken.data;
+      }
+    }
+
+    if (fmcToken) {
+      user.fmcToken = fmcToken;
+      await removeKey(`login_fmcToken:${email}`);
+    }
 
     // Update last login
     user.lastLogin = new Date();

@@ -6,6 +6,7 @@ const customerSignupSchema = Joi.object({
   contactNumber: Joi.string().required(),
   password: Joi.string().min(6).required(),
   confirmPassword: Joi.string().valid(Joi.ref("password")).required().strict(),
+  fmcToken: Joi.string().optional().allow(null, ""),
 });
 
 const organizerSignupSchema = Joi.object({
@@ -23,30 +24,32 @@ const organizerSignupSchema = Joi.object({
       Joi.object({
         name: Joi.string().optional(),
         file: Joi.string().required(),
-      })
+      }),
     )
     .optional(),
   referralCode: Joi.string().optional().allow(null, ""),
+  fmcToken: Joi.string().optional().allow(null, ""),
 });
 
 const loginInitSchema = Joi.object({
   email: Joi.string().email().required(),
   password: Joi.string().required(),
   type: Joi.string().valid("ORGANIZER", "CUSTOMER", "GUEST").required(),
+  fmcToken: Joi.string().optional().allow(null, ""),
 });
 
 const otpVerificationSchema = Joi.object({
   email: Joi.string().email().required(),
   otp: Joi.string().length(5).required(),
   type: Joi.string().optional(),
+  fmcToken: Joi.string().optional().allow(null, ""),
 });
 
 const universalOtpSchema = Joi.object({
   email: Joi.string().email().required(),
   otp: Joi.string().length(5).required(),
-  type: Joi.string()
-    .valid("LOGIN", "CUSTOMER", "ORGANIZER")
-    .required(),
+  type: Joi.string().valid("LOGIN", "CUSTOMER", "ORGANIZER").required(),
+  fmcToken: Joi.string().optional().allow(null, ""),
 });
 
 const universalResendOtpSchema = Joi.object({
@@ -80,6 +83,7 @@ const updateUserSchema = Joi.object({
     state: Joi.string().optional().allow(null, ""),
     zipcode: Joi.string().optional().allow(null, ""),
   }).optional(),
+  fmcToken: Joi.string().optional().allow(null, ""),
 });
 
 const socialLoginSchema = Joi.object({
@@ -99,7 +103,10 @@ const forgotPasswordInitSchema = Joi.object({
 
 const resetPasswordSchema = Joi.object({
   newPassword: Joi.string().min(6).required(),
-  confirmPassword: Joi.string().valid(Joi.ref("newPassword")).required().strict(),
+  confirmPassword: Joi.string()
+    .valid(Joi.ref("newPassword"))
+    .required()
+    .strict(),
   resetToken: Joi.string().optional(), // In case it's passed in body, though headers is better
 });
 
