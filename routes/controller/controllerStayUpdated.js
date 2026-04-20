@@ -3,6 +3,7 @@ const router = express.Router();
 const { StayUpdated } = require("../../db");
 const HTTP_STATUS = require("../../utils/statusCode");
 const { apiErrorRes, apiSuccessRes } = require("../../utils/globalFunction");
+const constantsMessage = require("../../utils/constantsMessage");
 const checkRole = require("../../middlewares/checkRole");
 const { roleId } = require("../../utils/Role");
 
@@ -11,7 +12,7 @@ const signupForUpdates = async (req, res) => {
   try {
     const { email } = req.body;
     if (!email) {
-      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Email is required");
+      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.EMAIL_REQUIRED);
     }
 
     const lowerCaseEmail = email.toLowerCase().trim();
@@ -19,13 +20,13 @@ const signupForUpdates = async (req, res) => {
     // Check if already exists
     const existing = await StayUpdated.findOne({ email: lowerCaseEmail });
     if (existing) {
-      return apiSuccessRes(HTTP_STATUS.OK, res, "Your email is already on our updates list!");
+      return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.EMAIL_ALREADY_SUBSCRIBED);
     }
 
     const newSignup = new StayUpdated({ email: lowerCaseEmail });
     await newSignup.save();
 
-    return apiSuccessRes(HTTP_STATUS.OK, res, "Successfully added to our updates list!");
+    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.STAY_UPDATED_SUCCESS);
   } catch (error) {
     console.error("Error in signupForUpdates:", error);
     return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
@@ -46,7 +47,7 @@ const getSignups = async (req, res) => {
       .sort({ createdAt: -1 })
       .lean();
 
-    return apiSuccessRes(HTTP_STATUS.OK, res, "Update signups fetched", {
+    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.STAY_UPDATED_FETCHED, {
       signups,
       total,
       page: pageNum,
@@ -65,9 +66,9 @@ const deleteSignup = async (req, res) => {
     const { id } = req.params;
     const signup = await StayUpdated.findByIdAndDelete(id);
     if (!signup) {
-      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Signup not found");
+      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.SIGNUP_NOT_FOUND);
     }
-    return apiSuccessRes(HTTP_STATUS.OK, res, "Signup removed");
+    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.SIGNUP_REMOVED);
   } catch (error) {
     console.error("Error in deleteSignup:", error);
     return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);

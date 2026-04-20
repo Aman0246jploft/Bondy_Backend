@@ -3,6 +3,7 @@ const router = express.Router();
 const { GlobalSetting } = require("../../db");
 const HTTP_STATUS = require("../../utils/statusCode");
 const { apiErrorRes, apiSuccessRes } = require("../../utils/globalFunction");
+const constantsMessage = require("../../utils/constantsMessage");
 const checkRole = require("../../middlewares/checkRole");
 const { roleId } = require("../../utils/Role");
 
@@ -12,9 +13,9 @@ const getSetting = async (req, res) => {
     const { key } = req.params;
     const setting = await GlobalSetting.findOne({ key });
     if (!setting) {
-      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Setting not found");
+      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.SETTING_NOT_FOUND);
     }
-    return apiSuccessRes(HTTP_STATUS.OK, res, "Setting fetched", setting);
+    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.SETTING_FETCHED, setting);
   } catch (error) {
     return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
   }
@@ -29,7 +30,7 @@ const upsertSetting = async (req, res) => {
       { $set: { value, description } },
       { upsert: true, new: true },
     );
-    return apiSuccessRes(HTTP_STATUS.OK, res, "Setting updated", setting);
+    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.SETTING_UPDATED, setting);
   } catch (error) {
     return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
   }
@@ -39,7 +40,7 @@ const upsertSetting = async (req, res) => {
 const getAllSettings = async (req, res) => {
   try {
     const settings = await GlobalSetting.find().sort({ key: 1 });
-    return apiSuccessRes(HTTP_STATUS.OK, res, "All settings fetched", {
+    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.SETTINGS_FETCHED, {
       settings,
     });
   } catch (error) {

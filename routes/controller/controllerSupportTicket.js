@@ -50,7 +50,7 @@ const createTicket = async (req, res) => {
     return apiSuccessRes(
       HTTP_STATUS.CREATED,
       res,
-      "Support ticket created successfully",
+      constantsMessage.SUPPORT_TICKET_CREATED,
       { ticket: newTicket },
     );
   } catch (error) {
@@ -78,7 +78,7 @@ const getMyTickets = async (req, res) => {
 
     const total = await SupportTicket.countDocuments(query);
 
-    return apiSuccessRes(HTTP_STATUS.OK, res, "Tickets fetched successfully", {
+    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.SUPPORT_TICKETS_FETCHED, {
       tickets,
       total,
       page: parseInt(page),
@@ -143,7 +143,7 @@ const getAllTickets = async (req, res) => {
 
     const total = await SupportTicket.countDocuments(query);
 
-    return apiSuccessRes(HTTP_STATUS.OK, res, "Tickets fetched successfully", {
+    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.SUPPORT_TICKETS_FETCHED, {
       tickets,
       total,
       page: parseInt(page),
@@ -164,7 +164,7 @@ const updateTicketStatus = async (req, res) => {
 
     const ticket = await SupportTicket.findOne({ ticketId });
     if (!ticket) {
-      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Ticket not found");
+      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.SUPPORT_TICKET_NOT_FOUND);
     }
 
     ticket.status = status;
@@ -182,7 +182,7 @@ const updateTicketStatus = async (req, res) => {
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
-      "Ticket status updated successfully",
+      constantsMessage.SUPPORT_TICKET_STATUS_UPDATED,
       { ticket },
     );
   } catch (error) {
@@ -214,7 +214,7 @@ const getTicketDetails = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.NOT_FOUND,
         res,
-        "Ticket not found or access denied",
+        constantsMessage.SUPPORT_TICKET_NOT_FOUND,
       );
     }
 
@@ -222,7 +222,7 @@ const getTicketDetails = async (req, res) => {
       ticket.user.profileImage = formatResponseUrl(ticket.user.profileImage);
     }
 
-    return apiSuccessRes(HTTP_STATUS.OK, res, "Ticket details fetched", {
+    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.SUPPORT_TICKET_DETAILS_FETCHED, {
       ticket,
     });
   } catch (error) {

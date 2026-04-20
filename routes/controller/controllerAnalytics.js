@@ -4,6 +4,7 @@ const analyticsService = require("../services/serviceAnalytics");
 const { apiSuccessRes, apiErrorRes } = require("../../utils/globalFunction");
 const HTTP_STATUS = require("../../utils/statusCode");
 const { roleId } = require("../../utils/Role");
+const constantsMessage = require("../../utils/constantsMessage");
 const checkRole = require("../../middlewares/checkRole");
 
 /**
@@ -18,7 +19,7 @@ router.get(
       return apiSuccessRes(
         HTTP_STATUS.OK,
         res,
-        "Global stats fetched successfully",
+        constantsMessage.ADMIN_STATS_FETCHED,
         result.data
       );
     } catch (error) {
@@ -39,7 +40,7 @@ router.get(
       return apiSuccessRes(
         HTTP_STATUS.OK,
         res,
-        "Organizer stats fetched successfully",
+        constantsMessage.ORGANIZER_STATS_FETCHED,
         result.data
       );
     } catch (error) {
@@ -60,7 +61,7 @@ router.get(
       return apiSuccessRes(
         HTTP_STATUS.OK,
         res,
-        "Customer stats fetched successfully",
+        constantsMessage.CUSTOMER_STATS_FETCHED,
         result.data
       );
     } catch (error) {
@@ -82,7 +83,7 @@ router.get(
       return apiSuccessRes(
         HTTP_STATUS.OK,
         res,
-        "User specific stats fetched successfully",
+        constantsMessage.USER_STATS_FETCHED,
         result.data
       );
     } catch (error) {
@@ -104,7 +105,7 @@ router.get(
       return apiSuccessRes(
         HTTP_STATUS.OK,
         res,
-        "Admin revenue analytics fetched successfully",
+        constantsMessage.ADMIN_REVENUE_FETCHED,
         result.data
       );
     } catch (error) {
@@ -131,7 +132,7 @@ router.get(
       return apiSuccessRes(
         HTTP_STATUS.OK,
         res,
-        "Organizer revenue analytics fetched successfully",
+        constantsMessage.ORGANIZER_REVENUE_FETCHED,
         result.data
       );
     } catch (error) {

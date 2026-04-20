@@ -56,11 +56,11 @@ const addReview = async (req, res) => {
     if (entityModel === "Event") EntityModel = Event;
     else if (entityModel === "Course") EntityModel = Course;
     else
-      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Invalid Entity Model");
+      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.INVALID_ENTITY_MODEL);
 
     const entity = await EntityModel.findById(entityId);
     if (!entity) {
-      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Entity not found");
+      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.ENTITY_NOT_FOUND);
     }
 
     const newReview = new Review({
@@ -90,7 +90,7 @@ const addReview = async (req, res) => {
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
-      "Review added successfully",
+      constantsMessage.REVIEW_ADDED,
       responseData,
     );
   } catch (error) {
@@ -112,7 +112,7 @@ const updateReview = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.NOT_FOUND,
         res,
-        "Review not found or not authorized",
+        constantsMessage.REVIEW_NOT_FOUND_OR_UNAUTHORIZED,
       );
     }
 
@@ -143,7 +143,7 @@ const updateReview = async (req, res) => {
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
-      "Review updated successfully",
+      constantsMessage.REVIEW_UPDATED,
       responseData,
     );
   } catch (error) {
@@ -171,7 +171,7 @@ const deleteReview = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.NOT_FOUND,
         res,
-        "Review not found or not authorized",
+        constantsMessage.REVIEW_NOT_FOUND_OR_UNAUTHORIZED,
       );
     }
 
@@ -182,7 +182,7 @@ const deleteReview = async (req, res) => {
       await updateUserAverageRating(existingReview.targetUserId);
     }
 
-    return apiSuccessRes(HTTP_STATUS.OK, res, "Review deleted successfully");
+    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.REVIEW_DELETED);
   } catch (error) {
     console.error("Error deleting review:", error);
     return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
@@ -216,7 +216,7 @@ const getReviews = async (req, res) => {
 
     const total = await Review.countDocuments(query);
 
-    return apiSuccessRes(HTTP_STATUS.OK, res, "Reviews fetched successfully", {
+    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.REVIEWS_FETCHED, {
       reviews: formattedReviews,
       total,
       page: parseInt(page),
@@ -270,7 +270,7 @@ const getOrganizerReviews = async (req, res) => {
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
-      "Organizer reviews fetched successfully",
+      constantsMessage.ORGANIZER_REVIEWS_FETCHED,
       {
         reviews: formattedReviews,
         total,

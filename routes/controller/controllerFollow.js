@@ -21,7 +21,7 @@ const followUser = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        "You cannot follow yourself.",
+        constantsMessage.CANNOT_FOLLOW_SELF,
       );
     }
 
@@ -30,7 +30,7 @@ const followUser = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        "Already following this user.",
+        constantsMessage.ALREADY_FOLLOWING,
       );
     }
 
@@ -50,7 +50,7 @@ const followUser = async (req, res) => {
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
-      "User followed successfully.",
+      constantsMessage.FOLLOW_SUCCESS,
       newFollow,
     );
   } catch (error) {
@@ -75,14 +75,14 @@ const unfollowUser = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        "You are not following this user.",
+        constantsMessage.NOT_FOLLOWING,
       );
     }
 
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
-      "User unfollowed successfully.",
+      constantsMessage.UNFOLLOW_SUCCESS,
       null,
     );
   } catch (error) {
@@ -156,7 +156,7 @@ const getFollowers = async (req, res) => {
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
-      "Followers fetched successfully.",
+      constantsMessage.FOLLOWERS_FETCHED,
       {
         followers,
         total,
@@ -233,7 +233,7 @@ const getFollowing = async (req, res) => {
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
-      "Following list fetched successfully.",
+      constantsMessage.FOLLOWING_FETCHED,
       {
         following,
         total,

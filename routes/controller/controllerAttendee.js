@@ -45,7 +45,7 @@ const createAttendees = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.NOT_FOUND,
         res,
-        "Transaction not found or not paid",
+        constantsMessage.TRANSACTION_NOT_FOUND_OR_NOT_PAID,
       );
     }
 
@@ -136,7 +136,7 @@ const createAttendees = async (req, res) => {
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
-      "Attendees created successfully",
+      constantsMessage.ATTENDEES_CREATED,
       {
         attendees: createdAttendees,
       },
@@ -218,7 +218,7 @@ const getEventAttendees = async (req, res) => {
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
-      "Attendees fetched successfully",
+      constantsMessage.ATTENDEE_LIST_FETCHED,
       {
         attendees,
         pagination: {
@@ -259,7 +259,7 @@ const getMyAttendees = async (req, res) => {
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
-      "Your attendees fetched successfully",
+      constantsMessage.MY_ATTENDEES_FETCHED,
       {
         attendees,
       },
@@ -282,7 +282,7 @@ const checkInAttendee = async (req, res) => {
       .populate("courseId");
 
     if (!attendee) {
-      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Ticket not found");
+      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.TICKET_NOT_FOUND);
     }
 
     // Verify Event/Course Ownership
@@ -310,7 +310,7 @@ const checkInAttendee = async (req, res) => {
     attendee.checkedInBy = userId;
     await attendee.save();
 
-    return apiSuccessRes(HTTP_STATUS.OK, res, "Check-in successful", {
+    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.CHECK_IN_SUCCESS, {
       attendee,
     });
   } catch (error) {
@@ -332,7 +332,7 @@ const getAttendeeByTicket = async (req, res) => {
       .populate("transactionId", "bookingId totalAmount");
 
     if (!attendee) {
-      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Ticket not found");
+      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.TICKET_NOT_FOUND);
     }
 
     // Verify Event/Course Ownership
@@ -348,7 +348,7 @@ const getAttendeeByTicket = async (req, res) => {
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
-      "Attendee details fetched successfully",
+      constantsMessage.ATTENDEE_DETAILS_FETCHED,
       {
         attendee,
       },
@@ -369,7 +369,7 @@ const scanQRAndCheckIn = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        "QR code data is required",
+        constantsMessage.QR_CODE_REQUIRED,
       );
     }
 
@@ -391,7 +391,7 @@ const scanQRAndCheckIn = async (req, res) => {
         .populate("userId", "firstName lastName email profileImage");
 
       if (!transaction) {
-        return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Transaction not found");
+        return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.TRANSACTION_NOT_FOUND);
       }
       event = transaction.eventId || transaction.courseId;
       title = event ? event.eventTitle || event.courseTitle : "";
@@ -438,12 +438,12 @@ const scanQRAndCheckIn = async (req, res) => {
       if (eventId) {
         event = await Event.findById(eventId);
         if (!event) {
-          return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Event not found");
+          return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.EVENT_NOT_FOUND);
         }
       } else {
         const course = await Course.findById(courseId);
         if (!course) {
-          return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Course not found");
+          return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.COURSE_NOT_FOUND);
         }
         event = course; // Use generic reference for ownership check
       }
@@ -480,13 +480,13 @@ const scanQRAndCheckIn = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        "Invalid QR code format",
+        constantsMessage.INVALID_QR_FORMAT,
       );
     }
 
     // --- Common Validations ---
     if (!event) {
-      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Event not found");
+      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.ENTITY_NOT_FOUND);
     }
 
     // Verify Event Ownership
@@ -629,7 +629,7 @@ const scanQRAndCheckIn = async (req, res) => {
         );
       }
 
-      return apiSuccessRes(HTTP_STATUS.OK, res, "✅ Check-in successful", {
+      return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.CHECK_IN_SUCCESS, {
         type: "TRANSACTION",
         attendee: firstAvailable
           ? {
@@ -687,7 +687,7 @@ const scanQRAndCheckIn = async (req, res) => {
         );
       }
 
-      return apiSuccessRes(HTTP_STATUS.OK, res, "✅ Check-in successful", {
+      return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.CHECK_IN_SUCCESS, {
         type: "ATTENDEE",
         attendee: {
           firstName: attendee.firstName,

@@ -52,7 +52,7 @@ const {
 //         return apiErrorRes(
 //           HTTP_STATUS.NOT_FOUND,
 //           res,
-//           "Parent comment not found",
+//           constantsMessage.PARENT_COMMENT_NOT_FOUND,
 //         );
 //       }
 //     }
@@ -97,7 +97,7 @@ const createComment = async (req, res) => {
     if (entityModel === "Event") targetModel = Event;
     else if (entityModel === "Course") targetModel = Course;
     else {
-      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Invalid entity model");
+      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.INVALID_ENTITY_MODEL);
     }
 
     const entity = await targetModel.findById(entityId);
@@ -105,7 +105,7 @@ const createComment = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.NOT_FOUND,
         res,
-        `${entityModel} not found`,
+        constantsMessage.ENTITY_NOT_FOUND,
       );
     }
 
@@ -115,7 +115,7 @@ const createComment = async (req, res) => {
         return apiErrorRes(
           HTTP_STATUS.NOT_FOUND,
           res,
-          "Parent comment not found",
+          constantsMessage.PARENT_COMMENT_NOT_FOUND,
         );
       }
     }
@@ -248,7 +248,7 @@ const createComment = async (req, res) => {
     return apiSuccessRes(
       HTTP_STATUS.CREATED,
       res,
-      "Comment added successfully",
+      constantsMessage.COMMENT_ADDED,
       { ...formattedComment },
     );
   } catch (error) {
@@ -395,7 +395,7 @@ const getComments = async (req, res) => {
       parentComment: null,
     });
 
-    return apiSuccessRes(HTTP_STATUS.OK, res, "Comments fetched successfully", {
+    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.COMMENTS_FETCHED, {
       comments: formattedReplies,
       total: totalCount,
       page: parseInt(page),
@@ -449,7 +449,7 @@ const updateComment = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.NOT_FOUND,
         res,
-        "Comment not found or you are not authorized",
+        constantsMessage.COMMENT_NOT_FOUND_OR_UNAUTHORIZED,
       );
     }
 
@@ -532,7 +532,7 @@ const updateComment = async (req, res) => {
       delete formattedComment.user.roleId;
     }
 
-    return apiSuccessRes(HTTP_STATUS.OK, res, "Comment updated successfully", {
+    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.COMMENT_UPDATED, {
       ...formattedComment,
     });
   } catch (error) {
@@ -555,7 +555,7 @@ const deleteComment = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.NOT_FOUND,
         res,
-        "Comment not found or you are not authorized",
+        constantsMessage.COMMENT_NOT_FOUND_OR_UNAUTHORIZED,
       );
     }
 
@@ -573,7 +573,7 @@ const deleteComment = async (req, res) => {
 
     // await Comment.deleteOne({ _id: commentId });
 
-    return apiSuccessRes(HTTP_STATUS.OK, res, "Comment deleted successfully");
+    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.COMMENT_DELETED);
   } catch (error) {
     console.error("Error in deleteComment:", error);
     return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
@@ -588,7 +588,7 @@ const toggleLike = async (req, res) => {
 
     const comment = await Comment.findById(commentId);
     if (!comment) {
-      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Comment not found");
+      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.COMMENT_NOT_FOUND);
     }
 
     const isLiked = comment.likes.includes(userId);
@@ -604,7 +604,7 @@ const toggleLike = async (req, res) => {
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
-      isLiked ? "Comment unliked" : "Comment liked",
+      isLiked ? constantsMessage.COMMENT_UNLIKED : constantsMessage.COMMENT_LIKED,
       { likesCount: comment.likes.length, isLiked: !isLiked },
     );
   } catch (error) {
@@ -622,7 +622,7 @@ const getReplies = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        "parentCommentId is required",
+        constantsMessage.PARENT_COMMENT_ID_REQUIRED,
       );
     }
 
@@ -714,7 +714,7 @@ const getReplies = async (req, res) => {
       return reply;
     });
 
-    return apiSuccessRes(HTTP_STATUS.OK, res, "Replies fetched successfully", {
+    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.REPLIES_FETCHED, {
       comments: replies,
       total: totalCount,
       page: parseInt(page),

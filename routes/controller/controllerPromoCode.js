@@ -22,7 +22,7 @@ const createPromoCode = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        "Promo code already exists.",
+        constantsMessage.PROMO_CODE_EXISTS,
       );
     }
 
@@ -35,7 +35,7 @@ const createPromoCode = async (req, res) => {
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
-      "Promo code created successfully.",
+      constantsMessage.PROMO_CODE_CREATED,
       newPromoCode,
     );
   } catch (error) {
@@ -60,7 +60,7 @@ const updatePromoCode = async (req, res) => {
         return apiErrorRes(
           HTTP_STATUS.BAD_REQUEST,
           res,
-          "Promo code already exists.",
+          constantsMessage.PROMO_CODE_EXISTS,
         );
       }
       updateData.code = code;
@@ -80,7 +80,7 @@ const updatePromoCode = async (req, res) => {
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
-      "Promo code updated successfully.",
+      constantsMessage.PROMO_CODE_UPDATED,
       promoCode,
     );
   } catch (error) {
@@ -106,7 +106,7 @@ const getPromoCodeList = async (req, res) => {
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
-      "Promo codes fetched successfully.",
+      constantsMessage.PROMO_CODES_FETCHED,
       {
         promoCodes,
         total,
@@ -141,7 +141,7 @@ const getPromoCodeById = async (req, res) => {
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
-      "Promo code details fetched successfully.",
+      constantsMessage.PROMO_CODE_DETAILS_FETCHED,
       promoCode,
     );
   } catch (error) {
@@ -171,7 +171,7 @@ const deletePromoCode = async (req, res) => {
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
-      "Promo code deleted successfully.",
+      constantsMessage.PROMO_CODE_DELETED,
       null,
     );
   } catch (error) {

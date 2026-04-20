@@ -4,6 +4,7 @@ const Message = require("../../db/models/Message");
 const User = require("../../db/models/User");
 const { apiErrorRes, apiSuccessRes } = require("../../utils/globalFunction");
 const HTTP_STATUS = require("../../utils/statusCode");
+const constantsMessage = require("../../utils/constantsMessage");
 const CONSTANTS = require("../../utils/constants");
 const upload = require("../../middlewares/multer"); // Assuming multer setup exists
 const { uploadFile } = require("../services/validations/chatValidation");
@@ -15,7 +16,7 @@ router.post("/upload", upload.single("file"), async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        "No file uploaded",
+        constantsMessage.NO_FILE_UPLOADED,
         null,
       );
     }
@@ -23,7 +24,7 @@ router.post("/upload", upload.single("file"), async (req, res) => {
     // Assuming local storage based on index.js static serve
     const fileUrl = `${process.env.BASE_URL}/uploads/${req.file.filename}`;
 
-    return apiSuccessRes(HTTP_STATUS.OK, res, "File uploaded successfully", {
+    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.FILE_UPLOADED, {
       fileUrl,
       fileType: req.file.mimetype,
     });
@@ -31,7 +32,7 @@ router.post("/upload", upload.single("file"), async (req, res) => {
     return apiErrorRes(
       HTTP_STATUS.INTERNAL_SERVER_ERROR,
       res,
-      "Error uploading file",
+      constantsMessage.FILE_UPLOAD_ERROR,
       error,
     );
   }
@@ -121,13 +122,13 @@ router.post("/upload", upload.single("file"), async (req, res) => {
 
 //         const message = await Message.findById(messageId);
 //         if (!message) {
-//             return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Message not found");
+//             return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.CONTACT_NOT_FOUND);
 //         }
 
 //         // Verify ownership for 'everyone' delete
 //         if (deleteType === "everyone") {
 //             if (message.sender.toString() !== userId.toString()) {
-//                 return apiErrorRes(HTTP_STATUS.FORBIDDEN, res, "You can only delete your own messages for everyone");
+//                 return apiErrorRes(HTTP_STATUS.FORBIDDEN, res, constantsMessage.CONTACT_ID_REQUIRED);
 //             }
 //             message.isDeletedForEveryone = true;
 //         } else {
@@ -138,7 +139,7 @@ router.post("/upload", upload.single("file"), async (req, res) => {
 //         }
 
 //         await message.save();
-//         return apiSuccessRes(HTTP_STATUS.OK, res, "Message deleted successfully");
+//         return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.MESSAGE_SENT);
 
 //     } catch (error) {
 //         return apiErrorRes(HTTP_STATUS.INTERNAL_SERVER_ERROR, res, "Error deleting message", error);

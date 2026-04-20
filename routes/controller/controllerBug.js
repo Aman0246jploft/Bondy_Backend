@@ -3,6 +3,7 @@ const router = express.Router();
 const { Bug, User } = require("../../db");
 const HTTP_STATUS = require("../../utils/statusCode");
 const { apiErrorRes, apiSuccessRes, formatResponseUrl } = require("../../utils/globalFunction");
+const constantsMessage = require("../../utils/constantsMessage");
 const checkRole = require("../../middlewares/checkRole");
 const validateRequest = require("../../middlewares/validateRequest");
 const { roleId } = require("../../utils/Role");
@@ -17,7 +18,7 @@ const reportBug = async (req, res) => {
     const userId = req.user.userId;
 
     if (!title) {
-      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Title is required");
+      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.TITLE_REQUIRED);
     }
 
     const newBug = new Bug({
@@ -29,7 +30,7 @@ const reportBug = async (req, res) => {
 
     await newBug.save();
 
-    return apiSuccessRes(HTTP_STATUS.OK, res, "Bug reported successfully", newBug);
+    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.BUG_REPORT_SUCCESS, newBug);
   } catch (error) {
     console.error("Error reporting bug:", error);
     return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
@@ -60,7 +61,7 @@ const getBugs = async (req, res) => {
 
     const total = await Bug.countDocuments();
 
-    return apiSuccessRes(HTTP_STATUS.OK, res, "Bugs fetched successfully", {
+    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.BUGS_FETCHED, {
       bugs: formattedBugs,
       total,
       page: parseInt(page),

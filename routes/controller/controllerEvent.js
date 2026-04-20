@@ -75,7 +75,7 @@ const createEvent = async (req, res) => {
       }
 
       if (event.createdBy.toString() !== userId) {
-        return apiErrorRes(HTTP_STATUS.FORBIDDEN, res, "Unauthorized to update this event");
+        return apiErrorRes(HTTP_STATUS.FORBIDDEN, res, constantsMessage.UNAUTHORIZED_EVENT_UPDATE);
       }
 
       // Update fields
@@ -134,8 +134,8 @@ const createEvent = async (req, res) => {
     }
 
     const message = id
-      ? (isDraftValue ? "Draft updated" : "Event published successfully")
-      : (isDraftValue ? "Draft saved" : constantsMessage.EVENT_CREATED);
+      ? (isDraftValue ? constantsMessage.DRAFT_UPDATED : constantsMessage.EVENT_PUBLISHED_SUCCESS)
+      : (isDraftValue ? constantsMessage.DRAFT_SAVED : constantsMessage.EVENT_CREATED);
 
     return apiSuccessRes(HTTP_STATUS.OK, res, message, {
       event: eventObj,
@@ -240,7 +240,7 @@ const getEvents = async (req, res) => {
     if (isDraft === "true" || isDraft === true || filters.includes("draft")) {
       if (!loginUser) {
         console.warn(`[getEvents] Unauthorized attempt to access drafts`);
-        return apiErrorRes(HTTP_STATUS.UNAUTHORIZED, res, "Login required to view drafts");
+        return apiErrorRes(HTTP_STATUS.UNAUTHORIZED, res, constantsMessage.LOGIN_REQUIRED_DRAFTS);
       }
       query.isDraft = true;
       query.createdBy = loginUser;
@@ -1105,7 +1105,7 @@ const getOrganizerStats = async (req, res) => {
     const eventIds = events.map((e) => e._id);
 
     if (eventIds.length === 0) {
-      return apiSuccessRes(HTTP_STATUS.OK, res, "Stats fetched successfully", {
+      return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.STATS_FETCHED, {
         totalRevenue: 0,
         totalAttendees: 0,
       });
@@ -1131,7 +1131,7 @@ const getOrganizerStats = async (req, res) => {
     const result =
       stats.length > 0 ? stats[0] : { totalRevenue: 0, totalAttendees: 0 };
 
-    return apiSuccessRes(HTTP_STATUS.OK, res, "Stats fetched successfully", {
+    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.STATS_FETCHED, {
       totalRevenue: result.totalRevenue || 0,
       totalAttendees: result.totalAttendees || 0,
     });
@@ -1202,7 +1202,7 @@ const getAllEventAttendees = async (req, res) => {
       }
     }
 
-    return apiSuccessRes(HTTP_STATUS.OK, res, "Event attendees fetched", {
+    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.EVENT_ATTENDEES_FETCHED, {
       host: event.createdBy,
       eventTitle: event.eventTitle,
       attendees: uniqueUsers,

@@ -16,14 +16,14 @@ const getActivePackages = async (req, res) => {
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
-      "Active promotion packages fetched successfully.",
+      constantsMessage.PROMO_PACKAGES_FETCHED,
       { packages },
     );
   } catch (error) {
     return apiErrorRes(
       HTTP_STATUS.INTERNAL_SERVER_ERROR,
       res,
-      error.message,
+      constantsMessage.FETCH_PROMO_PACKAGES_FAILED,
       error.message,
     );
   }
@@ -41,7 +41,7 @@ const checkoutPromotion = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.NOT_FOUND,
         res,
-        "Event not found or you are not the organizer.",
+        constantsMessage.EVENT_NOT_FOUND_OR_NOT_ORGANIZER,
       );
     }
 
@@ -51,7 +51,7 @@ const checkoutPromotion = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.NOT_FOUND,
         res,
-        "Promotion package not found or inactive.",
+        constantsMessage.PROMO_PACKAGE_NOT_FOUND,
       );
     }
 
@@ -60,7 +60,7 @@ const checkoutPromotion = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        "This event is already actively featured.",
+        constantsMessage.EVENT_ALREADY_FEATURED,
       );
     }
 
@@ -98,7 +98,7 @@ const checkoutPromotion = async (req, res) => {
         recipient: String(adminUser._id),
         sender: null,
         type: "SYSTEM",
-        title: "New Event Promotion Purchased",
+        title: constantsMessage.NEW_PROMO_PURCHASED,
         message: `Organizer of event "${event.eventTitle}" purchased a ${pkg.durationInDays}-day promotion.`,
         relatedId: String(event._id),
         onModel: "Event",
@@ -117,7 +117,7 @@ const checkoutPromotion = async (req, res) => {
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
-      "Promotion successfully purchased and activated.",
+      constantsMessage.PROMO_ACTIVATED,
       {
         transaction,
         event: {

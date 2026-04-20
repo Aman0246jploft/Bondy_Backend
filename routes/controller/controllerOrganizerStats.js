@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const organizerStatsService = require("../services/serviceOrganizerStats");
 const { apiSuccessRes, apiErrorRes } = require("../../utils/globalFunction");
+const constantsMessage = require("../../utils/constantsMessage");
 const HTTP_STATUS = require("../../utils/statusCode");
 const { SUCCESS } = require("../../utils/constants");
 const { roleId } = require("../../utils/Role");
@@ -29,7 +30,7 @@ router.get(
         return apiErrorRes(
           HTTP_STATUS.BAD_REQUEST,
           res,
-          "Invalid organizer ID",
+          constantsMessage.INVALID_ORGANIZER_ID,
         );
       }
 
@@ -44,14 +45,14 @@ router.get(
         return apiSuccessRes(
           HTTP_STATUS.OK,
           res,
-          "Organizer transactions fetched successfully",
+          constantsMessage.ORGANIZER_TRANSACTIONS_FETCHED,
           result.data,
         );
       } else {
         return apiErrorRes(
           HTTP_STATUS.INTERNAL_SERVER_ERROR,
           res,
-          "Failed to fetch transactions",
+          constantsMessage.FETCH_TRANSACTIONS_FAILED,
         );
       }
     } catch (error) {
@@ -79,7 +80,7 @@ router.get(
         return apiErrorRes(
           HTTP_STATUS.BAD_REQUEST,
           res,
-          "Invalid organizer ID",
+          constantsMessage.INVALID_ORGANIZER_ID,
         );
       }
 
@@ -94,14 +95,14 @@ router.get(
         return apiSuccessRes(
           HTTP_STATUS.OK,
           res,
-          "Wallet history fetched successfully",
+          constantsMessage.WALLET_HISTORY_FETCHED,
           result.data,
         );
       } else {
         return apiErrorRes(
           HTTP_STATUS.INTERNAL_SERVER_ERROR,
           res,
-          "Failed to fetch wallet history",
+          constantsMessage.FETCH_WALLET_HISTORY_FAILED,
         );
       }
     } catch (error) {
@@ -125,7 +126,7 @@ router.get(
         return apiErrorRes(
           HTTP_STATUS.BAD_REQUEST,
           res,
-          "Invalid organizer ID",
+          constantsMessage.INVALID_ORGANIZER_ID,
         );
       }
 
@@ -140,14 +141,14 @@ router.get(
         return apiSuccessRes(
           HTTP_STATUS.OK,
           res,
-          "Payout history fetched successfully",
+          constantsMessage.PAYOUT_HISTORY_FETCHED,
           result.data,
         );
       } else {
         return apiErrorRes(
           HTTP_STATUS.INTERNAL_SERVER_ERROR,
           res,
-          "Failed to fetch payouts",
+          constantsMessage.FETCH_PAYOUTS_FAILED,
         );
       }
     } catch (error) {
@@ -171,7 +172,7 @@ router.get(
         return apiErrorRes(
           HTTP_STATUS.BAD_REQUEST,
           res,
-          "Invalid organizer ID",
+          constantsMessage.INVALID_ORGANIZER_ID,
         );
       }
 
@@ -182,14 +183,14 @@ router.get(
         return apiSuccessRes(
           HTTP_STATUS.OK,
           res,
-          "Organizer statistics fetched successfully",
+          constantsMessage.ORGANIZER_STATS_FETCHED,
           result.data,
         );
       } else {
         return apiErrorRes(
           HTTP_STATUS.INTERNAL_SERVER_ERROR,
           res,
-          "Failed to fetch statistics",
+          constantsMessage.FETCH_STATS_FAILED,
         );
       }
     } catch (error) {
@@ -207,7 +208,7 @@ router.get("/dashboard", checkRole([roleId.ORGANIZER]), async (req, res) => {
     const organizerId = req.user.userId; // Extracted from token
 
     if (!validateObjectId(organizerId)) {
-      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Invalid organizer ID");
+      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.INVALID_ORGANIZER_ID);
     }
 
     const result =
@@ -217,14 +218,14 @@ router.get("/dashboard", checkRole([roleId.ORGANIZER]), async (req, res) => {
       return apiSuccessRes(
         HTTP_STATUS.OK,
         res,
-        "Organizer dashboard data fetched successfully",
+        constantsMessage.ORGANIZER_DASHBOARD_FETCHED,
         result.data,
       );
     } else {
       return apiErrorRes(
         HTTP_STATUS.INTERNAL_SERVER_ERROR,
         res,
-        "Failed to fetch dashboard data",
+        constantsMessage.FETCH_DASHBOARD_FAILED,
       );
     }
   } catch (error) {

@@ -4,6 +4,7 @@ const crypto = require("crypto");
 const { Referral, User, WalletHistory, GlobalSetting } = require("../../db");
 const HTTP_STATUS = require("../../utils/statusCode");
 const { apiErrorRes, apiSuccessRes } = require("../../utils/globalFunction");
+const constantsMessage = require("../../utils/constantsMessage");
 const perApiLimiter = require("../../middlewares/rateLimiter");
 const { roleId } = require("../../utils/Role");
 const { notifyReferralReward } = require("../services/serviceNotification");
@@ -47,7 +48,7 @@ router.get("/my-code", perApiLimiter(), async (req, res) => {
     const baseUrl = process.env.FRONTEND_URL || "https://bondy.com";
     const referralLink = `${baseUrl}/register?ref=${referral.referralCode}`;
 
-    return apiSuccessRes(HTTP_STATUS.OK, res, "Referral code fetched", {
+    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.REFERRAL_CODE_FETCHED, {
       referralCode: referral.referralCode,
       referralLink,
     });
@@ -78,7 +79,7 @@ router.get("/stats", perApiLimiter(), async (req, res) => {
       .filter((r) => r.status === "COMPLETED")
       .reduce((sum, r) => sum + (r.rewardAmount || 0), 0);
 
-    return apiSuccessRes(HTTP_STATUS.OK, res, "Referral stats fetched", {
+    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.REFERRAL_STATS_FETCHED, {
       totalReferrals,
       signedUp,
       completed,
@@ -98,7 +99,7 @@ router.post("/invite", perApiLimiter(), async (req, res) => {
     const { email } = req.body;
 
     if (!email) {
-      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Email is required");
+      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.EMAIL_REQUIRED);
     }
 
     // Get the organizer's referral code
@@ -119,13 +120,13 @@ router.post("/invite", perApiLimiter(), async (req, res) => {
       refereeEmail: email.toLowerCase().trim(),
     });
     if (existing) {
-      return apiErrorRes(HTTP_STATUS.CONFLICT, res, "This email has already been invited by you");
+      return apiErrorRes(HTTP_STATUS.CONFLICT, res, constantsMessage.EMAIL_ALREADY_INVITED);
     }
 
     // Check if user already exists on platform
     const existingUser = await User.findOne({ email: email.toLowerCase().trim() });
     if (existingUser) {
-      return apiErrorRes(HTTP_STATUS.CONFLICT, res, "This user is already registered on Bondy");
+      return apiErrorRes(HTTP_STATUS.CONFLICT, res, constantsMessage.USER_ALREADY_REGISTERED);
     }
 
     // Create individual referral for this email
@@ -144,7 +145,7 @@ router.post("/invite", perApiLimiter(), async (req, res) => {
     const baseUrl = process.env.FRONTEND_URL || "https://bondy.com";
     const referralLink = `${baseUrl}/register?ref=${inviteCode}`;
 
-    return apiSuccessRes(HTTP_STATUS.OK, res, "Invite sent successfully", {
+    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.INVITE_SENT, {
       referralLink,
       referralCode: inviteCode,
       refereeEmail: newReferral.refereeEmail,
@@ -162,17 +163,17 @@ router.post("/complete", perApiLimiter(), async (req, res) => {
     const { referralCode, refereeUserId } = req.body;
 
     if (!referralCode || !refereeUserId) {
-      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "referralCode and refereeUserId are required");
+      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.REFERRAL_REQUIRED_FIELDS);
     }
 
     const referral = await Referral.findOne({ referralCode, status: { $in: ["PENDING", "SIGNED_UP"] } });
     if (!referral) {
-      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Referral not found or already completed");
+      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.REFERRAL_NOT_FOUND_OR_COMPLETED);
     }
 
     const referrer = await User.findById(referral.referrer);
     if (!referrer) {
-      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Referrer not found");
+      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.REFERRER_NOT_FOUND);
     }
 
     // Update referral
@@ -203,7 +204,7 @@ router.post("/complete", perApiLimiter(), async (req, res) => {
       String(referral._id)
     ).catch((e) => console.error("[Notification] notifyReferralReward (complete):", e));
 
-    return apiSuccessRes(HTTP_STATUS.OK, res, "Referral completed and reward credited", {
+    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.REFERRAL_COMPLETED, {
       rewardAmount,
       newBalance: referrer.payoutBalance,
     });

@@ -9,6 +9,7 @@ const {
 } = require("../../db");
 const HTTP_STATUS = require("../../utils/statusCode");
 const { apiErrorRes, apiSuccessRes } = require("../../utils/globalFunction");
+const constantsMessage = require("../../utils/constantsMessage");
 const checkRole = require("../../middlewares/checkRole");
 const { roleId } = require("../../utils/Role");
 const { notifyPayoutResult } = require("../services/serviceNotification");
@@ -24,7 +25,7 @@ const getOrganizerEarnings = async (req, res) => {
     );
 
     if (!user) {
-      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "User not found");
+      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.USER_NOT_FOUND);
     }
 
     const payoutHistory = await Payout.find({ organizerId: userId }).sort({
@@ -66,7 +67,7 @@ const getOrganizerEarnings = async (req, res) => {
     });
     const minPayout = minPayoutSetting ? Number(minPayoutSetting.value) : 1000;
 
-    return apiSuccessRes(HTTP_STATUS.OK, res, "Earnings fetched successfully", {
+    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.EARNINGS_FETCHED, {
       totalEarnings: user.totalEarnings,
       payoutBalance: user.payoutBalance,
       bankDetails: user.bankDetails,
@@ -103,7 +104,7 @@ const updateBankDetails = async (req, res) => {
       { new: true },
     );
 
-    return apiSuccessRes(HTTP_STATUS.OK, res, "Bank details updated", {
+    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.BANK_DETAILS_UPDATED, {
       bankDetails: user.bankDetails,
     });
   } catch (error) {
@@ -119,7 +120,7 @@ const requestPayout = async (req, res) => {
     const { amount, paymentReference } = req.body; // paymentReference could be bank details hint or updated info
 
     if (!amount || amount <= 0) {
-      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Invalid amount");
+      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.INVALID_AMOUNT);
     }
 
     const minPayoutSetting = await GlobalSetting.findOne({
@@ -137,11 +138,11 @@ const requestPayout = async (req, res) => {
 
     const user = await User.findById(userId);
     if (!user) {
-      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "User not found");
+      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.USER_NOT_FOUND);
     }
 
     if (user.payoutBalance < amount) {
-      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Insufficient balance");
+      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.INSUFFICIENT_BALANCE);
     }
 
     // 1. Create Payout Request
@@ -168,7 +169,7 @@ const requestPayout = async (req, res) => {
     });
     await historyEntry.save();
 
-    return apiSuccessRes(HTTP_STATUS.OK, res, "Payout request submitted", {
+    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.PAYOUT_REQUEST_SUBMITTED, {
       payout: newPayout,
       newBalance: user.payoutBalance,
     });
@@ -192,7 +193,7 @@ const getPendingPayouts = async (req, res) => {
       )
       .sort({ payoutBalance: -1 });
 
-    return apiSuccessRes(HTTP_STATUS.OK, res, "Pending payouts fetched", {
+    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.PENDING_PAYOUTS_FETCHED, {
       ORGANIZERs,
     });
   } catch (error) {
@@ -208,14 +209,14 @@ const markPayoutAsPaid = async (req, res) => {
 
     const ORGANIZER = await User.findById(ORGANIZERId);
     if (!ORGANIZER) {
-      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "ORGANIZER not found");
+      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.USER_NOT_FOUND);
     }
 
     if (ORGANIZER.payoutBalance < amount) {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        "Insufficient payout balance",
+        constantsMessage.INSUFFICIENT_BALANCE,
       );
     }
 
@@ -258,7 +259,7 @@ const markPayoutAsPaid = async (req, res) => {
     });
     await walletEntry.save();
 
-    return apiSuccessRes(HTTP_STATUS.OK, res, "Payout marked as paid", {
+    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.PAYOUT_MARKED_PAID, {
       payout,
     });
   } catch (error) {
@@ -301,7 +302,7 @@ const getAdminStats = async (req, res) => {
     stats.totalPayoutsPending =
       pendingPayoutBalance.length > 0 ? pendingPayoutBalance[0].total : 0;
 
-    return apiSuccessRes(HTTP_STATUS.OK, res, "Admin stats fetched", { stats });
+    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.ADMIN_STATS_FETCHED, { stats });
   } catch (error) {
     console.error("Error in getAdminStats:", error);
     return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
@@ -324,13 +325,13 @@ router.post(
         return apiErrorRes(
           HTTP_STATUS.NOT_FOUND,
           res,
-          "Payout request not found",
+          constantsMessage.PAYOUT_NOT_FOUND,
         );
       if (payout.status !== "PENDING")
         return apiErrorRes(
           HTTP_STATUS.BAD_REQUEST,
           res,
-          "Payout is not pending",
+          constantsMessage.PAYOUT_NOT_PENDING,
         );
 
       payout.status = "PAID";
@@ -354,7 +355,7 @@ router.post(
         console.error("[Notification] notifyPayoutResult (approved):", e),
       );
 
-      return apiSuccessRes(HTTP_STATUS.OK, res, "Payout approved");
+      return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.PAYOUT_APPROVED);
     } catch (e) {
       return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, e.message);
     }
@@ -373,13 +374,13 @@ router.post(
         return apiErrorRes(
           HTTP_STATUS.NOT_FOUND,
           res,
-          "Payout request not found",
+          constantsMessage.PAYOUT_NOT_FOUND,
         );
       if (payout.status !== "PENDING")
         return apiErrorRes(
           HTTP_STATUS.BAD_REQUEST,
           res,
-          "Payout is not pending",
+          constantsMessage.PAYOUT_NOT_PENDING,
         );
 
       payout.status = "CANCELLED"; // or REJECTED
@@ -413,7 +414,7 @@ router.post(
         console.error("[Notification] notifyPayoutResult (rejected):", e),
       );
 
-      return apiSuccessRes(HTTP_STATUS.OK, res, "Payout rejected and refunded");
+      return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.PAYOUT_REJECTED);
     } catch (e) {
       return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, e.message);
     }
@@ -471,7 +472,7 @@ const getFinanceStats = async (req, res) => {
       .populate("courseId", "courseTitle")
       .lean();
 
-    return apiSuccessRes(HTTP_STATUS.OK, res, "Finance stats fetched", {
+    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.FINANCE_STATS_FETCHED, {
       totalRevenue,
       totalCommission,
       totalOrganizerEarnings,
@@ -521,7 +522,7 @@ const getAllPayouts = async (req, res) => {
 
     const total = await Payout.countDocuments(query);
 
-    return apiSuccessRes(HTTP_STATUS.OK, res, "Payouts fetched", {
+    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.PAYOUTS_FETCHED, {
       payouts,
       total,
       page: Number(page),
@@ -569,7 +570,7 @@ const getAllTransactions = async (req, res) => {
       skip + Number(limit),
     );
 
-    return apiSuccessRes(HTTP_STATUS.OK, res, "Transactions fetched", {
+    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.TRANSACTIONS_FETCHED, {
       transactions: paginatedTransactions,
       total,
       page: Number(page),

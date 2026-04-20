@@ -11,6 +11,7 @@ const {
 const HTTP_STATUS = require("../../utils/statusCode");
 const User = require("../../db/models/User");
 const { Referral, WalletHistory, GlobalSetting } = require("../../db");
+const constantsMessage = require("../../utils/constantsMessage");
 const { roleId } = require("../../utils/Role");
 const checkRole = require("../../middlewares/checkRole");
 const {
@@ -31,13 +32,13 @@ const submitVerification = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        "At least one document is required.",
+        constantsMessage.DOCUMENTS_REQUIRED,
       );
     }
 
     const user = await User.findById(userId);
     if (!user) {
-      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "User not found.");
+      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.USER_NOT_FOUND);
     }
 
     // Rule: If already verified, do not allow re-submission
@@ -45,7 +46,7 @@ const submitVerification = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        "You are already verified. Re-submission is not allowed.",
+        constantsMessage.ALREADY_VERIFIED,
       );
     }
 
@@ -99,7 +100,7 @@ const submitVerification = async (req, res) => {
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
-      "Verification documents updated successfully.",
+      constantsMessage.VERIFICATION_DOCS_UPDATED,
       {
         organizerVerificationStatus: user.organizerVerificationStatus,
         documents: (user.documents || []).map((doc) => ({
@@ -172,7 +173,7 @@ const getVerificationRequests = async (req, res) => {
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
-      "Verification requests fetched successfully.",
+      constantsMessage.VERIFICATION_REQUESTS_FETCHED,
       {
         requests: filteredUsers,
         total,
@@ -197,7 +198,7 @@ const verifyOrganizer = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        "Invalid action. Use 'approve' or 'reject'.",
+        constantsMessage.INVALID_VERIFICATION_ACTION,
       );
     }
 
@@ -205,19 +206,19 @@ const verifyOrganizer = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        "Document ID is required.",
+        constantsMessage.DOCUMENT_ID_REQUIRED,
       );
     }
 
     const user = await User.findById(userId);
     if (!user) {
-      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "User not found.");
+      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.USER_NOT_FOUND);
     }
 
     // Find the specific document
     const document = user.documents.id(documentId);
     if (!document) {
-      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Document not found.");
+      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.DOCUMENT_NOT_FOUND);
     }
 
     if (action === "approve") {
@@ -229,7 +230,7 @@ const verifyOrganizer = async (req, res) => {
         return apiErrorRes(
           HTTP_STATUS.BAD_REQUEST,
           res,
-          "Approved 'Business Proof' cannot be rejected.",
+          constantsMessage.BUSINESS_PROOF_REJECTION_ERROR,
         );
       }
 
@@ -237,7 +238,7 @@ const verifyOrganizer = async (req, res) => {
         return apiErrorRes(
           HTTP_STATUS.BAD_REQUEST,
           res,
-          "Reason is required for rejection.",
+          constantsMessage.REJECTION_REASON_REQUIRED,
         );
       }
       document.status = "rejected";
@@ -314,7 +315,7 @@ const verifyOrganizer = async (req, res) => {
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
-      `Document ${action}d successfully.`,
+      constantsMessage.DOCUMENT_STATUS_UPDATED,
       {
         document: {
           _id: document._id,

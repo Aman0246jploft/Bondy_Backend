@@ -3,6 +3,7 @@ const router = express.Router();
 const { PromotionPackage, Course, Transaction, User } = require("../../db");
 const HTTP_STATUS = require("../../utils/statusCode");
 const { apiErrorRes, apiSuccessRes } = require("../../utils/globalFunction");
+const constantsMessage = require("../../utils/constantsMessage");
 const { checkoutPromotionSchema } = require("../services/validations/coursePromotionValidation");
 const { notifyPromotion, queueNotification } = require("../services/serviceNotification");
 
@@ -13,10 +14,10 @@ const { notifyPromotion, queueNotification } = require("../services/serviceNotif
 router.get("/packages", async (req, res) => {
   try {
     const packages = await PromotionPackage.find({ isActive: true, packageType: "COURSE" }).lean();
-    return apiSuccessRes(HTTP_STATUS.OK, res, "Active course promotion packages retrieved successfully", packages);
+    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.COURSE_PROMO_PACKAGES_FETCHED, packages);
   } catch (error) {
     console.error("Error fetching promotion packages:", error);
-    return apiErrorRes(HTTP_STATUS.INTERNAL_SERVER_ERROR, res, "Server Error");
+    return apiErrorRes(HTTP_STATUS.INTERNAL_SERVER_ERROR, res, constantsMessage.SERVER_ERROR);
   }
 });
 
@@ -36,17 +37,17 @@ router.post("/checkout", async (req, res) => {
     // Verify course exists and belongs to the user
     const course = await Course.findById(courseId);
     if (!course) {
-      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Course not found");
+      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.COURSE_NOT_FOUND);
     }
 
     if (course.createdBy.toString() !== userId.toString()) {
-      return apiErrorRes(HTTP_STATUS.UNAUTHORIZED, res, "You are not authorized to promote this course");
+      return apiErrorRes(HTTP_STATUS.UNAUTHORIZED, res, constantsMessage.COURSE_PROMO_UNAUTHORIZED);
     }
 
     // Verify promotion package exists
     const promoPackage = await PromotionPackage.findById(packageId);
     if (!promoPackage || !promoPackage.isActive) {
-      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Promotion package not found or inactive");
+      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.PROMO_PACKAGE_NOT_FOUND);
     }
 
     // For simplicity, skip actual payment gateway integration here (QPay/SocialPay)
@@ -102,14 +103,14 @@ router.post("/checkout", async (req, res) => {
       promoPackage.durationInDays
     ).catch((e) => console.error("[Notification] notifyPromotion (course):", e));
 
-    return apiSuccessRes(HTTP_STATUS.OK, res, "Promotion activated successfully", {
+    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.PROMO_ACTIVATED, {
       transactionId: transaction._id,
       featuredExpiry: expiryDate
     });
 
   } catch (error) {
     console.error("Error during promotion checkout:", error);
-    return apiErrorRes(HTTP_STATUS.INTERNAL_SERVER_ERROR, res, "Server Error");
+    return apiErrorRes(HTTP_STATUS.INTERNAL_SERVER_ERROR, res, constantsMessage.SERVER_ERROR);
   }
 });
 

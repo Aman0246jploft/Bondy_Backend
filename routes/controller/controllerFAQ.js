@@ -3,6 +3,7 @@ const router = express.Router();
 const { FAQ } = require("../../db");
 const HTTP_STATUS = require("../../utils/statusCode");
 const { apiErrorRes, apiSuccessRes } = require("../../utils/globalFunction");
+const constantsMessage = require("../../utils/constantsMessage");
 const checkRole = require("../../middlewares/checkRole");
 const { roleId } = require("../../utils/Role");
 
@@ -10,7 +11,7 @@ const { roleId } = require("../../utils/Role");
 const getFAQs = async (req, res) => {
   try {
     const faqs = await FAQ.find({ isActive: true }).sort({ order: 1 });
-    return apiSuccessRes(HTTP_STATUS.OK, res, "FAQs fetched successfully", {
+    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.FAQS_FETCHED, {
       faqs,
     });
   } catch (error) {
@@ -22,7 +23,7 @@ const getFAQs = async (req, res) => {
 const getAllFAQsAdmin = async (req, res) => {
   try {
     const faqs = await FAQ.find().sort({ order: 1 });
-    return apiSuccessRes(HTTP_STATUS.OK, res, "All FAQs fetched successfully", {
+    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.FAQS_FETCHED, {
       faqs,
     });
   } catch (error) {
@@ -36,7 +37,7 @@ const createFAQ = async (req, res) => {
     const { question, answer, order, isActive } = req.body;
     const newFAQ = new FAQ({ question, answer, order, isActive });
     await newFAQ.save();
-    return apiSuccessRes(HTTP_STATUS.CREATED, res, "FAQ created successfully", {
+    return apiSuccessRes(HTTP_STATUS.CREATED, res, constantsMessage.FAQ_CREATED, {
       faq: newFAQ,
     });
   } catch (error) {
@@ -55,9 +56,9 @@ const updateFAQ = async (req, res) => {
       { new: true },
     );
     if (!updatedFAQ) {
-      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "FAQ not found");
+      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.FAQ_NOT_FOUND);
     }
-    return apiSuccessRes(HTTP_STATUS.OK, res, "FAQ updated successfully", {
+    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.FAQ_UPDATED, {
       faq: updatedFAQ,
     });
   } catch (error) {
@@ -71,9 +72,9 @@ const deleteFAQ = async (req, res) => {
     const { id } = req.params;
     const deletedFAQ = await FAQ.findByIdAndDelete(id);
     if (!deletedFAQ) {
-      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "FAQ not found");
+      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.FAQ_NOT_FOUND);
     }
-    return apiSuccessRes(HTTP_STATUS.OK, res, "FAQ deleted successfully");
+    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.FAQ_DELETED);
   } catch (error) {
     return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
   }

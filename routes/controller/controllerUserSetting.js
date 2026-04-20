@@ -3,6 +3,7 @@ const router = express.Router();
 const { UserSetting } = require("../../db");
 const HTTP_STATUS = require("../../utils/statusCode");
 const { apiErrorRes, apiSuccessRes } = require("../../utils/globalFunction");
+const constantsMessage = require("../../utils/constantsMessage");
 
 // 1. Get User Setting
 const getUserSetting = async (req, res) => {
@@ -24,7 +25,7 @@ const getUserSetting = async (req, res) => {
         return apiSuccessRes(
             HTTP_STATUS.OK,
             res,
-            "User setting fetched successfully",
+            constantsMessage.USER_SETTING_FETCHED,
             setting
         );
     } catch (error) {
@@ -82,7 +83,7 @@ const updateUserSetting = async (req, res) => {
         return apiSuccessRes(
             HTTP_STATUS.OK,
             res,
-            "User setting updated successfully",
+            constantsMessage.USER_SETTING_UPDATED,
             setting
         );
     } catch (error) {

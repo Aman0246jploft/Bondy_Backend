@@ -22,7 +22,7 @@ const createTax = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        "Tax with this name already exists.",
+        constantsMessage.TAX_ALREADY_EXISTS,
       );
     }
 
@@ -38,7 +38,7 @@ const createTax = async (req, res) => {
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
-      "Tax created successfully.",
+      constantsMessage.TAX_CREATED,
       newTax,
     );
   } catch (error) {
@@ -65,7 +65,7 @@ const updateTax = async (req, res) => {
       );
     }
 
-    return apiSuccessRes(HTTP_STATUS.OK, res, "Tax updated successfully.", tax);
+    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.TAX_UPDATED, tax);
   } catch (error) {
     return apiErrorRes(
       HTTP_STATUS.INTERNAL_SERVER_ERROR,
@@ -89,7 +89,7 @@ const getTaxList = async (req, res) => {
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
-      "Tax list fetched successfully.",
+      constantsMessage.TAX_LIST_FETCHED,
       {
         taxes,
         total,
@@ -124,7 +124,7 @@ const getTaxById = async (req, res) => {
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
-      "Tax details fetched successfully.",
+      constantsMessage.TAX_DETAILS_FETCHED,
       tax,
     );
   } catch (error) {
@@ -154,7 +154,7 @@ const deleteTax = async (req, res) => {
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
-      "Tax deleted successfully.",
+      constantsMessage.TAX_DELETED,
       null,
     );
   } catch (error) {

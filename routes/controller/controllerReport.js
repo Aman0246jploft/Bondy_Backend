@@ -2,6 +2,7 @@ const router = require("express").Router();
 const { Report, User } = require("../../db");
 const HTTP_STATUS = require("../../utils/statusCode");
 const { apiErrorRes, apiSuccessRes } = require("../../utils/globalFunction");
+const constantsMessage = require("../../utils/constantsMessage");
 const perApiLimiter = require("../../middlewares/rateLimiter");
 const validateRequest = require("../../middlewares/validateRequest");
 const checkRole = require("../../middlewares/checkRole");
@@ -21,7 +22,7 @@ const createReport = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        "You cannot report yourself.",
+        constantsMessage.CANNOT_REPORT_SELF,
       );
     }
 
@@ -30,7 +31,7 @@ const createReport = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        "You have already reported this user. Please wait for admin review.",
+        constantsMessage.REPORT_ALREADY_EXISTS,
       );
     }
 
@@ -45,7 +46,7 @@ const createReport = async (req, res) => {
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
-      "User reported successfully.",
+      constantsMessage.REPORT_CREATED,
       newReport,
     );
   } catch (error) {
@@ -102,7 +103,7 @@ const listReports = async (req, res) => {
       .limit(sizeInt)
       .lean();
 
-    return apiSuccessRes(HTTP_STATUS.OK, res, "Reports fetched successfully.", {
+    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.REPORTS_FETCHED, {
       reports,
       total,
       pageNo: pageNoInt,
@@ -126,7 +127,7 @@ const resolveReport = async (req, res) => {
 
     const report = await Report.findById(id);
     if (!report) {
-      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Report not found.");
+      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.REPORT_NOT_FOUND);
     }
 
     if (report.status !== "pending") {
@@ -152,7 +153,7 @@ const resolveReport = async (req, res) => {
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
-      `Report ${status} successfully.`,
+      constantsMessage.REPORT_RESOLVED,
       report,
     );
   } catch (error) {
@@ -171,10 +172,10 @@ const deleteReport = async (req, res) => {
     const deletedReport = await Report.findByIdAndDelete(id);
 
     if (!deletedReport) {
-      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Report not found.");
+      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.REPORT_NOT_FOUND);
     }
 
-    return apiSuccessRes(HTTP_STATUS.OK, res, "Report deleted successfully.");
+    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.REPORT_DELETED);
   } catch (error) {
     return apiErrorRes(
       HTTP_STATUS.INTERNAL_SERVER_ERROR,

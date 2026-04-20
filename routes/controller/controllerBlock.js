@@ -4,6 +4,7 @@ const { Block, Chat } = require("../../db");
 const HTTP_STATUS = require("../../utils/statusCode");
 const { apiErrorRes, apiSuccessRes } = require("../../utils/globalFunction");
 const perApiLimiter = require("../../middlewares/rateLimiter");
+const constantsMessage = require("../../utils/constantsMessage");
 
 // Block a user
 const blockUser = async (req, res) => {
@@ -15,13 +16,13 @@ const blockUser = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        "You cannot block yourself.",
+        constantsMessage.CANNOT_BLOCK_SELF,
       );
     }
 
     const existingBlock = await Block.findOne({ fromUser, toUser });
     if (existingBlock) {
-      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "User already blocked.");
+      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.USER_ALREADY_BLOCKED);
     }
 
     const newBlock = new Block({ fromUser, toUser });
@@ -36,7 +37,7 @@ const blockUser = async (req, res) => {
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
-      "User blocked successfully.",
+      constantsMessage.USER_BLOCKED,
       newBlock,
     );
   } catch (error) {
@@ -58,7 +59,7 @@ const unblockUser = async (req, res) => {
     const deletedBlock = await Block.findOneAndDelete({ fromUser, toUser });
 
     if (!deletedBlock) {
-      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "User is not blocked.");
+      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.USER_NOT_BLOCKED);
     }
 
     // Update Chat if exists
@@ -70,7 +71,7 @@ const unblockUser = async (req, res) => {
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
-      "User unblocked successfully.",
+      constantsMessage.USER_UNBLOCKED,
       null,
     );
   } catch (error) {
@@ -101,7 +102,7 @@ const getBlockedUsers = async (req, res) => {
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
-      "Blocked users fetched successfully.",
+      constantsMessage.BLOCKED_USERS_FETCHED,
       {
         blockedUsers,
         total,

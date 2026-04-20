@@ -58,7 +58,7 @@ const createCourse = async (req, res) => {
       );
     }
 
-    return apiSuccessRes(HTTP_STATUS.OK, res, 'Course created successfully', {
+    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.COURSE_CREATED_SUCCESS, {
       course: course,
     });
   } catch (error) {
@@ -612,7 +612,7 @@ const updateCourse = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.NOT_FOUND,
         res,
-        constantsMessage.NOT_FOUND || "Course not found",
+        constantsMessage.COURSE_NOT_FOUND,
       );
     }
 
@@ -621,8 +621,7 @@ const updateCourse = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.FORBIDDEN,
         res,
-        constantsMessage.UNAUTHORIZED_ACCESS ||
-        "You are not authorized to edit this course",
+        constantsMessage.UNAUTHORIZED_COURSE_EDIT,
       );
     }
 
@@ -669,7 +668,7 @@ const updateCourse = async (req, res) => {
           return apiErrorRes(
             HTTP_STATUS.BAD_REQUEST,
             res,
-            "Schedule start date must be before end date",
+            constantsMessage.SCHEDULE_DATE_ERROR,
           );
         }
       }
@@ -684,7 +683,7 @@ const updateCourse = async (req, res) => {
         return apiErrorRes(
           HTTP_STATUS.BAD_REQUEST,
           res,
-          "Fixed start courses must have exactly one schedule",
+          constantsMessage.FIXED_START_SCHEDULE_ERROR,
         );
       }
     }
@@ -702,7 +701,7 @@ const updateCourse = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.SERVER_ERROR,
         res,
-        "Failed to update course",
+        constantsMessage.COURSE_UPDATE_FAILED,
       );
     }
 
@@ -731,7 +730,7 @@ const updateCourse = async (req, res) => {
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
-      constantsMessage.SUCCESS || "Course updated successfully",
+      constantsMessage.COURSE_UPDATED_SUCCESS,
       { course: formattedCourse },
     );
   } catch (error) {
@@ -770,7 +769,7 @@ const getCourseDetails = async (req, res) => {
       .lean();
 
     if (!course) {
-      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Course not found");
+      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.COURSE_NOT_FOUND);
     }
 
     // 2. Booking Aggregation (Per Schedule for this Course)

@@ -50,7 +50,7 @@ const createCategory = async (req, res) => {
         return apiErrorRes(
           HTTP_STATUS.BAD_REQUEST,
           res,
-          `Category with name "${name}" already exists for type "${type}"`,
+          constantsMessage.CATEGORY_ALREADY_EXISTS,
         );
       }
     }
@@ -161,7 +161,7 @@ const updateCategory = async (req, res) => {
         return apiErrorRes(
           HTTP_STATUS.BAD_REQUEST,
           res,
-          `Category with name "${checkName}" already exists for type "${checkType}"`,
+          constantsMessage.CATEGORY_ALREADY_EXISTS,
         );
       }
 
@@ -271,7 +271,7 @@ const getCategoryStats = async (req, res) => {
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
-      "Category statistics fetched successfully",
+      constantsMessage.CATEGORY_STATS_FETCHED,
       {
         totalEvents,
         totalCourses,

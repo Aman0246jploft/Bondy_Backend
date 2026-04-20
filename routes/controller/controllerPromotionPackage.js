@@ -29,7 +29,7 @@ const createPackage = async (req, res) => {
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
-      "Promotion package created successfully.",
+      constantsMessage.PROMO_PACKAGE_CREATED,
       newPackage,
     );
   } catch (error) {
@@ -62,7 +62,7 @@ const updatePackage = async (req, res) => {
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
-      "Promotion package updated successfully.",
+      constantsMessage.PROMO_PACKAGE_UPDATED,
       updatedPackage,
     );
   } catch (error) {
@@ -94,7 +94,7 @@ const getPackageList = async (req, res) => {
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
-      "Promotion packages fetched successfully.",
+      constantsMessage.PROMO_PACKAGES_FETCHED,
       {
         packages,
         total,
@@ -129,7 +129,7 @@ const getPackageById = async (req, res) => {
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
-      "Promotion package details fetched successfully.",
+      constantsMessage.PROMO_PACKAGE_DETAILS_FETCHED,
       pkg,
     );
   } catch (error) {
@@ -159,7 +159,7 @@ const deletePackage = async (req, res) => {
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
-      "Promotion package deleted successfully.",
+      constantsMessage.PROMO_PACKAGE_DELETED,
       null,
     );
   } catch (error) {

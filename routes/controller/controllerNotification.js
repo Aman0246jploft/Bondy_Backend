@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const notificationService = require("../services/serviceNotification");
 const { apiSuccessRes, apiErrorRes } = require("../../utils/globalFunction");
+const constantsMessage = require("../../utils/constantsMessage");
 const HTTP_STATUS = require("../../utils/statusCode");
 const validateRequest = require("../../middlewares/validateRequest");
 const notificationValidation = require("../services/validations/notificationValidation");
@@ -25,7 +26,7 @@ router.post(
         result.status,
         res,
         result.data,
-        "Notifications fetched successfully",
+        constantsMessage.NOTIFICATIONS_FETCHED,
       );
     } catch (error) {
       return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
@@ -55,7 +56,7 @@ router.post(
         HTTP_STATUS.SUCCESS,
         res,
         result.data,
-        "Notification marked as read",
+        constantsMessage.NOTIFICATION_MARKED_READ,
       );
     } catch (error) {
       return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
@@ -73,7 +74,7 @@ router.post("/mark-all-read", async (req, res) => {
       HTTP_STATUS.SUCCESS,
       res,
       result.data,
-      "All notifications marked as read",
+      constantsMessage.ALL_NOTIFICATIONS_MARKED_READ,
     );
   } catch (error) {
     return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
@@ -102,7 +103,7 @@ router.post(
         HTTP_STATUS.SUCCESS,
         res,
         result.data,
-        "Notification deleted",
+        constantsMessage.NOTIFICATION_DELETED,
       );
     } catch (error) {
       return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);

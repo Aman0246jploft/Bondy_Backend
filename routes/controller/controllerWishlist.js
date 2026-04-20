@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const Wishlist = require("../../db/models/Wishlist");
 const { apiSuccessRes, apiErrorRes, formatResponseUrl, toObjectId } = require("../../utils/globalFunction");
+const constantsMessage = require("../../utils/constantsMessage");
 const HTTP_STATUS = require("../../utils/statusCode");
 const validateRequest = require("../../middlewares/validateRequest");
 const {
@@ -21,7 +22,7 @@ const addToWishlist = async (req, res) => {
             return apiErrorRes(
                 HTTP_STATUS.BAD_REQUEST,
                 res,
-                "Item already in wishlist"
+                constantsMessage.ITEM_ALREADY_IN_WISHLIST
             );
         }
 
@@ -36,7 +37,7 @@ const addToWishlist = async (req, res) => {
         return apiSuccessRes(
             HTTP_STATUS.CREATED,
             res,
-            "Added to wishlist",
+            constantsMessage.ADDED_TO_WISHLIST,
             newItem
         );
 
@@ -58,14 +59,14 @@ const removeFromWishlist = async (req, res) => {
             return apiErrorRes(
                 HTTP_STATUS.NOT_FOUND,
                 res,
-                "Item not found in wishlist"
+                constantsMessage.ITEM_NOT_FOUND_IN_WISHLIST
             );
         }
 
         return apiSuccessRes(
             HTTP_STATUS.OK,
             res,
-            "Removed from wishlist"
+            constantsMessage.REMOVED_FROM_WISHLIST
         );
 
     } catch (error) {
@@ -138,7 +139,7 @@ const getUserWishlist = async (req, res) => {
         return apiSuccessRes(
             HTTP_STATUS.OK,
             res,
-            "Wishlist fetched successfully",
+            constantsMessage.WISHLIST_FETCHED,
             {
                 eventList: wishlist.filter(item => item.entityModel === "Event"),
                 courseList: wishlist.filter(item => item.entityModel === "Course"),

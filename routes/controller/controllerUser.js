@@ -498,7 +498,7 @@ const loginInit = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.FORBIDDEN,
         res,
-        "Access denied. Invalid role.",
+        constantsMessage.ACCESS_DENIED_INVALID_ROLE,
       );
     }
 
@@ -624,7 +624,7 @@ const adminLogin = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.FORBIDDEN,
         res,
-        "Access denied. Admin only.",
+        constantsMessage.ACCESS_DENIED_ADMIN_ONLY,
       );
     }
 
@@ -744,7 +744,7 @@ const socialLogin = async (req, res) => {
         return apiErrorRes(
           HTTP_STATUS.FORBIDDEN,
           res,
-          "Access denied. Invalid role.",
+          constantsMessage.ACCESS_DENIED_INVALID_ROLE,
         );
       }
 
@@ -775,7 +775,7 @@ const socialLogin = async (req, res) => {
             return apiErrorRes(
               HTTP_STATUS.FORBIDDEN,
               res,
-              "Access denied. Invalid role.",
+              constantsMessage.ACCESS_DENIED_INVALID_ROLE,
             );
           }
 
@@ -839,7 +839,7 @@ const guestLogin = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.NOT_FOUND,
         res,
-        "Guest user not found"
+        constantsMessage.USER_NOT_FOUND
       );
     }
 
@@ -1035,7 +1035,7 @@ const getUserProfileById = async (req, res) => {
     let role = "CUSTOMER";
     if (user.roleId === roleId.SUPER_ADMIN) role = "SUPER_ADMIN";
     else if (user.roleId === roleId.ORGANIZER) role = "ORGANIZER";
-     else if (user.roleId === roleId.GUEST) role = "GUEST";
+    else if (user.roleId === roleId.GUEST) role = "GUEST";
 
     // Get interested category names
     const interestedCategories = (user.categories || []).map((cat) => cat.name);
@@ -1440,7 +1440,7 @@ const deleteUser = async (req, res) => {
       );
     }
 
-    return apiSuccessRes(HTTP_STATUS.OK, res, "User deleted successfully", {
+    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.USER_DELETED_SUCCESS, {
       user: updatedUser,
     });
   } catch (error) {
@@ -1468,7 +1468,7 @@ const deleteMyAccount = async (req, res) => {
     user.isDisable = true;
     await user.save();
 
-    return apiSuccessRes(HTTP_STATUS.OK, res, "Account deleted successfully");
+    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.ACCOUNT_DELETED_SUCCESS);
   } catch (error) {
     console.error("Error in deleteMyAccount:", error);
     return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
@@ -1497,7 +1497,7 @@ const resendUniversalOtp = async (req, res) => {
     } else if (type === "FORGOT_PASSWORD") {
       return resendForgotPasswordOtp(req, res);
     } else {
-      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Invalid OTP type.");
+      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.INVALID_OTP_TYPE);
     }
   } catch (error) {
     console.error("Error in resendUniversalOtp:", error);
@@ -1526,7 +1526,7 @@ const verifyUniversalOtp = async (req, res) => {
     } else if (type === "ORGANIZER") {
       return organizerSignupVerify(req, res);
     } else {
-      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Invalid OTP type.");
+      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.INVALID_OTP_TYPE);
     }
   } catch (error) {
     console.error("Error in verifyUniversalOtp:", error);
@@ -1688,7 +1688,7 @@ const resetPassword = async (req, res) => {
     }
 
     if (decoded.scope !== "reset_password" || !decoded.email) {
-      return apiErrorRes(HTTP_STATUS.UNAUTHORIZED, res, "Invalid token scope.");
+      return apiErrorRes(HTTP_STATUS.UNAUTHORIZED, res, constantsMessage.INVALID_TOKEN_SCOPE);
     }
 
     const user = await User.findOne({ email: decoded.email, isDeleted: false });
@@ -1854,7 +1854,7 @@ router.post(
   validateRequest(socialLoginSchema),
   socialLogin,
 );
- 
+
 router.post(
   "/guest-login",
   perApiLimiter(),

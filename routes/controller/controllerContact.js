@@ -3,6 +3,7 @@ const router = express.Router();
 const Contact = require("../../db/models/Contact");
 const HTTP_STATUS = require("../../utils/statusCode");
 const { apiSuccessRes, apiErrorRes } = require("../../utils/globalFunction");
+const constantsMessage = require("../../utils/constantsMessage");
 const checkRole = require("../../middlewares/checkRole");
 const { roleId } = require("../../utils/Role");
 // const perApiLimiter = require("../../middlewares/rateLimiter"); // Optional, but good practice
@@ -15,13 +16,13 @@ const createContact = async (req, res) => {
             return apiErrorRes(
                 HTTP_STATUS.BAD_REQUEST,
                 res,
-                "Name, Email and Message are required",
+                constantsMessage.CONTACT_REQUIRED_FIELDS,
             );
         }
 
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailRegex.test(email)) {
-            return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Invalid email format");
+            return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.INVALID_EMAIL);
         }
 
         const newContact = new Contact({
@@ -37,7 +38,7 @@ const createContact = async (req, res) => {
         return apiSuccessRes(
             HTTP_STATUS.OK,
             res,
-            "Message sent successfully",
+            constantsMessage.MESSAGE_SENT,
             newContact,
         );
     } catch (error) {
@@ -68,7 +69,7 @@ const listContacts = async (req, res) => {
 
         const total = await Contact.countDocuments(query);
 
-        return apiSuccessRes(HTTP_STATUS.OK, res, "Contacts fetched successfully", {
+        return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.CONTACTS_FETCHED, {
             contacts,
             total,
             page: parseInt(page),
@@ -86,12 +87,12 @@ const deleteContact = async (req, res) => {
             return apiErrorRes(
                 HTTP_STATUS.BAD_REQUEST,
                 res,
-                "Contact ID is required",
+                constantsMessage.CONTACT_ID_REQUIRED,
             );
         }
 
         await Contact.findByIdAndDelete(id);
-        return apiSuccessRes(HTTP_STATUS.OK, res, "Contact deleted successfully");
+        return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.CONTACT_DELETED);
     } catch (error) {
         return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
     }
@@ -104,13 +105,13 @@ const updateContact = async (req, res) => {
             return apiErrorRes(
                 HTTP_STATUS.BAD_REQUEST,
                 res,
-                "Contact ID and Status are required",
+                constantsMessage.CONTACT_UPDATE_REQUIRED_FIELDS,
             );
         }
 
         const validStatuses = ["New", "Read", "Replied"];
         if (!validStatuses.includes(status)) {
-            return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Invalid status");
+            return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.INVALID_STATUS);
         }
 
         const contact = await Contact.findByIdAndUpdate(
@@ -120,13 +121,13 @@ const updateContact = async (req, res) => {
         );
 
         if (!contact) {
-            return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Contact not found");
+            return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.CONTACT_NOT_FOUND);
         }
 
         return apiSuccessRes(
             HTTP_STATUS.OK,
             res,
-            "Contact status updated successfully",
+            constantsMessage.CONTACT_STATUS_UPDATED,
             contact,
         );
     } catch (error) {

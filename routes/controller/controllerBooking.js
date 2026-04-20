@@ -28,6 +28,7 @@ const validateRequest = require("../../middlewares/validateRequest");
 const perApiLimiter = require("../../middlewares/rateLimiter");
 const checkRole = require("../../middlewares/checkRole");
 const { roleId, userRole } = require("../../utils/Role");
+const constantsMessage = require("../../utils/constantsMessage");
 const {
   notifyBookingConfirmed,
   notifyOrganizerNewBooking,
@@ -56,13 +57,13 @@ const initiateBooking = async (req, res) => {
     if (eventId) {
       targetItem = await Event.findById(eventId);
       if (!targetItem) {
-        return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Event not found");
+        return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.EVENT_NOT_FOUND);
       }
       if (targetItem.ticketQtyAvailable < qty) {
         return apiErrorRes(
           HTTP_STATUS.BAD_REQUEST,
           res,
-          "Not enough tickets available",
+          constantsMessage.NOT_ENOUGH_TICKETS,
         );
       }
       baseTicketPrice = targetItem.ticketPrice;
@@ -70,17 +71,17 @@ const initiateBooking = async (req, res) => {
     } else if (courseId) {
       targetItem = await Course.findById(courseId);
       if (!targetItem) {
-        return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Course not found");
+        return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.COURSE_NOT_FOUND);
       }
       const schedule = targetItem.schedules.id(scheduleId);
       if (!schedule) {
-        return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Schedule not found");
+        return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.SCHEDULE_NOT_FOUND);
       }
       if (targetItem.totalSeats - schedule.presentCount < qty) {
         return apiErrorRes(
           HTTP_STATUS.BAD_REQUEST,
           res,
-          "Not enough seats available",
+          constantsMessage.NOT_ENOUGH_SEATS,
         );
       }
       baseTicketPrice = targetItem.price;
@@ -89,7 +90,7 @@ const initiateBooking = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        "Either eventId or courseId must be provided",
+        constantsMessage.EVENT_OR_COURSE_ID_REQUIRED,
       );
     }
 
@@ -110,7 +111,7 @@ const initiateBooking = async (req, res) => {
         return apiErrorRes(
           HTTP_STATUS.BAD_REQUEST,
           res,
-          "Invalid discount code",
+          constantsMessage.PROMO_CODE_NOT_FOUND,
         );
       }
 
@@ -119,7 +120,7 @@ const initiateBooking = async (req, res) => {
         return apiErrorRes(
           HTTP_STATUS.BAD_REQUEST,
           res,
-          "Discount code expired",
+          constantsMessage.PROMO_CODE_EXPIRED,
         );
       }
 
@@ -127,7 +128,7 @@ const initiateBooking = async (req, res) => {
         return apiErrorRes(
           HTTP_STATUS.BAD_REQUEST,
           res,
-          "Discount code usage limit exceeded",
+          constantsMessage.PROMO_CODE_LIMIT_REACHED,
         );
       }
 
@@ -185,7 +186,7 @@ const initiateBooking = async (req, res) => {
     const transaction = new Transaction(transactionData);
     await transaction.save();
 
-    return apiSuccessRes(HTTP_STATUS.OK, res, "Booking initiated", {
+    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.BOOKING_INITIATED, {
       transactionId: transaction._id,
       bookingId: transaction.bookingId,
       breakdown: {
@@ -213,30 +214,30 @@ const calculateBooking = async (req, res) => {
     if (eventId) {
       targetItem = await Event.findById(eventId);
       if (!targetItem) {
-        return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Event not found");
+        return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.EVENT_NOT_FOUND);
       }
       if (targetItem.ticketQtyAvailable < qty) {
         return apiErrorRes(
           HTTP_STATUS.BAD_REQUEST,
           res,
-          "Not enough tickets available",
+          constantsMessage.NOT_ENOUGH_TICKETS,
         );
       }
       baseTicketPrice = targetItem.ticketPrice;
     } else if (courseId) {
       targetItem = await Course.findById(courseId);
       if (!targetItem) {
-        return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Course not found");
+        return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.COURSE_NOT_FOUND);
       }
       const schedule = targetItem.schedules.id(scheduleId);
       if (!schedule) {
-        return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Schedule not found");
+        return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.SCHEDULE_NOT_FOUND);
       }
       if (targetItem.totalSeats - schedule.presentCount < qty) {
         return apiErrorRes(
           HTTP_STATUS.BAD_REQUEST,
           res,
-          "Not enough seats available",
+          constantsMessage.NOT_ENOUGH_SEATS,
         );
       }
 
@@ -271,9 +272,9 @@ const calculateBooking = async (req, res) => {
         if (discountAmount > basePrice) discountAmount = basePrice;
         finalAmount -= discountAmount;
         promoApplied = true;
-        promoMessage = "Promo code applied successfully";
+        promoMessage = constantsMessage.PROMO_APPLIED;
       } else {
-        promoMessage = "Invalid or expired promo code";
+        promoMessage = constantsMessage.INVALID_OR_EXPIRED_PROMO;
       }
     }
 
@@ -298,7 +299,7 @@ const calculateBooking = async (req, res) => {
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
-      "Booking calculation successful",
+      constantsMessage.BOOKING_CALCULATION_SUCCESS,
       {
         breakdown: {
           basePrice: roundToTwo(basePrice),
@@ -335,14 +336,14 @@ const confirmPayment = async (req, res) => {
       .populate("courseId");
 
     if (!transaction) {
-      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Transaction not found");
+      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.TRANSACTION_NOT_FOUND);
     }
 
     if (transaction.status === "PAID") {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        "Transaction already paid",
+        constantsMessage.TRANSACTION_ALREADY_PAID,
       );
     }
 
@@ -350,7 +351,7 @@ const confirmPayment = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        "Transaction is in invalid state to pay",
+        constantsMessage.INVALID_TRANSACTION_STATE,
       );
     }
 
@@ -371,7 +372,7 @@ const confirmPayment = async (req, res) => {
         return apiSuccessRes(
           HTTP_STATUS.OK,
           res,
-          "Tickets no longer available. Refund initiated.",
+          constantsMessage.REFUND_INITIATED_TICKETS,
           { transaction: transaction.toObject() },
         );
       }
@@ -411,7 +412,7 @@ const confirmPayment = async (req, res) => {
           return apiSuccessRes(
             HTTP_STATUS.OK,
             res,
-            "Seats no longer available. Refund initiated.",
+            constantsMessage.REFUND_INITIATED_SEATS,
             { transaction: transaction.toObject() },
           );
         }
@@ -530,7 +531,7 @@ const confirmPayment = async (req, res) => {
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
-      "Payment successful. Booking confirmed.",
+      constantsMessage.BOOKING_CONFIRMED,
       {
         transaction: transactionObj,
       },
@@ -636,7 +637,7 @@ const getTicketList = async (req, res) => {
       return tObj;
     });
 
-    return apiSuccessRes(HTTP_STATUS.OK, res, "Ticket list fetched", {
+    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.TICKET_LIST_FETCHED, {
       tickets,
     });
   } catch (error) {
@@ -691,7 +692,7 @@ const getTicketDetail = async (req, res) => {
       });
 
     if (!transaction) {
-      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Ticket not found");
+      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.TICKET_NOT_FOUND);
     }
 
     const transactionObj = transaction.toObject();
@@ -748,7 +749,7 @@ const getTicketDetail = async (req, res) => {
     //   checkedInAt: transaction.checkedInAt,
     // };
 
-    return apiSuccessRes(HTTP_STATUS.OK, res, "Ticket detail fetched", {
+    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.TICKET_DETAIL_FETCHED, {
       ticket: { ...transactionObj },
     });
   } catch (error) {
@@ -766,7 +767,7 @@ const scanQRCode = async (req, res) => {
 
     const qrParts = qrCodeData.split("-");
     if (qrParts.length < 4 || qrParts[0] !== "TICKET") {
-      return apiSuccessRes(HTTP_STATUS.OK, res, "QR code scanned", {
+      return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.QR_SCANNED, {
         status: "INVALID",
         message: "Invalid QR code format",
         data: null,
@@ -780,7 +781,7 @@ const scanQRCode = async (req, res) => {
       .populate("userId");
 
     if (!transaction) {
-      return apiSuccessRes(HTTP_STATUS.OK, res, "QR code scanned", {
+      return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.QR_SCANNED, {
         status: "INVALID",
         message: "Transaction not found",
         data: null,
@@ -788,7 +789,7 @@ const scanQRCode = async (req, res) => {
     }
 
     if (transaction.qrCodeData !== qrCodeData) {
-      return apiSuccessRes(HTTP_STATUS.OK, res, "QR code scanned", {
+      return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.QR_SCANNED, {
         status: "INVALID",
         message: "QR code mismatch",
         data: null,
@@ -796,7 +797,7 @@ const scanQRCode = async (req, res) => {
     }
 
     if (transaction.status !== "PAID") {
-      return apiSuccessRes(HTTP_STATUS.OK, res, "QR code scanned", {
+      return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.QR_SCANNED, {
         status: "INVALID",
         message: `Ticket status: ${transaction.status}`,
         data: { transactionId: transaction._id, status: transaction.status },
@@ -805,7 +806,7 @@ const scanQRCode = async (req, res) => {
 
     const item = transaction.eventId || transaction.courseId;
     if (!item) {
-      return apiSuccessRes(HTTP_STATUS.OK, res, "QR code scanned", {
+      return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.QR_SCANNED, {
         status: "INVALID",
         message: "Event or Course not found",
         data: null,
@@ -826,7 +827,7 @@ const scanQRCode = async (req, res) => {
     }
 
     if (new Date(endDate) < now) {
-      return apiSuccessRes(HTTP_STATUS.OK, res, "QR code scanned", {
+      return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.QR_SCANNED, {
         status: "EXPIRED",
         message: "Booking has expired",
         data: { transactionId: transaction._id, title, endDate },
@@ -834,7 +835,7 @@ const scanQRCode = async (req, res) => {
     }
 
     if (transaction.checkedInQty >= transaction.qty) {
-      return apiSuccessRes(HTTP_STATUS.OK, res, "QR code scanned", {
+      return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.QR_SCANNED, {
         status: "ALREADY_CHECKED_IN",
         message: "All tickets checked in",
         data: { transactionId: transaction._id, totalQty: transaction.qty },
@@ -906,7 +907,7 @@ const scanQRCode = async (req, res) => {
     const itemObj = item.toObject ? item.toObject() : item;
     itemObj.posterImage = (itemObj.posterImage || []).map(formatResponseUrl);
 
-    return apiSuccessRes(HTTP_STATUS.OK, res, "QR code scanned", {
+    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.QR_SCANNED, {
       status: "OK",
       message: "Checked in successfully",
       data: {
@@ -939,7 +940,7 @@ const getEventAttendeesList = async (req, res) => {
     // Find event and verify ownership
     const event = await Event.findById(eventId);
     if (!event) {
-      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Event not found");
+      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.EVENT_NOT_FOUND);
     }
 
     // Check if user is the organizer or admin
@@ -1033,7 +1034,7 @@ const getEventAttendeesList = async (req, res) => {
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
-      "Attendees list fetched successfully",
+      constantsMessage.ATTENDEE_LIST_FETCHED,
       {
         event: {
           _id: event._id,
@@ -1064,7 +1065,7 @@ const getEventAttendeeStats = async (req, res) => {
     // Find event and verify ownership
     const event = await Event.findById(eventId);
     if (!event) {
-      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Event not found");
+      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.EVENT_NOT_FOUND);
     }
 
     // Check if user is the organizer or admin
@@ -1105,7 +1106,7 @@ const getEventAttendeeStats = async (req, res) => {
       (t) => (t.checkedInQty || 0) === 0,
     ).length;
 
-    return apiSuccessRes(HTTP_STATUS.OK, res, "Attendee statistics fetched", {
+    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.ATTENDEE_STATS_FETCHED, {
       event: {
         _id: event._id,
         eventTitle: event.eventTitle,
@@ -1214,7 +1215,7 @@ const getRecentBookings = async (req, res) => {
       if (eventId) filter.eventId = eventId;
       if (courseId) filter.courseId = courseId;
     } else {
-      return apiErrorRes(HTTP_STATUS.FORBIDDEN, res, "Unauthorized access");
+      return apiErrorRes(HTTP_STATUS.FORBIDDEN, res, constantsMessage.UNAUTHORIZED_ACCESS);
     }
 
     // 2. Additional filters are now integrated above
@@ -1277,7 +1278,7 @@ const getRecentBookings = async (req, res) => {
       };
     });
 
-    return apiSuccessRes(HTTP_STATUS.OK, res, "Recent bookings fetched successfully", {
+    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.RECENT_BOOKINGS_FETCHED, {
       bookings: formattedBookings,
       total: totalCount,
       page: parseInt(page),
@@ -1329,7 +1330,7 @@ const getPublicTicketDetail = async (req, res) => {
       });
 
     if (!transaction) {
-      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Ticket not found");
+      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.TICKET_NOT_FOUND);
     }
 
     const transactionObj = transaction.toObject();
@@ -1360,7 +1361,7 @@ const getPublicTicketDetail = async (req, res) => {
       transactionObj.userId.profileImage = formatResponseUrl(transactionObj.userId.profileImage);
     }
 
-    return apiSuccessRes(HTTP_STATUS.OK, res, "Public ticket detail fetched", {
+    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.PUBLIC_TICKET_DETAIL_FETCHED, {
       ticket: transactionObj,
     });
   } catch (error) {
@@ -1377,14 +1378,14 @@ const generateTicketUrls = async (req, res) => {
 
     const transaction = await Transaction.findOne({ _id: transactionId, userId });
     if (!transaction) {
-      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Ticket not found or unauthorized");
+      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.TICKET_NOT_FOUND_OR_UNAUTHORIZED);
     }
 
     const frontendUrl = process.env.FRONTEND_URL || "https://bondy-user.tasksplan.com";
     const shareUrl = `${frontendUrl}/public/ticket?id=${transactionId}`;
     const downloadUrl = `${frontendUrl}/public/ticket?id=${transactionId}&download=true`;
 
-    return apiSuccessRes(HTTP_STATUS.OK, res, "Ticket URLs generated", {
+    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.TICKET_URLS_GENERATED, {
       shareUrl,
       downloadUrl,
     });
