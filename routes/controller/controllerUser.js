@@ -133,7 +133,6 @@ const customerSignupVerify = async (req, res) => {
     }
 
     const userData = JSON.parse(redisData.data);
-    const fmcToken = req.body.fmcToken || userData.fmcToken;
 
     // Check if user already exists (deleted or not)
     let user = await User.findOne({ email });
@@ -155,7 +154,7 @@ const customerSignupVerify = async (req, res) => {
       user.contactNumber = userData.contactNumber;
       user.countryCode = userData.countryCode;
       user.roleId = roleId.CUSTOMER;
-      user.fmcToken = fmcToken || user.fmcToken;
+      user.fmcToken = userData.fmcToken || user.fmcToken;
       // Reset other fields if necessary
       await user.save();
     } else {
@@ -166,7 +165,7 @@ const customerSignupVerify = async (req, res) => {
         contactNumber: userData.contactNumber,
         countryCode: userData.countryCode,
         roleId: roleId.CUSTOMER,
-        fmcToken: fmcToken || null,
+        fmcToken: userData.fmcToken || null,
       });
       await user.save();
     }
@@ -277,7 +276,6 @@ const organizerSignupVerify = async (req, res) => {
     }
 
     const userData = JSON.parse(redisData.data);
-    const fmcToken = req.body.fmcToken || userData.fmcToken;
 
     // Check if user already exists (deleted or not)
     let user = await User.findOne({ email });
@@ -303,7 +301,7 @@ const organizerSignupVerify = async (req, res) => {
       user.acceptTerms = userData.acceptTerms;
       user.documents = userData.documents;
       user.roleId = roleId.ORGANIZER;
-      user.fmcToken = fmcToken || user.fmcToken;
+      user.fmcToken = userData.fmcToken || user.fmcToken;
       user.organizerVerificationStatus = "pending";
 
       await user.save();
@@ -321,7 +319,7 @@ const organizerSignupVerify = async (req, res) => {
         documents: userData.documents,
         roleId: roleId.ORGANIZER, // ORGANIZER
         organizerVerificationStatus: "pending",
-        fmcToken: fmcToken || null,
+        fmcToken: userData.fmcToken || null,
       });
 
       await user.save();
