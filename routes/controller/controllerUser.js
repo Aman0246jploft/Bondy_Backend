@@ -827,6 +827,39 @@ const socialLogin = async (req, res) => {
   }
 };
 
+// Guest Login
+const guestLogin = async (req, res) => {
+  try {
+    const { fmcToken } = req.body;
+
+    // Create a new guest user
+    const user = new User({
+      firstName: "Guest",
+      roleId: roleId.GUEST,
+      fmcToken: fmcToken || null,
+      lastLogin: new Date(),
+    });
+
+    await user.save();
+
+    // Generate Token
+    const token = signToken({ userId: user._id, roleId: user.roleId });
+
+    return apiSuccessRes(
+      HTTP_STATUS.OK,
+      res,
+      constantsMessage.GUEST_LOGIN_SUCCESS,
+      {
+        user: { ...user.toObject(), userRole: userRole[user.roleId] },
+        token,
+      },
+    );
+  } catch (error) {
+    console.error("Error in guestLogin:", error);
+    return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
+  }
+};
+
 // Update User Profile
 const updateUserProfile = async (req, res) => {
   try {
@@ -1809,6 +1842,12 @@ router.post(
   perApiLimiter(),
   validateRequest(socialLoginSchema),
   socialLogin,
+);
+ 
+router.post(
+  "/guest-login",
+  perApiLimiter(),
+  guestLogin,
 );
 
 router.post(
