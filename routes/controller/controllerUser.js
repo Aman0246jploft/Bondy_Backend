@@ -1035,6 +1035,7 @@ const getUserProfileById = async (req, res) => {
     let role = "CUSTOMER";
     if (user.roleId === roleId.SUPER_ADMIN) role = "SUPER_ADMIN";
     else if (user.roleId === roleId.ORGANIZER) role = "ORGANIZER";
+     else if (user.roleId === roleId.GUEST) role = "GUEST";
 
     // Get interested category names
     const interestedCategories = (user.categories || []).map((cat) => cat.name);
