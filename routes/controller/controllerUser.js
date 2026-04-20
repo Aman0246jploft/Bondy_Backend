@@ -832,18 +832,28 @@ const guestLogin = async (req, res) => {
   try {
     const { fmcToken } = req.body;
 
-    // Create a new guest user
-    const user = new User({
-      firstName: "Guest",
-      roleId: roleId.GUEST,
-      fmcToken: fmcToken || null,
-      lastLogin: new Date(),
-    });
+    // Find existing guest user
+    let user = await User.findOne({ email: "guest@bondy.com" });
+
+    if (!user) {
+      return apiErrorRes(
+        HTTP_STATUS.NOT_FOUND,
+        res,
+        "Guest user not found"
+      );
+    }
+
+    // Update login details
+    user.lastLogin = new Date();
+    if (fmcToken) user.fmcToken = fmcToken;
 
     await user.save();
 
     // Generate Token
-    const token = signToken({ userId: user._id, roleId: user.roleId });
+    const token = signToken({
+      userId: user._id,
+      roleId: user.roleId,
+    });
 
     return apiSuccessRes(
       HTTP_STATUS.OK,
@@ -852,7 +862,7 @@ const guestLogin = async (req, res) => {
       {
         user: { ...user.toObject(), userRole: userRole[user.roleId] },
         token,
-      },
+      }
     );
   } catch (error) {
     console.error("Error in guestLogin:", error);
