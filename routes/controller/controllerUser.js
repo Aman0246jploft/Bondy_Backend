@@ -1025,6 +1025,7 @@ const getUserProfileById = async (req, res) => {
     const categories = (user.categories || []).map((cat) => ({
       _id: cat._id,
       name: cat.name,
+      name_thi: cat.name_thi,
       type: cat.type,
       image: cat.image ? formatResponseUrl(cat.image) : null,
     }));
