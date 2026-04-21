@@ -23,10 +23,10 @@ router.post(
 
       const result = await notificationService.getUserNotifications(payload);
       return apiSuccessRes(
-        result.status,
+        HTTP_STATUS.SUCCESS,
         res,
-        result.data,
         constantsMessage.NOTIFICATIONS_FETCHED,
+        result.data,
       );
     } catch (error) {
       return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
@@ -55,8 +55,8 @@ router.post(
       return apiSuccessRes(
         HTTP_STATUS.SUCCESS,
         res,
-        result.data,
         constantsMessage.NOTIFICATION_MARKED_READ,
+        result.data,
       );
     } catch (error) {
       return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
@@ -73,8 +73,8 @@ router.post("/mark-all-read", async (req, res) => {
     return apiSuccessRes(
       HTTP_STATUS.SUCCESS,
       res,
-      result.data,
       constantsMessage.ALL_NOTIFICATIONS_MARKED_READ,
+      result.data,
     );
   } catch (error) {
     return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);

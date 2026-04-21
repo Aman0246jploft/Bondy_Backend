@@ -21,4 +21,3 @@ async function sendFirebaseNotification(data) {
 module.exports = {
   sendFirebaseNotification,
 };
- 

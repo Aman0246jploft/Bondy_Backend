@@ -80,8 +80,26 @@ const notificationProcessor = async (job) => {
       }
     }
 
+    // 4. Handle Email (gated by emailNotification preference)
+    if (settings.emailNotification) {
+      // TODO: Integrate Email Service (e.g. SendGrid / Nodemailer)
+      console.log(`[Notification] Email queued for ${recipient} (Placeholder)`);
+    }
+
+    // 5. Handle WhatsApp (gated by whatsappNotification preference)
+    if (settings.whatsappNotification) {
+      // TODO: Integrate WhatsApp Service (e.g. Twilio)
+      console.log(`[Notification] WhatsApp queued for ${recipient} (Placeholder)`);
+    }
+
+    // 6. Handle SMS (gated by smsNotification preference)
+    if (settings.smsNotification) {
+      // TODO: Integrate SMS Service (e.g. Twilio / Vonage)
+      console.log(`[Notification] SMS queued for ${recipient} (Placeholder)`);
+    }
+
     console.log(
-      `[Notification] Processed for user: ${recipient} | type: ${type} | push: ${settings.pushNotification}`
+      `[Notification] Processed for user: ${recipient} | type: ${type} | channels: [In-App: ${!!settings.inAppNotification}, Push: ${!!settings.pushNotification}, Email: ${!!settings.emailNotification}]`
     );
   } catch (error) {
     console.error("[Notification] Processor error:", error);

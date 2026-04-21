@@ -728,40 +728,6 @@ const updateCourse = async (req, res) => {
       );
     }
 
-    // ── Notify Attendees of Major Changes (non-blocking) ───────────────────
-    const majorChanges = [];
-    if (updateData.venueAddress && JSON.stringify(updateData.venueAddress) !== JSON.stringify(existingCourse.venueAddress)) {
-      majorChanges.push("location");
-    }
-    if (updateData.schedules && JSON.stringify(updateData.schedules) !== JSON.stringify(existingCourse.schedules)) {
-      majorChanges.push("schedule");
-    }
-
-    if (majorChanges.length > 0) {
-      (async () => {
-        try {
-          const attendees = await Transaction.distinct("userId", {
-            courseId: courseId,
-            status: "PAID",
-            bookingType: "COURSE"
-          });
-
-          const changeDetail = `The course's ${majorChanges.join(" and ")} has been updated. Please check the details.`;
-          for (const attendeeId of attendees) {
-            notifyCourseChange(
-              String(attendeeId),
-              updatedCourse.courseTitle,
-              courseId,
-              changeDetail
-            ).catch(e => console.error("[Notification] notifyCourseChange error:", e));
-          }
-        } catch (err) {
-          console.error("[Notification] Error fetching attendees for course update:", err);
-        }
-      })();
-    }
-    // ────────────────────────────────────────────────────────────────────────
-
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
