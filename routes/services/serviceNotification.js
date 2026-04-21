@@ -400,17 +400,17 @@ const notifyCourseChange = (attendeeId, courseTitle, courseId, changeDetail) => 
 
 const getUserNotifications = async (payload) => {
   try {
-    const { recipient, pageNo = 1, size = 10, type, isRead } = payload;
+    const { recipient, page = 1, limit = 10, type, isRead } = payload;
     let query = { recipient, isDeleted: false };
     if (type) query.type = type;
     if (isRead !== undefined) query.isRead = isRead;
 
     const total = await Notification.countDocuments(query);
-    const list = await Notification.find(query)
+    const notifications = await Notification.find(query)
       .populate("sender", "firstName lastName profileImage isVerified")
       .sort({ createdAt: -1 })
-      .skip((pageNo - 1) * size)
-      .limit(size)
+      .skip((page - 1) * limit)
+      .limit(limit)
       .lean();
 
     const totalUnread = await Notification.countDocuments({
@@ -419,7 +419,14 @@ const getUserNotifications = async (payload) => {
       isDeleted: false,
     });
 
-    return resultDb(SUCCESS, { total, totalUnread, list });
+    return resultDb(SUCCESS, {
+      notifications,
+      total,
+      totalPages: Math.ceil(total / limit),
+      page: parseInt(page),
+      limit: parseInt(limit),
+      totalUnread,
+    });
   } catch (error) {
     console.error("[Notification] Error fetching notifications:", error);
     return resultDb(SERVER_ERROR_CODE, DATA_NULL);
