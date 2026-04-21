@@ -996,7 +996,7 @@ const getUserProfileById = async (req, res) => {
 
     // Find user with populated categories
     const user = await User.findById(userId)
-      .populate("categories", "name type image")
+      .populate("categories", "name type image name_thi")
       .lean();
 
     if (!user || user.isDeleted) {

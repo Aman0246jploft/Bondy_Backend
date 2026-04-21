@@ -357,7 +357,7 @@ const notifyReportResolved = (userId, reportId, status) => {
     message: `The report you submitted has been ${status.toLowerCase()}. Thank you for keeping Bondy safe.`,
     relatedId: reportId,
     onModel: "Report",
-    deepLink: "/settings", 
+    deepLink: "/settings",
     webLink: "/settings",
   });
 };
