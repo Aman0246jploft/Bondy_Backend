@@ -384,7 +384,16 @@ const getEvents = async (req, res) => {
     }
 
     if (startDateConditions.length > 0) {
-      query.startDate = startDateConditions.length === 1 ? startDateConditions[0] : { $and: startDateConditions };
+      if (startDateConditions.length === 1) {
+        query.startDate = startDateConditions[0];
+      } else {
+        // Fix: Use top-level $and for multiple conditions on the same field
+        // MongoDB doesn't allow { field: { $and: [...] } }
+        if (!query.$and) query.$and = [];
+        startDateConditions.forEach((cond) => {
+          query.$and.push({ startDate: cond });
+        });
+      }
     }
 
     // Search filter
