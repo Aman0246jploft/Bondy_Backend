@@ -33,6 +33,46 @@ const formatUser = (user) => {
   return userObj;
 };
 
+// Format chat object with unread counts and online status
+const formatChatForUser = (chatDoc, targetUserId) => {
+  if (!chatDoc) return null;
+  const chatObj = chatDoc.toObject ? chatDoc.toObject() : chatDoc;
+  chatObj.unreadCount =
+    chatDoc.unreadCounts && chatDoc.unreadCounts.get
+      ? chatDoc.unreadCounts.get(targetUserId.toString()) || 0
+      : chatObj.unreadCounts
+        ? chatObj.unreadCounts[targetUserId.toString()] || 0
+        : 0;
+
+  chatObj.participants = chatObj.participants.map((p) => {
+    const formattedP = formatUser(p);
+    return {
+      ...formattedP,
+      isOnline: onlineUsers.has(p._id.toString()),
+    };
+  });
+
+  chatObj.otherUser = chatObj.participants.find(
+    (p) => p._id.toString() !== targetUserId.toString(),
+  );
+
+  // Format lastMessage.sender if populated
+  if (chatObj.lastMessage && chatObj.lastMessage.sender && typeof chatObj.lastMessage.sender === "object") {
+    chatObj.lastMessage.sender = formatUser(chatObj.lastMessage.sender);
+  }
+
+  // Add block information
+  chatObj.isBlocked = !!(chatObj.blockedBy && chatObj.blockedBy.length > 0);
+  if (chatObj.blockedBy && Array.isArray(chatObj.blockedBy) && chatObj.blockedBy.length > 0) {
+    const firstBlocker = chatObj.blockedBy[0];
+    chatObj.blockedBy = typeof firstBlocker === "object" ? formatUser(firstBlocker) : firstBlocker;
+  } else {
+    chatObj.blockedBy = null;
+  }
+
+  return chatObj;
+};
+
 // Helper to format message object
 const formatMessage = (message) => {
   if (!message) return message;
@@ -120,45 +160,6 @@ const chatSocketController = (io, socket) => {
   // Join private room for global notifications
   socket.join(userId);
 
-  // Format chat object with unread counts and online status
-  const formatChatForUser = (chatDoc, targetUserId) => {
-    if (!chatDoc) return null;
-    const chatObj = chatDoc.toObject ? chatDoc.toObject() : chatDoc;
-    chatObj.unreadCount =
-      chatDoc.unreadCounts && chatDoc.unreadCounts.get
-        ? chatDoc.unreadCounts.get(targetUserId.toString()) || 0
-        : chatObj.unreadCounts
-          ? chatObj.unreadCounts[targetUserId.toString()] || 0
-          : 0;
-
-    chatObj.participants = chatObj.participants.map((p) => {
-      const formattedP = formatUser(p);
-      return {
-        ...formattedP,
-        isOnline: onlineUsers.has(p._id.toString()),
-      };
-    });
-
-    chatObj.otherUser = chatObj.participants.find(
-      (p) => p._id.toString() !== targetUserId.toString(),
-    );
-
-    // Format lastMessage.sender if populated
-    if (chatObj.lastMessage && chatObj.lastMessage.sender && typeof chatObj.lastMessage.sender === "object") {
-      chatObj.lastMessage.sender = formatUser(chatObj.lastMessage.sender);
-    }
-
-    // Add block information
-    chatObj.isBlocked = !!(chatObj.blockedBy && chatObj.blockedBy.length > 0);
-    if (chatObj.blockedBy && Array.isArray(chatObj.blockedBy) && chatObj.blockedBy.length > 0) {
-      const firstBlocker = chatObj.blockedBy[0];
-      chatObj.blockedBy = typeof firstBlocker === "object" ? formatUser(firstBlocker) : firstBlocker;
-    } else {
-      chatObj.blockedBy = null;
-    }
-
-    return chatObj;
-  };
 
   // 1. Handle Online Status
   onlineUsers.set(userId, socket.id);
@@ -790,4 +791,4 @@ const chatSocketController = (io, socket) => {
   });
 };
 
-module.exports = { chatSocketController, onlineUsers };
+module.exports = { chatSocketController, onlineUsers, formatUser, formatChatForUser };

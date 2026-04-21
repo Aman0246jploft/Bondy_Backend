@@ -14,6 +14,7 @@ const jwtVerification = require("./middlewares/jwtVerification");
 const server = http.createServer(app);
 const initSocket = require("./socket/index");
 const io = initSocket(server);
+app.set("io", io);
 
 app.use(cors());
 const { PORT, API_END_POINT_V1 } = process.env;
