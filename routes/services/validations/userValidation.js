@@ -82,7 +82,7 @@ const updateUserSchema = Joi.object({
     address: Joi.string().trim().optional().allow(null, ""),
     state: Joi.string().optional().allow(null, ""),
     zipcode: Joi.string().optional().allow(null, ""),
-  }).optional(),
+  }).optional().allow(null, ""),
   fmcToken: Joi.string().optional().allow(null, ""),
 });
 
