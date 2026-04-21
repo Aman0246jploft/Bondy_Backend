@@ -30,6 +30,7 @@ const validateRequest = require("../../middlewares/validateRequest");
 const perApiLimiter = require("../../middlewares/rateLimiter");
 const checkRole = require("../../middlewares/checkRole");
 const { roleId, userRole } = require("../../utils/Role");
+const { notifyEventChange } = require("../services/serviceNotification");
 const jwt = require("jsonwebtoken");
 
 // Create Event
@@ -1497,6 +1498,43 @@ const updateEvent = async (req, res) => {
         updatedEvent.createdBy.profileImage,
       );
     }
+
+    // ── Notify Attendees of Major Changes (non-blocking) ───────────────────
+    const majorChanges = [];
+    if (updateData.startDate && String(updateData.startDate) !== String(existingEvent.startDate)) {
+      majorChanges.push("date");
+    }
+    if (updateData.venueName && updateData.venueName !== existingEvent.venueName) {
+      majorChanges.push("venue name");
+    }
+    if (updateData.venueAddress && JSON.stringify(updateObject.venueAddress) !== JSON.stringify(existingEvent.venueAddress)) {
+      majorChanges.push("location");
+    }
+
+    if (majorChanges.length > 0) {
+      (async () => {
+        try {
+          const attendees = await Transaction.distinct("userId", {
+            eventId: eventId,
+            status: "PAID",
+            bookingType: "EVENT"
+          });
+
+          const changeDetail = `The event's ${majorChanges.join(", ")} has been updated. Please check the details.`;
+          for (const attendeeId of attendees) {
+            notifyEventChange(
+              String(attendeeId),
+              updatedEvent.eventTitle,
+              eventId,
+              changeDetail
+            ).catch(e => console.error("[Notification] notifyEventChange error:", e));
+          }
+        } catch (err) {
+          console.error("[Notification] Error fetching attendees for update:", err);
+        }
+      })();
+    }
+    // ────────────────────────────────────────────────────────────────────────
 
     return apiSuccessRes(
       HTTP_STATUS.OK,

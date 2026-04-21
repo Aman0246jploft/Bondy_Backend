@@ -11,6 +11,7 @@ const {
   reportUserSchema,
   resolveReportSchema,
 } = require("../services/validations/adminValidations");
+const { notifyReportResolved } = require("../services/serviceNotification");
 
 // Create Report
 const createReport = async (req, res) => {
@@ -144,6 +145,14 @@ const resolveReport = async (req, res) => {
     report.resolvedBy = adminId;
 
     await report.save();
+
+    // ── Queue notification (non-blocking) ──────────────────────────────────
+    notifyReportResolved(
+      String(report.fromUser),
+      report._id,
+      status
+    ).catch((e) => console.error("[Notification] notifyReportResolved error:", e));
+    // ────────────────────────────────────────────────────────────────────────
 
     // If banUser is true, disable the reported user (toUser)
     if (banUser && status === "approved") {

@@ -17,6 +17,7 @@ const {
   updateTicketStatusSchema,
   getTicketsSchema,
 } = require("../services/validations/supportValidation");
+const { notifySupportTicketUpdate } = require("../services/serviceNotification");
 
 // Helper to generate Ticket ID
 const generateTicketId = () => {
@@ -178,6 +179,14 @@ const updateTicketStatus = async (req, res) => {
     }
 
     await ticket.save();
+
+    // ── Queue notification (non-blocking) ──────────────────────────────────
+    notifySupportTicketUpdate(
+      String(ticket.user),
+      ticket.ticketId,
+      status
+    ).catch((e) => console.error("[Notification] notifySupportTicketUpdate error:", e));
+    // ────────────────────────────────────────────────────────────────────────
 
     return apiSuccessRes(
       HTTP_STATUS.OK,

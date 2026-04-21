@@ -360,6 +360,22 @@ const notifyEventChange = (attendeeId, eventTitle, eventId, changeDetail) => {
   });
 };
 
+/**
+ * Notify Attendees about Course Changes
+ */
+const notifyCourseChange = (attendeeId, courseTitle, courseId, changeDetail) => {
+  return queueNotification({
+    recipient: attendeeId,
+    type: "COURSE",
+    title: `Update on ${courseTitle}`,
+    message: `Important update regarding the course: ${changeDetail}`,
+    relatedId: courseId,
+    onModel: "Course",
+    deepLink: `/courses/${courseId}`,
+    webLink: `/courses/${courseId}`,
+  });
+};
+
 // ─────────────────────────────────────────────
 // Fetch / CRUD operations (used by controller)
 // ─────────────────────────────────────────────
@@ -449,6 +465,7 @@ module.exports = {
   notifySupportTicketUpdate,
   notifyReportResolved,
   notifyEventChange,
+  notifyCourseChange,
   getUserNotifications,
   markRead,
   markAllRead,
