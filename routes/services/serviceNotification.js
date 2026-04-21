@@ -466,6 +466,22 @@ const deleteNotification = async (notificationId, recipient) => {
   }
 };
 
+const deleteMultipleNotifications = async (notificationIds, recipient) => {
+  try {
+    const result = await Notification.updateMany(
+      { _id: { $in: notificationIds }, recipient },
+      { isDeleted: true }
+    );
+    return resultDb(SUCCESS, {
+      message: `${result.modifiedCount} notifications deleted successfully`,
+      deletedCount: result.modifiedCount
+    });
+  } catch (error) {
+    console.error("[Notification] Error deleting multiple notifications:", error);
+    return resultDb(SERVER_ERROR_CODE, DATA_NULL);
+  }
+};
+
 module.exports = {
   queueNotification,
   notifyChat,
@@ -488,4 +504,5 @@ module.exports = {
   markRead,
   markAllRead,
   deleteNotification,
+  deleteMultipleNotifications,
 };

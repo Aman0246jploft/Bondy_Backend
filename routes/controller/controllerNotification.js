@@ -45,7 +45,7 @@ router.post(
       const { notificationId } = req.body;
       const result = await notificationService.markRead(
         notificationId,
-        req.user._id,
+        req.user.userId,
       );
 
       if (result.status !== HTTP_STATUS.SUCCESS) {
@@ -69,7 +69,7 @@ router.post(
  */
 router.post("/mark-all-read", async (req, res) => {
   try {
-    const result = await notificationService.markAllRead(req.user._id);
+    const result = await notificationService.markAllRead(req.user.userId);
     return apiSuccessRes(
       HTTP_STATUS.SUCCESS,
       res,
@@ -92,7 +92,7 @@ router.post(
       const { notificationId } = req.body;
       const result = await notificationService.deleteNotification(
         notificationId,
-        req.user._id,
+        req.user.userId,
       );
 
       if (result.status !== HTTP_STATUS.SUCCESS) {
@@ -102,8 +102,38 @@ router.post(
       return apiSuccessRes(
         HTTP_STATUS.SUCCESS,
         res,
-        result.data,
         constantsMessage.NOTIFICATION_DELETED,
+        result.data,
+      );
+    } catch (error) {
+      return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
+    }
+  },
+);
+
+/**
+ * Delete multiple notifications
+ */
+router.post(
+  "/delete-multiple",
+  validateRequest(notificationValidation.deleteMultiple),
+  async (req, res) => {
+    try {
+      const { notificationIds } = req.body;
+      const result = await notificationService.deleteMultipleNotifications(
+        notificationIds,
+        req.user.userId,
+      );
+
+      if (result.status !== HTTP_STATUS.SUCCESS) {
+        return apiErrorRes(result.status, res, result.data);
+      }
+
+      return apiSuccessRes(
+        HTTP_STATUS.SUCCESS,
+        res,
+        "Notifications deleted successfully",
+        result.data,
       );
     } catch (error) {
       return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);

@@ -11,7 +11,12 @@ const markAsRead = Joi.object({
     notificationId: Joi.string().required(),
 });
 
+const deleteMultiple = Joi.object({
+    notificationIds: Joi.array().items(Joi.string()).min(1).required(),
+});
+
 module.exports = {
     getNotifications,
     markAsRead,
+    deleteMultiple,
 };
