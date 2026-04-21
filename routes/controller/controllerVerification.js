@@ -41,13 +41,18 @@ const submitVerification = async (req, res) => {
       return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.USER_NOT_FOUND);
     }
 
-    // Rule: If already verified, do not allow re-submission
+    let finalDocuments = documents;
     if (user.isVerified) {
-      return apiErrorRes(
-        HTTP_STATUS.BAD_REQUEST,
-        res,
-        constantsMessage.ALREADY_VERIFIED,
-      );
+      // If already verified, only allow re-uploading "Gov ID". Remove "Business Proof" from the payload.
+      finalDocuments = documents.filter((doc) => doc.name !== "Business Proof");
+
+      if (finalDocuments.length === 0) {
+        return apiErrorRes(
+          HTTP_STATUS.BAD_REQUEST,
+          res,
+          "You are already verified. Only 'Gov ID' can be updated.",
+        );
+      }
     }
 
     const validNames = ["Business Proof", "Gov ID"];
@@ -69,7 +74,7 @@ const submitVerification = async (req, res) => {
     });
 
     // 2. Process new documents from request
-    for (const doc of documents) {
+    for (const doc of finalDocuments) {
       if (!doc.name || !validNames.includes(doc.name)) {
         return apiErrorRes(
           HTTP_STATUS.BAD_REQUEST,
