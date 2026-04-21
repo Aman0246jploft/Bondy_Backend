@@ -46,61 +46,58 @@ const submitVerification = async (req, res) => {
       // If already verified, only allow re-uploading "Gov ID". Remove "Business Proof" from the payload.
       finalDocuments = documents.filter((doc) => doc.name !== "Business Proof");
 
-      if (finalDocuments.length === 0) {
-        return apiErrorRes(
-          HTTP_STATUS.BAD_REQUEST,
-          res,
-          "You are already verified. Only 'Gov ID' can be updated.",
-        );
-      }
+      // If after filtering we have no documents left, we don't return an error.
+      // We will simply skip the update logic below.
     }
 
-    const validNames = ["Business Proof", "Gov ID"];
+    if (finalDocuments.length > 0) {
+      const validNames = ["Business Proof", "Gov ID"];
 
-    // Merge logic: Preserve approved documents, update others to pending
-    const existingDocs = user.documents || [];
-    const updatedDocsMap = new Map();
+      // Merge logic: Preserve approved documents, update others to pending
+      const existingDocs = user.documents || [];
+      const updatedDocsMap = new Map();
 
-    // 1. Populate map with existing approved documents
-    existingDocs.forEach(doc => {
-      if (doc.status === "approved") {
+      // 1. Populate map with existing approved documents
+      existingDocs.forEach(doc => {
+        if (doc.status === "approved") {
+          updatedDocsMap.set(doc.name, {
+            name: doc.name,
+            file: doc.file,
+            status: "approved",
+            reason: null
+          });
+        }
+      });
+
+      // 2. Process new documents from request
+      for (const doc of finalDocuments) {
+        if (!doc.name || !validNames.includes(doc.name)) {
+          return apiErrorRes(
+            HTTP_STATUS.BAD_REQUEST,
+            res,
+            `Invalid document name. Allowed: ${validNames.join(", ")}`,
+          );
+        }
+
+        // Rule: If "Business Proof" is already approved, do not overwrite it
+        if (doc.name === "Business Proof" && updatedDocsMap.has("Business Proof")) {
+          continue;
+        }
+
+        // Add or Update to pending
         updatedDocsMap.set(doc.name, {
           name: doc.name,
           file: doc.file,
-          status: "approved",
-          reason: null
+          status: "pending",
+          reason: null,
         });
       }
-    });
 
-    // 2. Process new documents from request
-    for (const doc of finalDocuments) {
-      if (!doc.name || !validNames.includes(doc.name)) {
-        return apiErrorRes(
-          HTTP_STATUS.BAD_REQUEST,
-          res,
-          `Invalid document name. Allowed: ${validNames.join(", ")}`,
-        );
-      }
-
-      // Rule: If "Business Proof" is already approved, do not overwrite it
-      if (doc.name === "Business Proof" && updatedDocsMap.has("Business Proof")) {
-        continue;
-      }
-
-      // Add or Update to pending
-      updatedDocsMap.set(doc.name, {
-        name: doc.name,
-        file: doc.file,
-        status: "pending",
-        reason: null,
-      });
+      // Convert map back to array
+      user.documents = Array.from(updatedDocsMap.values());
+      user.organizerVerificationStatus = "pending";
+      await user.save();
     }
-
-    // Convert map back to array
-    user.documents = Array.from(updatedDocsMap.values());
-    user.organizerVerificationStatus = "pending";
-    await user.save();
 
     return apiSuccessRes(
       HTTP_STATUS.OK,
