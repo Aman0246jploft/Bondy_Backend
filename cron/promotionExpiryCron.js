@@ -1,5 +1,6 @@
 const cron = require("node-cron");
-const { Event, Course, Notification } = require("../db");
+const { Event, Course } = require("../db");
+const { notifyPromotionExpiry } = require("../routes/services/serviceNotification");
 
 /**
  * Check for expired event and course promotions every hour
@@ -23,14 +24,7 @@ cron.schedule("0 * * * *", async () => {
         event.activePromotionPackage = null;
         await event.save();
 
-        await Notification.create({
-          recipient: event.createdBy,
-          title: "Event Promotion Expired",
-          message: `Your event's featured promotion has ended. Promote again to stay on top!`,
-          type: "SYSTEM",
-          relatedId: event._id,
-          onModel: "Event",
-        });
+        await notifyPromotionExpiry(event.createdBy, "Event", event.title, event._id);
 
         console.log(`[${now.toISOString()}] Expired promotion for Event ID: ${event._id}`);
       }
@@ -53,14 +47,7 @@ cron.schedule("0 * * * *", async () => {
         course.activePromotionPackage = null;
         await course.save();
 
-        await Notification.create({
-          recipient: course.createdBy,
-          title: "Course Promotion Expired",
-          message: `Your course's featured promotion has ended. Promote again to stay on top!`,
-          type: "SYSTEM",
-          relatedId: course._id,
-          onModel: "Course",
-        });
+        await notifyPromotionExpiry(course.createdBy, "Course", course.title, course._id);
 
         console.log(`[${now.toISOString()}] Expired promotion for Course ID: ${course._id}`);
       }

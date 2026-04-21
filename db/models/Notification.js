@@ -57,6 +57,11 @@ const notificationSchema = new mongoose.Schema(
             type: String,
             default: null,
         },
+        // Navigation path specific for web frontend
+        webLink: {
+            type: String,
+            default: null,
+        },
         isRead: {
             type: Boolean,
             default: false,

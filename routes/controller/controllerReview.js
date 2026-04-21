@@ -19,6 +19,7 @@ const {
   getReviewsSchema,
   getOrganizerReviewsSchema,
 } = require("../services/validations/reviewValidation");
+const { notifyNewReview } = require("../services/serviceNotification");
 
 // Helper function to update user average rating
 const updateUserAverageRating = async (organizerId) => {
@@ -77,6 +78,18 @@ const addReview = async (req, res) => {
     // Update organizer's average rating
     if (entity.createdBy) {
       await updateUserAverageRating(entity.createdBy);
+
+      // ── Queue notification (non-blocking) ──────────────────────────────────
+      const reviewer = await User.findById(userId).select("firstName lastName");
+      const reviewerName = reviewer ? `${reviewer.firstName} ${reviewer.lastName}` : "A user";
+      notifyNewReview(
+        String(entity.createdBy),
+        reviewerName,
+        entityModel,
+        String(entityId),
+        rating
+      ).catch((e) => console.error("[Notification] notifyNewReview error:", e));
+      // ────────────────────────────────────────────────────────────────────────
     }
 
     // Populate user details for immediate display

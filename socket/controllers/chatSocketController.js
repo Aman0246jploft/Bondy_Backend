@@ -13,6 +13,7 @@ const {
   typingSchema,
 } = require("../validations/socketValidation");
 const { formatResponseUrl } = require("../../utils/globalFunction");
+const { notifyChat } = require("../../routes/services/serviceNotification");
 
 const onlineUsers = new Map(); // userId -> socketId
 const chatParticipantsCache = new Map(); // chatId -> [participantIdStrings]
@@ -425,6 +426,22 @@ const chatSocketController = (io, socket) => {
 
       // Emit to Room (standard message receive)
       socket.to(chatId).emit("receive_message", formatMessage(populatedMessage));
+
+      // ─────────────────────────────────────────────
+      // Send Centralized Notification (FCM + In-App)
+      // ─────────────────────────────────────────────
+      try {
+        const senderName = `${userObj.firstName || ""} ${userObj.lastName || ""}`.trim() || "Someone";
+        // Notify all participants except the sender
+        chat.participants.forEach((pId) => {
+          const pIdStr = pId.toString();
+          if (pIdStr !== userId) {
+            notifyChat(userId, pIdStr, senderName, chatId, content);
+          }
+        });
+      } catch (notifyErr) {
+        console.error("[Socket] Error triggering notification:", notifyErr);
+      }
 
       if (typeof ack === "function") {
         ack({
