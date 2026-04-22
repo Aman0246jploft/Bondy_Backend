@@ -25,6 +25,7 @@ const {
   getEventDetailsSchema,
   updateEventSchema,
   updateEventParamsSchema,
+  toggleEventSliderSchema,
 } = require("../services/validations/eventValidation");
 const validateRequest = require("../../middlewares/validateRequest");
 const perApiLimiter = require("../../middlewares/rateLimiter");
@@ -218,7 +219,37 @@ const getEvents = async (req, res) => {
       endDate: customEndDate,
       isDraft,
       timeOfDay,
+      addToSlider,
     } = req.query;
+      const queryEntries = Object.entries(req.query || {}).filter(
+        ([, value]) => value !== undefined && value !== null && String(value).trim() !== "",
+      );
+      const bodyEntries = Object.entries(req.body || {}).filter(
+        ([, value]) => value !== undefined && value !== null && String(value).trim() !== "",
+      );
+
+      const addToSliderInput =
+        addToSlider !== undefined ? addToSlider : req.body?.addToSlider;
+      const isAddToSliderTrueOnlyRequest =
+        String(addToSliderInput).toLowerCase() === "true" &&
+        ((queryEntries.length === 1 && queryEntries[0][0] === "addToSlider") ||
+          (queryEntries.length === 0 &&
+            bodyEntries.length === 1 &&
+            bodyEntries[0][0] === "addToSlider"));
+
+      if (isAddToSliderTrueOnlyRequest) {
+        const simpleLimit = 10;
+        const events = await Event.find({ addToSlider: true }).limit(simpleLimit).lean();
+        const totalCount = await Event.countDocuments({ addToSlider: true });
+
+        return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.EVENTS_FETCHED, {
+          events,
+          total: totalCount,
+          totalPages: Math.ceil(totalCount / simpleLimit),
+          page: 1,
+          limit: simpleLimit,
+        });
+      }
 
     const categoryId = cid || category;
 
@@ -1053,6 +1084,7 @@ const getEventsAdmin = async (req, res) => {
 
     // Format fields
     const formattedEvents = events.map((event) => {
+      const now = new Date();
       if (Array.isArray(event.posterImage)) {
         event.posterImage = event.posterImage.map((img) =>
           formatResponseUrl(img),
@@ -1090,6 +1122,15 @@ const getEventsAdmin = async (req, res) => {
       event.acquiredSeats =
         (event.totalTickets || 0) - (event.ticketQtyAvailable || 0);
 
+      if (event.startDate && event.endDate) {
+        const startDate = new Date(event.startDate);
+        const endDate = new Date(event.endDate);
+        if (now < startDate) event.status = "Upcoming";
+        else if (now <= endDate) event.status = "Live";
+        else event.status = "Past";
+      }
+      event.addToSlider = Boolean(event.addToSlider);
+
       return event;
     });
 
@@ -1101,6 +1142,43 @@ const getEventsAdmin = async (req, res) => {
     });
   } catch (error) {
     console.error("Error in getEventsAdmin:", error);
+    return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
+  }
+};
+
+const toggleEventSlider = async (req, res) => {
+  try {
+    const { eventId, addToSlider } = req.body;
+    const event = await Event.findById(eventId);
+
+    if (!event) {
+      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.EVENT_NOT_FOUND);
+    }
+
+    const now = new Date();
+    let liveStatus = "Upcoming";
+
+    if (event.startDate && event.endDate) {
+      if (now < event.startDate) liveStatus = "Upcoming";
+      else if (now <= event.endDate) liveStatus = "Live";
+      else liveStatus = "Past";
+    }
+
+    event.addToSlider = addToSlider;
+    await event.save();
+
+    return apiSuccessRes(
+      HTTP_STATUS.OK,
+      res,
+      constantsMessage.EVENT_SLIDER_UPDATED,
+      {
+        eventId: event._id,
+        addToSlider: event.addToSlider,
+        status: liveStatus,
+      },
+    );
+  } catch (error) {
+    console.error("Error in toggleEventSlider:", error);
     return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
   }
 };
@@ -1593,6 +1671,14 @@ router.get(
   checkRole([roleId.SUPER_ADMIN]),
   validateRequest(getEventsSchema),
   getEventsAdmin,
+);
+
+router.post(
+  "/admin/slider-toggle",
+  perApiLimiter(),
+  checkRole([roleId.SUPER_ADMIN]),
+  validateRequest(toggleEventSliderSchema),
+  toggleEventSlider,
 );
 
 router.get("/details/:eventId", perApiLimiter(), getEventDetails);

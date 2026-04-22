@@ -105,6 +105,10 @@ const eventSchema = new mongoose.Schema(
       enum: ["Upcoming", "Live", "Past"],
       default: "Upcoming"
     },
+    addToSlider: {
+      type: Boolean,
+      default: false,
+    },
     totalAttendees: {
       type: Number,
       default: 0,

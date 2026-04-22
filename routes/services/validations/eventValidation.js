@@ -186,10 +186,16 @@ const updateEventParamsSchema = Joi.object({
     eventId: Joi.string().hex().length(24).required(),
 });
 
+const toggleEventSliderSchema = Joi.object({
+    eventId: Joi.string().hex().length(24).required(),
+    addToSlider: Joi.boolean().required(),
+});
+
 module.exports = {
     createEventSchema,
     getEventsSchema,
     getEventDetailsSchema,
     updateEventSchema,
-    updateEventParamsSchema
+    updateEventParamsSchema,
+    toggleEventSliderSchema,
 };
