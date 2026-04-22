@@ -950,6 +950,9 @@ const getEventDetails = async (req, res) => {
     }
 
     // Calculate Duration
+    let duration = null;
+    let durationTranslation = null;
+    
     if (event.startDate && event.endDate) {
       const start = new Date(event.startDate);
       const end = new Date(event.endDate);
@@ -957,12 +960,18 @@ const getEventDetails = async (req, res) => {
       if (diffMs > 0) {
         const hours = Math.floor(diffMs / (1000 * 60 * 60));
         const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-        if (hours > 0 && minutes > 0)
-          event.duration = `${hours} H ${minutes} min`;
-        else if (hours > 0) event.duration = `${hours} H`;
-        else event.duration = `${minutes} min`;
+        if (hours > 0 && minutes > 0) {
+          duration = `${hours} H ${minutes} min`;
+        } else if (hours > 0) {
+          duration = `${hours} H`;
+        } else {
+          duration = `${minutes} min`;
+        }
+        durationTranslation = duration.replace(/H/g, "Цаг").replace(/min/g, "мин");
       }
     }
+    event.duration = duration;
+    event.durationTranslation = durationTranslation;
 
     // 3. Parallel Fetch for Related Data
     const [reviews, comments, totalAttendeesAgg, recentTransactions] =
