@@ -239,11 +239,42 @@ const getEvents = async (req, res) => {
 
       if (isAddToSliderTrueOnlyRequest) {
         const simpleLimit = 10;
-        const events = await Event.find({ addToSlider: true }).limit(simpleLimit).lean();
-        const totalCount = await Event.countDocuments({ addToSlider: true });
+        const simpleQuery = { addToSlider: true, isDraft: false };
+
+        const events = await Event.find(simpleQuery)
+          .populate("eventCategory")
+          .populate("createdBy", "firstName lastName profileImage isVerified")
+          .sort({ fetcherEvent: -1, isFeatured: -1, startDate: 1, endDate: 1 })
+          .limit(simpleLimit)
+          .lean();
+        const totalCount = await Event.countDocuments(simpleQuery);
+
+        let viewerId = null;
+        const authHeader = req.headers.authorization;
+        if (authHeader && authHeader.startsWith("Bearer ")) {
+          try {
+            const token = authHeader.split(" ")[1];
+            const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY);
+            viewerId = decoded.userId;
+          } catch (err) { }
+        }
+
+        const bookedEventIds = new Set();
+        if (viewerId && events.length > 0) {
+          const bookings = await Transaction.find({
+            userId: viewerId,
+            eventId: { $in: events.map((e) => e._id) },
+            status: "PAID",
+          }).select("eventId");
+          bookings.forEach((b) => bookedEventIds.add(b.eventId.toString()));
+        }
+
+        const formattedEvents = events.map((event) =>
+          formatEvent(event, bookedEventIds),
+        );
 
         return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.EVENTS_FETCHED, {
-          events,
+          events: formattedEvents,
           total: totalCount,
           totalPages: Math.ceil(totalCount / simpleLimit),
           page: 1,
