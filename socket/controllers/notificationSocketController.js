@@ -24,7 +24,7 @@ const notificationSocketController = (io, socket) => {
         try {
             const count = await notificationService.getUnreadCount(userId);
             const payload = { status: "ok", count };
-            
+
             if (typeof ack === "function") {
                 ack(payload);
             } else {
