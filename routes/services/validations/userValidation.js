@@ -17,7 +17,7 @@ const organizerSignupSchema = Joi.object({
   contactNumber: Joi.string().required(),
   password: Joi.string().min(6).required(),
   confirmPassword: Joi.string().valid(Joi.ref("password")).required().strict(),
-  businessType: Joi.string().optional(),
+  businessType: Joi.string().optional().allow(null, ""),
   acceptTerms: Joi.boolean().valid(true).required(),
   documents: Joi.array()
     .items(
@@ -82,7 +82,7 @@ const updateUserSchema = Joi.object({
     address: Joi.string().trim().optional().allow(null, ""),
     state: Joi.string().optional().allow(null, ""),
     zipcode: Joi.string().optional().allow(null, ""),
-  }).optional(),
+  }).optional().allow(null, ""),
   fmcToken: Joi.string().optional().allow(null, ""),
 });
 

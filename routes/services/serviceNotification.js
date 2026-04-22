@@ -14,6 +14,7 @@ const {
   registerWorker,
   addJob,
 } = require("./serviceBullMQ");
+const socketIO = require("../../socket/socketIO");
 
 // ─────────────────────────────────────────────
 // Queue Initialisation
@@ -101,6 +102,9 @@ const notificationProcessor = async (job) => {
     console.log(
       `[Notification] Processed for user: ${recipient} | type: ${type} | channels: [In-App: ${!!settings.inAppNotification}, Push: ${!!settings.pushNotification}, Email: ${!!settings.emailNotification}]`
     );
+
+    // 7. Emit live update via socket for unread count
+    await emitUnreadCount(recipient);
   } catch (error) {
     console.error("[Notification] Processor error:", error);
     throw error; // Let BullMQ retry the job
@@ -357,7 +361,7 @@ const notifyReportResolved = (userId, reportId, status) => {
     message: `The report you submitted has been ${status.toLowerCase()}. Thank you for keeping Bondy safe.`,
     relatedId: reportId,
     onModel: "Report",
-    deepLink: "/settings", 
+    deepLink: "/settings",
     webLink: "/settings",
   });
 };
@@ -395,22 +399,54 @@ const notifyCourseChange = (attendeeId, courseTitle, courseId, changeDetail) => 
 };
 
 // ─────────────────────────────────────────────
+// Helpers (Local)
+// ─────────────────────────────────────────────
+
+const getUnreadCount = async (recipient) => {
+  try {
+    return await Notification.countDocuments({
+      recipient,
+      isRead: false,
+      isDeleted: false,
+    });
+  } catch (error) {
+    console.error("[Notification] Error counting unread:", error);
+    return 0;
+  }
+};
+
+const emitUnreadCount = async (recipient) => {
+  try {
+    const io = socketIO.getIO();
+    if (io) {
+      const count = await getUnreadCount(recipient);
+      io.to(recipient.toString()).emit("unread_notification_count", {
+        count,
+      });
+      console.log(`[Notification] Emitted unread count (${count}) to user: ${recipient}`);
+    }
+  } catch (error) {
+    console.error("[Notification] Error emitting unread count:", error);
+  }
+};
+
+// ─────────────────────────────────────────────
 // Fetch / CRUD operations (used by controller)
 // ─────────────────────────────────────────────
 
 const getUserNotifications = async (payload) => {
   try {
-    const { recipient, pageNo = 1, size = 10, type, isRead } = payload;
+    const { recipient, page = 1, limit = 10, type, isRead } = payload;
     let query = { recipient, isDeleted: false };
     if (type) query.type = type;
     if (isRead !== undefined) query.isRead = isRead;
 
     const total = await Notification.countDocuments(query);
-    const list = await Notification.find(query)
+    const notifications = await Notification.find(query)
       .populate("sender", "firstName lastName profileImage isVerified")
       .sort({ createdAt: -1 })
-      .skip((pageNo - 1) * size)
-      .limit(size)
+      .skip((page - 1) * limit)
+      .limit(limit)
       .lean();
 
     const totalUnread = await Notification.countDocuments({
@@ -419,7 +455,14 @@ const getUserNotifications = async (payload) => {
       isDeleted: false,
     });
 
-    return resultDb(SUCCESS, { total, totalUnread, list });
+    return resultDb(SUCCESS, {
+      notifications,
+      total,
+      totalPages: Math.ceil(total / limit),
+      page: parseInt(page),
+      limit: parseInt(limit),
+      totalUnread,
+    });
   } catch (error) {
     console.error("[Notification] Error fetching notifications:", error);
     return resultDb(SERVER_ERROR_CODE, DATA_NULL);
@@ -434,6 +477,10 @@ const markRead = async (notificationId, recipient) => {
       { new: true }
     );
     if (!notification) return resultDb(NOT_FOUND, "Notification not found");
+    
+    // Emit live update
+    await emitUnreadCount(recipient);
+
     return resultDb(SUCCESS, notification);
   } catch (error) {
     console.error("[Notification] Error marking read:", error);
@@ -444,6 +491,10 @@ const markRead = async (notificationId, recipient) => {
 const markAllRead = async (recipient) => {
   try {
     await Notification.updateMany({ recipient, isRead: false }, { isRead: true });
+    
+    // Emit live update
+    await emitUnreadCount(recipient);
+
     return resultDb(SUCCESS, { message: "All notifications marked as read" });
   } catch (error) {
     console.error("[Notification] Error marking all read:", error);
@@ -459,6 +510,10 @@ const deleteNotification = async (notificationId, recipient) => {
       { new: true }
     );
     if (!notification) return resultDb(NOT_FOUND, "Notification not found");
+    
+    // Emit live update
+    await emitUnreadCount(recipient);
+
     return resultDb(SUCCESS, { message: "Notification deleted successfully" });
   } catch (error) {
     console.error("[Notification] Error deleting notification:", error);
@@ -472,6 +527,10 @@ const deleteMultipleNotifications = async (notificationIds, recipient) => {
       { _id: { $in: notificationIds }, recipient },
       { isDeleted: true }
     );
+
+    // Emit live update
+    await emitUnreadCount(recipient);
+
     return resultDb(SUCCESS, {
       message: `${result.modifiedCount} notifications deleted successfully`,
       deletedCount: result.modifiedCount
@@ -505,4 +564,5 @@ module.exports = {
   markAllRead,
   deleteNotification,
   deleteMultipleNotifications,
+  getUnreadCount,
 };
