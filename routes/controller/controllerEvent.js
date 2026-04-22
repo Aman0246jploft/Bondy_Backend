@@ -203,47 +203,6 @@ const formatEvent = (event, bookedEventIds = new Set()) => {
 
 const getEvents = async (req, res) => {
   try {
-    const queryKeys = Object.keys(req.query || {}).filter(
-      (key) =>
-        req.query[key] !== undefined &&
-        req.query[key] !== null &&
-        String(req.query[key]).trim() !== "",
-    );
-    const bodyKeys = Object.keys(req.body || {}).filter(
-      (key) =>
-        req.body[key] !== undefined &&
-        req.body[key] !== null &&
-        String(req.body[key]).trim() !== "",
-    );
-
-    const querySliderOnly =
-      queryKeys.length === 1 &&
-      queryKeys[0] === "addToSlider" &&
-      String(req.query.addToSlider).toLowerCase() === "true";
-
-    const bodySliderOnly =
-      bodyKeys.length === 1 &&
-      bodyKeys[0] === "addToSlider" &&
-      String(req.body.addToSlider).toLowerCase() === "true";
-
-    if (querySliderOnly || bodySliderOnly) {
-      const directLimit = 10;
-      const directQuery = { addToSlider: true, isDraft: false };
-
-      const [events, totalCount] = await Promise.all([
-        Event.find(directQuery).limit(directLimit).lean(),
-        Event.countDocuments(directQuery),
-      ]);
-
-      return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.EVENTS_FETCHED, {
-        events,
-        total: totalCount,
-        totalPages: Math.ceil(totalCount / directLimit),
-        page: 1,
-        limit: directLimit,
-      });
-    }
-
     const {
       filter = "all",
       latitude,
@@ -260,7 +219,37 @@ const getEvents = async (req, res) => {
       endDate: customEndDate,
       isDraft,
       timeOfDay,
+      addToSlider,
     } = req.query;
+      const queryEntries = Object.entries(req.query || {}).filter(
+        ([, value]) => value !== undefined && value !== null && String(value).trim() !== "",
+      );
+      const bodyEntries = Object.entries(req.body || {}).filter(
+        ([, value]) => value !== undefined && value !== null && String(value).trim() !== "",
+      );
+
+      const addToSliderInput =
+        addToSlider !== undefined ? addToSlider : req.body?.addToSlider;
+      const isAddToSliderTrueOnlyRequest =
+        String(addToSliderInput).toLowerCase() === "true" &&
+        ((queryEntries.length === 1 && queryEntries[0][0] === "addToSlider") ||
+          (queryEntries.length === 0 &&
+            bodyEntries.length === 1 &&
+            bodyEntries[0][0] === "addToSlider"));
+
+      if (isAddToSliderTrueOnlyRequest) {
+        const simpleLimit = 10;
+        const events = await Event.find({ addToSlider: true }).limit(simpleLimit).lean();
+        const totalCount = await Event.countDocuments({ addToSlider: true });
+
+        return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.EVENTS_FETCHED, {
+          events,
+          total: totalCount,
+          totalPages: Math.ceil(totalCount / simpleLimit),
+          page: 1,
+          limit: simpleLimit,
+        });
+      }
 
     const categoryId = cid || category;
 
