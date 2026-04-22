@@ -7,6 +7,7 @@ const HTTP_STATUS = require("../../utils/statusCode");
 const validateRequest = require("../../middlewares/validateRequest");
 const notificationValidation = require("../services/validations/notificationValidation");
 const checkRole = require("../../middlewares/checkRole");
+const CONSTANTS = require("../../utils/constants");
 
 /**
  * Get notifications for the logged-in user
@@ -23,7 +24,7 @@ router.post(
 
       const result = await notificationService.getUserNotifications(payload);
       return apiSuccessRes(
-        HTTP_STATUS.SUCCESS,
+        HTTP_STATUS.OK,
         res,
         constantsMessage.NOTIFICATIONS_FETCHED,
         result.data,
@@ -48,12 +49,12 @@ router.post(
         req.user.userId,
       );
 
-      if (result.status !== HTTP_STATUS.SUCCESS) {
-        return apiErrorRes(result.status, res, result.data);
+      if (result.statusCode !== CONSTANTS.SUCCESS) {
+        return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, result.data);
       }
 
       return apiSuccessRes(
-        HTTP_STATUS.SUCCESS,
+        HTTP_STATUS.OK,
         res,
         constantsMessage.NOTIFICATION_MARKED_READ,
         result.data,
@@ -71,7 +72,7 @@ router.post("/mark-all-read", async (req, res) => {
   try {
     const result = await notificationService.markAllRead(req.user.userId);
     return apiSuccessRes(
-      HTTP_STATUS.SUCCESS,
+      HTTP_STATUS.OK,
       res,
       constantsMessage.ALL_NOTIFICATIONS_MARKED_READ,
       result.data,
@@ -95,12 +96,12 @@ router.post(
         req.user.userId,
       );
 
-      if (result.status !== HTTP_STATUS.SUCCESS) {
-        return apiErrorRes(result.status, res, result.data);
+      if (result.statusCode !== CONSTANTS.SUCCESS) {
+        return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, result.data);
       }
 
       return apiSuccessRes(
-        HTTP_STATUS.SUCCESS,
+        HTTP_STATUS.OK,
         res,
         constantsMessage.NOTIFICATION_DELETED,
         result.data,
@@ -125,12 +126,12 @@ router.post(
         req.user.userId,
       );
 
-      if (result.status !== HTTP_STATUS.SUCCESS) {
-        return apiErrorRes(result.status, res, result.data);
+      if (result.statusCode !== CONSTANTS.SUCCESS) {
+        return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, result.data);
       }
 
       return apiSuccessRes(
-        HTTP_STATUS.SUCCESS,
+        HTTP_STATUS.OK,
         res,
         "Notifications deleted successfully",
         result.data,
