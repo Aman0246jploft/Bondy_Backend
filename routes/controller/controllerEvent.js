@@ -219,7 +219,13 @@ const getEvents = async (req, res) => {
       endDate: customEndDate,
       isDraft,
       timeOfDay,
+      addToSlider,
     } = req.query;
+
+    const isSliderMode =
+      addToSlider !== undefined &&
+      addToSlider !== null &&
+      String(addToSlider).trim() !== "";
 
     const categoryId = cid || category;
 
@@ -228,7 +234,10 @@ const getEvents = async (req, res) => {
       loginUser = req.user.userId;
     }
     const now = new Date();
-    const skip = (page - 1) * limit;
+    const parsedPage = Math.max(parseInt(page, 10) || 1, 1);
+    const parsedLimit = Math.max(parseInt(limit, 10) || 10, 1);
+    const effectiveLimit = isSliderMode ? 10 : parsedLimit;
+    const skip = (parsedPage - 1) * effectiveLimit;
 
     const filters = filter.split(",").map((f) => f.trim().toLowerCase());
 
@@ -398,6 +407,10 @@ const getEvents = async (req, res) => {
       ];
     }
 
+    if (isSliderMode) {
+      query.addToSlider = true;
+    }
+
     // Time of Day filter
     if (timeOfDay && timeOfDay.toLowerCase() !== "anytime") {
       const selectedSlots = timeOfDay.split(",").map((t) => t.trim().toLowerCase());
@@ -501,8 +514,8 @@ const getEvents = async (req, res) => {
           },
         },
         { $sort: { isPromoMatch: -1, fetcherEvent: -1, isFeatured: -1, startDate: 1, endDate: 1, distance: 1 } },
-        { $skip: parseInt(skip) },
-        { $limit: parseInt(limit) },
+        { $skip: skip },
+        { $limit: effectiveLimit },
         {
           $lookup: {
             from: "categories",
@@ -581,8 +594,8 @@ const getEvents = async (req, res) => {
                   : { isFeatured: -1, startDate: 1, endDate: 1 }),
             },
           },
-          { $skip: parseInt(skip) },
-          { $limit: parseInt(limit) },
+          { $skip: skip },
+          { $limit: effectiveLimit },
           {
             $lookup: {
               from: "categories",
@@ -616,7 +629,7 @@ const getEvents = async (req, res) => {
           .populate("createdBy", "firstName lastName profileImage isVerified")
           .sort(sortOrder)
           .skip(skip)
-          .limit(parseInt(limit))
+          .limit(effectiveLimit)
           .lean();
         totalCount = await Event.countDocuments(query);
       }
@@ -652,9 +665,9 @@ const getEvents = async (req, res) => {
     return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.EVENTS_FETCHED, {
       events: formattedEvents,
       total: totalCount,
-      totalPages: Math.ceil(totalCount / limit),
-      page: parseInt(page),
-      limit: parseInt(limit),
+      totalPages: Math.ceil(totalCount / effectiveLimit),
+      page: parsedPage,
+      limit: effectiveLimit,
     });
   } catch (error) {
     console.error("Error in getEvents:", error);
@@ -1123,14 +1136,6 @@ const toggleEventSlider = async (req, res) => {
       if (now < event.startDate) liveStatus = "Upcoming";
       else if (now <= event.endDate) liveStatus = "Live";
       else liveStatus = "Past";
-    }
-
-    if (addToSlider === true && !["Upcoming", "Live"].includes(liveStatus)) {
-      return apiErrorRes(
-        HTTP_STATUS.BAD_REQUEST,
-        res,
-        constantsMessage.EVENT_SLIDER_ONLY_UPCOMING_LIVE,
-      );
     }
 
     event.addToSlider = addToSlider;
