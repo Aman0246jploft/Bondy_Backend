@@ -259,14 +259,17 @@ const getEvents = async (req, res) => {
     } else {
       query.isDraft = false;
 
-      // Default time constraints (active events) - unless "past" filter is specifically requested
-      if (!filters.includes("past")) {
-        query.endDate = { $gte: now };
-        query.status = { $ne: "Past" };
-        // console.log(`[getEvents] Filtering for Active/Upcoming events (endDate >= now)`);
-      } else {
-        query.endDate = { $lt: now };
-        // console.log(`[getEvents] Filtering for Past events (endDate < now)`);
+      // In slider mode, include all non-draft slider events regardless of status/date.
+      if (!isSliderMode) {
+        // Default time constraints (active events) - unless "past" filter is specifically requested
+        if (!filters.includes("past")) {
+          query.endDate = { $gte: now };
+          query.status = { $ne: "Past" };
+          // console.log(`[getEvents] Filtering for Active/Upcoming events (endDate >= now)`);
+        } else {
+          query.endDate = { $lt: now };
+          // console.log(`[getEvents] Filtering for Past events (endDate < now)`);
+        }
       }
     }
 
