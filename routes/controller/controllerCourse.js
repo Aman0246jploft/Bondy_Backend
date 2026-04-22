@@ -455,8 +455,8 @@ const getCourses = async (req, res) => {
         if (mins < 0) mins += 1440;
         const h = Math.floor(mins / 60);
         const m = mins % 60;
-        duration = h ? (m ? `${h}H ${m}min` : `${h}H`) : `${m}min`;
-        durationTranslation = h ? (m ? `${h}Цаг ${m}мин` : `${h}Цаг`) : `${m}мин`;
+        duration = h ? (m ? `${h} H ${m} min` : `${h} H`) : `${m} min`;
+        durationTranslation = h ? (m ? `${h} Цаг ${m} мин` : `${h} Цаг`) : `${m} мин`;
       }
 
       const acquiredTotal = courseBookingMap[course._id.toString()] || 0;
