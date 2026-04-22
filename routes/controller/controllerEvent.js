@@ -25,6 +25,7 @@ const {
   getEventDetailsSchema,
   updateEventSchema,
   updateEventParamsSchema,
+  toggleEventSliderSchema,
 } = require("../services/validations/eventValidation");
 const validateRequest = require("../../middlewares/validateRequest");
 const perApiLimiter = require("../../middlewares/rateLimiter");
@@ -1053,6 +1054,7 @@ const getEventsAdmin = async (req, res) => {
 
     // Format fields
     const formattedEvents = events.map((event) => {
+      const now = new Date();
       if (Array.isArray(event.posterImage)) {
         event.posterImage = event.posterImage.map((img) =>
           formatResponseUrl(img),
@@ -1090,6 +1092,15 @@ const getEventsAdmin = async (req, res) => {
       event.acquiredSeats =
         (event.totalTickets || 0) - (event.ticketQtyAvailable || 0);
 
+      if (event.startDate && event.endDate) {
+        const startDate = new Date(event.startDate);
+        const endDate = new Date(event.endDate);
+        if (now < startDate) event.status = "Upcoming";
+        else if (now <= endDate) event.status = "Live";
+        else event.status = "Past";
+      }
+      event.addToSlider = Boolean(event.addToSlider);
+
       return event;
     });
 
@@ -1101,6 +1112,51 @@ const getEventsAdmin = async (req, res) => {
     });
   } catch (error) {
     console.error("Error in getEventsAdmin:", error);
+    return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
+  }
+};
+
+const toggleEventSlider = async (req, res) => {
+  try {
+    const { eventId, addToSlider } = req.body;
+    const event = await Event.findById(eventId);
+
+    if (!event) {
+      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.EVENT_NOT_FOUND);
+    }
+
+    const now = new Date();
+    let liveStatus = "Upcoming";
+
+    if (event.startDate && event.endDate) {
+      if (now < event.startDate) liveStatus = "Upcoming";
+      else if (now <= event.endDate) liveStatus = "Live";
+      else liveStatus = "Past";
+    }
+
+    if (addToSlider === true && !["Upcoming", "Live"].includes(liveStatus)) {
+      return apiErrorRes(
+        HTTP_STATUS.BAD_REQUEST,
+        res,
+        constantsMessage.EVENT_SLIDER_ONLY_UPCOMING_LIVE,
+      );
+    }
+
+    event.addToSlider = addToSlider;
+    await event.save();
+
+    return apiSuccessRes(
+      HTTP_STATUS.OK,
+      res,
+      constantsMessage.EVENT_SLIDER_UPDATED,
+      {
+        eventId: event._id,
+        addToSlider: event.addToSlider,
+        status: liveStatus,
+      },
+    );
+  } catch (error) {
+    console.error("Error in toggleEventSlider:", error);
     return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
   }
 };
@@ -1593,6 +1649,14 @@ router.get(
   checkRole([roleId.SUPER_ADMIN]),
   validateRequest(getEventsSchema),
   getEventsAdmin,
+);
+
+router.post(
+  "/admin/slider-toggle",
+  perApiLimiter(),
+  checkRole([roleId.SUPER_ADMIN]),
+  validateRequest(toggleEventSliderSchema),
+  toggleEventSlider,
 );
 
 router.get("/details/:eventId", perApiLimiter(), getEventDetails);

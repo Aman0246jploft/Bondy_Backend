@@ -70,7 +70,11 @@ module.exports = Object.freeze({
   SUPER_ADMIN_UPDATE_NOT_ALLOWED:
     "Updating super admin profile is not allowed.",
   EVENT_CREATED: "Event created successfully.",
+  EVENT_NOT_FOUND: "Event not found.",
   EVENTS_FETCHED: "Events fetched successfully.",
+  EVENT_SLIDER_UPDATED: "Event slider status updated successfully.",
+  EVENT_SLIDER_ONLY_UPCOMING_LIVE:
+    "Only Upcoming or Live events can be added to slider.",
   INVALID_FILTER_TYPE: "Invalid filter type provided.",
   LOCATION_REQUIRED: "Latitude and longitude are required for nearYou filter.",
   ACCESS_DENIED_INVALID_ROLE: "Access denied. Invalid role.",
