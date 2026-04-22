@@ -203,6 +203,47 @@ const formatEvent = (event, bookedEventIds = new Set()) => {
 
 const getEvents = async (req, res) => {
   try {
+    const queryKeys = Object.keys(req.query || {}).filter(
+      (key) =>
+        req.query[key] !== undefined &&
+        req.query[key] !== null &&
+        String(req.query[key]).trim() !== "",
+    );
+    const bodyKeys = Object.keys(req.body || {}).filter(
+      (key) =>
+        req.body[key] !== undefined &&
+        req.body[key] !== null &&
+        String(req.body[key]).trim() !== "",
+    );
+
+    const querySliderOnly =
+      queryKeys.length === 1 &&
+      queryKeys[0] === "addToSlider" &&
+      String(req.query.addToSlider).toLowerCase() === "true";
+
+    const bodySliderOnly =
+      bodyKeys.length === 1 &&
+      bodyKeys[0] === "addToSlider" &&
+      String(req.body.addToSlider).toLowerCase() === "true";
+
+    if (querySliderOnly || bodySliderOnly) {
+      const directLimit = 10;
+      const directQuery = { addToSlider: true, isDraft: false };
+
+      const [events, totalCount] = await Promise.all([
+        Event.find(directQuery).limit(directLimit).lean(),
+        Event.countDocuments(directQuery),
+      ]);
+
+      return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.EVENTS_FETCHED, {
+        events,
+        total: totalCount,
+        totalPages: Math.ceil(totalCount / directLimit),
+        page: 1,
+        limit: directLimit,
+      });
+    }
+
     const {
       filter = "all",
       latitude,
@@ -219,13 +260,7 @@ const getEvents = async (req, res) => {
       endDate: customEndDate,
       isDraft,
       timeOfDay,
-      addToSlider,
     } = req.query;
-
-    const isSliderMode =
-      addToSlider !== undefined &&
-      addToSlider !== null &&
-      String(addToSlider).trim() !== "";
 
     const categoryId = cid || category;
 
@@ -234,10 +269,7 @@ const getEvents = async (req, res) => {
       loginUser = req.user.userId;
     }
     const now = new Date();
-    const parsedPage = Math.max(parseInt(page, 10) || 1, 1);
-    const parsedLimit = Math.max(parseInt(limit, 10) || 10, 1);
-    const effectiveLimit = isSliderMode ? 10 : parsedLimit;
-    const skip = (parsedPage - 1) * effectiveLimit;
+    const skip = (page - 1) * limit;
 
     const filters = filter.split(",").map((f) => f.trim().toLowerCase());
 
@@ -259,17 +291,14 @@ const getEvents = async (req, res) => {
     } else {
       query.isDraft = false;
 
-      // In slider mode, include all non-draft slider events regardless of status/date.
-      if (!isSliderMode) {
-        // Default time constraints (active events) - unless "past" filter is specifically requested
-        if (!filters.includes("past")) {
-          query.endDate = { $gte: now };
-          query.status = { $ne: "Past" };
-          // console.log(`[getEvents] Filtering for Active/Upcoming events (endDate >= now)`);
-        } else {
-          query.endDate = { $lt: now };
-          // console.log(`[getEvents] Filtering for Past events (endDate < now)`);
-        }
+      // Default time constraints (active events) - unless "past" filter is specifically requested
+      if (!filters.includes("past")) {
+        query.endDate = { $gte: now };
+        query.status = { $ne: "Past" };
+        // console.log(`[getEvents] Filtering for Active/Upcoming events (endDate >= now)`);
+      } else {
+        query.endDate = { $lt: now };
+        // console.log(`[getEvents] Filtering for Past events (endDate < now)`);
       }
     }
 
@@ -419,10 +448,6 @@ const getEvents = async (req, res) => {
       ];
     }
 
-    if (isSliderMode) {
-      query.addToSlider = true;
-    }
-
     // Time of Day filter
     if (timeOfDay && timeOfDay.toLowerCase() !== "anytime") {
       const selectedSlots = timeOfDay.split(",").map((t) => t.trim().toLowerCase());
@@ -526,8 +551,8 @@ const getEvents = async (req, res) => {
           },
         },
         { $sort: { isPromoMatch: -1, fetcherEvent: -1, isFeatured: -1, startDate: 1, endDate: 1, distance: 1 } },
-        { $skip: skip },
-        { $limit: effectiveLimit },
+        { $skip: parseInt(skip) },
+        { $limit: parseInt(limit) },
         {
           $lookup: {
             from: "categories",
@@ -606,8 +631,8 @@ const getEvents = async (req, res) => {
                   : { isFeatured: -1, startDate: 1, endDate: 1 }),
             },
           },
-          { $skip: skip },
-          { $limit: effectiveLimit },
+          { $skip: parseInt(skip) },
+          { $limit: parseInt(limit) },
           {
             $lookup: {
               from: "categories",
@@ -641,7 +666,7 @@ const getEvents = async (req, res) => {
           .populate("createdBy", "firstName lastName profileImage isVerified")
           .sort(sortOrder)
           .skip(skip)
-          .limit(effectiveLimit)
+          .limit(parseInt(limit))
           .lean();
         totalCount = await Event.countDocuments(query);
       }
@@ -677,9 +702,9 @@ const getEvents = async (req, res) => {
     return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.EVENTS_FETCHED, {
       events: formattedEvents,
       total: totalCount,
-      totalPages: Math.ceil(totalCount / effectiveLimit),
-      page: parsedPage,
-      limit: effectiveLimit,
+      totalPages: Math.ceil(totalCount / limit),
+      page: parseInt(page),
+      limit: parseInt(limit),
     });
   } catch (error) {
     console.error("Error in getEvents:", error);
