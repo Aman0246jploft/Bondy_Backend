@@ -33,19 +33,19 @@ const createEventSchema = Joi.object({
         }),
         city: Joi.string().when(Joi.object({ isDraft: true, id: Joi.not().exist() }).unknown(), {
             then: Joi.optional(),
-            otherwise: Joi.required(),
+            otherwise: Joi.allow(null,""),
         }),
         country: Joi.string().when(Joi.object({ isDraft: true, id: Joi.not().exist() }).unknown(), {
             then: Joi.optional(),
-            otherwise: Joi.required(),
+            otherwise: Joi.allow(null,""),
         }),
         address: Joi.string().when(Joi.object({ isDraft: true, id: Joi.not().exist() }).unknown(), {
             then: Joi.optional(),
-            otherwise: Joi.required(),
+            otherwise: Joi.allow(null,""),
         }),
     }).when(Joi.object({ isDraft: true, id: Joi.not().exist() }).unknown(), {
         then: Joi.optional(),
-        otherwise: Joi.required(),
+        otherwise: Joi.allow(null,""),
     }),
     startDate: Joi.date().when(Joi.object({ isDraft: true, id: Joi.not().exist() }).unknown(), {
         then: Joi.optional(),
