@@ -1216,8 +1216,6 @@ const getEventsAdmin = async (req, res) => {
     const { categoryId, search, page = 1, limit = 10 } = req.query;
 
     const skip = (page - 1) * limit;
-    let query = {};
-
     let query = {
       isDraft: { $ne: true },
     };
