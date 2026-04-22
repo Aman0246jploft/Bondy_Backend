@@ -43,12 +43,14 @@ const createEvent = async (req, res) => {
     let event;
     let isDraftValue = isDraftBody === true;
 
-
     // Transform venueAddress to GeoJSON Point safely
     let location = undefined;
     if (venueAddress) {
       location = {};
-      if (venueAddress.longitude !== undefined && venueAddress.latitude !== undefined) {
+      if (
+        venueAddress.longitude !== undefined &&
+        venueAddress.latitude !== undefined
+      ) {
         location.type = "Point";
         location.coordinates = [venueAddress.longitude, venueAddress.latitude];
       }
@@ -73,11 +75,19 @@ const createEvent = async (req, res) => {
       // UPDATE existing event (Draft or Published)
       event = await Event.findById(id);
       if (!event) {
-        return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.EVENT_NOT_FOUND);
+        return apiErrorRes(
+          HTTP_STATUS.NOT_FOUND,
+          res,
+          constantsMessage.EVENT_NOT_FOUND,
+        );
       }
 
       if (event.createdBy.toString() !== userId) {
-        return apiErrorRes(HTTP_STATUS.FORBIDDEN, res, constantsMessage.UNAUTHORIZED_EVENT_UPDATE);
+        return apiErrorRes(
+          HTTP_STATUS.FORBIDDEN,
+          res,
+          constantsMessage.UNAUTHORIZED_EVENT_UPDATE,
+        );
       }
 
       // Update fields
@@ -89,16 +99,26 @@ const createEvent = async (req, res) => {
           event.venueAddress = {};
         }
 
-        if (venueAddress.longitude !== undefined && venueAddress.latitude !== undefined) {
+        if (
+          venueAddress.longitude !== undefined &&
+          venueAddress.latitude !== undefined
+        ) {
           event.venueAddress.type = "Point";
-          event.venueAddress.coordinates = [venueAddress.longitude, venueAddress.latitude];
+          event.venueAddress.coordinates = [
+            venueAddress.longitude,
+            venueAddress.latitude,
+          ];
         }
-        if (venueAddress.city !== undefined) event.venueAddress.city = venueAddress.city;
-        if (venueAddress.country !== undefined) event.venueAddress.country = venueAddress.country;
-        if (venueAddress.address !== undefined) event.venueAddress.address = venueAddress.address;
+        if (venueAddress.city !== undefined)
+          event.venueAddress.city = venueAddress.city;
+        if (venueAddress.country !== undefined)
+          event.venueAddress.country = venueAddress.country;
+        if (venueAddress.address !== undefined)
+          event.venueAddress.address = venueAddress.address;
       }
 
-      if (req.body.venueName !== undefined) event.venueName = req.body.venueName;
+      if (req.body.venueName !== undefined)
+        event.venueName = req.body.venueName;
       event.featureEventFee = featureFee;
       event.isDraft = isDraftValue;
 
@@ -136,8 +156,12 @@ const createEvent = async (req, res) => {
     }
 
     const message = id
-      ? (isDraftValue ? constantsMessage.DRAFT_UPDATED : constantsMessage.EVENT_PUBLISHED_SUCCESS)
-      : (isDraftValue ? constantsMessage.DRAFT_SAVED : constantsMessage.EVENT_CREATED);
+      ? isDraftValue
+        ? constantsMessage.DRAFT_UPDATED
+        : constantsMessage.EVENT_PUBLISHED_SUCCESS
+      : isDraftValue
+        ? constantsMessage.DRAFT_SAVED
+        : constantsMessage.EVENT_CREATED;
 
     return apiSuccessRes(HTTP_STATUS.OK, res, message, {
       event: eventObj,
@@ -195,7 +219,11 @@ const formatEvent = (event, bookedEventIds = new Set()) => {
   event.leftSeats = event.ticketQtyAvailable || 0;
   event.acquiredSeats =
     (event.totalTickets || 0) - (event.ticketQtyAvailable || 0);
-  event.isFewSeatsAvailable = checkFewSeatsAvailable(event.leftSeats, event.totalSeats, 10);
+  event.isFewSeatsAvailable = checkFewSeatsAvailable(
+    event.leftSeats,
+    event.totalSeats,
+    10,
+  );
   event.isBooked = bookedEventIds.has(event._id.toString());
   return event;
 };
@@ -221,66 +249,73 @@ const getEvents = async (req, res) => {
       timeOfDay,
       addToSlider,
     } = req.query;
-      const queryEntries = Object.entries(req.query || {}).filter(
-        ([, value]) => value !== undefined && value !== null && String(value).trim() !== "",
+    const queryEntries = Object.entries(req.query || {}).filter(
+      ([, value]) =>
+        value !== undefined && value !== null && String(value).trim() !== "",
+    );
+    const bodyEntries = Object.entries(req.body || {}).filter(
+      ([, value]) =>
+        value !== undefined && value !== null && String(value).trim() !== "",
+    );
+
+    const addToSliderInput =
+      addToSlider !== undefined ? addToSlider : req.body?.addToSlider;
+    const isAddToSliderTrueOnlyRequest =
+      String(addToSliderInput).toLowerCase() === "true" &&
+      ((queryEntries.length === 1 && queryEntries[0][0] === "addToSlider") ||
+        (queryEntries.length === 0 &&
+          bodyEntries.length === 1 &&
+          bodyEntries[0][0] === "addToSlider"));
+
+    if (isAddToSliderTrueOnlyRequest) {
+      const simpleLimit = 10;
+      const simpleQuery = { addToSlider: true, isDraft: false };
+
+      const events = await Event.find(simpleQuery)
+        .populate("eventCategory")
+        .populate("createdBy", "firstName lastName profileImage isVerified")
+        .sort({ fetcherEvent: -1, isFeatured: -1, startDate: 1, endDate: 1 })
+        .limit(simpleLimit)
+        .lean();
+      const totalCount = await Event.countDocuments(simpleQuery);
+
+      let viewerId = null;
+      const authHeader = req.headers.authorization;
+      if (authHeader && authHeader.startsWith("Bearer ")) {
+        try {
+          const token = authHeader.split(" ")[1];
+          const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY);
+          viewerId = decoded.userId;
+        } catch (err) {}
+      }
+
+      const bookedEventIds = new Set();
+      if (viewerId && events.length > 0) {
+        const bookings = await Transaction.find({
+          userId: viewerId,
+          eventId: { $in: events.map((e) => e._id) },
+          status: "PAID",
+        }).select("eventId");
+        bookings.forEach((b) => bookedEventIds.add(b.eventId.toString()));
+      }
+
+      const formattedEvents = events.map((event) =>
+        formatEvent(event, bookedEventIds),
       );
-      const bodyEntries = Object.entries(req.body || {}).filter(
-        ([, value]) => value !== undefined && value !== null && String(value).trim() !== "",
-      );
 
-      const addToSliderInput =
-        addToSlider !== undefined ? addToSlider : req.body?.addToSlider;
-      const isAddToSliderTrueOnlyRequest =
-        String(addToSliderInput).toLowerCase() === "true" &&
-        ((queryEntries.length === 1 && queryEntries[0][0] === "addToSlider") ||
-          (queryEntries.length === 0 &&
-            bodyEntries.length === 1 &&
-            bodyEntries[0][0] === "addToSlider"));
-
-      if (isAddToSliderTrueOnlyRequest) {
-        const simpleLimit = 10;
-        const simpleQuery = { addToSlider: true, isDraft: false };
-
-        const events = await Event.find(simpleQuery)
-          .populate("eventCategory")
-          .populate("createdBy", "firstName lastName profileImage isVerified")
-          .sort({ fetcherEvent: -1, isFeatured: -1, startDate: 1, endDate: 1 })
-          .limit(simpleLimit)
-          .lean();
-        const totalCount = await Event.countDocuments(simpleQuery);
-
-        let viewerId = null;
-        const authHeader = req.headers.authorization;
-        if (authHeader && authHeader.startsWith("Bearer ")) {
-          try {
-            const token = authHeader.split(" ")[1];
-            const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY);
-            viewerId = decoded.userId;
-          } catch (err) { }
-        }
-
-        const bookedEventIds = new Set();
-        if (viewerId && events.length > 0) {
-          const bookings = await Transaction.find({
-            userId: viewerId,
-            eventId: { $in: events.map((e) => e._id) },
-            status: "PAID",
-          }).select("eventId");
-          bookings.forEach((b) => bookedEventIds.add(b.eventId.toString()));
-        }
-
-        const formattedEvents = events.map((event) =>
-          formatEvent(event, bookedEventIds),
-        );
-
-        return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.EVENTS_FETCHED, {
+      return apiSuccessRes(
+        HTTP_STATUS.OK,
+        res,
+        constantsMessage.EVENTS_FETCHED,
+        {
           events: formattedEvents,
           total: totalCount,
           totalPages: Math.ceil(totalCount / simpleLimit),
           page: 1,
           limit: simpleLimit,
-        });
-      }
+        },
+      );
+    }
 
     const categoryId = cid || category;
 
@@ -303,7 +338,11 @@ const getEvents = async (req, res) => {
     if (isDraft === "true" || isDraft === true || filters.includes("draft")) {
       if (!loginUser) {
         console.warn(`[getEvents] Unauthorized attempt to access drafts`);
-        return apiErrorRes(HTTP_STATUS.UNAUTHORIZED, res, constantsMessage.LOGIN_REQUIRED_DRAFTS);
+        return apiErrorRes(
+          HTTP_STATUS.UNAUTHORIZED,
+          res,
+          constantsMessage.LOGIN_REQUIRED_DRAFTS,
+        );
       }
       query.isDraft = true;
       query.createdBy = loginUser;
@@ -364,7 +403,18 @@ const getEvents = async (req, res) => {
 
     // Apply Time-based filters
     for (const f of filters) {
-      if (["upcoming", "today", "tomorrow", "thisweek", "thisweekend", "thisyear", "nextweek", "recommended"].includes(f)) {
+      if (
+        [
+          "upcoming",
+          "today",
+          "tomorrow",
+          "thisweek",
+          "thisweekend",
+          "thisyear",
+          "nextweek",
+          "recommended",
+        ].includes(f)
+      ) {
         // console.log(`[getEvents] Applying time-based filter: ${f}`);
       }
       switch (f) {
@@ -384,7 +434,10 @@ const getEvents = async (req, res) => {
           startOfTomorrow.setHours(0, 0, 0, 0);
           const endOfTomorrow = new Date(startOfTomorrow);
           endOfTomorrow.setHours(23, 59, 59, 999);
-          startDateConditions.push({ $gte: startOfTomorrow, $lte: endOfTomorrow });
+          startDateConditions.push({
+            $gte: startOfTomorrow,
+            $lte: endOfTomorrow,
+          });
           break;
         case "thisweek":
           const startOfWeek = new Date(now);
@@ -407,11 +460,22 @@ const getEvents = async (req, res) => {
           const endOfWeekend = new Date(startOfWeekend);
           endOfWeekend.setDate(endOfWeekend.getDate() + 1);
           endOfWeekend.setHours(23, 59, 59, 999);
-          startDateConditions.push({ $gte: startOfWeekend, $lte: endOfWeekend });
+          startDateConditions.push({
+            $gte: startOfWeekend,
+            $lte: endOfWeekend,
+          });
           break;
         case "thisyear":
           const startOfYear = new Date(now.getFullYear(), 0, 1, 0, 0, 0, 0);
-          const endOfYear = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
+          const endOfYear = new Date(
+            now.getFullYear(),
+            11,
+            31,
+            23,
+            59,
+            59,
+            999,
+          );
           startDateConditions.push({ $gte: startOfYear, $lte: endOfYear });
           break;
         case "nextweek":
@@ -423,7 +487,10 @@ const getEvents = async (req, res) => {
           const endOfNextWeek = new Date(startOfNextWeek);
           endOfNextWeek.setDate(endOfNextWeek.getDate() + 6);
           endOfNextWeek.setHours(23, 59, 59, 999);
-          startDateConditions.push({ $gte: startOfNextWeek, $lte: endOfNextWeek });
+          startDateConditions.push({
+            $gte: startOfNextWeek,
+            $lte: endOfNextWeek,
+          });
           break;
         case "recommended":
           let userCategories = [];
@@ -433,8 +500,9 @@ const getEvents = async (req, res) => {
               const token = authHeader.split(" ")[1];
               const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY);
               const user = await User.findById(decoded.userId).lean();
-              if (user?.categories?.length > 0) userCategories = user.categories;
-            } catch (err) { }
+              if (user?.categories?.length > 0)
+                userCategories = user.categories;
+            } catch (err) {}
           }
           if (userCategories.length > 0) {
             query.eventCategory = {
@@ -446,6 +514,10 @@ const getEvents = async (req, res) => {
     }
 
     if (startDateConditions.length > 0) {
+      query.startDate =
+        startDateConditions.length === 1
+          ? startDateConditions[0]
+          : { $and: startDateConditions };
       if (startDateConditions.length === 1) {
         query.startDate = startDateConditions[0];
       } else {
@@ -470,21 +542,39 @@ const getEvents = async (req, res) => {
 
     // Time of Day filter
     if (timeOfDay && timeOfDay.toLowerCase() !== "anytime") {
-      const selectedSlots = timeOfDay.split(",").map((t) => t.trim().toLowerCase());
+      const selectedSlots = timeOfDay
+        .split(",")
+        .map((t) => t.trim().toLowerCase());
       const expressions = [];
 
       if (selectedSlots.includes("morning")) {
-        expressions.push({ $and: [{ $gte: [{ $hour: "$startDate" }, 6] }, { $lt: [{ $hour: "$startDate" }, 12] }] });
+        expressions.push({
+          $and: [
+            { $gte: [{ $hour: "$startDate" }, 6] },
+            { $lt: [{ $hour: "$startDate" }, 12] },
+          ],
+        });
       }
       if (selectedSlots.includes("afternoon")) {
-        expressions.push({ $and: [{ $gte: [{ $hour: "$startDate" }, 12] }, { $lt: [{ $hour: "$startDate" }, 17] }] });
+        expressions.push({
+          $and: [
+            { $gte: [{ $hour: "$startDate" }, 12] },
+            { $lt: [{ $hour: "$startDate" }, 17] },
+          ],
+        });
       }
       if (selectedSlots.includes("evening")) {
-        expressions.push({ $or: [{ $gte: [{ $hour: "$startDate" }, 17] }, { $lt: [{ $hour: "$startDate" }, 6] }] });
+        expressions.push({
+          $or: [
+            { $gte: [{ $hour: "$startDate" }, 17] },
+            { $lt: [{ $hour: "$startDate" }, 6] },
+          ],
+        });
       }
 
       if (expressions.length > 0) {
-        const timeExpr = expressions.length === 1 ? expressions[0] : { $or: expressions };
+        const timeExpr =
+          expressions.length === 1 ? expressions[0] : { $or: expressions };
         if (query.$expr) {
           query.$expr = { $and: [query.$expr, timeExpr] };
         } else {
@@ -508,7 +598,7 @@ const getEvents = async (req, res) => {
           const user = await User.findById(decoded.userId).lean();
           city = user?.location?.city || null;
           country = user?.location?.country || null;
-        } catch (err) { }
+        } catch (err) {}
       }
       if (city) {
         query["venueAddress.city"] = city;
@@ -518,13 +608,18 @@ const getEvents = async (req, res) => {
         // console.log(`[getEvents] Fallback: Filtering by Country: ${country}`);
       } else if (!filters.includes("all") && filters.length === 1) {
         // console.log(`[getEvents] Fallback: No location found for NearYou, returning empty result`);
-        return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.EVENTS_FETCHED, {
-          events: [],
-          total: 0,
-          totalPages: 0,
-          page: parseInt(page),
-          limit: parseInt(limit),
-        });
+        return apiSuccessRes(
+          HTTP_STATUS.OK,
+          res,
+          constantsMessage.EVENTS_FETCHED,
+          {
+            events: [],
+            total: 0,
+            totalPages: 0,
+            page: parseInt(page),
+            limit: parseInt(limit),
+          },
+        );
       }
     }
 
@@ -537,7 +632,10 @@ const getEvents = async (req, res) => {
       const geoAgg = await Event.aggregate([
         {
           $geoNear: {
-            near: { type: "Point", coordinates: [parseFloat(longitude), parseFloat(latitude)] },
+            near: {
+              type: "Point",
+              coordinates: [parseFloat(longitude), parseFloat(latitude)],
+            },
             distanceField: "distance",
             maxDistance: radius * 1000,
             spherical: true,
@@ -570,7 +668,16 @@ const getEvents = async (req, res) => {
             },
           },
         },
-        { $sort: { isPromoMatch: -1, fetcherEvent: -1, isFeatured: -1, startDate: 1, endDate: 1, distance: 1 } },
+        {
+          $sort: {
+            isPromoMatch: -1,
+            fetcherEvent: -1,
+            isFeatured: -1,
+            startDate: 1,
+            endDate: 1,
+            distance: 1,
+          },
+        },
         { $skip: parseInt(skip) },
         { $limit: parseInt(limit) },
         {
@@ -581,13 +688,17 @@ const getEvents = async (req, res) => {
             as: "eventCategory",
           },
         },
-        { $unwind: { path: "$eventCategory", preserveNullAndEmptyArrays: true } },
+        {
+          $unwind: { path: "$eventCategory", preserveNullAndEmptyArrays: true },
+        },
         {
           $lookup: {
             from: "users",
             localField: "createdBy",
             foreignField: "_id",
-            pipeline: [{ $project: { firstName: 1, lastName: 1, profileImage: 1 } }],
+            pipeline: [
+              { $project: { firstName: 1, lastName: 1, profileImage: 1 } },
+            ],
             as: "createdBy",
           },
         },
@@ -597,7 +708,10 @@ const getEvents = async (req, res) => {
       const countAgg = await Event.aggregate([
         {
           $geoNear: {
-            near: { type: "Point", coordinates: [parseFloat(longitude), parseFloat(latitude)] },
+            near: {
+              type: "Point",
+              coordinates: [parseFloat(longitude), parseFloat(latitude)],
+            },
             distanceField: "distance",
             maxDistance: radius * 1000,
             spherical: true,
@@ -661,13 +775,27 @@ const getEvents = async (req, res) => {
               as: "eventCategory",
             },
           },
-          { $unwind: { path: "$eventCategory", preserveNullAndEmptyArrays: true } },
+          {
+            $unwind: {
+              path: "$eventCategory",
+              preserveNullAndEmptyArrays: true,
+            },
+          },
           {
             $lookup: {
               from: "users",
               localField: "createdBy",
               foreignField: "_id",
-              pipeline: [{ $project: { firstName: 1, lastName: 1, profileImage: 1, isVerified: 1 } }],
+              pipeline: [
+                {
+                  $project: {
+                    firstName: 1,
+                    lastName: 1,
+                    profileImage: 1,
+                    isVerified: 1,
+                  },
+                },
+              ],
               as: "createdBy",
             },
           },
@@ -703,7 +831,7 @@ const getEvents = async (req, res) => {
         const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY);
         viewerId = decoded.userId;
         // console.log(`[getEvents] Viewer ID: ${viewerId}`);
-      } catch (err) { }
+      } catch (err) {}
     }
 
     const bookedEventIds = new Set();
@@ -717,7 +845,9 @@ const getEvents = async (req, res) => {
       // console.log(`[getEvents] Checked bookings for viewer. Found: ${bookedEventIds.size} bookings`);
     }
 
-    const formattedEvents = events.map((event) => formatEvent(event, bookedEventIds));
+    const formattedEvents = events.map((event) =>
+      formatEvent(event, bookedEventIds),
+    );
 
     return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.EVENTS_FETCHED, {
       events: formattedEvents,
@@ -778,7 +908,7 @@ const getEventDetails = async (req, res) => {
           status: "PAID",
         });
         if (booking) isBooked = true;
-      } catch (err) { }
+      } catch (err) {}
     }
     event.isBooked = isBooked;
 
@@ -796,7 +926,7 @@ const getEventDetails = async (req, res) => {
           entityModel: "Event",
         });
         if (wishlistItem) isWishlisted = true;
-      } catch (err) { }
+      } catch (err) {}
     }
     event.isWishlisted = isWishlisted;
 
@@ -906,9 +1036,9 @@ const getEventDetails = async (req, res) => {
       ...r,
       user: r.userId
         ? {
-          ...r.userId,
-          profileImage: formatResponseUrl(r.userId.profileImage),
-        }
+            ...r.userId,
+            profileImage: formatResponseUrl(r.userId.profileImage),
+          }
         : null,
     }));
 
@@ -916,9 +1046,9 @@ const getEventDetails = async (req, res) => {
       ...c,
       user: c.user
         ? {
-          ...c.user,
-          profileImage: formatResponseUrl(c.user.profileImage),
-        }
+            ...c.user,
+            profileImage: formatResponseUrl(c.user.profileImage),
+          }
         : null,
     }));
 
@@ -1088,6 +1218,10 @@ const getEventsAdmin = async (req, res) => {
     const skip = (page - 1) * limit;
     let query = {};
 
+    let query = {
+      isDraft: { $ne: true },
+    };
+
     // Apply category filter
     if (categoryId && categoryId !== "") {
       query.eventCategory = categoryId;
@@ -1183,7 +1317,11 @@ const toggleEventSlider = async (req, res) => {
     const event = await Event.findById(eventId);
 
     if (!event) {
-      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.EVENT_NOT_FOUND);
+      return apiErrorRes(
+        HTTP_STATUS.NOT_FOUND,
+        res,
+        constantsMessage.EVENT_NOT_FOUND,
+      );
     }
 
     const now = new Date();
@@ -1224,10 +1362,15 @@ const getOrganizerStats = async (req, res) => {
     const eventIds = events.map((e) => e._id);
 
     if (eventIds.length === 0) {
-      return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.STATS_FETCHED, {
-        totalRevenue: 0,
-        totalAttendees: 0,
-      });
+      return apiSuccessRes(
+        HTTP_STATUS.OK,
+        res,
+        constantsMessage.STATS_FETCHED,
+        {
+          totalRevenue: 0,
+          totalAttendees: 0,
+        },
+      );
     }
 
     const stats = await Transaction.aggregate([
@@ -1321,11 +1464,16 @@ const getAllEventAttendees = async (req, res) => {
       }
     }
 
-    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.EVENT_ATTENDEES_FETCHED, {
-      host: event.createdBy,
-      eventTitle: event.eventTitle,
-      attendees: uniqueUsers,
-    });
+    return apiSuccessRes(
+      HTTP_STATUS.OK,
+      res,
+      constantsMessage.EVENT_ATTENDEES_FETCHED,
+      {
+        host: event.createdBy,
+        eventTitle: event.eventTitle,
+        attendees: uniqueUsers,
+      },
+    );
   } catch (error) {
     console.error("Error in getAllEventAttendees:", error);
     return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
@@ -1355,7 +1503,7 @@ const updateEvent = async (req, res) => {
         HTTP_STATUS.FORBIDDEN,
         res,
         constantsMessage.UNAUTHORIZED_ACCESS ||
-        "You are not authorized to edit this event",
+          "You are not authorized to edit this event",
       );
     }
 
@@ -1366,7 +1514,7 @@ const updateEvent = async (req, res) => {
         HTTP_STATUS.BAD_REQUEST,
         res,
         constantsMessage.CANNOT_EDIT_PAST_EVENT ||
-        "Cannot edit an event that has already ended",
+          "Cannot edit an event that has already ended",
       );
     }
 
@@ -1383,7 +1531,7 @@ const updateEvent = async (req, res) => {
         HTTP_STATUS.BAD_REQUEST,
         res,
         constantsMessage.INVALID_DATE_RANGE ||
-        "Start date must be before end date",
+          "Start date must be before end date",
       );
     }
 
@@ -1393,7 +1541,7 @@ const updateEvent = async (req, res) => {
         HTTP_STATUS.BAD_REQUEST,
         res,
         constantsMessage.CANNOT_SET_PAST_END_DATE ||
-        "Cannot set end date in the past",
+          "Cannot set end date in the past",
       );
     }
 
@@ -1423,7 +1571,7 @@ const updateEvent = async (req, res) => {
           HTTP_STATUS.BAD_REQUEST,
           res,
           constantsMessage.CANNOT_REDUCE_TICKETS ||
-          `Cannot reduce total tickets below ${soldTickets} (already sold)`,
+            `Cannot reduce total tickets below ${soldTickets} (already sold)`,
         );
       }
 
@@ -1433,7 +1581,7 @@ const updateEvent = async (req, res) => {
           HTTP_STATUS.BAD_REQUEST,
           res,
           constantsMessage.INVALID_TICKET_QTY ||
-          "Available tickets cannot exceed total tickets",
+            "Available tickets cannot exceed total tickets",
         );
       }
     }
@@ -1457,7 +1605,7 @@ const updateEvent = async (req, res) => {
           HTTP_STATUS.BAD_REQUEST,
           res,
           constantsMessage.INVALID_SALES_DATE_RANGE ||
-          "Ticket sales start date must be before end date",
+            "Ticket sales start date must be before end date",
         );
       }
 
@@ -1467,7 +1615,7 @@ const updateEvent = async (req, res) => {
           HTTP_STATUS.BAD_REQUEST,
           res,
           constantsMessage.SALES_END_AFTER_EVENT_START ||
-          "Ticket sales should end before event starts",
+            "Ticket sales should end before event starts",
         );
       }
     }
@@ -1481,7 +1629,7 @@ const updateEvent = async (req, res) => {
           HTTP_STATUS.BAD_REQUEST,
           res,
           constantsMessage.INVALID_AGE_RESTRICTION ||
-          "Minimum age must be specified and non-negative for MIN_AGE type",
+            "Minimum age must be specified and non-negative for MIN_AGE type",
         );
       }
 
@@ -1496,7 +1644,7 @@ const updateEvent = async (req, res) => {
             HTTP_STATUS.BAD_REQUEST,
             res,
             constantsMessage.INVALID_AGE_RESTRICTION ||
-            "Both minimum and maximum age must be specified and non-negative for RANGE type",
+              "Both minimum and maximum age must be specified and non-negative for RANGE type",
           );
         }
         if (minAge >= maxAge) {
@@ -1504,7 +1652,7 @@ const updateEvent = async (req, res) => {
             HTTP_STATUS.BAD_REQUEST,
             res,
             constantsMessage.INVALID_AGE_RESTRICTION ||
-            "Minimum age must be less than maximum age",
+              "Minimum age must be less than maximum age",
           );
         }
       }
@@ -1619,13 +1767,23 @@ const updateEvent = async (req, res) => {
 
     // ── Notify Attendees of Major Changes (non-blocking) ───────────────────
     const majorChanges = [];
-    if (updateData.startDate && String(updateData.startDate) !== String(existingEvent.startDate)) {
+    if (
+      updateData.startDate &&
+      String(updateData.startDate) !== String(existingEvent.startDate)
+    ) {
       majorChanges.push("date");
     }
-    if (updateData.venueName && updateData.venueName !== existingEvent.venueName) {
+    if (
+      updateData.venueName &&
+      updateData.venueName !== existingEvent.venueName
+    ) {
       majorChanges.push("venue name");
     }
-    if (updateData.venueAddress && JSON.stringify(updateObject.venueAddress) !== JSON.stringify(existingEvent.venueAddress)) {
+    if (
+      updateData.venueAddress &&
+      JSON.stringify(updateObject.venueAddress) !==
+        JSON.stringify(existingEvent.venueAddress)
+    ) {
       majorChanges.push("location");
     }
 
@@ -1635,7 +1793,7 @@ const updateEvent = async (req, res) => {
           const attendees = await Transaction.distinct("userId", {
             eventId: eventId,
             status: "PAID",
-            bookingType: "EVENT"
+            bookingType: "EVENT",
           });
 
           const changeDetail = `The event's ${majorChanges.join(", ")} has been updated. Please check the details.`;
@@ -1644,11 +1802,16 @@ const updateEvent = async (req, res) => {
               String(attendeeId),
               updatedEvent.eventTitle,
               eventId,
-              changeDetail
-            ).catch(e => console.error("[Notification] notifyEventChange error:", e));
+              changeDetail,
+            ).catch((e) =>
+              console.error("[Notification] notifyEventChange error:", e),
+            );
           }
         } catch (err) {
-          console.error("[Notification] Error fetching attendees for update:", err);
+          console.error(
+            "[Notification] Error fetching attendees for update:",
+            err,
+          );
         }
       })();
     }
