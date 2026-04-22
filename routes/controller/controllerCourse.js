@@ -446,6 +446,8 @@ const getCourses = async (req, res) => {
       if (course.createdBy?.profileImage) course.createdBy.profileImage = formatResponseUrl(course.createdBy.profileImage);
 
       let duration = null;
+      let durationTranslation = null;
+
       if (currentSchedule?.startTime && currentSchedule?.endTime) {
         const [sh, sm] = currentSchedule.startTime.split(":").map(Number);
         const [eh, em] = currentSchedule.endTime.split(":").map(Number);
@@ -454,6 +456,7 @@ const getCourses = async (req, res) => {
         const h = Math.floor(mins / 60);
         const m = mins % 60;
         duration = h ? (m ? `${h}H ${m}min` : `${h}H`) : `${m}min`;
+        durationTranslation = h ? (m ? `${h}Цаг ${m}мин` : `${h}Цаг`) : `${m}мин`;
       }
 
       const acquiredTotal = courseBookingMap[course._id.toString()] || 0;
@@ -463,6 +466,7 @@ const getCourses = async (req, res) => {
         sessionStatus,
         isAvailable: !!currentSchedule,
         duration,
+        durationTranslation,
         acquiredSeats: acquiredTotal,
         leftSeats: Math.max(0, course.totalSeats - acquiredTotal),
         isBooked: bookedCourseIds.has(course._id.toString()),
