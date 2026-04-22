@@ -208,10 +208,10 @@ const formatEvent = (event, bookedEventIds = new Set()) => {
       const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
       duration =
         hours > 0 && minutes > 0
-          ? `${hours}H ${minutes}min`
+          ? `${hours} H ${minutes} min`
           : hours > 0
-            ? `${hours}H`
-            : `${minutes}min`;
+            ? `${hours} H`
+            : `${minutes} min`;
     }
   }
   event.duration = duration;
@@ -958,9 +958,9 @@ const getEventDetails = async (req, res) => {
         const hours = Math.floor(diffMs / (1000 * 60 * 60));
         const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
         if (hours > 0 && minutes > 0)
-          event.duration = `${hours}H ${minutes}min`;
-        else if (hours > 0) event.duration = `${hours}H`;
-        else event.duration = `${minutes}min`;
+          event.duration = `${hours} H ${minutes} min`;
+        else if (hours > 0) event.duration = `${hours} H`;
+        else event.duration = `${minutes} min`;
       }
     }
 

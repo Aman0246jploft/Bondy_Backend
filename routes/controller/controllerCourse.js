@@ -453,10 +453,12 @@ const getCourses = async (req, res) => {
         const [eh, em] = currentSchedule.endTime.split(":").map(Number);
         let mins = eh * 60 + em - (sh * 60 + sm);
         if (mins < 0) mins += 1440;
-        const h = Math.floor(mins / 60);
-        const m = mins % 60;
-        duration = h ? (m ? `${h} H ${m} min` : `${h} H`) : `${m} min`;
-        durationTranslation = h ? (m ? `${h} Цаг ${m} мин` : `${h} Цаг`) : `${m} мин`;
+        if (mins > 0) {
+          const h = Math.floor(mins / 60);
+          const m = mins % 60;
+          duration = h ? (m ? `${h} H ${m} min` : `${h} H`) : `${m} min`;
+          durationTranslation = h ? (m ? `${h} Цаг ${m} мин` : `${h} Цаг`) : `${m} мин`;
+        }
       }
 
       const acquiredTotal = courseBookingMap[course._id.toString()] || 0;
@@ -561,6 +563,8 @@ const getCoursesAdmin = async (req, res) => {
 
       // Calculate Duration
       let duration = null;
+
+
       if (course.schedules && course.schedules.length > 0) {
         const sched = course.schedules[0];
         if (sched.startTime && sched.endTime) {
@@ -572,9 +576,9 @@ const getCoursesAdmin = async (req, res) => {
           if (diffMins > 0) {
             const hours = Math.floor(diffMins / 60);
             const minutes = diffMins % 60;
-            if (hours > 0 && minutes > 0) duration = `${hours}H ${minutes}min`;
-            else if (hours > 0) duration = `${hours}H`;
-            else duration = `${minutes}min`;
+            if (hours > 0 && minutes > 0) duration = `${hours} H ${minutes} min`;
+            else if (hours > 0) duration = `${hours} H`;
+            else duration = `${minutes} min`;
           }
         }
       }
@@ -904,14 +908,18 @@ const getCourseDetails = async (req, res) => {
 
     // 7. Duration
     let duration = null;
+    let durationTranslation = null;
     if (currentSchedule?.startTime && currentSchedule?.endTime) {
       const [sh, sm] = currentSchedule.startTime.split(":").map(Number);
       const [eh, em] = currentSchedule.endTime.split(":").map(Number);
       let mins = eh * 60 + em - (sh * 60 + sm);
       if (mins < 0) mins += 1440;
-      const h = Math.floor(mins / 60);
-      const m = mins % 60;
-      duration = h ? (m ? `${h}H ${m}min` : `${h}H`) : `${m}min`;
+      if (mins > 0) {
+        const h = Math.floor(mins / 60);
+        const m = mins % 60;
+        duration = h ? (m ? `${h} H ${m} min` : `${h} H`) : `${m} min`;
+        durationTranslation = h ? (m ? `${h} Цаг ${m} мин` : `${h} Цаг`) : `${m} мин`;
+      }
     }
 
     // 8. Final Object Construction
@@ -921,6 +929,7 @@ const getCourseDetails = async (req, res) => {
       sessionStatus,
       isAvailable: !!currentSchedule,
       duration,
+      durationTranslation,
       acquiredSeats: totalAcquiredSeats,
       leftSeats: Math.max(0, course.totalSeats - totalAcquiredSeats),
       isBooked,
@@ -1028,9 +1037,9 @@ const getOrganizerCourses = async (req, res) => {
           if (diffMins > 0) {
             const hours = Math.floor(diffMins / 60);
             const minutes = diffMins % 60;
-            if (hours > 0 && minutes > 0) duration = `${hours}H ${minutes}min`;
-            else if (hours > 0) duration = `${hours}H`;
-            else duration = `${minutes}min`;
+            if (hours > 0 && minutes > 0) duration = `${hours} H ${minutes} min`;
+            else if (hours > 0) duration = `${hours} H`;
+            else duration = `${minutes} min`;
           }
         }
       }
