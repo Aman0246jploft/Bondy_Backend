@@ -388,14 +388,12 @@ const getEvents = async (req, res) => {
       if (customStartDate) {
         const sD = new Date(customStartDate);
         if (!isNaN(sD.getTime())) {
-          sD.setHours(0, 0, 0, 0);
           startDateConditions.push({ $gte: sD });
         }
       }
       if (customEndDate) {
         const eD = new Date(customEndDate);
         if (!isNaN(eD.getTime())) {
-          eD.setHours(23, 59, 59, 999);
           startDateConditions.push({ $lte: eD });
         }
       }
