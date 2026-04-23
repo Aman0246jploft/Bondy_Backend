@@ -384,18 +384,27 @@ const getEvents = async (req, res) => {
     }
 
     // Custom Date Range filter
+    // If query provides full ISO datetime, use exact value.
+    // If query provides date-only (YYYY-MM-DD), expand to full local day range.
     if (customStartDate || customEndDate) {
+      const hasExplicitTime = (value) =>
+        typeof value === "string" && value.includes("T");
+
       if (customStartDate) {
         const sD = new Date(customStartDate);
         if (!isNaN(sD.getTime())) {
-          sD.setHours(0, 0, 0, 0);
+          if (!hasExplicitTime(customStartDate)) {
+            sD.setHours(0, 0, 0, 0);
+          }
           startDateConditions.push({ $gte: sD });
         }
       }
       if (customEndDate) {
         const eD = new Date(customEndDate);
         if (!isNaN(eD.getTime())) {
-          eD.setHours(23, 59, 59, 999);
+          if (!hasExplicitTime(customEndDate)) {
+            eD.setHours(23, 59, 59, 999);
+          }
           query.endDate = { ...query.endDate, $lte: eD };
         }
       }
