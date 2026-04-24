@@ -8,14 +8,13 @@ const { notifyPromotionExpiry } = require("../routes/services/serviceNotificatio
 cron.schedule("0 * * * *", async () => {
   try {
     const now = new Date();
-    const inOneHour = new Date(now.getTime() + 60 * 60 * 1000);
-
+    
     // -------------------------------------------------------------
-    // process EVENT promotions expiring within the next 0-60 minutes
+    // process expired EVENT promotions
     // -------------------------------------------------------------
     const expiredEvents = await Event.find({
       isFeatured: true,
-      featuredExpiry: { $lte: inOneHour },
+      featuredExpiry: { $lt: now },
     });
 
     if (expiredEvents.length > 0) {
@@ -34,11 +33,11 @@ cron.schedule("0 * * * *", async () => {
     }
 
     // -------------------------------------------------------------
-    // process COURSE promotions expiring within the next 0-60 minutes
+    // process expired COURSE promotions
     // -------------------------------------------------------------
     const expiredCourses = await Course.find({
       isFeatured: true,
-      featuredExpiry: { $lte: inOneHour },
+      featuredExpiry: { $lt: now },
     });
 
     if (expiredCourses.length > 0) {
@@ -48,7 +47,7 @@ cron.schedule("0 * * * *", async () => {
         course.activePromotionPackage = null;
         await course.save();
 
-        await notifyPromotionExpiry(course.createdBy, "Course", course.courseTitle, course._id);
+        await notifyPromotionExpiry(course.createdBy, "Course", course.title, course._id);
 
         console.log(`[${now.toISOString()}] Expired promotion for Course ID: ${course._id}`);
       }
