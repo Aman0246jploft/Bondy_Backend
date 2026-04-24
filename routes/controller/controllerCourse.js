@@ -989,7 +989,7 @@ const getOrganizerCourses = async (req, res) => {
       {
         $group: {
           _id: "$courseId",
-          totalRevenue: { $sum: "$amount" },
+          totalRevenue: { $sum: "$totalAmount" },
           totalEnrollments: { $sum: 1 },
         },
       },
@@ -1057,11 +1057,17 @@ const getOrganizerCourses = async (req, res) => {
       };
     });
 
+    const grandTotalRevenue = formattedCourses.reduce(
+      (sum, c) => sum + (c.totalRevenue || 0),
+      0,
+    );
+
     return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.SUCCESS, {
       totalCourses,
       currentPage: Number(page),
       totalPages,
       coursesPerPage: Number(limit),
+      grandTotalRevenue,
       courses: formattedCourses,
     });
   } catch (error) {
