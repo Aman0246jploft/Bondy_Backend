@@ -8,13 +8,14 @@ const { notifyPromotionExpiry } = require("../routes/services/serviceNotificatio
 cron.schedule("0 * * * *", async () => {
   try {
     const now = new Date();
-    
+    const inOneHour = new Date(now.getTime() + 60 * 60 * 1000);
+
     // -------------------------------------------------------------
-    // process expired EVENT promotions
+    // process EVENT promotions expiring within the next 0-60 minutes
     // -------------------------------------------------------------
     const expiredEvents = await Event.find({
       isFeatured: true,
-      featuredExpiry: { $lt: now },
+      featuredExpiry: { $lte: inOneHour },
     });
 
     if (expiredEvents.length > 0) {
@@ -33,11 +34,11 @@ cron.schedule("0 * * * *", async () => {
     }
 
     // -------------------------------------------------------------
-    // process expired COURSE promotions
+    // process COURSE promotions expiring within the next 0-60 minutes
     // -------------------------------------------------------------
     const expiredCourses = await Course.find({
       isFeatured: true,
-      featuredExpiry: { $lt: now },
+      featuredExpiry: { $lte: inOneHour },
     });
 
     if (expiredCourses.length > 0) {
