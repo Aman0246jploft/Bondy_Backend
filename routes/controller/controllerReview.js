@@ -18,6 +18,7 @@ const {
   updateReviewSchema,
   getReviewsSchema,
   getOrganizerReviewsSchema,
+  getUserReviewsSchema,
 } = require("../services/validations/reviewValidation");
 const { notifyNewReview } = require("../services/serviceNotification");
 
@@ -297,6 +298,62 @@ const getOrganizerReviews = async (req, res) => {
   }
 };
 
+// Get Reviews By User
+const getUserReviews = async (req, res) => {
+  try {
+    const { userId: requestedUserId, page = 1, limit = 50 } = req.query;
+    const currentUserId = req.user.userId;
+    const userId =
+      req.user.role === roleId.SUPER_ADMIN && requestedUserId
+        ? requestedUserId
+        : currentUserId;
+    const skip = (page - 1) * limit;
+
+    const query = { userId };
+
+    const reviews = await Review.find(query)
+      .populate("userId", "firstName lastName profileImage isVerified")
+      .populate({
+        path: "entityId",
+        select: "eventTitle courseTitle posterImage",
+      })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit, 10))
+      .lean();
+
+    const formattedReviews = reviews.map((r) => ({
+      ...r,
+      userId: r.userId
+        ? {
+          ...r.userId,
+          profileImage: formatResponseUrl(r.userId.profileImage),
+        }
+        : null,
+      entityId: r.entityId
+        ? {
+          ...r.entityId,
+          posterImage: Array.isArray(r.entityId.posterImage)
+            ? r.entityId.posterImage.map((img) => formatResponseUrl(img))
+            : r.entityId.posterImage,
+        }
+        : null,
+    }));
+
+    const total = await Review.countDocuments(query);
+
+    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.REVIEWS_FETCHED, {
+      reviews: formattedReviews,
+      total,
+      page: parseInt(page, 10),
+      limit: parseInt(limit, 10),
+    });
+  } catch (error) {
+    console.error("Error fetching user reviews:", error);
+    return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
+  }
+};
+
 router.post(
   "/add",
   perApiLimiter(),
@@ -332,6 +389,14 @@ router.get(
   perApiLimiter(),
   validateRequest(getOrganizerReviewsSchema),
   getOrganizerReviews,
+);
+
+router.get(
+  "/user-list",
+  perApiLimiter(),
+  checkRole([roleId.CUSTOMER, roleId.ORGANIZER, roleId.SUPER_ADMIN]),
+  validateRequest(getUserReviewsSchema),
+  getUserReviews,
 );
 
 module.exports = router;

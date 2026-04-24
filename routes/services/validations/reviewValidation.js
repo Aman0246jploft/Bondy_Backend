@@ -25,9 +25,16 @@ const getOrganizerReviewsSchema = Joi.object({
     limit: Joi.number().integer().min(1).default(10),
 });
 
+const getUserReviewsSchema = Joi.object({
+    userId: Joi.string().hex().length(24),
+    page: Joi.number().integer().min(1).default(1),
+    limit: Joi.number().integer().min(1).default(50),
+});
+
 module.exports = {
     addReviewSchema,
     updateReviewSchema,
     getReviewsSchema,
     getOrganizerReviewsSchema,
+    getUserReviewsSchema,
 };
