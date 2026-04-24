@@ -47,7 +47,7 @@ cron.schedule("0 * * * *", async () => {
         course.activePromotionPackage = null;
         await course.save();
 
-        await notifyPromotionExpiry(course.createdBy, "Course", course.title, course._id);
+        await notifyPromotionExpiry(course.createdBy, "Course", course.courseTitle, course._id);
 
         console.log(`[${now.toISOString()}] Expired promotion for Course ID: ${course._id}`);
       }
