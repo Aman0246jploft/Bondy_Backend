@@ -38,7 +38,7 @@ const canSetFeatured = async (excludeCategoryId = null) => {
 // Create Category
 const createCategory = async (req, res) => {
   try {
-    const { name, type, image, name_thi } = req.body;
+    const { name, type, image, name_thi, posterImage } = req.body;
     const lowerCaseName = name.toLowerCase().trim();
     const lowerCaseType = type.toLowerCase().trim();
     const lowerCaseNameThi = name_thi ? name_thi.toLowerCase().trim() : null;
@@ -76,6 +76,7 @@ const createCategory = async (req, res) => {
       name: lowerCaseName,
       type: lowerCaseType,
       image: image || null,
+      posterImage: posterImage || null,
       name_thi: lowerCaseNameThi,
       featured: false,
     });
@@ -126,6 +127,7 @@ const getCategoryList = async (req, res) => {
     const formattedCategories = categories.map((cat) => ({
       ...cat,
       image: cat.image ? formatResponseUrl(cat.image) : null,
+      posterImage: cat.posterImage ? formatResponseUrl(cat.posterImage) : null,
     }));
 
     return apiSuccessRes(
@@ -150,7 +152,7 @@ const getCategoryList = async (req, res) => {
 const updateCategory = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, type, image, isDisable, name_thi } = req.body;
+    const { name, type, image, isDisable, name_thi, posterImage } = req.body;
 
     const category = await Category.findOne({ _id: id, isDeleted: false });
     if (!category) {
@@ -198,6 +200,9 @@ const updateCategory = async (req, res) => {
     }
     if (name_thi !== undefined) {
       category.name_thi = name_thi ? name_thi.toLowerCase().trim() : null;
+    }
+    if (posterImage !== undefined) {
+      category.posterImage = posterImage || null;
     }
     await category.save();
 
@@ -327,6 +332,7 @@ const getCategoryStats = async (req, res) => {
           image: cat.image ? formatResponseUrl(cat.image) : null,
           eventCount: count,
           featured: cat.featured,
+          posterImage: cat.posterImage ? formatResponseUrl(cat.posterImage) : null,
         };
       })
     );

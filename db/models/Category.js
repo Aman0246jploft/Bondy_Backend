@@ -28,6 +28,11 @@ const categorySchema = new mongoose.Schema(
       default: null,
     },
 
+    posterImage: {
+      type: String,
+      default: null,
+    },
+
     featured: {
       type: Boolean,
       default: false,
