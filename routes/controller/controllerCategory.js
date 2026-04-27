@@ -19,6 +19,22 @@ const {
   categoryListSchema,
 } = require("../services/validations/categoryValidation");
 
+const MAX_FEATURED_CATEGORIES = 4;
+
+const canSetFeatured = async (excludeCategoryId = null) => {
+  const query = {
+    isDeleted: false,
+    featured: true,
+  };
+
+  if (excludeCategoryId) {
+    query._id = { $ne: excludeCategoryId };
+  }
+
+  const featuredCount = await Category.countDocuments(query);
+  return featuredCount < MAX_FEATURED_CATEGORIES;
+};
+
 // Create Category
 const createCategory = async (req, res) => {
   try {
@@ -61,6 +77,7 @@ const createCategory = async (req, res) => {
       type: lowerCaseType,
       image: image || null,
       name_thi: lowerCaseNameThi,
+      featured: false,
     });
 
     await newCategory.save();
@@ -192,6 +209,50 @@ const updateCategory = async (req, res) => {
     );
   } catch (error) {
     console.error("Error in updateCategory:", error);
+    return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
+  }
+};
+
+// Toggle Category Featured
+const toggleCategoryFeatured = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const category = await Category.findOne({ _id: id, isDeleted: false });
+    if (!category) {
+      return apiErrorRes(
+        HTTP_STATUS.NOT_FOUND,
+        res,
+        constantsMessage.CATEGORY_NOT_FOUND,
+      );
+    }
+
+    const nextFeatured = !category.featured;
+    if (nextFeatured) {
+      const canFeature = await canSetFeatured(category._id);
+      if (!canFeature) {
+        return apiErrorRes(
+          HTTP_STATUS.BAD_REQUEST,
+          res,
+          constantsMessage.FEATURED_CATEGORY_LIMIT_REACHED,
+        );
+      }
+    }
+
+    category.featured = nextFeatured;
+    await category.save();
+
+    return apiSuccessRes(
+      HTTP_STATUS.OK,
+      res,
+      constantsMessage.CATEGORY_FEATURED_UPDATED,
+      {
+        categoryId: category._id,
+        featured: category.featured,
+      },
+    );
+  } catch (error) {
+    console.error("Error in toggleCategoryFeatured:", error);
     return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
   }
 };
@@ -337,6 +398,12 @@ router.post(
   validateRequest(updateCategorySchema),
   checkRole([roleId.SUPER_ADMIN]),
   updateCategory,
+);
+router.post(
+  "/toggle-featured/:id",
+  perApiLimiter(),
+  checkRole([roleId.SUPER_ADMIN]),
+  toggleCategoryFeatured,
 );
 router.delete(
   "/delete/:id",
