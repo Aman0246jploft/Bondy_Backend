@@ -308,6 +308,7 @@ const getCategoryStats = async (req, res) => {
       type: "event",
       isDeleted: false,
       isDisable: false,
+      featured: true,
     }).lean();
 
     // Calculate valid event count for each category
@@ -325,6 +326,7 @@ const getCategoryStats = async (req, res) => {
           name_thi: cat.name_thi,
           image: cat.image ? formatResponseUrl(cat.image) : null,
           eventCount: count,
+          featured: cat.featured,
         };
       })
     );
