@@ -32,6 +32,8 @@ const publicRoutes = [
   "/api/v1/category/list",
   "/api/v1/event/details/",
   "/api/v1/course/details/",
+    "/api/v1/category/stats",
+  
 
   "/api/v1/user/verify-otp",
   "/api/v1/user/resendOtp",
