@@ -28,6 +28,11 @@ const categorySchema = new mongoose.Schema(
       default: null,
     },
 
+    featured: {
+      type: Boolean,
+      default: false,
+    },
+
     // Soft delete
     isDeleted: {
       type: Boolean,

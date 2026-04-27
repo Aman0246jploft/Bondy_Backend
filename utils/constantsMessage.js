@@ -66,6 +66,8 @@ module.exports = Object.freeze({
   CATEGORY_NAME_DUPLICATE: "Category with this name already exists.",
   CATEGORY_UPDATED: "Category updated successfully.",
   CATEGORY_DELETED: "Category deleted successfully.",
+  CATEGORY_FEATURED_UPDATED: "Category featured status updated successfully.",
+  FEATURED_CATEGORY_LIMIT_REACHED: "Only 4 categories can be featured at a time.",
   PROFILE_UPDATED: "Profile updated successfully.",
   SUPER_ADMIN_UPDATE_NOT_ALLOWED:
     "Updating super admin profile is not allowed.",
