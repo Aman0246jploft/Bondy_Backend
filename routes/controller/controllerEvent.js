@@ -855,6 +855,59 @@ const getEvents = async (req, res) => {
   }
 };
 
+const getTopEvents = async (req, res) => {
+  try {
+    const now = new Date();
+    const rawLimit = parseInt(req.query.limit, 10);
+    const limit = Number.isNaN(rawLimit) ? 10 : Math.min(Math.max(rawLimit, 1), 20);
+
+    const query = {
+      addToSlider: true,
+      isDraft: false,
+      endDate: { $gte: now },
+    };
+
+    const events = await Event.find(query)
+      .sort({ fetcherEvent: -1, isFeatured: -1, startDate: 1, endDate: 1 })
+      .limit(limit)
+      .lean();
+
+    const formattedEvents = events.map((event) => {
+      const normalized = {
+        ...event,
+        status: now < new Date(event.startDate) ? "Upcoming" : "Live",
+      };
+      if (Array.isArray(normalized.posterImage)) {
+        normalized.posterImage = normalized.posterImage.map((img) =>
+          formatResponseUrl(img),
+        );
+      }
+      if (Array.isArray(normalized.shortTeaserVideo)) {
+        normalized.shortTeaserVideo = normalized.shortTeaserVideo.map((video) =>
+          formatResponseUrl(video),
+        );
+      }
+      if (Array.isArray(normalized.mediaLinks)) {
+        normalized.mediaLinks = normalized.mediaLinks.map((link) =>
+          formatResponseUrl(link),
+        );
+      }
+      return normalized;
+    });
+
+    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.EVENTS_FETCHED, {
+      events: formattedEvents,
+      total: formattedEvents.length,
+      totalPages: 1,
+      page: 1,
+      limit,
+    });
+  } catch (error) {
+    console.error("Error in getTopEvents:", error);
+    return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
+  }
+};
+
 // Admint Get Single Event Details
 const getEventDetails = async (req, res) => {
   try {
@@ -1843,6 +1896,8 @@ router.get(
   // validateRequest(getEventsSchema),
   getEvents,
 );
+
+router.get("/top/list", getTopEvents);
 
 // this is for the organizer Pannel
 router.get(
