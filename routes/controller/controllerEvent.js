@@ -1268,11 +1268,11 @@ const getEventsByOrganizer = async (req, res) => {
 // Admin List API
 const getEventsAdmin = async (req, res) => {
   try {
-    const { categoryId, search, page = 1, limit = 10 } = req.query;
+    const { categoryId, search, page = 1, limit = 10,  } = req.query;
 
     const skip = (page - 1) * limit;
     let query = {
-      isDraft: { $ne: true },
+      isDraft:false
     };
 
     // Apply category filter
