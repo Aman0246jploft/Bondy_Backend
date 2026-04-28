@@ -248,72 +248,54 @@ const getEvents = async (req, res) => {
       isDraft,
       timeOfDay,
       addToSlider,
+      city,
+      country,
+      north,
+      south,
+      east,
+      west,
       northEastLat,
       northEastLng,
       southWestLat,
       southWestLng,
     } = req.query;
 
-    const neLatNum = parseFloat(northEastLat);
-    const neLngNum = parseFloat(northEastLng);
-    const swLatNum = parseFloat(southWestLat);
-    const swLngNum = parseFloat(southWestLng);
-    const hasViewportBounds =
-      !Number.isNaN(neLatNum) &&
-      !Number.isNaN(neLngNum) &&
-      !Number.isNaN(swLatNum) &&
-      !Number.isNaN(swLngNum);
-    const crossesAntiMeridian = hasViewportBounds && swLngNum > neLngNum;
+    const normalizeLongitude = (lng) => {
+      if (Number.isNaN(lng)) return lng;
+      return ((((lng + 180) % 360) + 360) % 360) - 180;
+    };
 
-    const viewportMatchStage = hasViewportBounds
-      ? {
-          $match: {
-            $expr: {
-              $and: [
-                {
-                  $gte: [{ $arrayElemAt: ["$venueAddress.coordinates", 1] }, swLatNum],
-                },
-                {
-                  $lte: [{ $arrayElemAt: ["$venueAddress.coordinates", 1] }, neLatNum],
-                },
-                crossesAntiMeridian
-                  ? {
-                      $or: [
-                        {
-                          $gte: [
-                            { $arrayElemAt: ["$venueAddress.coordinates", 0] },
-                            swLngNum,
-                          ],
-                        },
-                        {
-                          $lte: [
-                            { $arrayElemAt: ["$venueAddress.coordinates", 0] },
-                            neLngNum,
-                          ],
-                        },
-                      ],
-                    }
-                  : {
-                      $and: [
-                        {
-                          $gte: [
-                            { $arrayElemAt: ["$venueAddress.coordinates", 0] },
-                            swLngNum,
-                          ],
-                        },
-                        {
-                          $lte: [
-                            { $arrayElemAt: ["$venueAddress.coordinates", 0] },
-                            neLngNum,
-                          ],
-                        },
-                      ],
-                    },
-              ],
-            },
-          },
-        }
-      : null;
+    const normalizedCity =
+      typeof city === "string" && city.trim() ? city.trim().toLowerCase() : "";
+    const normalizedCountry =
+      typeof country === "string" && country.trim()
+        ? country.trim().toLowerCase()
+        : "";
+    const parsedNorth = Number(north ?? northEastLat);
+    const parsedSouth = Number(south ?? southWestLat);
+    const parsedEast = normalizeLongitude(Number(east ?? northEastLng));
+    const parsedWest = normalizeLongitude(Number(west ?? southWestLng));
+    const hasBounds =
+      !Number.isNaN(parsedNorth) &&
+      !Number.isNaN(parsedSouth) &&
+      !Number.isNaN(parsedEast) &&
+      !Number.isNaN(parsedWest);
+    const parsedLatitude = Number(latitude);
+    const parsedLongitude = normalizeLongitude(Number(longitude));
+    const hasDirectGeoPoint =
+      !Number.isNaN(parsedLatitude) && !Number.isNaN(parsedLongitude);
+    const nearLatitude = hasDirectGeoPoint
+      ? parsedLatitude
+      : hasBounds
+        ? (parsedNorth + parsedSouth) / 2
+        : parsedLatitude;
+    const nearLongitude = hasDirectGeoPoint
+      ? parsedLongitude
+      : hasBounds
+        ? normalizeLongitude((parsedEast + parsedWest) / 2)
+        : parsedLongitude;
+    const hasGeoSearchPoint =
+      !Number.isNaN(nearLatitude) && !Number.isNaN(nearLongitude);
     const queryEntries = Object.entries(req.query || {}).filter(
       ([, value]) =>
         value !== undefined && value !== null && String(value).trim() !== "",
@@ -685,22 +667,42 @@ const getEvents = async (req, res) => {
     let totalCount = 0;
 
     // Execute query with Geo search if coords present
-    if (latitude && longitude) {
+    if (hasGeoSearchPoint) {
+      const parsedRadius = Number(radius);
+      const safeRadiusKm = Number.isNaN(parsedRadius)
+        ? 100
+        : Math.max(1, Math.min(parsedRadius, 500));
+      const geoQuery = { ...query };
+
+      // If map visible bounds are provided, restrict results to the exact visible box.
+      if (hasBounds) {
+        // For antimeridian-crossing boxes, skip box filter and rely on radius.
+        if (parsedWest <= parsedEast) {
+          geoQuery.venueAddress = {
+            $geoWithin: {
+              $box: [
+                [parsedWest, parsedSouth],
+                [parsedEast, parsedNorth],
+              ],
+            },
+          };
+        }
+      }
+
       // console.log(`[getEvents] Executing GeoNear Aggregate Query (Radius: ${radius}km)`);
       const geoAgg = await Event.aggregate([
         {
           $geoNear: {
             near: {
               type: "Point",
-              coordinates: [parseFloat(longitude), parseFloat(latitude)],
+              coordinates: [nearLongitude, nearLatitude],
             },
             distanceField: "distance",
-            maxDistance: radius * 1000,
+            maxDistance: safeRadiusKm * 1000,
             spherical: true,
-            query: query,
+            query: geoQuery,
           },
         },
-        ...(viewportMatchStage ? [viewportMatchStage] : []),
         {
           $lookup: {
             from: "PromotionPackage",
@@ -725,10 +727,50 @@ const getEvents = async (req, res) => {
                 0,
               ],
             },
+            cityMatch: {
+              $cond: [
+                {
+                  $and: [
+                    { $ne: [normalizedCity || null, null] },
+                    {
+                      $eq: [
+                        { $toLower: { $ifNull: ["$venueAddress.city", ""] } },
+                        normalizedCity,
+                      ],
+                    },
+                  ],
+                },
+                1,
+                0,
+              ],
+            },
+            countryMatch: {
+              $cond: [
+                {
+                  $and: [
+                    { $ne: [normalizedCountry || null, null] },
+                    {
+                      $eq: [
+                        {
+                          $toLower: {
+                            $ifNull: ["$venueAddress.country", ""],
+                          },
+                        },
+                        normalizedCountry,
+                      ],
+                    },
+                  ],
+                },
+                1,
+                0,
+              ],
+            },
           },
         },
         {
           $sort: {
+            cityMatch: -1,
+            countryMatch: -1,
             isPromoMatch: -1,
             fetcherEvent: -1,
             isFeatured: -1,
@@ -769,19 +811,130 @@ const getEvents = async (req, res) => {
           $geoNear: {
             near: {
               type: "Point",
-              coordinates: [parseFloat(longitude), parseFloat(latitude)],
+              coordinates: [nearLongitude, nearLatitude],
             },
             distanceField: "distance",
-            maxDistance: radius * 1000,
+            maxDistance: safeRadiusKm * 1000,
             spherical: true,
-            query: query,
+            query: geoQuery,
           },
         },
-        ...(viewportMatchStage ? [viewportMatchStage] : []),
         { $count: "total" },
       ]);
       events = geoAgg;
       totalCount = countAgg[0]?.total || 0;
+
+      // If visible area has no events, retry by expanding to 500km around coordinates.
+      if (events.length === 0 && safeRadiusKm < 500) {
+        const fallbackGeoQuery = { ...query };
+        delete fallbackGeoQuery.venueAddress;
+        const fallbackMaxDistance = 500 * 1000;
+
+        const fallbackAgg = await Event.aggregate([
+          {
+            $geoNear: {
+              near: {
+                type: "Point",
+                coordinates: [nearLongitude, nearLatitude],
+              },
+              distanceField: "distance",
+              maxDistance: fallbackMaxDistance,
+              spherical: true,
+              query: fallbackGeoQuery,
+            },
+          },
+          {
+            $lookup: {
+              from: "PromotionPackage",
+              localField: "activePromotionPackage",
+              foreignField: "_id",
+              as: "promoPkg",
+            },
+          },
+          { $unwind: { path: "$promoPkg", preserveNullAndEmptyArrays: true } },
+          {
+            $addFields: {
+              isPromoMatch: {
+                $cond: [
+                  {
+                    $and: [
+                      { $ne: [placement || null, null] },
+                      { $isArray: "$promoPkg.placements" },
+                      { $in: [placement, "$promoPkg.placements"] },
+                    ],
+                  },
+                  1,
+                  0,
+                ],
+              },
+            },
+          },
+          {
+            $sort: {
+              isPromoMatch: -1,
+              fetcherEvent: -1,
+              isFeatured: -1,
+              startDate: 1,
+              endDate: 1,
+              distance: 1,
+            },
+          },
+          { $skip: parseInt(skip) },
+          { $limit: parseInt(limit) },
+          {
+            $lookup: {
+              from: "categories",
+              localField: "eventCategory",
+              foreignField: "_id",
+              as: "eventCategory",
+            },
+          },
+          {
+            $unwind: {
+              path: "$eventCategory",
+              preserveNullAndEmptyArrays: true,
+            },
+          },
+          {
+            $lookup: {
+              from: "users",
+              localField: "createdBy",
+              foreignField: "_id",
+              pipeline: [
+                {
+                  $project: {
+                    firstName: 1,
+                    lastName: 1,
+                    profileImage: 1,
+                    isVerified: 1,
+                  },
+                },
+              ],
+              as: "createdBy",
+            },
+          },
+          { $unwind: { path: "$createdBy", preserveNullAndEmptyArrays: true } },
+        ]);
+
+        const fallbackCountAgg = await Event.aggregate([
+          {
+            $geoNear: {
+              near: {
+                type: "Point",
+                coordinates: [nearLongitude, nearLatitude],
+              },
+              distanceField: "distance",
+              maxDistance: fallbackMaxDistance,
+              spherical: true,
+              query: fallbackGeoQuery,
+            },
+          },
+          { $count: "total" },
+        ]);
+
+        events = fallbackAgg;
+        totalCount = fallbackCountAgg[0]?.total || 0;
+      }
     } else {
       // Regular query (with optional placement sorting)
       if (placement) {
