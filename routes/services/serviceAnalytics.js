@@ -458,29 +458,38 @@ async function getRevenueAnalytics({ filter, startDate, endDate, organizerId = n
   try {
     const now = new Date();
     let start = new Date();
+    let prevStart = new Date();
     let groupFormat = "%Y-%m-%d"; // Default grouping by day
 
     // 1. Determine Date Range & Grouping
     if (filter === "7d") {
       start.setDate(now.getDate() - 7);
+      prevStart.setDate(now.getDate() - 14);
     } else if (filter === "14d") {
       start.setDate(now.getDate() - 14);
+      prevStart.setDate(now.getDate() - 28);
     } else if (filter === "1m") {
       start.setMonth(now.getMonth() - 1);
+      prevStart.setMonth(now.getMonth() - 2);
     } else if (filter === "6m") {
       start.setMonth(now.getMonth() - 6);
+      prevStart.setMonth(now.getMonth() - 12);
       groupFormat = "%Y-%m"; // Group by month
     } else if (filter === "1y") {
       start.setFullYear(now.getFullYear() - 1);
+      prevStart.setFullYear(now.getFullYear() - 2);
       groupFormat = "%Y-%m"; // Group by month
     } else if (filter === "custom" && startDate && endDate) {
       start = new Date(startDate);
       const end = new Date(endDate);
-      const diffDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+      const diffMs = end - start;
+      prevStart = new Date(start.getTime() - diffMs);
+      const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
       if (diffDays > 60) groupFormat = "%Y-%m"; // Group by month if range > 60 days
     } else {
       // Default to 7 days if invalid filter
       start.setDate(now.getDate() - 7);
+      prevStart.setDate(now.getDate() - 14);
     }
 
     // 2. Perform Aggregation
@@ -592,6 +601,64 @@ async function getRevenueAnalytics({ filter, startDate, endDate, organizerId = n
     const totalGross = grossRevenueArr.reduce((a, b) => a + b, 0);
     const totalNet = netRevenueArr.reduce((a, b) => a + b, 0);
 
+    // 4. Calculate Growth
+    const prevPipeline = [
+      {
+        $match: {
+          status: "PAID",
+          createdAt: { $gte: prevStart, $lt: start },
+        },
+      },
+    ];
+
+    if (organizerId) {
+      const orgObjectId = new mongoose.Types.ObjectId(organizerId);
+      prevPipeline.push(
+        {
+          $lookup: {
+            from: "events",
+            localField: "eventId",
+            foreignField: "_id",
+            as: "eventInfo",
+          },
+        },
+        {
+          $lookup: {
+            from: "courses",
+            localField: "courseId",
+            foreignField: "_id",
+            as: "courseInfo",
+          },
+        },
+        {
+          $match: {
+            $or: [
+              { "eventInfo.createdBy": orgObjectId },
+              { "courseInfo.createdBy": orgObjectId },
+            ],
+          },
+        }
+      );
+    }
+
+    prevPipeline.push({
+      $group: {
+        _id: null,
+        grossRevenue: { $sum: "$totalAmount" },
+        netAdminRevenue: { $sum: "$commissionAmount" },
+        netOrganizerRevenue: { $sum: "$organizerEarning" },
+      },
+    });
+
+    const prevResults = await Transaction.aggregate(prevPipeline);
+    const prevData = prevResults[0] || { grossRevenue: 0, netAdminRevenue: 0, netOrganizerRevenue: 0 };
+    const prevNet = organizerId ? prevData.netOrganizerRevenue : prevData.netAdminRevenue;
+
+    const calculateGrowth = (current, previous) => {
+      if (previous === 0) return current > 0 ? 100 : 0;
+      return parseFloat((((current - previous) / previous) * 100).toFixed(2));
+    };
+
     return resultDb(SUCCESS, {
       labels,
       grossRevenue: grossRevenueArr,
@@ -599,6 +666,8 @@ async function getRevenueAnalytics({ filter, startDate, endDate, organizerId = n
       summary: {
         totalGross,
         totalNet,
+        grossGrowth: calculateGrowth(totalGross, prevData.grossRevenue),
+        netGrowth: calculateGrowth(totalNet, prevNet),
         currency: "₮", // Defaulting to ₮ as seen in current localization requirements
       },
     });
