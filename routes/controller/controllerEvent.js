@@ -248,7 +248,72 @@ const getEvents = async (req, res) => {
       isDraft,
       timeOfDay,
       addToSlider,
+      northEastLat,
+      northEastLng,
+      southWestLat,
+      southWestLng,
     } = req.query;
+
+    const neLatNum = parseFloat(northEastLat);
+    const neLngNum = parseFloat(northEastLng);
+    const swLatNum = parseFloat(southWestLat);
+    const swLngNum = parseFloat(southWestLng);
+    const hasViewportBounds =
+      !Number.isNaN(neLatNum) &&
+      !Number.isNaN(neLngNum) &&
+      !Number.isNaN(swLatNum) &&
+      !Number.isNaN(swLngNum);
+    const crossesAntiMeridian = hasViewportBounds && swLngNum > neLngNum;
+
+    const viewportMatchStage = hasViewportBounds
+      ? {
+          $match: {
+            $expr: {
+              $and: [
+                {
+                  $gte: [{ $arrayElemAt: ["$venueAddress.coordinates", 1] }, swLatNum],
+                },
+                {
+                  $lte: [{ $arrayElemAt: ["$venueAddress.coordinates", 1] }, neLatNum],
+                },
+                crossesAntiMeridian
+                  ? {
+                      $or: [
+                        {
+                          $gte: [
+                            { $arrayElemAt: ["$venueAddress.coordinates", 0] },
+                            swLngNum,
+                          ],
+                        },
+                        {
+                          $lte: [
+                            { $arrayElemAt: ["$venueAddress.coordinates", 0] },
+                            neLngNum,
+                          ],
+                        },
+                      ],
+                    }
+                  : {
+                      $and: [
+                        {
+                          $gte: [
+                            { $arrayElemAt: ["$venueAddress.coordinates", 0] },
+                            swLngNum,
+                          ],
+                        },
+                        {
+                          $lte: [
+                            { $arrayElemAt: ["$venueAddress.coordinates", 0] },
+                            neLngNum,
+                          ],
+                        },
+                      ],
+                    },
+              ],
+            },
+          },
+        }
+      : null;
     const queryEntries = Object.entries(req.query || {}).filter(
       ([, value]) =>
         value !== undefined && value !== null && String(value).trim() !== "",
@@ -635,6 +700,7 @@ const getEvents = async (req, res) => {
             query: query,
           },
         },
+        ...(viewportMatchStage ? [viewportMatchStage] : []),
         {
           $lookup: {
             from: "PromotionPackage",
@@ -711,6 +777,7 @@ const getEvents = async (req, res) => {
             query: query,
           },
         },
+        ...(viewportMatchStage ? [viewportMatchStage] : []),
         { $count: "total" },
       ]);
       events = geoAgg;
