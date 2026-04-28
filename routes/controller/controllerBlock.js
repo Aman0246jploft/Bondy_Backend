@@ -48,23 +48,23 @@ const blockUser = async (req, res) => {
       if (chat) {
         // Notify blocker
         const formattedForBlocker = formatChatForUser(chat, fromUser);
-        io.to(fromUser.toString()).emit("user_blocked", { 
-          targetUserId: toUser, 
-          chat: formattedForBlocker 
+        io.to(fromUser.toString()).emit("user_blocked", {
+          targetUserId: toUser,
+          chat: formattedForBlocker
         });
         io.to(fromUser.toString()).emit("update_chat_list", formattedForBlocker);
 
         // Notify blocked user
         const formattedForBlocked = formatChatForUser(chat, toUser);
-        io.to(toUser.toString()).emit("user_blocked", { 
-          blockerId: fromUser, 
-          chat: formattedForBlocked 
+        io.to(toUser.toString()).emit("user_blocked", {
+          blockerId: fromUser,
+          chat: formattedForBlocked
         });
         io.to(toUser.toString()).emit("update_chat_list", formattedForBlocked);
 
         // Notify the specific chat room
-        io.to(chat._id.toString()).emit("chat_blocked", { 
-          chatId: chat._id, 
+        io.to(chat._id.toString()).emit("chat_blocked", {
+          chatId: chat._id,
           blockedBy: fromUser,
           isBlocked: true
         });
@@ -122,23 +122,23 @@ const unblockUser = async (req, res) => {
       if (chat) {
         // Notify blocker
         const formattedForBlocker = formatChatForUser(chat, fromUser);
-        io.to(fromUser.toString()).emit("user_unblocked", { 
-          targetUserId: toUser, 
-          chat: formattedForBlocker 
+        io.to(fromUser.toString()).emit("user_unblocked", {
+          targetUserId: toUser,
+          chat: formattedForBlocker
         });
         io.to(fromUser.toString()).emit("update_chat_list", formattedForBlocker);
 
         // Notify previously blocked user
         const formattedForUnblocked = formatChatForUser(chat, toUser);
-        io.to(toUser.toString()).emit("user_unblocked", { 
-          unblockerId: fromUser, 
-          chat: formattedForUnblocked 
+        io.to(toUser.toString()).emit("user_unblocked", {
+          unblockerId: fromUser,
+          chat: formattedForUnblocked
         });
         io.to(toUser.toString()).emit("update_chat_list", formattedForUnblocked);
 
         // Notify the specific chat room
-        io.to(chat._id.toString()).emit("chat_unblocked", { 
-          chatId: chat._id, 
+        io.to(chat._id.toString()).emit("chat_unblocked", {
+          chatId: chat._id,
           unblockedBy: fromUser,
           isBlocked: false
         });

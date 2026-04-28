@@ -472,7 +472,6 @@ const getCourses = async (req, res) => {
         isBooked: bookedCourseIds.has(course._id.toString()),
       };
     });
-
     // Secondary sort: nearest schedule
     formattedCourses.sort((a, b) => {
       if (a.isFeatured !== b.isFeatured) return a.isFeatured ? -1 : 1;
