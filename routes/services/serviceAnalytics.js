@@ -587,7 +587,7 @@ async function getRevenueAnalytics({ filter, startDate, endDate, organizerId = n
         // For 7d, use day name, otherwise use short date string (DD/MM)
         const label = filter === "7d"
           ? current.toLocaleDateString("en-US", { weekday: "short" }).toUpperCase()
-          : `${current.getDate()}/${current.getMonth() + 1}`; 
+          : `${(current.getMonth() + 1).toString().padStart(2, '0')}.${current.getDate().toString().padStart(2, '0')}`;
         labels.push(label);
 
         const data = resultMap[key] || { grossRevenue: 0, netAdminRevenue: 0, netOrganizerRevenue: 0 };
