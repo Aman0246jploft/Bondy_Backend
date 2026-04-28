@@ -116,7 +116,7 @@ const getFollowers = async (req, res) => {
         "firstName lastName profileImage email isVerified roleId",
       )
       .skip(skip)
-      .limit(size) 
+      .limit(size)
       .lean();
 
     // Determine which followers the logged-in user is following
