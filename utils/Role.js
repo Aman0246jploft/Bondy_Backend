@@ -13,7 +13,31 @@ const userRole = {
     4: "GUEST"
 }
 
+const visibility = {
+    PUBLIC: "PUBLIC",
+    PRIVATE: "PRIVATE",
+}
+
+// const ageRestriction = {
+//     ALL: "All Ages",
+//     MIN_18: "18+",
+// }
+
+const ageOptions = [
+    { label: "All_Ages", value: "All Ages" },
+    { label: "18P", value: "18+" },
+    { label: "21P", value: "21+" },
+]
+const refundPolicyType = {
+    EVENT: "event",
+    COURSE: "course",
+    BOTH: "both",
+}
+
 module.exports = {
     roleId,
-    userRole
+    userRole,
+    visibility,
+    refundPolicyType,
+    ageOptions
 }

@@ -293,4 +293,12 @@ module.exports = Object.freeze({
   INVALID_TOKEN_SCOPE: "Invalid token scope.",
   EVENT_ATTENDEES_FETCHED: "Event attendees fetched",
   STATS_FETCHED: "Stats fetched successfully",
+  REFUND_POLICY_CREATED: "Refund policy created successfully.",
+  REFUND_POLICY_UPDATED: "Refund policy updated successfully.",
+  REFUND_POLICY_DELETED: "Refund policy deleted successfully.",
+  REFUND_POLICY_NOT_FOUND: "Refund policy not found.",
+  REFUND_POLICY_FORBIDDEN: "You are not authorized to manage this refund policy.",
+  REFUND_POLICIES_FETCHED: "Refund policies fetched successfully.",
+  REFUND_POLICY_INVALID_TYPE_EVENT: "Cannot assign a course-only refund policy to an event.",
+  REFUND_POLICY_INVALID_TYPE_COURSE: "Cannot assign an event-only refund policy to a course.",
 });

@@ -56,6 +56,48 @@ mongoose
         { upsert: true, new: true }
       );
       console.log("✅ Default global settings seeded");
+
+      // // Seed default refund policies
+      // const RefundPolicy = require("./models/RefundPolicy");
+      // const defaultPolicies = [
+      //   {
+      //     name: "No refunds",
+      //     description: "No refunds allowed at any time.",
+      //     refundPercentage: 0,
+      //     daysBefore: 0,
+      //     isGlobal: true,
+      //   },
+      //   {
+      //     name: "Full refund up to 7 days before start",
+      //     description: "100% refund is allowed up to 7 days before the event or course starts.",
+      //     refundPercentage: 100,
+      //     daysBefore: 7,
+      //     isGlobal: true,
+      //   },
+      //   {
+      //     name: "Full refund up to 3 days before start",
+      //     description: "100% refund is allowed up to 3 days before the event or course starts.",
+      //     refundPercentage: 100,
+      //     daysBefore: 3,
+      //     isGlobal: true,
+      //   },
+      //   {
+      //     name: "50% refund up to 3 days before start",
+      //     description: "50% refund is allowed up to 3 days before the event or course starts.",
+      //     refundPercentage: 50,
+      //     daysBefore: 3,
+      //     isGlobal: true,
+      //   },
+      // ];
+
+      // for (const policy of defaultPolicies) {
+      //   await RefundPolicy.findOneAndUpdate(
+      //     { name: policy.name, isGlobal: true },
+      //     { $setOnInsert: policy },
+      //     { upsert: true, new: true }
+      //   );
+      // }
+      // console.log("✅ Default refund policies seeded");
     } catch (seedErr) {
       console.error("Seed error:", seedErr.message);
     }
@@ -92,4 +134,5 @@ module.exports = {
   Referral: require("./models/Referral"),
   Bug: require("./models/Bug"),
   StayUpdated: require("./models/StayUpdated"),
+  RefundPolicy: require("./models/RefundPolicy"),
 };

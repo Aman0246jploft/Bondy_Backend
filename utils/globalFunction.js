@@ -99,6 +99,48 @@ const formatResponseUrl = (url) => {
 
   return `${process.env.BACKEND_URL}/${url.replace(/^\/+/, "")}`;
 };
+
+/**
+ * Combines a date input (Date object or ISO date string) and a time input (24-hour "HH:MM" format string)
+ * into a single unified JavaScript Date object in standard UTC format. This ensures absolute precision
+ * and timezone-agnostic dates globally.
+ *
+ * @param {Date|string} dateInput - The date portion (e.g. a Date object, "2026-05-19" or "2026-05-19T00:00:00.000Z")
+ * @param {string} timeInput - The time portion in 24-hour format (e.g. "18:30" or "09:00")
+ * @returns {Date|null} A standard JavaScript Date object containing both date and time in UTC, or null if the date is invalid.
+ *
+ * @example
+ * // Input: Date("2026-05-19"), Time("18:30")
+ * // Output: Date("2026-05-19T18:30:00.000Z")
+ */
+const combineDateAndTime = (dateInput, timeInput) => {
+  if (!dateInput) return null;
+
+  // Convert incoming date input to standard Date object
+  const dateObj = new Date(dateInput);
+  if (isNaN(dateObj.getTime())) return null;
+
+  let hours = 0;
+  let minutes = 0;
+
+  // Extract hours and minutes from "HH:MM" format
+  if (timeInput && typeof timeInput === "string") {
+    const timeMatch = timeInput.trim().match(/^([01]?\d|2[0-3]):([0-5]\d)$/);
+    if (timeMatch) {
+      hours = parseInt(timeMatch[1], 10);
+      minutes = parseInt(timeMatch[2], 10);
+    }
+  }
+
+  // Retrieve Year, Month, and Date in UTC to avoid local server timezone offsets
+  const utcYear = dateObj.getUTCFullYear();
+  const utcMonth = dateObj.getUTCMonth();
+  const utcDate = dateObj.getUTCDate();
+
+  // Return a new combined Date object fully resolved in UTC
+  return new Date(Date.UTC(utcYear, utcMonth, utcDate, hours, minutes, 0, 0));
+};
+
 module.exports = {
   resultDb,
   generateOTP,
@@ -109,4 +151,6 @@ module.exports = {
   toObjectId,
   BACKEND_URL,
   formatResponseUrl,
+  combineDateAndTime,
 };
+

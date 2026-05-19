@@ -30,15 +30,45 @@ const {
 const validateRequest = require("../../middlewares/validateRequest");
 const perApiLimiter = require("../../middlewares/rateLimiter");
 const checkRole = require("../../middlewares/checkRole");
-const { roleId, userRole } = require("../../utils/Role");
+const { roleId, userRole, refundPolicyType } = require("../../utils/Role");
 const { notifyEventChange } = require("../services/serviceNotification");
 const jwt = require("jsonwebtoken");
-
+const { RefundPolicy } = require("../../db");
 // Create Event
 const createEvent = async (req, res) => {
   try {
     const { id, venueAddress, isDraft: isDraftBody, ...eventData } = req.body;
     const userId = req.user.userId;
+
+    // Validate refund policy if provided
+    if (eventData.refundPolicy) {
+
+      const policy = await RefundPolicy.findOne({ _id: eventData.refundPolicy, isDeleted: false });
+      if (!policy) {
+        return apiErrorRes(
+          HTTP_STATUS.NOT_FOUND,
+          res,
+          constantsMessage.REFUND_POLICY_NOT_FOUND,
+        );
+      }
+      if (policy.type === refundPolicyType.COURSE) {
+        return apiErrorRes(
+          HTTP_STATUS.BAD_REQUEST,
+          res,
+          constantsMessage.REFUND_POLICY_INVALID_TYPE_EVENT,
+        );
+      }
+      if (
+        req.user.role !== roleId.SUPER_ADMIN &&
+        policy.createdBy?.toString() !== userId
+      ) {
+        return apiErrorRes(
+          HTTP_STATUS.FORBIDDEN,
+          res,
+          constantsMessage.REFUND_POLICY_FORBIDDEN,
+        );
+      }
+    }
 
     let event;
     let isDraftValue = isDraftBody === true;
@@ -57,6 +87,8 @@ const createEvent = async (req, res) => {
       if (venueAddress.city) location.city = venueAddress.city;
       if (venueAddress.country) location.country = venueAddress.country;
       if (venueAddress.address) location.address = venueAddress.address;
+      if (venueAddress.state) location.state = venueAddress.state;
+      if (venueAddress.zipcode) location.zipcode = venueAddress.zipcode;
 
       if (Object.keys(location).length === 0) location = undefined;
     }
@@ -115,6 +147,10 @@ const createEvent = async (req, res) => {
           event.venueAddress.country = venueAddress.country;
         if (venueAddress.address !== undefined)
           event.venueAddress.address = venueAddress.address;
+        if (venueAddress.state !== undefined)
+          event.venueAddress.state = venueAddress.state;
+        if (venueAddress.zipcode !== undefined)
+          event.venueAddress.zipcode = venueAddress.zipcode;
       }
 
       if (req.body.venueName !== undefined)
@@ -333,7 +369,7 @@ const getEvents = async (req, res) => {
           const token = authHeader.split(" ")[1];
           const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY);
           viewerId = decoded.userId;
-        } catch (err) {}
+        } catch (err) { }
       }
 
       const bookedEventIds = new Set();
@@ -547,7 +583,7 @@ const getEvents = async (req, res) => {
               const user = await User.findById(decoded.userId).lean();
               if (user?.categories?.length > 0)
                 userCategories = user.categories;
-            } catch (err) {}
+            } catch (err) { }
           }
           if (userCategories.length > 0) {
             query.eventCategory = {
@@ -638,7 +674,7 @@ const getEvents = async (req, res) => {
           const user = await User.findById(decoded.userId).lean();
           city = user?.location?.city || null;
           country = user?.location?.country || null;
-        } catch (err) {}
+        } catch (err) { }
       }
       if (city) {
         query["venueAddress.city"] = city;
@@ -1044,7 +1080,7 @@ const getEvents = async (req, res) => {
         const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY);
         viewerId = decoded.userId;
         // console.log(`[getEvents] Viewer ID: ${viewerId}`);
-      } catch (err) {}
+      } catch (err) { }
     }
 
     const bookedEventIds = new Set();
@@ -1136,6 +1172,7 @@ const getEventDetails = async (req, res) => {
     // 1. Fetch Event with populated fields
     const event = await Event.findById(eventId)
       .populate("eventCategory")
+      .populate("refundPolicy")
       .populate("createdBy", "firstName lastName profileImage isVerified")
       .lean();
 
@@ -1174,7 +1211,7 @@ const getEventDetails = async (req, res) => {
           status: "PAID",
         });
         if (booking) isBooked = true;
-      } catch (err) {}
+      } catch (err) { }
     }
     event.isBooked = isBooked;
 
@@ -1192,7 +1229,7 @@ const getEventDetails = async (req, res) => {
           entityModel: "Event",
         });
         if (wishlistItem) isWishlisted = true;
-      } catch (err) {}
+      } catch (err) { }
     }
     event.isWishlisted = isWishlisted;
 
@@ -1218,7 +1255,7 @@ const getEventDetails = async (req, res) => {
     // Calculate Duration
     let duration = null;
     let durationTranslation = null;
-    
+
     if (event.startDate && event.endDate) {
       const start = new Date(event.startDate);
       const end = new Date(event.endDate);
@@ -1311,9 +1348,9 @@ const getEventDetails = async (req, res) => {
       ...r,
       user: r.userId
         ? {
-            ...r.userId,
-            profileImage: formatResponseUrl(r.userId.profileImage),
-          }
+          ...r.userId,
+          profileImage: formatResponseUrl(r.userId.profileImage),
+        }
         : null,
     }));
 
@@ -1321,9 +1358,9 @@ const getEventDetails = async (req, res) => {
       ...c,
       user: c.user
         ? {
-            ...c.user,
-            profileImage: formatResponseUrl(c.user.profileImage),
-          }
+          ...c.user,
+          profileImage: formatResponseUrl(c.user.profileImage),
+        }
         : null,
     }));
 
@@ -1488,11 +1525,11 @@ const getEventsByOrganizer = async (req, res) => {
 // Admin List API
 const getEventsAdmin = async (req, res) => {
   try {
-    const { categoryId, search, page = 1, limit = 10,  } = req.query;
+    const { categoryId, search, page = 1, limit = 10, } = req.query;
 
     const skip = (page - 1) * limit;
     let query = {
-      isDraft:false
+      isDraft: false
     };
 
     // Apply category filter
@@ -1776,7 +1813,7 @@ const updateEvent = async (req, res) => {
         HTTP_STATUS.FORBIDDEN,
         res,
         constantsMessage.UNAUTHORIZED_ACCESS ||
-          "You are not authorized to edit this event",
+        "You are not authorized to edit this event",
       );
     }
 
@@ -1787,7 +1824,7 @@ const updateEvent = async (req, res) => {
         HTTP_STATUS.BAD_REQUEST,
         res,
         constantsMessage.CANNOT_EDIT_PAST_EVENT ||
-          "Cannot edit an event that has already ended",
+        "Cannot edit an event that has already ended",
       );
     }
 
@@ -1804,7 +1841,7 @@ const updateEvent = async (req, res) => {
         HTTP_STATUS.BAD_REQUEST,
         res,
         constantsMessage.INVALID_DATE_RANGE ||
-          "Start date must be before end date",
+        "Start date must be before end date",
       );
     }
 
@@ -1814,7 +1851,7 @@ const updateEvent = async (req, res) => {
         HTTP_STATUS.BAD_REQUEST,
         res,
         constantsMessage.CANNOT_SET_PAST_END_DATE ||
-          "Cannot set end date in the past",
+        "Cannot set end date in the past",
       );
     }
 
@@ -1844,7 +1881,7 @@ const updateEvent = async (req, res) => {
           HTTP_STATUS.BAD_REQUEST,
           res,
           constantsMessage.CANNOT_REDUCE_TICKETS ||
-            `Cannot reduce total tickets below ${soldTickets} (already sold)`,
+          `Cannot reduce total tickets below ${soldTickets} (already sold)`,
         );
       }
 
@@ -1854,7 +1891,7 @@ const updateEvent = async (req, res) => {
           HTTP_STATUS.BAD_REQUEST,
           res,
           constantsMessage.INVALID_TICKET_QTY ||
-            "Available tickets cannot exceed total tickets",
+          "Available tickets cannot exceed total tickets",
         );
       }
     }
@@ -1878,7 +1915,7 @@ const updateEvent = async (req, res) => {
           HTTP_STATUS.BAD_REQUEST,
           res,
           constantsMessage.INVALID_SALES_DATE_RANGE ||
-            "Ticket sales start date must be before end date",
+          "Ticket sales start date must be before end date",
         );
       }
 
@@ -1888,7 +1925,7 @@ const updateEvent = async (req, res) => {
           HTTP_STATUS.BAD_REQUEST,
           res,
           constantsMessage.SALES_END_AFTER_EVENT_START ||
-            "Ticket sales should end before event starts",
+          "Ticket sales should end before event starts",
         );
       }
     }
@@ -1902,7 +1939,7 @@ const updateEvent = async (req, res) => {
           HTTP_STATUS.BAD_REQUEST,
           res,
           constantsMessage.INVALID_AGE_RESTRICTION ||
-            "Minimum age must be specified and non-negative for MIN_AGE type",
+          "Minimum age must be specified and non-negative for MIN_AGE type",
         );
       }
 
@@ -1917,7 +1954,7 @@ const updateEvent = async (req, res) => {
             HTTP_STATUS.BAD_REQUEST,
             res,
             constantsMessage.INVALID_AGE_RESTRICTION ||
-              "Both minimum and maximum age must be specified and non-negative for RANGE type",
+            "Both minimum and maximum age must be specified and non-negative for RANGE type",
           );
         }
         if (minAge >= maxAge) {
@@ -1925,7 +1962,7 @@ const updateEvent = async (req, res) => {
             HTTP_STATUS.BAD_REQUEST,
             res,
             constantsMessage.INVALID_AGE_RESTRICTION ||
-              "Minimum age must be less than maximum age",
+            "Minimum age must be less than maximum age",
           );
         }
       }
@@ -2055,7 +2092,7 @@ const updateEvent = async (req, res) => {
     if (
       updateData.venueAddress &&
       JSON.stringify(updateObject.venueAddress) !==
-        JSON.stringify(existingEvent.venueAddress)
+      JSON.stringify(existingEvent.venueAddress)
     ) {
       majorChanges.push("location");
     }

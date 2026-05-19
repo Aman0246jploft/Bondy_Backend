@@ -43,6 +43,8 @@ const createEventSchema = Joi.object({
             then: Joi.optional(),
             otherwise: Joi.allow(null,""),
         }),
+        state: Joi.string().optional().allow(null, ""),
+        zipcode: Joi.string().optional().allow(null, ""),
     }).when(Joi.object({ isDraft: true, id: Joi.not().exist() }).unknown(), {
         then: Joi.optional(),
         otherwise: Joi.allow(null,""),
@@ -144,6 +146,8 @@ const updateEventSchema = Joi.object({
         address: Joi.string().required().messages({
             'any.required': 'Address is required',
         }),
+        state: Joi.string().optional().allow(null, ""),
+        zipcode: Joi.string().optional().allow(null, ""),
     }).optional(),
     startDate: Joi.date().optional(),
     endDate: Joi.date().optional(),

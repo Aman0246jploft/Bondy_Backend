@@ -43,6 +43,7 @@ const createCourseSchema = Joi.object({
     enrollmentType: Joi.string()
         .valid("Ongoing", "fixedStart")
         .default("Ongoing"),
+    refundPolicy: Joi.string().hex().length(24).allow(null, '').optional(),
     schedules: Joi.array().items(scheduleSchema).min(1).required()
         .when('enrollmentType', {
             is: 'fixedStart',
@@ -134,6 +135,7 @@ const updateCourseSchema = Joi.object({
         'number.max': 'Total seats cannot exceed 99,999,999',
     }),
     enrollmentType: Joi.string().valid("Ongoing", "fixedStart").optional(),
+    refundPolicy: Joi.string().hex().length(24).allow(null, '').optional(),
     schedules: Joi.array().items(updateScheduleSchema).min(1).optional(),
 }).min(1); // At least one field must be provided
 

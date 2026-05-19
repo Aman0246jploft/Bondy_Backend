@@ -98,6 +98,13 @@ const courseSchema = new mongoose.Schema(
       },
     },
 
+    refundPolicy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "RefundPolicy",
+      default: null,
+      index: true,
+    },
+
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",

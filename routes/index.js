@@ -31,6 +31,7 @@ module.exports = {
   referral: require("./controller/controllerReferral"),
   bug: require("./controller/controllerBug"),
   stayUpdated: require("./controller/controllerStayUpdated"),
+  "refund-policy": require("./controller/controllerRefundPolicy"),
 };
 
 

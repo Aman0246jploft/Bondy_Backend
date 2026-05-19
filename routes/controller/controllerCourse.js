@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const { Course, Transaction, User, Wishlist } = require("../../db");
+const { Course, Transaction, User, Wishlist, RefundPolicy } = require("../../db");
 const constantsMessage = require("../../utils/constantsMessage");
 const HTTP_STATUS = require("../../utils/statusCode");
 const {
@@ -20,10 +20,39 @@ const checkRole = require("../../middlewares/checkRole");
 const { roleId } = require("../../utils/Role");
 const { notifyCourseChange } = require("../services/serviceNotification");
 
-// Create Course
 const createCourse = async (req, res) => {
   try {
     const { venueAddress, ...courseData } = req.body;
+
+    // Validate refund policy if provided
+    if (courseData.refundPolicy) {
+      const policy = await RefundPolicy.findOne({ _id: courseData.refundPolicy, isDeleted: false });
+      if (!policy) {
+        return apiErrorRes(
+          HTTP_STATUS.NOT_FOUND,
+          res,
+          constantsMessage.REFUND_POLICY_NOT_FOUND
+        );
+      }
+      if (policy.type === "event") {
+        return apiErrorRes(
+          HTTP_STATUS.BAD_REQUEST,
+          res,
+          constantsMessage.REFUND_POLICY_INVALID_TYPE_COURSE
+        );
+      }
+      if (
+        req.user.role !== roleId.SUPER_ADMIN &&
+        !policy.isGlobal &&
+        policy.createdBy?.toString() !== req.user.userId
+      ) {
+        return apiErrorRes(
+          HTTP_STATUS.FORBIDDEN,
+          res,
+          constantsMessage.REFUND_POLICY_FORBIDDEN
+        );
+      }
+    }
 
     // Transform venueAddress to GeoJSON Point
     const location = {
@@ -631,6 +660,36 @@ const updateCourse = async (req, res) => {
       );
     }
 
+    // Validate refund policy if provided in update
+    if (updateData.refundPolicy) {
+      const policy = await RefundPolicy.findOne({ _id: updateData.refundPolicy, isDeleted: false });
+      if (!policy) {
+        return apiErrorRes(
+          HTTP_STATUS.NOT_FOUND,
+          res,
+          constantsMessage.REFUND_POLICY_NOT_FOUND
+        );
+      }
+      if (policy.type === "event") {
+        return apiErrorRes(
+          HTTP_STATUS.BAD_REQUEST,
+          res,
+          constantsMessage.REFUND_POLICY_INVALID_TYPE_COURSE
+        );
+      }
+      if (
+        req.user.role !== roleId.SUPER_ADMIN &&
+        !policy.isGlobal &&
+        policy.createdBy?.toString() !== userId
+      ) {
+        return apiErrorRes(
+          HTTP_STATUS.FORBIDDEN,
+          res,
+          constantsMessage.REFUND_POLICY_FORBIDDEN
+        );
+      }
+    }
+
     // 3. Handle totalSeats update safely
     if (updateData.totalSeats !== undefined) {
       // Count total enrolled students across all schedules
@@ -771,6 +830,7 @@ const getCourseDetails = async (req, res) => {
     // 1. Fetch Course
     const course = await Course.findById(courseId)
       .populate("courseCategory")
+      .populate("refundPolicy")
       .populate("createdBy", "firstName lastName profileImage  isVerified")
       .lean();
 
