@@ -1164,7 +1164,7 @@ const getUserProfileById = async (req, res) => {
       isAllVerified: user.isAllVerified,
       isMyProfile: isMyProfile,
       createdAt: user.createdAt,
-      verifications: user.verifications || {},
+      verifications: { email: user.verifications.email, phone: user.verifications.phone, idVerification: user.verifications.idVerification, bankVerification: user.verifications.bankVerification } || {},
       totalFollowers: 0, // Default to 0, overwritten below
       totalFollowing: 0, // Default to 0, overwritten below
     };
