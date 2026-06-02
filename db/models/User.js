@@ -100,25 +100,77 @@ const UserSchema = new Schema(
       type: Boolean,
       default: false,
     },
-    documents: {
-      type: [
-        {
-          name: {
-            type: String,
-            enum: ["Business Proof", "Gov ID"],
-            default: null,
-          }, // Document name/title
-          file: { type: String, default: null }, // the document URL or filename
+    verifications: {
+      phone: {
+        isVerified: { type: Boolean, default: false },
+        verifiedAt: { type: Date, default: null },
+      },
+      email: {
+        isVerified: { type: Boolean, default: false },
+        verifiedAt: { type: Date, default: null },
+      },
+      idVerification: {
+        nationalId: {
+          frontImage: { type: String, default: null },
+          backImage: { type: String, default: null },
+          isVerified: { type: Boolean, default: false },
+          rejectionReason: { type: String, default: null },
+          verifiedAt: { type: Date, default: null },
           status: {
-            // approval status
             type: String,
-            enum: ["pending", "approved", "rejected"],
-            default: "pending",
+            enum: ["unverified", "pending", "approved", "rejected"],
+            default: "unverified",
           },
-          reason: { type: String, default: null }, // reason for rejection
         },
-      ],
-      default: [], // empty array if no documents
+        drivingLicence: {
+          frontImage: { type: String, default: null },
+          backImage: { type: String, default: null },
+          isVerified: { type: Boolean, default: false },
+          rejectionReason: { type: String, default: null },
+          verifiedAt: { type: Date, default: null },
+          status: {
+            type: String,
+            enum: ["unverified", "pending", "approved", "rejected"],
+            default: "unverified",
+          },
+        },
+      },
+      bankVerification: {
+        bankName: { type: String, default: null },
+        bankHolderName: { type: String, default: null },
+        accountNumber: { type: String, default: null },
+        otherDetails: { type: String, default: null },
+        isVerified: { type: Boolean, default: false },
+        rejectionReason: { type: String, default: null },
+        verifiedAt: { type: Date, default: null },
+        status: {
+          type: String,
+          enum: ["unverified", "pending", "approved", "rejected"],
+          default: "unverified",
+        },
+      },
+      history: {
+        type: [
+          {
+            type: {
+              type: String,
+              enum: ["nationalId", "drivingLicence", "bankVerification"],
+              required: true,
+            },
+            frontImage: { type: String, default: null },
+            backImage: { type: String, default: null },
+            bankName: { type: String, default: null },
+            bankHolderName: { type: String, default: null },
+            accountNumber: { type: String, default: null },
+            otherDetails: { type: String, default: null },
+            status: { type: String, required: true },
+            rejectionReason: { type: String, default: null },
+            actionBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+            createdAt: { type: Date, default: Date.now },
+          },
+        ],
+        default: [],
+      },
     },
 
     isVerified: {
@@ -213,12 +265,46 @@ const UserSchema = new Schema(
 UserSchema.index({ location: "2dsphere" }, { sparse: true });
 
 UserSchema.pre("save", function (next) {
-  // If role is CUSTOMER, auto-approve organizerVerificationStatus
+  this.wasNew = this.isNew;
+
+  // If role is CUSTOMER, auto-approve organizerVerificationStatus and set isVerified to true
   if (this.roleId === roleId.CUSTOMER) {
     this.organizerVerificationStatus = "approved";
+    this.isVerified = true;
+  }
+  else if (this.roleId === roleId.ORGANIZER) {
+    // isVerified is strictly dependent ONLY on ID verification approval (nationalId or drivingLicence)
+    const isIdApproved = (this.verifications?.idVerification?.nationalId?.isVerified || false) ||
+      (this.verifications?.idVerification?.drivingLicence?.isVerified || false);
+
+
+    // Keep organizerVerificationStatus in sync
+    const nationalIdStatus = this.verifications?.idVerification?.nationalId?.status || "unverified";
+    const drivingLicenceStatus = this.verifications?.idVerification?.drivingLicence?.status || "unverified";
+    const bankStatus = this.verifications?.bankVerification?.status || "unverified";
+
+    if (
+      (nationalIdStatus === "approved" || drivingLicenceStatus === "approved") &&
+      bankStatus === "approved"
+    ) {
+      this.organizerVerificationStatus = "approved";
+    } else if (
+      nationalIdStatus === "pending" ||
+      drivingLicenceStatus === "pending" ||
+      bankStatus === "pending"
+    ) {
+      this.organizerVerificationStatus = "pending";
+    } else if (
+      nationalIdStatus === "rejected" ||
+      drivingLicenceStatus === "rejected" ||
+      bankStatus === "rejected"
+    ) {
+      this.organizerVerificationStatus = "rejected";
+    } else {
+      this.organizerVerificationStatus = "unverified";
+    }
   }
 
-  this.wasNew = this.isNew;
   next();
 });
 
@@ -233,74 +319,6 @@ UserSchema.pre("save", async function (next) {
   } catch (err) {
     next(err);
   }
-});
-function getLatestDocsByName(documents) {
-  const map = new Map();
-
-  for (const doc of documents) {
-    // override older ones with newer ones
-    map.set(doc.name, doc);
-  }
-
-  return Array.from(map.values());
-}
-
-// UserSchema.pre("save", function (next) {
-//   const REQUIRED_DOCS = ["Business Proof", "Gov ID"];
-
-//   const latestDocs = getLatestDocsByName(this.documents);
-
-//   const approvedDocs = latestDocs.filter((doc) => doc.status === "approved");
-
-//   const approvedNames = approvedDocs.map((d) => d.name);
-
-//   const isVerified = REQUIRED_DOCS.every((docName) =>
-//     approvedNames.includes(docName),
-//   );
-
-//   this.isVerified = isVerified;
-
-//   // keep organizerVerificationStatus in sync
-//   if (isVerified) {
-//     this.organizerVerificationStatus = "approved";
-//   } else if (latestDocs.some((d) => d.status === "rejected")) {
-//     this.organizerVerificationStatus = "rejected";
-//   } else if (latestDocs.length) {
-//     this.organizerVerificationStatus = "pending";
-//   } else {
-//     this.organizerVerificationStatus = "unverified";
-//   }
-
-//   next();
-// });
-
-UserSchema.pre("save", function (next) {
-  const latestDocs = getLatestDocsByName(this.documents);
-
-  const businessProof = latestDocs.find((doc) => doc.name === "Business Proof");
-
-  const govId = latestDocs.find((doc) => doc.name === "Gov ID");
-
-  const isBusinessApproved = businessProof?.status === "approved";
-  const isGovApproved = govId?.status === "approved";
-
-  // ✅ isVerified = true if ANY one is approved (Once true, it stays true forever)
-  if (this.isVerified || isBusinessApproved || isGovApproved) {
-    this.isVerified = true;
-  }
-
-  // ✅ organizerVerificationStatus is updated from documents ONLY if they exist
-  if (latestDocs.length > 0) {
-    if (isBusinessApproved && isGovApproved) {
-      this.organizerVerificationStatus = "approved";
-    } else if (latestDocs.some((d) => d.status === "rejected")) {
-      this.organizerVerificationStatus = "rejected";
-    } else if (latestDocs.length) {
-      this.organizerVerificationStatus = "pending";
-    }
-  }
-
-  next();
 });
 
 UserSchema.options.toJSON = {

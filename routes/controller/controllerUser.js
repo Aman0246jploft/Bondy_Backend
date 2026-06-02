@@ -158,6 +158,12 @@ const customerSignupVerify = async (req, res) => {
       user.countryCode = userData.countryCode;
       user.roleId = roleId.CUSTOMER;
       user.fmcToken = userData.fmcToken || user.fmcToken;
+      user.verifications = {
+        email: {
+          isVerified: true,
+          verifiedAt: new Date(),
+        },
+      };
       // Reset other fields if necessary
       await user.save();
     } else {
@@ -169,6 +175,12 @@ const customerSignupVerify = async (req, res) => {
         countryCode: userData.countryCode,
         roleId: roleId.CUSTOMER,
         fmcToken: userData.fmcToken || null,
+        verifications: {
+          email: {
+            isVerified: true,
+            verifiedAt: new Date(),
+          },
+        },
       });
       await user.save();
     }
@@ -292,6 +304,12 @@ const organizerSignupVerify = async (req, res) => {
       user.roleId = roleId.ORGANIZER;
       user.fmcToken = userData.fmcToken || user.fmcToken;
       user.organizerVerificationStatus = "unverified";
+      user.verifications = {
+        email: {
+          isVerified: true,
+          verifiedAt: new Date(),
+        },
+      };
 
       await user.save();
     } else {
@@ -307,6 +325,12 @@ const organizerSignupVerify = async (req, res) => {
         roleId: roleId.ORGANIZER, // ORGANIZER
         organizerVerificationStatus: "unverified",
         fmcToken: userData.fmcToken || null,
+        verifications: {
+          email: {
+            isVerified: true,
+            verifiedAt: new Date(),
+          },
+        },
       });
 
       await user.save();

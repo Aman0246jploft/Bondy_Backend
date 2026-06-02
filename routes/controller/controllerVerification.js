@@ -6,7 +6,15 @@ const {
   apiSuccessRes,
   apiErrorRes,
   formatResponseUrl,
+  generateOTP,
 } = require("../../utils/globalFunction");
+
+const CONSTANTS = require("../../utils/constants");
+const {
+  setKeyWithTime,
+  getKey,
+  removeKey,
+} = require("../services/serviceRedis");
 
 const HTTP_STATUS = require("../../utils/statusCode");
 const User = require("../../db/models/User");
@@ -14,101 +22,145 @@ const { Referral, WalletHistory, GlobalSetting } = require("../../db");
 const constantsMessage = require("../../utils/constantsMessage");
 const { roleId } = require("../../utils/Role");
 const checkRole = require("../../middlewares/checkRole");
-const {
-  notifyReferralReward,
-  notifyVerificationResult,
-} = require("../services/serviceNotification");
-// Assuming there might be a middleware to check auth like 'verifyToken', using checkRole which likely includes auth check
-// If checkRole doesn't imply auth, we might need an auth middleware.
-// Assuming checkRole([]) works as "must be authenticated" or "must have one of these roles"
-
 // Submit Verification Documents (Organizer)
 const submitVerification = async (req, res) => {
   try {
     const userId = req.user.userId;
-    const { documents } = req.body; // Array of { name, file }
-
-    if (!documents || documents.length === 0) {
-      return apiErrorRes(
-        HTTP_STATUS.BAD_REQUEST,
-        res,
-        constantsMessage.DOCUMENTS_REQUIRED,
-      );
-    }
+    const { nationalId, drivingLicence, bankVerification } = req.body;
 
     const user = await User.findById(userId);
     if (!user) {
       return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.USER_NOT_FOUND);
     }
 
-    let finalDocuments = documents;
-    if (user.isVerified) {
-      // If already verified, only allow re-uploading "Gov ID". Remove "Business Proof" from the payload.
-      finalDocuments = documents.filter((doc) => doc.name !== "Business Proof");
+    let updated = false;
 
-      // If after filtering we have no documents left, we don't return an error.
-      // We will simply skip the update logic below.
-    }
+    // 1. National ID Submission
+    if (nationalId) {
+      const { frontImage, backImage } = nationalId;
+      if (!frontImage || !backImage) {
+        return apiErrorRes(
+          HTTP_STATUS.BAD_REQUEST,
+          res,
+          "Both front and back images are required for National ID.",
+        );
+      }
 
-    if (finalDocuments.length > 0) {
-      const validNames = ["Business Proof", "Gov ID"];
-
-      // Merge logic: Preserve approved documents, update others to pending
-      const existingDocs = user.documents || [];
-      const updatedDocsMap = new Map();
-
-      // 1. Populate map with existing approved documents
-      existingDocs.forEach(doc => {
-        if (doc.status === "approved") {
-          updatedDocsMap.set(doc.name, {
-            name: doc.name,
-            file: doc.file,
-            status: "approved",
-            reason: null
-          });
-        }
-      });
-
-      // 2. Process new documents from request
-      for (const doc of finalDocuments) {
-        if (!doc.name || !validNames.includes(doc.name)) {
-          return apiErrorRes(
-            HTTP_STATUS.BAD_REQUEST,
-            res,
-            `Invalid document name. Allowed: ${validNames.join(", ")}`,
-          );
-        }
-
-        // Rule: If "Business Proof" is already approved, do not overwrite it
-        if (doc.name === "Business Proof" && updatedDocsMap.has("Business Proof")) {
-          continue;
-        }
-
-        // Add or Update to pending
-        updatedDocsMap.set(doc.name, {
-          name: doc.name,
-          file: doc.file,
-          status: "pending",
-          reason: null,
+      // If pre-existing submission, push to history
+      if (user.verifications.idVerification.nationalId.frontImage) {
+        user.verifications.history.push({
+          type: "nationalId",
+          frontImage: user.verifications.idVerification.nationalId.frontImage,
+          backImage: user.verifications.idVerification.nationalId.backImage,
+          status: user.verifications.idVerification.nationalId.status,
+          rejectionReason: user.verifications.idVerification.nationalId.rejectionReason,
+          actionBy: user._id,
+          createdAt: user.verifications.idVerification.nationalId.verifiedAt || new Date(),
         });
       }
 
-      // Convert map back to array
-      user.documents = Array.from(updatedDocsMap.values());
-      user.organizerVerificationStatus = "pending";
-      await user.save();
+      user.verifications.idVerification.nationalId = {
+        frontImage,
+        backImage,
+        isVerified: false,
+        rejectionReason: null,
+        verifiedAt: null,
+        status: "pending",
+      };
+      updated = true;
     }
+
+    // 2. Driving Licence Submission
+    if (drivingLicence) {
+      const { frontImage, backImage } = drivingLicence;
+      if (!frontImage || !backImage) {
+        return apiErrorRes(
+          HTTP_STATUS.BAD_REQUEST,
+          res,
+          "Both front and back images are required for Driving Licence.",
+        );
+      }
+
+      // If pre-existing submission, push to history
+      if (user.verifications.idVerification.drivingLicence.frontImage) {
+        user.verifications.history.push({
+          type: "drivingLicence",
+          frontImage: user.verifications.idVerification.drivingLicence.frontImage,
+          backImage: user.verifications.idVerification.drivingLicence.backImage,
+          status: user.verifications.idVerification.drivingLicence.status,
+          rejectionReason: user.verifications.idVerification.drivingLicence.rejectionReason,
+          actionBy: user._id,
+          createdAt: user.verifications.idVerification.drivingLicence.verifiedAt || new Date(),
+        });
+      }
+
+      user.verifications.idVerification.drivingLicence = {
+        frontImage,
+        backImage,
+        isVerified: false,
+        rejectionReason: null,
+        verifiedAt: null,
+        status: "pending",
+      };
+      updated = true;
+    }
+
+    // 3. Bank Account Submission
+    if (bankVerification) {
+      const { bankName, bankHolderName, accountNumber, otherDetails } = bankVerification;
+      if (!bankName || !bankHolderName || !accountNumber) {
+        return apiErrorRes(
+          HTTP_STATUS.BAD_REQUEST,
+          res,
+          "Bank Name, Holder Name, and Account Number are required for Bank Verification.",
+        );
+      }
+
+      // If pre-existing submission, push to history
+      if (user.verifications.bankVerification.bankName) {
+        user.verifications.history.push({
+          type: "bankVerification",
+          bankName: user.verifications.bankVerification.bankName,
+          bankHolderName: user.verifications.bankVerification.bankHolderName,
+          accountNumber: user.verifications.bankVerification.accountNumber,
+          otherDetails: user.verifications.bankVerification.otherDetails,
+          status: user.verifications.bankVerification.status,
+          rejectionReason: user.verifications.bankVerification.rejectionReason,
+          actionBy: user._id,
+          createdAt: user.verifications.bankVerification.verifiedAt || new Date(),
+        });
+      }
+
+      user.verifications.bankVerification = {
+        bankName,
+        bankHolderName,
+        accountNumber,
+        otherDetails: otherDetails || null,
+        isVerified: false,
+        rejectionReason: null,
+        verifiedAt: null,
+        status: "pending",
+      };
+      updated = true;
+    }
+
+    if (!updated) {
+      return apiErrorRes(
+        HTTP_STATUS.BAD_REQUEST,
+        res,
+        "No verification details provided. Please submit nationalId, drivingLicence, or bankVerification.",
+      );
+    }
+
+    await user.save(); // The pre-save hook updates organizerVerificationStatus based on these values
 
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
-      constantsMessage.VERIFICATION_DOCS_UPDATED,
+      constantsMessage.VERIFICATION_DOCS_UPDATED || "Verification documents updated successfully.",
       {
         organizerVerificationStatus: user.organizerVerificationStatus,
-        documents: (user.documents || []).map((doc) => ({
-          ...doc.toObject ? doc.toObject() : doc,
-          file: doc.file ? formatResponseUrl(doc.file) : null,
-        })),
+        verifications: user.verifications,
       },
     );
   } catch (error) {
@@ -126,9 +178,13 @@ const getVerificationRequests = async (req, res) => {
       roleId: roleId.ORGANIZER,
     };
 
-    // Only filter by document status, not organizerVerificationStatus
+    // Filter by individual verification statuses
     if (status) {
-      query["documents.status"] = status;
+      query.$or = [
+        { "verifications.idVerification.nationalId.status": status },
+        { "verifications.idVerification.drivingLicence.status": status },
+        { "verifications.bankVerification.status": status }
+      ];
     }
 
     // Search logic
@@ -145,39 +201,44 @@ const getVerificationRequests = async (req, res) => {
     const [users, total] = await Promise.all([
       User.find(query)
         .select(
-          "firstName lastName email countryCode contactNumber businessType organizerVerificationStatus documents createdAt",
+          "firstName lastName email countryCode contactNumber businessType organizerVerificationStatus verifications createdAt",
         )
-        .sort({ createdAt: -1 }) // Newest first
+        .sort({ createdAt: -1 })
         .skip(skip)
         .limit(Number(limit))
         .lean(),
       User.countDocuments(query),
     ]);
 
-    // Filter to show only documents matching the selected status
-    const filteredUsers = users.map(user => {
-      let filteredDocs = user.documents;
-
-      // Filter documents by status if status parameter provided
-      if (status) {
-        filteredDocs = user.documents.filter(doc => doc.status === status);
+    // Format URLs for any images in the response
+    const formattedUsers = users.map(user => {
+      const verifications = { ...user.verifications };
+      if (verifications.idVerification) {
+        if (verifications.idVerification.nationalId?.frontImage) {
+          verifications.idVerification.nationalId.frontImage = formatResponseUrl(verifications.idVerification.nationalId.frontImage);
+        }
+        if (verifications.idVerification.nationalId?.backImage) {
+          verifications.idVerification.nationalId.backImage = formatResponseUrl(verifications.idVerification.nationalId.backImage);
+        }
+        if (verifications.idVerification.drivingLicence?.frontImage) {
+          verifications.idVerification.drivingLicence.frontImage = formatResponseUrl(verifications.idVerification.drivingLicence.frontImage);
+        }
+        if (verifications.idVerification.drivingLicence?.backImage) {
+          verifications.idVerification.drivingLicence.backImage = formatResponseUrl(verifications.idVerification.drivingLicence.backImage);
+        }
       }
-
       return {
         ...user,
-        documents: (filteredDocs || []).map((doc) => ({
-          ...doc,
-          file: doc.file ? formatResponseUrl(doc.file) : null,
-        })),
+        verifications
       };
     });
 
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
-      constantsMessage.VERIFICATION_REQUESTS_FETCHED,
+      constantsMessage.VERIFICATION_REQUESTS_FETCHED || "Verification requests fetched successfully.",
       {
-        requests: filteredUsers,
+        requests: formattedUsers,
         total,
         page: Number(page),
         limit: Number(limit),
@@ -193,22 +254,23 @@ const getVerificationRequests = async (req, res) => {
 // Approve/Reject Individual Document (Admin)
 const verifyOrganizer = async (req, res) => {
   try {
-    const { userId, documentId, action, reason } = req.body;
+    const { userId, type, action, reason } = req.body;
+    // type: "nationalId" | "drivingLicence" | "bankVerification"
     // action: "approve" | "reject"
 
     if (!["approve", "reject"].includes(action)) {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        constantsMessage.INVALID_VERIFICATION_ACTION,
+        constantsMessage.INVALID_VERIFICATION_ACTION || "Invalid action. Use 'approve' or 'reject'.",
       );
     }
 
-    if (!documentId) {
+    if (!["nationalId", "drivingLicence", "bankVerification"].includes(type)) {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        constantsMessage.DOCUMENT_ID_REQUIRED,
+        "Invalid verification type. Must be 'nationalId', 'drivingLicence', or 'bankVerification'.",
       );
     }
 
@@ -217,74 +279,103 @@ const verifyOrganizer = async (req, res) => {
       return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.USER_NOT_FOUND);
     }
 
-    // Find the specific document
-    const document = user.documents.id(documentId);
-    if (!document) {
-      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.DOCUMENT_NOT_FOUND);
+    const isApprove = action === "approve";
+
+    if (type === "nationalId") {
+      if (user.verifications.idVerification.nationalId.status === "unverified") {
+        return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "National ID has not been submitted yet.");
+      }
+      user.verifications.idVerification.nationalId.isVerified = isApprove;
+      user.verifications.idVerification.nationalId.status = isApprove ? "approved" : "rejected";
+      user.verifications.idVerification.nationalId.rejectionReason = isApprove ? null : reason;
+      user.verifications.idVerification.nationalId.verifiedAt = new Date();
+
+      // Log history
+      user.verifications.history.push({
+        type: "nationalId",
+        frontImage: user.verifications.idVerification.nationalId.frontImage,
+        backImage: user.verifications.idVerification.nationalId.backImage,
+        status: isApprove ? "approved" : "rejected",
+        rejectionReason: isApprove ? null : reason,
+        actionBy: req.user.userId,
+        createdAt: new Date(),
+      });
+    } else if (type === "drivingLicence") {
+      if (user.verifications.idVerification.drivingLicence.status === "unverified") {
+        return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Driving Licence has not been submitted yet.");
+      }
+      user.verifications.idVerification.drivingLicence.isVerified = isApprove;
+      user.verifications.idVerification.drivingLicence.status = isApprove ? "approved" : "rejected";
+      user.verifications.idVerification.drivingLicence.rejectionReason = isApprove ? null : reason;
+      user.verifications.idVerification.drivingLicence.verifiedAt = new Date();
+
+      // Log history
+      user.verifications.history.push({
+        type: "drivingLicence",
+        frontImage: user.verifications.idVerification.drivingLicence.frontImage,
+        backImage: user.verifications.idVerification.drivingLicence.backImage,
+        status: isApprove ? "approved" : "rejected",
+        rejectionReason: isApprove ? null : reason,
+        actionBy: req.user.userId,
+        createdAt: new Date(),
+      });
+    } else if (type === "bankVerification") {
+      if (user.verifications.bankVerification.status === "unverified") {
+        return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Bank details have not been submitted yet.");
+      }
+      user.verifications.bankVerification.isVerified = isApprove;
+      user.verifications.bankVerification.status = isApprove ? "approved" : "rejected";
+      user.verifications.bankVerification.rejectionReason = isApprove ? null : reason;
+      user.verifications.bankVerification.verifiedAt = new Date();
+
+      // Log history
+      user.verifications.history.push({
+        type: "bankVerification",
+        bankName: user.verifications.bankVerification.bankName,
+        bankHolderName: user.verifications.bankVerification.bankHolderName,
+        accountNumber: user.verifications.bankVerification.accountNumber,
+        otherDetails: user.verifications.bankVerification.otherDetails,
+        status: isApprove ? "approved" : "rejected",
+        rejectionReason: isApprove ? null : reason,
+        actionBy: req.user.userId,
+        createdAt: new Date(),
+      });
+
+      // Synchronize with classic bankDetails for payout compatibility
+      if (isApprove) {
+        user.bankDetails = {
+          accountName: user.verifications.bankVerification.bankHolderName,
+          accountNumber: user.verifications.bankVerification.accountNumber,
+          bankName: user.verifications.bankVerification.bankName,
+          ifscCode: user.verifications.bankVerification.otherDetails || "",
+          swiftCode: "",
+        };
+      }
     }
 
-    if (action === "approve") {
-      document.status = "approved";
-      document.reason = null;
-    } else if (action === "reject") {
-      // Rule: If Business Proof is already approved, do not allow rejection
-      if (document.name === "Business Proof" && document.status === "approved") {
-        return apiErrorRes(
-          HTTP_STATUS.BAD_REQUEST,
-          res,
-          constantsMessage.BUSINESS_PROOF_REJECTION_ERROR,
-        );
-      }
+    await user.save(); // save updates verification status and isVerified
 
-      if (!reason) {
-        return apiErrorRes(
-          HTTP_STATUS.BAD_REQUEST,
-          res,
-          constantsMessage.REJECTION_REASON_REQUIRED,
-        );
-      }
-      document.status = "rejected";
-      document.reason = reason;
-    }
-
-    await user.save(); // pre-save hook updates organizerVerificationStatus
-
-    // ── Referral: credit reward when organizer gets verified ─────────────────────
-    console.log("[REFERRAL] action:", action, "| user.isVerified:", user.isVerified, "| userId:", user._id);
-    if (action === "approve" && user.isVerified === true) {
+    // --- Referral: credit reward when organizer gets verified ---
+    if (isApprove && user.isVerified === true) {
       try {
         const referral = await Referral.findOne({
           referee: user._id,
           status: "SIGNED_UP",
         });
 
-
-        if (!referral) {
-          console.warn("[REFERRAL] No SIGNED_UP referral found for referee:", user._id);
-        } else {
-          console.log("[REFERRAL] Found SIGNED_UP referral:", referral._id, "| referrer:", referral.referrer);
-
+        if (referral) {
           const referrer = await User.findById(referral.referrer);
-          if (!referrer) {
-            console.warn("[REFERRAL] Referrer not found for id:", referral.referrer);
-          } else {
-            // Read reward amount from GlobalSetting (admin-configurable)
+          if (referrer) {
             const rewardSetting = await GlobalSetting.findOne({ key: "REFERRAL_REWARD_AMOUNT" });
             const rewardAmount = rewardSetting ? Number(rewardSetting.value) : 0;
-            console.log("[REFERRAL] Crediting ₮", rewardAmount, "to referrer:", referrer.email);
 
-            // Complete referral
             referral.status = "COMPLETED";
             referral.rewardedAt = new Date();
             await referral.save();
-            console.log("[REFERRAL] Referral marked COMPLETED");
 
-            // Credit referrer wallet
             referrer.payoutBalance = (referrer.payoutBalance || 0) + rewardAmount;
             await referrer.save();
-            console.log("[REFERRAL] Referrer payoutBalance updated to:", referrer.payoutBalance);
 
-            // Log wallet history
             await WalletHistory.create({
               userId: referrer._id,
               amount: rewardAmount,
@@ -292,23 +383,19 @@ const verifyOrganizer = async (req, res) => {
               balanceAfter: referrer.payoutBalance,
               description: `Referral reward — ${user.firstName} ${user.lastName} (${user.email}) got verified on Bondy.`,
             });
-            console.log("[REFERRAL] WalletHistory entry created");
 
-            // Notify referrer via BullMQ queue (non-blocking)
             notifyReferralReward(
               String(referrer._id),
               rewardAmount,
               `${user.email}`,
               String(referral._id)
             ).catch((e) => console.error("[Notification] notifyReferralReward:", e));
-            console.log("[REFERRAL] Referral reward notification queued");
           }
         }
       } catch (refErr) {
-        console.error("[REFERRAL] Credit error:", refErr.message, refErr.stack);
+        console.error("[REFERRAL] Credit error:", refErr.message);
       }
     }
-    // ──────────────────────────────────────────────────────────────────────── 
 
     // Notify the organizer about their verification result (non-blocking)
     notifyVerificationResult(String(userId), action, reason)
@@ -317,14 +404,10 @@ const verifyOrganizer = async (req, res) => {
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
-      constantsMessage.DOCUMENT_STATUS_UPDATED,
+      constantsMessage.DOCUMENT_STATUS_UPDATED || "Verification status updated successfully.",
       {
-        document: {
-          _id: document._id,
-          name: document.name,
-          status: document.status,
-          reason: document.reason,
-        },
+        type,
+        status: isApprove ? "approved" : "rejected",
         organizerVerificationStatus: user.organizerVerificationStatus,
       },
     );
@@ -334,17 +417,184 @@ const verifyOrganizer = async (req, res) => {
   }
 };
 
-// Routes
-// Note: Auth middleware usually needs to be explicitly applied if 'checkRole' doesn't handle finding user from token.
-// Assuming 'checkRole' works as middleware that decodes token or follows a 'verifyToken' middleware.
-// Based on controllerUser.js usage: router.get("/userList", checkRole([roleId.SUPER_ADMIN]), userList);
-// I need perApiLimiter too perhaps?
+// Send Phone OTP
+const sendPhoneOTP = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const user = await User.findById(userId);
+    if (!user) {
+      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.USER_NOT_FOUND);
+    }
 
-// Organizer submits verification
+    const countryCode = req.body.countryCode || user.countryCode;
+    const contactNumber = req.body.contactNumber || user.contactNumber;
+
+    if (!contactNumber || !countryCode) {
+      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Country code and contact number are required.");
+    }
+
+    const otp = process.env.NODE_ENV === "development" ? "12345" : generateOTP();
+
+    // Store in Redis (10 minutes)
+    await setKeyWithTime(`phone_verify_otp:${userId}`, otp, 10);
+    await setKeyWithTime(`phone_verify_data:${userId}`, JSON.stringify({ countryCode, contactNumber }), 10);
+
+    return apiSuccessRes(HTTP_STATUS.OK, res, "OTP sent successfully to your phone number.", { otp });
+  } catch (error) {
+    console.error("Error in sendPhoneOTP:", error);
+    return apiErrorRes(HTTP_STATUS.INTERNAL_SERVER_ERROR, res, error.message);
+  }
+};
+
+// Verify Phone OTP
+const verifyPhoneOTP = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { otp } = req.body;
+
+    if (!otp) {
+      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "OTP is required.");
+    }
+
+    const redisOtp = await getKey(`phone_verify_otp:${userId}`);
+    if (redisOtp.statusCode !== CONSTANTS.SUCCESS || redisOtp.data !== otp) {
+      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.INVALID_OR_EXPIRED_OTP);
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.USER_NOT_FOUND);
+    }
+
+    const redisData = await getKey(`phone_verify_data:${userId}`);
+    if (redisData.statusCode === CONSTANTS.SUCCESS && redisData.data) {
+      const { countryCode, contactNumber } = JSON.parse(redisData.data);
+      user.countryCode = countryCode;
+      user.contactNumber = contactNumber;
+    }
+
+    user.verifications.phone.isVerified = true;
+    user.verifications.phone.verifiedAt = new Date();
+
+    await user.save();
+
+    await removeKey(`phone_verify_otp:${userId}`);
+    await removeKey(`phone_verify_data:${userId}`);
+
+    return apiSuccessRes(HTTP_STATUS.OK, res, "Phone number verified successfully.", {
+      verifications: user.verifications,
+    });
+  } catch (error) {
+    console.error("Error in verifyPhoneOTP:", error);
+    return apiErrorRes(HTTP_STATUS.INTERNAL_SERVER_ERROR, res, error.message);
+  }
+};
+
+// Send Email OTP
+const sendEmailOTP = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const user = await User.findById(userId);
+    if (!user) {
+      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.USER_NOT_FOUND);
+    }
+
+    const email = req.body.email || user.email;
+
+    if (!email) {
+      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Email is required.");
+    }
+
+    const otp = process.env.NODE_ENV === "development" ? "12345" : generateOTP();
+
+    // Store in Redis (10 minutes)
+    await setKeyWithTime(`email_verify_otp:${userId}`, otp, 10);
+    await setKeyWithTime(`email_verify_data:${userId}`, email.toLowerCase(), 10);
+
+    return apiSuccessRes(HTTP_STATUS.OK, res, "OTP sent successfully to your email address.", { otp });
+  } catch (error) {
+    console.error("Error in sendEmailOTP:", error);
+    return apiErrorRes(HTTP_STATUS.INTERNAL_SERVER_ERROR, res, error.message);
+  }
+};
+
+// Verify Email OTP
+const verifyEmailOTP = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { otp } = req.body;
+
+    if (!otp) {
+      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "OTP is required.");
+    }
+
+    const redisOtp = await getKey(`email_verify_otp:${userId}`);
+    if (redisOtp.statusCode !== CONSTANTS.SUCCESS || redisOtp.data !== otp) {
+      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.INVALID_OR_EXPIRED_OTP);
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.USER_NOT_FOUND);
+    }
+
+    const redisData = await getKey(`email_verify_data:${userId}`);
+    if (redisData.statusCode === CONSTANTS.SUCCESS && redisData.data) {
+      user.email = redisData.data;
+    }
+
+    user.verifications.email.isVerified = true;
+    user.verifications.email.verifiedAt = new Date();
+
+    await user.save();
+
+    await removeKey(`email_verify_otp:${userId}`);
+    await removeKey(`email_verify_data:${userId}`);
+
+    return apiSuccessRes(HTTP_STATUS.OK, res, "Email verified successfully.", {
+      verifications: user.verifications,
+    });
+  } catch (error) {
+    console.error("Error in verifyEmailOTP:", error);
+    return apiErrorRes(HTTP_STATUS.INTERNAL_SERVER_ERROR, res, error.message);
+  }
+};
+
+// Routes
+
+// Phone OTP Verification
+router.post(
+  "/phone/send-otp",
+  perApiLimiter(),
+  checkRole([roleId.ORGANIZER, roleId.CUSTOMER]),
+  sendPhoneOTP,
+);
+router.post(
+  "/phone/verify-otp",
+  perApiLimiter(),
+  checkRole([roleId.ORGANIZER, roleId.CUSTOMER]),
+  verifyPhoneOTP,
+);
+
+// Email OTP Verification
+router.post(
+  "/email/send-otp",
+  perApiLimiter(),
+  checkRole([roleId.ORGANIZER, roleId.CUSTOMER]),
+  sendEmailOTP,
+);
+router.post(
+  "/email/verify-otp",
+  perApiLimiter(),
+  checkRole([roleId.ORGANIZER, roleId.CUSTOMER]),
+  verifyEmailOTP,
+);
+
+// Organizer submits verification (National ID, Driving Licence, Bank)
 router.post(
   "/submit",
   perApiLimiter(),
-  checkRole([roleId.ORGANIZER]), // Must be organizer
+  checkRole([roleId.ORGANIZER]),
   submitVerification,
 );
 
@@ -355,7 +605,11 @@ router.get(
   getVerificationRequests,
 );
 
-// Admin approves/rejects
-router.post("/audit", checkRole([roleId.SUPER_ADMIN]), verifyOrganizer);
+// Admin approves/rejects specific verification component
+router.post(
+  "/audit",
+  checkRole([roleId.SUPER_ADMIN]),
+  verifyOrganizer,
+);
 
 module.exports = router;

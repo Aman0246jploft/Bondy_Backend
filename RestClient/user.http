@@ -35,12 +35,14 @@ Content-Type: application/json
 
 ### 2. Customer Signup Step 2 (Verify OTP & Register)
 # Note: In development mode, the OTP is default to "12345"
-POST {{baseUrl}}/user/customer/verify-otp
+# Uses the single global/universal verify-otp endpoint with type = "CUSTOMER".
+POST {{baseUrl}}/user/verify-otp
 Content-Type: application/json
 
 {
   "email": "customer@example.com",
-  "otp": "12345"
+  "otp": "12345",
+  "type": "CUSTOMER"
 }
 
 ### 3. Customer Resend Signup OTP
@@ -74,12 +76,14 @@ Content-Type: application/json
 
 ### 5. Organizer Signup Step 2 (Verify OTP & Register)
 # Note: In development mode, the OTP is default to "12345"
-POST {{baseUrl}}/user/organizer/verify-otp
+# Uses the single global/universal verify-otp endpoint with type = "ORGANIZER".
+POST {{baseUrl}}/user/verify-otp
 Content-Type: application/json
 
 {
   "email": "testOrganizer@example.com",
-  "otp": "12345"
+  "otp": "12345",
+  "type": "ORGANIZER"
 }
 
 
@@ -100,12 +104,14 @@ Content-Type: application/json
 
 ### 7. User Login Step 2 (Verify Login OTP)
 # Note: In development mode, the OTP is default to "12345"
-POST {{baseUrl}}/user/login/verify
+# Uses the single global/universal verify-otp endpoint with type = "LOGIN".
+POST {{baseUrl}}/user/verify-otp
 Content-Type: application/json
 
 {
   "email": "testOrganizer@example.com",
-  "otp": "12345"
+  "otp": "12345",
+  "type": "LOGIN"
 }
 
 ### 8. Resend Login OTP

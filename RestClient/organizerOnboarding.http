@@ -12,7 +12,7 @@ Content-Type: application/json
 
 {
   "fullname": "Alex Organizer",
-  "email": "alex.organizer1@example.com",
+  "email": "alex.organizer4@example.com",
   "countryCode": "+91",
   "contactNumber": "9005267079",
   "password": "password123",
@@ -23,12 +23,14 @@ Content-Type: application/json
 
 ### Step 2: Organizer Verify OTP
 # Verify OTP to register the account with "unverified" status and get a JWT token.
-POST {{baseUrl}}/user/organizer/verify-otp
+# Uses the single global/universal verify-otp endpoint with type = "ORGANIZER".
+POST {{baseUrl}}/user/verify-otp
 Content-Type: application/json
 
 {
-  "email": "alex.organizer@example.com",
-  "otp": "12345"
+  "email": "alex.organizer4@example.com",
+  "otp": "12345",
+  "type": "ORGANIZER"
 }
 
 
@@ -63,7 +65,7 @@ POST {{baseUrl}}/user/login/init
 Content-Type: application/json
 
 {
-  "email": "alex.organizer@example.com",
+  "email": "alex.organizer1@example.com",
   "password": "password123",
   "type": "ORGANIZER"
 }
@@ -117,7 +119,7 @@ POST {{baseUrl}}/user/login/init
 Content-Type: application/json
 
 {
-  "email": "alex.organizer@example.com",
+  "email": "alex.organizer1@example.com",
   "password": "password123",
   "type": "ORGANIZER"
 }
@@ -125,10 +127,118 @@ Content-Type: application/json
 
 ### Step 9: Test Organizer Login (Step 2: Verify Login OTP)
 # Submit the login OTP to receive the final login token.
-POST {{baseUrl}}/user/login/verify
+# Uses the single global/universal verify-otp endpoint with type = "LOGIN".
+POST {{baseUrl}}/user/verify-otp
 Content-Type: application/json
 
 {
-  "email": "alex.organizer@example.com",
+  "email": "alex.organizer1@example.com",
+  "otp": "12345",
+  "type": "LOGIN"
+}
+
+
+### ----------------------------------------------------
+### NEW MULTIPLE VERIFICATION & OTP SYSTEM TEST ROUTINES
+### ----------------------------------------------------
+
+### A1: Send OTP to Phone (Organizer/Customer)
+POST {{baseUrl}}/verification/phone/send-otp
+Authorization: Bearer {{signupToken}}
+Content-Type: application/json
+
+{
+  "countryCode": "+91",
+  "contactNumber": "9005267079"
+}
+
+
+### A2: Verify Phone OTP
+POST {{baseUrl}}/verification/phone/verify-otp
+Authorization: Bearer {{signupToken}}
+Content-Type: application/json
+
+{
   "otp": "12345"
+}
+
+
+### A3: Send OTP to Email (Organizer/Customer)
+POST {{baseUrl}}/verification/email/send-otp
+Authorization: Bearer {{signupToken}}
+Content-Type: application/json
+
+{
+  "email": "alex.organizer4@example.com"
+}
+
+
+### A4: Verify Email OTP
+POST {{baseUrl}}/verification/email/verify-otp
+Authorization: Bearer {{signupToken}}
+Content-Type: application/json
+
+{
+  "otp": "12345"
+}
+
+
+### A5: Submit ID & Bank Verifications (Organizer)
+POST {{baseUrl}}/verification/submit
+Authorization: Bearer {{signupToken}}
+Content-Type: application/json
+
+{
+  "nationalId": {
+    "frontImage": "cloudinary_front_national_id_url",
+    "backImage": "cloudinary_back_national_id_url"
+  },
+  "bankVerification": {
+    "bankName": "State Bank of India",
+    "bankHolderName": "Alex Organizer",
+    "accountNumber": "999912345678",
+    "otherDetails": "SBIN0001234"
+  }
+}
+
+
+### A6: Get Verification Requests (Admin)
+GET {{baseUrl}}/verification/requests?status=pending&page=1&limit=10
+Authorization: Bearer {{adminToken}}
+
+
+### A7: Admin Audits / Approves National ID
+POST {{baseUrl}}/verification/audit
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "userId": "{{organizerUserId}}",
+  "type": "nationalId",
+  "action": "approve"
+}
+
+
+### A8: Admin Audits / Rejects Driving Licence (Alternate)
+POST {{baseUrl}}/verification/audit
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "userId": "{{organizerUserId}}",
+  "type": "drivingLicence",
+  "action": "reject",
+  "reason": "Images are too blurry."
+}
+
+
+### A9: Admin Audits / Approves Bank Account Verification
+POST {{baseUrl}}/verification/audit
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "userId": "{{organizerUserId}}",
+  "type": "bankVerification",
+  "action": "approve"
 }
