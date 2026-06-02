@@ -12,7 +12,7 @@ Content-Type: application/json
 
 {
   "fullname": "Alex Organizer",
-  "email": "alex.organizer4@example.com",
+  "email": "alex.organizer@example.com",
   "countryCode": "+91",
   "contactNumber": "9005267079",
   "password": "password123",
@@ -65,7 +65,7 @@ POST {{baseUrl}}/user/login/init
 Content-Type: application/json
 
 {
-  "email": "alex.organizer1@example.com",
+  "email": "alex.organizer@example.com",
   "password": "password123",
   "type": "ORGANIZER"
 }
@@ -81,10 +81,9 @@ Content-Type: application/json
   "password": "123456"
 }
 
-
 ### Setup Admin Token (Copy from Step 6 response token)
 @adminToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2OTZmMmEwMGE0ODU5NGFlZjg5NjRhZjMiLCJyb2xlSWQiOjEsImlhdCI6MTc4MDM4MDM2OCwiZXhwIjoyNjQ0MzgwMzY4fQ.UVpy8eXWG5kNMIfvujmVBTPIHdvuAdFXizcpfE28_hc
-@organizerUserId = 6a1e71679350fc1f05843e63
+@organizerUserId = 6a1e80665979beee41cf5f4b
 
 
 ### Step 7a: Admin Reviews Organizer (Approve Option)
@@ -119,7 +118,7 @@ POST {{baseUrl}}/user/login/init
 Content-Type: application/json
 
 {
-  "email": "alex.organizer1@example.com",
+  "email": "alex.organizer@example.com",
   "password": "password123",
   "type": "ORGANIZER"
 }
@@ -132,7 +131,7 @@ POST {{baseUrl}}/user/verify-otp
 Content-Type: application/json
 
 {
-  "email": "alex.organizer1@example.com",
+  "email": "alex.organizer@example.com",
   "otp": "12345",
   "type": "LOGIN"
 }

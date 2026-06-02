@@ -149,7 +149,7 @@ Content-Type: application/json
 ### 11. Organizer Update Business Info
 # Authenticated organizer submits/updates business name, category, short desc, and social media link.
 # Note: This will set the account review status to "pending" for admin review/approval.
-@organizerToken = YOUR_ORGANIZER_BEARER_TOKEN_HERE
+@organizerToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTFlNzE2NzkzNTBmYzFmMDU4NDNlNjMiLCJyb2xlSWQiOjIsImlhdCI6MTc4MDM4MzA2NCwiZXhwIjoyNjQ0MzgzMDY0fQ.2kg91m7YZrpyEexQwmVCNJXWOvrZK6dbyOpQsBZ0dcM
 @categoryId = 647f1234567890abcdef1234
 POST {{baseUrl}}/user/organizer/info
 Authorization: Bearer {{organizerToken}}

@@ -1,0 +1,149 @@
+### Environment Variables
+@baseUrl = http://localhost:8080/api/v1
+
+### User Setup
+# Replace with actual JWT tokens after logging in / signing up
+@userToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTFlNzE2NzkzNTBmYzFmMDU4NDNlNjMiLCJyb2xlSWQiOjIsImlhdCI6MTc4MDM4MzA2NCwiZXhwIjoyNjQ0MzgzMDY0fQ.2kg91m7YZrpyEexQwmVCNJXWOvrZK6dbyOpQsBZ0dcM
+@adminToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2OTZmMmEwMGE0ODU5NGFlZjg5NjRhZjMiLCJyb2xlSWQiOjEsImlhdCI6MTc4MDM4MDM2OCwiZXhwIjoyNjQ0MzgwMzY4fQ.UVpy8eXWG5kNMIfvujmVBTPIHdvuAdFXizcpfE28_hc
+@organizerUserId = 6a1e71679350fc1f05843e63
+
+### ----------------------------------------------------
+### 1. PHONE OTP VERIFICATION FLOW
+### ----------------------------------------------------
+
+### Step 1.1: Send OTP to Phone
+POST {{baseUrl}}/verification/phone/send-otp
+Authorization: Bearer {{userToken}}
+Content-Type: application/json
+
+{
+  "countryCode": "+91",
+  "contactNumber": "9005267079"
+}
+
+### Step 1.2: Verify Phone OTP
+# Note: OTP defaults to "12345" in development mode
+POST {{baseUrl}}/verification/phone/verify-otp
+Authorization: Bearer {{userToken}}
+Content-Type: application/json
+
+{
+  "otp": "12345"
+}
+
+
+### ----------------------------------------------------
+### 2. EMAIL OTP VERIFICATION FLOW
+### ----------------------------------------------------
+
+### Step 2.1: Send OTP to Email
+POST {{baseUrl}}/verification/email/send-otp
+Authorization: Bearer {{userToken}}
+Content-Type: application/json
+
+{
+  "email": "testOrganizer@example.com"
+}
+
+### Step 2.2: Verify Email OTP
+# Note: OTP defaults to "12345" in development mode
+POST {{baseUrl}}/verification/email/verify-otp
+Authorization: Bearer {{userToken}}
+Content-Type: application/json
+
+{
+  "otp": "12345"
+}
+
+
+### ----------------------------------------------------
+### 3. ID VERIFICATION SUBMISSIONS (ORGANIZER)
+### ----------------------------------------------------
+
+### Step 3.1: Submit National ID Verification
+POST {{baseUrl}}/verification/submit
+Authorization: Bearer {{userToken}}
+Content-Type: application/json
+
+{
+  "nationalId": {
+    "frontImage": "cloudinary_front_national_id_image_url",
+    "backImage": "cloudinary_back_national_id_image_url"
+  }
+}
+
+### Step 3.2: Submit Driving Licence Verification
+POST {{baseUrl}}/verification/submit
+Authorization: Bearer {{userToken}}
+Content-Type: application/json
+
+{
+  "drivingLicence": {
+    "frontImage": "cloudinary_front_driving_licence_image_url",
+    "backImage": "cloudinary_back_driving_licence_image_url"
+  }
+}
+
+
+### ----------------------------------------------------
+### 4. BANK VERIFICATION SUBMISSION (ORGANIZER)
+### ----------------------------------------------------
+
+### Step 4.1: Submit Bank Account Verification
+POST {{baseUrl}}/verification/submit
+Authorization: Bearer {{userToken}}
+Content-Type: application/json
+
+{
+  "bankVerification": {
+    "bankName": "State Bank of India",
+    "bankHolderName": "Test Organizer",
+    "accountNumber": "999912345678",
+    "otherDetails": "SBIN0001234"
+  }
+}
+
+
+### ----------------------------------------------------
+### 5. GET REQUESTS & AUDIT FLOW (ADMIN)
+### ----------------------------------------------------
+
+### Step 5.1: Get All Pending Verification Requests
+GET {{baseUrl}}/verification/requests?status=pending&page=1&limit=10
+Authorization: Bearer {{adminToken}}
+
+### Step 5.2: Admin Approves National ID Verification
+# Note: Approving the ID verification immediately flags user.isVerified = true
+POST {{baseUrl}}/verification/audit
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "userId": "{{organizerUserId}}",
+  "type": "nationalId",
+  "action": "approve"
+}
+
+### Step 5.3: Admin Rejects Driving Licence Verification
+POST {{baseUrl}}/verification/audit
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "userId": "{{organizerUserId}}",
+  "type": "drivingLicence",
+  "action": "reject",
+  "reason": "The uploaded images are blurred and unreadable."
+}
+
+### Step 5.4: Admin Approves Bank Account Verification
+# Note: Approving bank details automatically synchronizes them to the legacy bankDetails schema for compatibility.
+POST {{baseUrl}}/verification/audit
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "userId": "{{organizerUserId}}",
+  "type": "bankVerification",
+  "action": "approve"
+}
