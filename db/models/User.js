@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const addressSchema = require("./AddressSchema");
 const bcrypt = require("bcryptjs");
 const { roleId, userRole } = require("../../utils/Role");
 
@@ -76,17 +77,7 @@ const UserSchema = new Schema(
       default: null,
     },
     location: {
-      type: {
-        type: String,
-        enum: ["Point"],
-      },
-      coordinates: [Number], // [lng, lat]
-      city: String,
-      country: String,
-      address: String,
-      state: String,
-      zipcode: String,
-      // default: null,
+      type: addressSchema,
     },
     language: {
       type: String,

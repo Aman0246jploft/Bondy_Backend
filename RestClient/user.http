@@ -1,0 +1,138 @@
+### Environment Variables
+@baseUrl = http://localhost:8080/api/v1
+
+
+
+### 9. Admin Direct Login
+
+POST {{baseUrl}}/user/admin/login
+Content-Type: application/json
+
+{
+  "email": "superadmin@mailinator.com",
+  "password": "123456"
+}
+
+
+
+
+### ----------------------------------------------------
+### CUSTOMER SIGNUP FLOW
+### ----------------------------------------------------
+
+### 1. Customer Signup Step 1 (Init - Triggers OTP)
+POST {{baseUrl}}/user/customer/signup
+Content-Type: application/json
+
+{
+  "email": "customer@example.com",
+  "countryCode": "+1",
+  "contactNumber": "1234567890",
+  "password": "Password123!",
+  "confirmPassword": "Password123!",
+  "fmcToken": "sample_fmc_token_123"
+}
+
+### 2. Customer Signup Step 2 (Verify OTP & Register)
+# Note: In development mode, the OTP is default to "12345"
+POST {{baseUrl}}/user/customer/verify-otp
+Content-Type: application/json
+
+{
+  "email": "customer@example.com",
+  "otp": "12345"
+}
+
+### 3. Customer Resend Signup OTP
+POST {{baseUrl}}/user/resend-otp
+Content-Type: application/json
+
+{
+  "email": "customer@example.com"
+}
+
+
+### ----------------------------------------------------
+### ORGANIZER SIGNUP FLOW
+### ----------------------------------------------------
+
+### 4. Organizer Signup Step 1 (Init - Triggers OTP)
+POST {{baseUrl}}/user/organizer/signup
+Content-Type: application/json
+
+{
+  "firstName": "Test",
+  "lastName": "Organizer",
+  "email": "testOrganizer@example.com",
+  "countryCode": "+91",
+  "contactNumber": "9005267079",
+  "password": "123465",
+  "confirmPassword": "123465",
+  "businessType": "Entertainment",
+  "acceptTerms": true,
+  "referralCode": "",
+  "fmcToken": "sample_fmc_token_456"
+}
+
+### 5. Organizer Signup Step 2 (Verify OTP & Register)
+# Note: In development mode, the OTP is default to "12345"
+POST {{baseUrl}}/user/organizer/verify-otp
+Content-Type: application/json
+
+{
+  "email": "testOrganizer@example.com",
+  "otp": "12345"
+}
+
+
+### ----------------------------------------------------
+### LOGIN FLOW (With 2FA OTP)
+### ----------------------------------------------------
+
+### 6. User Login Step 1 (Init - Triggers Login OTP)
+# Set type as "CUSTOMER" or "ORGANIZER" based on role type
+POST {{baseUrl}}/user/login/init
+Content-Type: application/json
+
+{
+  "email": "testOrganizer@example.com",
+  "password": "123465",
+  "type": "ORGANIZER"
+}
+
+### 7. User Login Step 2 (Verify Login OTP)
+# Note: In development mode, the OTP is default to "12345"
+POST {{baseUrl}}/user/login/verify
+Content-Type: application/json
+
+{
+  "email": "testOrganizer@example.com",
+  "otp": "12345"
+}
+
+### 8. Resend Login OTP
+POST {{baseUrl}}/user/login/resend-otp
+Content-Type: application/json
+
+{
+  "email": "customer@example.com"
+}
+
+
+### ----------------------------------------------------
+### SOCIAL LOGIN FLOWS
+### ----------------------------------------------------
+
+### 10. Social Login
+POST {{baseUrl}}/user/social-login
+Content-Type: application/json
+
+{
+  "socialId": "fb_1234567890",
+  "socialType": "facebook",
+  "type": "CUSTOMER",
+  "email": "facebookuser@example.com",
+  "firstName": "Jane",
+  "lastName": "Smith",
+  "profileImage": "https://example.com/jane.jpg"
+}

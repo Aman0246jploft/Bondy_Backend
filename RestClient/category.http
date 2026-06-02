@@ -1,0 +1,51 @@
+### Environment Variables
+@baseUrl = http://localhost:8080/api/v1
+@authToken = YOUR_BEARER_TOKEN_HERE
+@categoryId = 647f1234567890abcdef1234
+
+### 1. Create a Category (requires Admin AuthToken)
+POST {{baseUrl}}/category/create
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "name": "Live Music",
+  "type": "event",
+  "image": "uploads/categories/live_music.png",
+  "posterImage": "uploads/categories/live_music_poster.png",
+  "name_thi": "ดนตรีสด"
+}
+
+### 2. Get Category List (with optional search, pagination, and type filters)
+GET {{baseUrl}}/category/list?page=1&limit=10&type=event&search=music
+Content-Type: application/json
+
+### 3. Get Single Category Details
+GET {{baseUrl}}/category/details/{{categoryId}}
+Content-Type: application/json
+
+### 4. Get Category Statistics
+GET {{baseUrl}}/category/stats
+Content-Type: application/json
+
+### 5. Update Category (requires Admin AuthToken)
+POST {{baseUrl}}/category/update/{{categoryId}}
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "name": "Concerts & Live Music",
+  "type": "event",
+  "isDisable": false,
+  "name_thi": "คอนเสิร์ตและดนตรีสด"
+}
+
+### 6. Toggle Category Featured Status (requires Admin AuthToken)
+POST {{baseUrl}}/category/toggle-featured/{{categoryId}}
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+### 7. Delete Category (requires Admin AuthToken)
+DELETE {{baseUrl}}/category/delete/{{categoryId}}
+Authorization: Bearer {{authToken}}
+Content-Type: application/json

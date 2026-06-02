@@ -1,4 +1,5 @@
 const Joi = require("joi");
+const { refundPolicy, visibility, ageRestriction } = require("../../../utils/Role");
 
 const createEventSchema = Joi.object({
     id: Joi.string().hex().length(24).optional(),
@@ -12,10 +13,9 @@ const createEventSchema = Joi.object({
         otherwise: Joi.required(),
     }), // ObjectId as string
     posterImage: Joi.array().items(Joi.string()).optional(),
-    shortdesc: Joi.string().optional(),
-    longdesc: Joi.string().optional(),
-    tags: Joi.array().items(Joi.string()).optional(),
-    venueName: Joi.string().optional(),
+    shortdesc: Joi.string().optional().allow(null, ""),
+    longdesc: Joi.string().optional().allow(null, ""),
+    venueName: Joi.string().optional().allow(null, ""),
     venueAddress: Joi.object({
         latitude: Joi.number().when(Joi.object({ isDraft: true, id: Joi.not().exist() }).unknown(), {
             then: Joi.optional(),
@@ -33,19 +33,21 @@ const createEventSchema = Joi.object({
         }),
         city: Joi.string().when(Joi.object({ isDraft: true, id: Joi.not().exist() }).unknown(), {
             then: Joi.optional(),
-            otherwise: Joi.allow(null,""),
+            otherwise: Joi.allow(null, ""),
         }),
         country: Joi.string().when(Joi.object({ isDraft: true, id: Joi.not().exist() }).unknown(), {
             then: Joi.optional(),
-            otherwise: Joi.allow(null,""),
+            otherwise: Joi.allow(null, ""),
         }),
         address: Joi.string().when(Joi.object({ isDraft: true, id: Joi.not().exist() }).unknown(), {
             then: Joi.optional(),
-            otherwise: Joi.allow(null,""),
+            otherwise: Joi.allow(null, ""),
         }),
+        state: Joi.string().optional().allow(null, ""),
+        zipcode: Joi.string().optional().allow(null, ""),
     }).when(Joi.object({ isDraft: true, id: Joi.not().exist() }).unknown(), {
         then: Joi.optional(),
-        otherwise: Joi.allow(null,""),
+        otherwise: Joi.allow(null, ""),
     }),
     startDate: Joi.date().when(Joi.object({ isDraft: true, id: Joi.not().exist() }).unknown(), {
         then: Joi.optional(),
@@ -55,38 +57,39 @@ const createEventSchema = Joi.object({
         then: Joi.optional(),
         otherwise: Joi.required(),
     }),
-    startTime: Joi.string().optional(),
-    endTime: Joi.string().optional(),
-    ticketName: Joi.string().optional(),
-    ticketQtyAvailable: Joi.number().min(0).max(99999999).optional().messages({
-        'number.base': 'Ticket quantity available must be a valid number',
-        'number.min': 'Ticket quantity cannot be negative',
-        'number.max': 'Ticket quantity cannot exceed 99,999,999',
+    startTime: Joi.string().optional().allow(null, ""),
+    endTime: Joi.string().optional().allow(null, ""),
+    tickets: Joi.array().items(Joi.object({
+        ticketName: Joi.string().when(Joi.object({ isDraft: true, id: Joi.not().exist() }).unknown(), {
+            then: Joi.optional(),
+            otherwise: Joi.required(),
+        }),
+        ticketShortDesc: Joi.string().optional().allow(null, ""),
+        price: Joi.number().min(0).when(Joi.object({ isDraft: true, id: Joi.not().exist() }).unknown(), {
+            then: Joi.optional(),
+            otherwise: Joi.required(),
+        }),
+        qty: Joi.number().integer().min(1).when(Joi.object({ isDraft: true, id: Joi.not().exist() }).unknown(), {
+            then: Joi.optional(),
+            otherwise: Joi.required(),
+        }),
+        salesStart: Joi.date().optional(),
+        salesEnd: Joi.date().optional(),
+    })).when(Joi.object({ isDraft: true, id: Joi.not().exist() }).unknown(), {
+        then: Joi.optional(),
+        otherwise: Joi.required(),
     }),
-    ticketSelesStartDate: Joi.date().optional(),
-    ticketSelesEndDate: Joi.date().optional(),
-    ticketPrice: Joi.number().min(0).max(99999999).optional().messages({
-        'number.base': 'Ticket price must be a valid number',
-        'number.min': 'Ticket price cannot be negative',
-        'number.max': 'Ticket price cannot exceed 99,999,999',
-    }),
-    totalTickets: Joi.number().min(1).max(99999999).optional().messages({
-        'number.base': 'Total tickets must be a valid number',
-        'number.min': 'Total tickets must be at least 1',
-        'number.max': 'Total tickets cannot exceed 99,999,999',
-    }),
-    refundPolicy: Joi.string().allow('', null).optional(),
+    refundPolicy: Joi.string().valid(...Object.values(refundPolicy)).allow('', null).optional(),
     addOns: Joi.string().allow('', null).optional(),
     mediaLinks: Joi.array().items(Joi.string()).optional(),
     shortTeaserVideo: Joi.array().items(Joi.string()).optional(),
-    accessAndPrivacy: Joi.boolean().optional(),
-    ageRestriction: Joi.object({
-        type: Joi.string().valid("ALL", "MIN_AGE", "RANGE").required(),
-        minAge: Joi.number().optional(),
-        maxAge: Joi.number().optional(),
-    }).optional(),
-    dressCode: Joi.string().optional(),
+    visibility: Joi.string().valid(...Object.values(visibility)).optional(),
+    ageRestriction: Joi.string().valid(...Object.values(ageRestriction)).optional(),
+    showAttendees: Joi.boolean().optional(),
+    notes: Joi.string().optional().allow('', null),
+    dressCode: Joi.string().optional().allow(null, ""),
     fetcherEvent: Joi.boolean().optional(),
+    timeZone: Joi.string().optional().allow(null, ""),
 });
 
 const getEventsSchema = Joi.object({
@@ -122,10 +125,9 @@ const updateEventSchema = Joi.object({
     eventTitle: Joi.string().optional(),
     eventCategory: Joi.string().hex().length(24).optional(),
     posterImage: Joi.array().items(Joi.string()).optional(),
-    shortdesc: Joi.string().optional(),
-    longdesc: Joi.string().optional(),
-    tags: Joi.array().items(Joi.string()).optional(),
-    venueName: Joi.string().optional(),
+    shortdesc: Joi.string().optional().allow(null, ""),
+    longdesc: Joi.string().optional().allow(null, ""),
+    venueName: Joi.string().optional().allow(null, ""),
     venueAddress: Joi.object({
         latitude: Joi.number().required().messages({
             'number.base': 'Latitude must be a valid number',
@@ -135,51 +137,36 @@ const updateEventSchema = Joi.object({
             'number.base': 'Longitude must be a valid number',
             'any.required': 'Longitude is required',
         }),
-        city: Joi.string().required().messages({
-            'any.required': 'City is required',
-        }),
-        country: Joi.string().required().messages({
-            'any.required': 'Country is required',
-        }),
-        address: Joi.string().required().messages({
-            'any.required': 'Address is required',
-        }),
+        city: Joi.string().optional().allow(null, ""),
+        country: Joi.string().optional().allow(null, ""),
+        address: Joi.string().optional().allow(null, ""),
+        state: Joi.string().optional().allow(null, ""),
+        zipcode: Joi.string().optional().allow(null, ""),
     }).optional(),
     startDate: Joi.date().optional(),
     endDate: Joi.date().optional(),
-    startTime: Joi.string().optional(),
-    endTime: Joi.string().optional(),
-    ticketName: Joi.string().optional(),
-    ticketQtyAvailable: Joi.number().min(0).max(99999999).optional().messages({
-        'number.base': 'Ticket quantity must be a valid number',
-        'number.min': 'Ticket quantity cannot be negative',
-        'number.max': 'Ticket quantity cannot exceed 99,999,999',
-    }),
-    ticketSelesStartDate: Joi.date().optional(),
-    ticketSelesEndDate: Joi.date().optional(),
-    ticketPrice: Joi.number().min(0).max(99999999).optional().messages({
-        'number.base': 'Ticket price must be a valid number',
-        'number.min': 'Ticket price cannot be negative',
-        'number.max': 'Ticket price cannot exceed 99,999,999',
-    }),
-    totalTickets: Joi.number().min(1).max(99999999).optional().messages({
-        'number.base': 'Total tickets must be a valid number',
-        'number.min': 'Total tickets must be at least 1',
-        'number.max': 'Total tickets cannot exceed 99,999,999',
-    }),
-    refundPolicy: Joi.string().allow('', null).optional(),
+    startTime: Joi.string().optional().allow(null, ""),
+    endTime: Joi.string().optional().allow(null, ""),
+    tickets: Joi.array().items(Joi.object({
+        ticketName: Joi.string().required(),
+        ticketShortDesc: Joi.string().optional().allow(null, ""),
+        price: Joi.number().min(0).required(),
+        qty: Joi.number().integer().min(1).required(),
+        salesStart: Joi.date().optional(),
+        salesEnd: Joi.date().optional(),
+    })).optional(),
+    refundPolicy: Joi.string().valid(...Object.values(refundPolicy)).allow('', null).optional(),
     addOns: Joi.string().allow('', null).optional(),
     mediaLinks: Joi.array().items(Joi.string()).optional(),
     shortTeaserVideo: Joi.array().items(Joi.string()).optional(),
-    accessAndPrivacy: Joi.boolean().optional(),
-    ageRestriction: Joi.object({
-        type: Joi.string().valid("ALL", "MIN_AGE", "RANGE").required(),
-        minAge: Joi.number().min(0).optional(),
-        maxAge: Joi.number().min(0).optional(),
-    }).optional(),
-    dressCode: Joi.string().optional(),
+    visibility: Joi.string().valid(...Object.values(visibility)).optional(),
+    ageRestriction: Joi.string().valid(...Object.values(ageRestriction)).optional(),
+    showAttendees: Joi.boolean().optional(),
+    notes: Joi.string().optional().allow('', null),
+    dressCode: Joi.string().optional().allow(null, ""),
     fetcherEvent: Joi.boolean().optional(),
     isDraft: Joi.boolean().optional(),
+    timeZone: Joi.string().optional().allow(null, ""),
 });
 
 const updateEventParamsSchema = Joi.object({

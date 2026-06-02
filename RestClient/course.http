@@ -1,0 +1,173 @@
+### Environment Variables
+@baseUrl = http://localhost:8080/api/v1
+@authToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTFkMWIxYmQ3ZTI2ODRjOTNjYmFkNmIiLCJyb2xlSWQiOjIsImlhdCI6MTc4MDI5MjU3MCwiZXhwIjoyNjQ0MjkyNTcwfQ.jj_rppLYsCL8Wg51zbVo6c-OiszjSpntFmui5jkVjgI
+@courseId = 647f8765432109abcdef8765
+
+### 1. Create a Draft Course (Allows missing fields for draft mode)
+POST {{baseUrl}}/course/create
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "isDraft": true,
+  "courseTitle": "Fullstack Web Development with Node.js (Draft)",
+  "shortdesc": "A basic draft of web developer course."
+}
+
+
+### 2. Create a Fully Published Course (All required fields provided)
+POST {{baseUrl}}/course/create
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "isDraft": false,
+  "courseTitle": "Mastering Advanced Node.js 2026",
+  "courseCategory": "647f1234567890abcdef1234",
+  "shortdesc": "Become a backend master with advanced Node.js design patterns.",
+  "longdesc": "This comprehensive course covers stream architectures, child processes, microservices, and cluster scalability.",
+  "whatYouWillLearn": "Streams, clustering, child processes, multi-threading, security best practices",
+  "posterImage": [
+    "uploads/courses/nodejs_adv.jpg"
+  ],
+  "startDate": "2026-09-01T09:00:00.000Z",
+  "endDate": "2026-11-30T17:00:00.000Z",
+  "totalSessions": 24,
+  "timeZone": "UTC",
+  "venueName": "Silicon Valley Coding Hub",
+  "venueAddress": {
+    "latitude": 37.774929,
+    "longitude": -122.419416,
+    "address": "456 Tech Parkway",
+    "city": "San Francisco",
+    "state": "CA",
+    "country": "USA",
+    "zipcode": "94103"
+  },
+  "batches": [
+    {
+      "batchName": "Weekend Morning Batch",
+      "startTime": "09:00",
+      "endTime": "13:00",
+      "days": ["Sat", "Sun"],
+      "seats": 30
+    },
+    {
+      "batchName": "Weekday Evening Batch",
+      "startTime": "18:30",
+      "endTime": "21:30",
+      "days": ["Mon", "Wed", "Fri"],
+      "seats": 25
+    }
+  ],
+  "price": 299.99,
+  "refundPolicy": "7 Days Before"
+}
+
+
+### 3. Update a Course (Draft or Published)
+POST {{baseUrl}}/course/edit/{{courseId}}
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "courseTitle": "Mastering Advanced Node.js 2026 (Updated)",
+  "shortdesc": "Updated summary of backend development master class."
+}
+
+
+### 4. Publish a Draft Course (Transition from Draft to Published)
+POST {{baseUrl}}/course/edit/{{courseId}}
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "isDraft": false,
+  "courseTitle": "Fullstack Web Development with Node.js",
+  "courseCategory": "647f1234567890abcdef1234",
+  "shortdesc": "Comprehensive fullstack coding boot camp.",
+  "longdesc": "Learn HTML, CSS, JavaScript, Node.js, Express, and MongoDB.",
+  "startDate": "2026-10-15T09:00:00.000Z",
+  "endDate": "2026-12-15T13:00:00.000Z",
+  "totalSessions": 20,
+  "timeZone": "UTC",
+  "venueName": "Downtown Learning Hub",
+  "venueAddress": {
+    "latitude": 40.712776,
+    "longitude": -74.005974,
+    "address": "123 Broadway",
+    "city": "New York",
+    "state": "NY",
+    "country": "USA",
+    "zipcode": "10006"
+  },
+  "batches": [
+    {
+      "batchName": "Morning Intensive",
+      "startTime": "09:00",
+      "endTime": "13:00",
+      "days": ["Mon", "Tue", "Wed", "Thu", "Fri"],
+      "seats": 15
+    }
+  ],
+  "price": 499.00
+}
+
+
+### 5. Invalid: Try to revert a published course back to draft
+POST {{baseUrl}}/course/edit/{{courseId}}
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "isDraft": true
+}
+
+
+### 6. Invalid: Try to set end date in the past
+POST {{baseUrl}}/course/edit/{{courseId}}
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "endDate": "2020-01-01T00:00:00.000Z"
+}
+
+
+#=========================================================FILTER==========================================================================
+
+### 7. List Courses - Standard Retrieve (Active/Upcoming Courses)
+GET {{baseUrl}}/course/list
+Authorization: Bearer {{authToken}}
+
+
+### 8. List Courses - Filter by Status (Explicitly show Past courses)
+GET {{baseUrl}}/course/list?status=Past
+Authorization: Bearer {{authToken}}
+
+
+### 9. List Courses - Multi-way Filtering (Custom date range + Category + Search + Status combined)
+GET {{baseUrl}}/course/list?fromDate=2026-06-01T00:00:00.000Z&toDate=2026-12-31T23:59:59.000Z&categoryId=647f1234567890abcdef1234&search=Node&status=Upcoming
+Authorization: Bearer {{authToken}}
+
+
+### 10. List Courses - Time Slot Presets (Happenings Soon, This Month, Today, This Weekend, etc.)
+GET {{baseUrl}}/course/list?filter=happeningsoon,thismonth
+Authorization: Bearer {{authToken}}
+
+
+### 11. List Courses - Time of Day Slot Filter (Morning, Afternoon, Evening)
+GET {{baseUrl}}/course/list?timeOfDay=morning,afternoon
+Authorization: Bearer {{authToken}}
+
+
+### 12. List Courses - Geospatial Distance Search (Radius of 100km from Lat/Lng coordinates)
+GET {{baseUrl}}/course/list?latitude=37.774929&longitude=-122.419416&radius=100
+Authorization: Bearer {{authToken}}
+
+
+### 13. List Courses - Viewport Bounding Box Map Filter
+GET {{baseUrl}}/course/list?north=37.850000&south=37.700000&east=-122.350000&west=-122.480000
+Authorization: Bearer {{authToken}}
+
+#===========================================================FILTER=========================================================================

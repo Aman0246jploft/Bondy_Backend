@@ -53,7 +53,7 @@ const addJob = async (queue, data, opts = {}) => {
       attempts: 3,
       backoff: {
         type: "exponential",
-        delay: 5000,
+        delay: 8080,
       },
       ...opts,
     });

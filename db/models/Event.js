@@ -1,4 +1,12 @@
 const mongoose = require("mongoose");
+const addressSchema = require("./AddressSchema");
+const { getUTCDateTime } = require("../../utils/globalFunction");
+const {
+  refundPolicy,
+  visibility,
+  ageRestriction,
+  eventStatus,
+} = require("../../utils/Role");
 
 const eventSchema = new mongoose.Schema(
   {
@@ -7,25 +15,15 @@ const eventSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Category",
     },
-    posterImage: { type: [String] },
     shortdesc: { type: String },
     longdesc: { type: String },
-    tags: { type: [String] },
+    posterImage: { type: [String] },
+    mediaLinks: { type: [String] },
+    shortTeaserVideo: { type: [String] },
+
     venueName: { type: String },
     venueAddress: {
-      type: {
-        type: String,
-        enum: ["Point"], // Must be "Point"
-      },
-      coordinates: {
-        type: [Number], // [longitude, latitude]
-        required: function () {
-          return !this.isDraft;
-        },
-      },
-      city: String,
-      country: String,
-      address: String,
+      type: addressSchema,
     },
     startDate: {
       type: Date,
@@ -33,6 +31,7 @@ const eventSchema = new mongoose.Schema(
         return !this.isDraft;
       },
     },
+
     endDate: {
       type: Date,
       required: function () {
@@ -41,34 +40,63 @@ const eventSchema = new mongoose.Schema(
     },
     startTime: { type: String },
     endTime: { type: String },
-    ticketName: { type: String },
-    ticketQtyAvailable: { type: Number },
-    ticketSelesStartDate: { type: Date },
-    ticketSelesEndDate: { type: Date },
-    ticketPrice: { type: Number },
-    totalTickets: { type: Number },
-    refundPolicy: { type: String },
+
+    timeZone: { type: String, default: "UTC" },
+
+    tickets: [
+      {
+        ticketName: {
+          type: String,
+          required: function () {
+            const parent = this.parent ? this.parent() : this;
+            return parent && !parent.isDraft;
+          },
+        },
+        ticketShortDesc: { type: String },
+        price: {
+          type: Number,
+          min: 0,
+          required: function () {
+            const parent = this.parent ? this.parent() : this;
+            return parent && !parent.isDraft;
+          },
+        },
+        qty: {
+          type: Number,
+          min: 1,
+          required: function () {
+            const parent = this.parent ? this.parent() : this;
+            return parent && !parent.isDraft;
+          },
+        },
+        salesStart: { type: Date },
+        salesEnd: { type: Date },
+      },
+    ],
+    refundPolicy: {
+      type: String,
+      enum: Object.values(refundPolicy),
+    },
     addOns: { type: String },
-    mediaLinks: { type: [String] },
-    shortTeaserVideo: { type: [String] },
-    accessAndPrivacy: {
-      type: Boolean,
-      default: false,
+
+    visibility: {
+      type: String,
+      enum: Object.values(visibility),
+      default: visibility.PUBLIC,
     },
 
     ageRestriction: {
-      type: {
-        type: String,
-        enum: ["ALL", "MIN_AGE", "RANGE"],
-        default: "ALL",
-      },
-      minAge: {
-        type: Number,
-        min: 0,
-      },
-      maxAge: {
-        type: Number,
-      },
+      type: String,
+      enum: Object.values(ageRestriction),
+      default: ageRestriction.ALL,
+    },
+
+    showAttendees: {
+      type: Boolean,
+      default: true,
+    },
+    notes: {
+      type: String,
     },
 
     dressCode: {
@@ -86,10 +114,6 @@ const eventSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
-    isFeatured: {
-      type: Boolean,
-      default: false,
-    },
     featuredExpiry: {
       type: Date,
       default: null,
@@ -102,17 +126,12 @@ const eventSchema = new mongoose.Schema(
 
     status: {
       type: String,
-      enum: ["Upcoming", "Live", "Past"],
-      default: "Upcoming"
+      enum: Object.values(eventStatus),
+      default: eventStatus.UPCOMING,
     },
     addToSlider: {
       type: Boolean,
       default: false,
-    },
-    totalAttendees: {
-      type: Number,
-      default: 0,
-      min: 0,
     },
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
@@ -139,6 +158,19 @@ eventSchema.index({ venueAddress: "2dsphere" });
 
 
 eventSchema.pre("save", function (next) {
+  // Combine startDate + startTime and endDate + endTime into UTC Date objects if modified
+  if (this.isModified("startDate") || this.isModified("startTime") || this.isModified("timeZone")) {
+    if (this.startDate) {
+      this.startDate = getUTCDateTime(this.startDate, this.startTime, this.timeZone);
+    }
+  }
+
+  if (this.isModified("endDate") || this.isModified("endTime") || this.isModified("timeZone")) {
+    if (this.endDate) {
+      this.endDate = getUTCDateTime(this.endDate, this.endTime, this.timeZone);
+    }
+  }
+
   const now = new Date();
 
   // ❌ Block creating past events (only on creation or if endDate is changed to past)

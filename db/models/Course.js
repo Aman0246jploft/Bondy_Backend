@@ -1,101 +1,134 @@
 const mongoose = require("mongoose");
+const addressSchema = require("./AddressSchema");
+const { getUTCDateTime } = require("../../utils/globalFunction");
+const {
+  refundPolicy,
+  eventStatus,
+  daysOfWeek,
+} = require("../../utils/Role");
 
-const scheduleSchema = new mongoose.Schema({
-  startDate: {
-    type: Date,
-    required: true,
-  },
-  endDate: {
-    type: Date,
-    required: true,
-  },
-  startTime: {
-    type: String, // e.g. "09:00"
-    required: true,
-  },
-  endTime: {
-    type: String, // e.g. "01:00"
-    required: true,
-  },
-  presentCount: {
-    type: Number,
-    default: 0,
-    min: 0,
-  },
-});
+const batchSchema = new mongoose.Schema(
+  {
+    batchName: {
+      type: String,
+      required: function () {
+        const parent = this.parent ? this.parent() : this;
+        return parent && !parent.isDraft;
+      },
+    },
+    startTime: {
+      type: String, // e.g. "09:00"
+      required: function () {
+        const parent = this.parent ? this.parent() : this;
+        return parent && !parent.isDraft;
+      },
+    },
+    endTime: {
+      type: String, // e.g. "13:00"
+      required: function () {
+        const parent = this.parent ? this.parent() : this;
+        return parent && !parent.isDraft;
+      },
+    },
+    days: {
+      type: [String],
+      enum: Object.values(daysOfWeek),
+      required: function () {
+        const parent = this.parent ? this.parent() : this;
+        return parent && !parent.isDraft;
+      },
+    },
+    seats: {
+      type: Number,
+      min: 1,
+      required: function () {
+        const parent = this.parent ? this.parent() : this;
+        return parent && !parent.isDraft;
+      },
+    },
+  }
+);
 
 const courseSchema = new mongoose.Schema(
   {
-    courseTitle: { type: String },
+    courseTitle: {
+      type: String,
+      required: function () {
+        return !this.isDraft;
+      },
+    },
+    shortdesc: { type: String },
+    longdesc: { type: String },
+    whatYouWillLearn: { type: String },
     courseCategory: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Category",
     },
     posterImage: { type: [String] },
-    galleryImages: { type: [String] },
-    whatYouWillLearn: { type: String },
+    mediaLinks: { type: [String] },
+    shortTeaserVideo: { type: [String] },
+
+    startDate: {
+      type: Date,
+      required: function () {
+        return !this.isDraft;
+      },
+    },
+    endDate: {
+      type: Date,
+      required: function () {
+        return !this.isDraft;
+      },
+    },
+    totalSessions: {
+      type: Number,
+      min: 1,
+      required: function () {
+        return !this.isDraft;
+      },
+    },
+    timeZone: {
+      type: String,
+      default: "UTC",
+    },
+    venueName: { type: String },
+    venueAddress: {
+      type: addressSchema,
+    },
+
+    batches: {
+      type: [batchSchema],
+      default: [],
+    },
+
+    price: {
+      type: Number,
+      min: 0,
+      required: function () {
+        return !this.isDraft;
+      },
+    },
+    refundPolicy: {
+      type: String,
+      enum: Object.values(refundPolicy),
+    },
+
+    status: {
+      type: String,
+      enum: Object.values(eventStatus),
+      default: eventStatus.UPCOMING,
+    },
+
+    isDraft: {
+      type: Boolean,
+      default: false,
+    },
     isFeatured: { type: Boolean, default: false },
     featuredExpiry: { type: Date, default: null },
     activePromotionPackage: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "PromotionPackage",
       default: null,
-    },
-    venueAddress: {
-      type: {
-        type: String,
-        enum: ["Point"],
-      },
-      coordinates: [Number], // [lng, lat]
-      city: String,
-      country: String,
-      address: String,
-      state: String,
-      zipcode: String,
-
-    },
-    shortdesc: { type: String },
-
-    price: {
-      type: Number,
-      required: true,
-      min: 0,
-    },
-
-    totalSeats: {
-      type: Number,
-      required: true,
-      min: 1,
-    },
-
-    enrollmentType: {
-      type: String,
-      enum: ["Ongoing", "fixedStart"],
-      default: "Ongoing",
-    },
-
-    status: {
-      type: String,
-      enum: ["Upcoming", "Live", "Past"],
-      default: "Upcoming",
-    },
-
-    schedules: {
-      type: [scheduleSchema],
-      default: [],
-      validate: {
-        validator: function (value) {
-          if (this.enrollmentType === "fixedStart") {
-            return value.length === 1;
-          }
-          return value.length >= 1;
-        },
-        message: function () {
-          return this.enrollmentType === "fixedStart"
-            ? "Fixed start courses must have exactly one schedule"
-            : "Ongoing courses must have at least one schedule";
-        },
-      },
     },
 
     createdBy: {
@@ -121,35 +154,52 @@ courseSchema.set("toJSON", {
 courseSchema.index({ venueAddress: "2dsphere" });
 
 courseSchema.pre("save", function (next) {
+  // Determine earliest startTime and latest endTime among batches
+  let earliestStartTime = "00:00";
+  let latestEndTime = "23:59";
+
+  if (this.batches && this.batches.length > 0) {
+    const startTimes = this.batches.map((b) => b.startTime).filter(Boolean);
+    const endTimes = this.batches.map((b) => b.endTime).filter(Boolean);
+
+    if (startTimes.length > 0) {
+      startTimes.sort();
+      earliestStartTime = startTimes[0];
+    }
+    if (endTimes.length > 0) {
+      endTimes.sort();
+      latestEndTime = endTimes[endTimes.length - 1];
+    }
+  }
+
+  // Combine dates and times into UTC using our global function
+  if (this.isModified("startDate") || this.isModified("batches") || this.isModified("timeZone")) {
+    if (this.startDate) {
+      this.startDate = getUTCDateTime(this.startDate, earliestStartTime, this.timeZone || "UTC");
+    }
+  }
+
+  if (this.isModified("endDate") || this.isModified("batches") || this.isModified("timeZone")) {
+    if (this.endDate) {
+      this.endDate = getUTCDateTime(this.endDate, latestEndTime, this.timeZone || "UTC");
+    }
+  }
+
   const now = new Date();
 
-  if (this.schedules && this.schedules.length > 0) {
-    // ❌ Block creating past courses
-    // A course is in the past if ALL its schedules end before now
-    const isAllPast = this.schedules.every(
-      (s) => new Date(s.endDate) < now
-    );
+  // ❌ Block creating past courses (only if not a draft)
+  if (this.isNew && !this.isDraft && this.endDate && this.endDate < now) {
+    return next(new Error("You cannot create a course in the past"));
+  }
 
-    if (this.isNew && isAllPast) {
-      return next(new Error("You cannot create a course in the past"));
-    }
-
-    // ✅ Auto-manage status
-    const isLive = this.schedules.some(
-      (s) => new Date(s.startDate) <= now && new Date(s.endDate) >= now
-    );
-    const hasUpcoming = this.schedules.some(
-      (s) => new Date(s.startDate) > now
-    );
-
-    if (isLive) {
-      this.status = "Live";
-    } else if (hasUpcoming) {
-      this.status = "Upcoming";
-    } else if (isAllPast) {
-      this.status = "Past";
-    } else {
-      this.status = "Upcoming";
+  // ✅ Auto-manage status (only if dates are provided)
+  if (this.startDate && this.endDate) {
+    if (now < this.startDate) {
+      this.status = eventStatus.UPCOMING;
+    } else if (now >= this.startDate && now <= this.endDate) {
+      this.status = eventStatus.LIVE;
+    } else if (this.endDate < now) {
+      this.status = eventStatus.PAST;
     }
   }
 

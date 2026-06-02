@@ -1,0 +1,177 @@
+### Environment Variables
+@baseUrl = http://localhost:8080/api/v1
+@authToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTFkMWIxYmQ3ZTI2ODRjOTNjYmFkNmIiLCJyb2xlSWQiOjIsImlhdCI6MTc4MDI5MjU3MCwiZXhwIjoyNjQ0MjkyNTcwfQ.jj_rppLYsCL8Wg51zbVo6c-OiszjSpntFmui5jkVjgI
+
+### 1. Create a Draft Event (Allows missing fields for draft mode)
+POST {{baseUrl}}/event/create
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "isDraft": true,
+  "eventTitle": "Tech Conference 2026 (Draft)",
+  "notes": "Draft setup with basic details"
+}
+
+### 2. Create a Fully Published Event (All required fields provided)
+POST {{baseUrl}}/event/create
+Authorization: Bearer {{authToken}}
+Content-Type: application/json  
+
+{
+  "isDraft": false,
+  "eventTitle": "Summer Music Festival 2026",
+  "eventCategory": "647f1234567890abcdef1234",
+  "shortdesc": "A vibrant celebration of music and arts.",
+  "longdesc": "Join us for three days of incredible live performances, local food stalls, and art installations.",
+  "posterImage": [
+    "https://example.com/poster1.jpg"
+  ],
+  "venueName": "Central Park Arena",
+  "venueAddress": {
+    "latitude": 40.785091,
+    "longitude": -73.968285,
+    "address": "5th Ave",
+    "city": "New York",
+    "state": "NY",
+    "country": "USA",
+    "zipcode": "10024"
+  },
+  "startDate": "2026-07-15T18:00:00.000Z",
+  "endDate": "2026-07-18T23:00:00.000Z",
+  "startTime": "18:00",
+  "endTime": "23:00",
+  "timeZone": "EST",
+  "tickets": [
+    {
+      "ticketName": "General Admission",
+      "ticketShortDesc": "Access to all general stages and food court.",
+      "price": 49.99,
+      "qty": 500,
+      "salesStart": "2026-06-01T00:00:00.000Z",
+      "salesEnd": "2026-07-14T23:59:59.000Z"
+    },
+    {
+      "ticketName": "VIP Experience",
+      "ticketShortDesc": "VIP front row seating, free drinks, and private lounge access.",
+      "price": 149.99,
+      "qty": 50,
+      "salesStart": "2026-06-01T00:00:00.000Z",
+      "salesEnd": "2026-07-14T23:59:59.000Z"
+    }
+  ],
+  "refundPolicy": "1 Day Before",
+  "visibility": "PUBLIC",
+  "ageRestriction": "18+",
+  "showAttendees": true,
+  "dressCode": "Casual Summer",
+  "fetcherEvent": false
+}
+
+
+### 3. Update an Event (Draft or Published)
+@eventId = 6a1d642c5fa63c6370bdebce
+POST {{baseUrl}}/event/edit/{{eventId}}
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "eventTitle": "Summer Music Festival 2026 (Updated)",
+  "shortdesc": "An updated vibrant celebration of music and arts."
+}
+
+
+### 4. Publish a Draft Event (Transition from Draft to Published)
+POST {{baseUrl}}/event/edit/{{eventId}}
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "isDraft": false,
+  "eventTitle": "Tech Conference 2026",
+  "eventCategory": "647f1234567890abcdef1234",
+  "shortdesc": "A major technology conference.",
+  "longdesc": "Join industry leaders for talks, panels, and workshops.",
+  "posterImage": ["https://example.com/tech_poster.jpg"],
+  "venueName": "Convention Center",
+  "venueAddress": {
+    "latitude": 37.7749,
+    "longitude": -122.4194,
+    "address": "Market St",
+    "city": "San Francisco",
+    "state": "CA",
+    "country": "USA",
+    "zipcode": "94103"
+  },
+  "startDate": "2026-08-20T09:00:00.000Z",
+  "endDate": "2026-08-22T17:00:00.000Z",
+  "startTime": "09:00",
+  "endTime": "17:00",
+  "timeZone": "PST",
+  "tickets": [
+    {
+      "ticketName": "General Admission",
+      "price": 99.99,
+      "qty": 200
+    }
+  ]
+}
+
+
+### 5. Invalid: Try to revert a published event back to draft
+POST {{baseUrl}}/event/edit/{{eventId}}
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "isDraft": true
+}
+
+
+### 6. Invalid: Try to set end date in the past
+POST {{baseUrl}}/event/edit/{{eventId}}
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "endDate": "2020-01-01T00:00:00.000Z"
+}
+
+#=========================================================FILTER==========================================================================
+
+### 7. List Events - Standard Retrieve (Active/Upcoming Events)
+GET {{baseUrl}}/event/list
+Authorization: Bearer {{authToken}}
+
+
+### 8. List Events - Filter by Status (Explicitly show Cancelled, Live, or Past events)
+GET {{baseUrl}}/event/list?status=Cancelled
+Authorization: Bearer {{authToken}}
+
+
+### 9. List Events - Multi-way Filtering (Custom date range + Category + Search + Status combined)
+GET {{baseUrl}}/event/list?fromDate=2026-06-01T00:00:00.000Z&toDate=2026-12-31T23:59:59.000Z&categoryId=647f1234567890abcdef1234&search=Music&status=Upcoming
+Authorization: Bearer {{authToken}}
+
+
+### 10. List Events - Time Slot Presets (Happenings Soon, This Month, Today, This Weekend, etc.)
+GET {{baseUrl}}/event/list?filter=happeningsoon,thismonth
+Authorization: Bearer {{authToken}}
+
+
+### 11. List Events - Time of Day Slot Filter (Morning, Afternoon, Evening)
+GET {{baseUrl}}/event/list?timeOfDay=morning,afternoon
+Authorization: Bearer {{authToken}}
+
+
+### 12. List Events - Geospatial Distance Search (Radius of 50km from Lat/Lng coordinates)
+GET {{baseUrl}}/event/list?latitude=40.785091&longitude=-73.968285&radius=50
+Authorization: Bearer {{authToken}}
+
+
+### 13. List Events - Viewport Bounding Box Map Filter
+GET {{baseUrl}}/event/list?north=40.800000&south=40.700000&east=-73.900000&west=-74.000000
+Authorization: Bearer {{authToken}}
+
+#===========================================================FILTER=========================================================================
+
