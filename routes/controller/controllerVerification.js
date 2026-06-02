@@ -29,7 +29,26 @@ const OTP_EXPIRY_MINUTES = process.env.OTP_EXPIRY_MINUTES ? parseInt(process.env
 const submitVerification = async (req, res) => {
   try {
     const userId = req.user.userId;
-    const { nationalId, drivingLicence, bankVerification } = req.body;
+    
+    let nationalId = req.body.nationalId;
+    let drivingLicence = req.body.drivingLicence;
+    const bankVerification = req.body.bankVerification;
+
+    // Handle nested or array based idVerification payloads
+    if (req.body.idVerification) {
+      if (Array.isArray(req.body.idVerification)) {
+        req.body.idVerification.forEach((doc) => {
+          if (doc && (doc.type === "nationalId" || doc.nationalId)) {
+            nationalId = doc.nationalId || doc;
+          } else if (doc && (doc.type === "drivingLicence" || doc.drivingLicence)) {
+            drivingLicence = doc.drivingLicence || doc;
+          }
+        });
+      } else {
+        nationalId = nationalId || req.body.idVerification.nationalId;
+        drivingLicence = drivingLicence || req.body.idVerification.drivingLicence;
+      }
+    }
 
     const user = await User.findById(userId);
     if (!user) {

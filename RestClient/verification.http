@@ -98,6 +98,44 @@ Content-Type: application/json
   }
 }
 
+### Step 3.3: Submit ID Verification as a Nested Object
+POST {{baseUrl}}/verification/submit
+Authorization: Bearer {{userToken}}
+Content-Type: application/json
+
+{
+  "idVerification": {
+    "nationalId": {
+      "frontImage": "nested_front_national_id",
+      "backImage": "nested_back_national_id"
+    },
+    "drivingLicence": {
+      "frontImage": "nested_front_licence",
+      "backImage": "nested_back_licence"
+    }
+  }
+}
+
+### Step 3.4: Submit ID Verification as an Array
+POST {{baseUrl}}/verification/submit
+Authorization: Bearer {{userToken}}
+Content-Type: application/json
+
+{
+  "idVerification": [
+    {
+      "type": "nationalId",
+      "frontImage": "array_front_national_id",
+      "backImage": "array_back_national_id"
+    },
+    {
+      "type": "drivingLicence",
+      "frontImage": "array_front_licence",
+      "backImage": "array_back_licence"
+    }
+  ]
+}
+
 
 ### ----------------------------------------------------
 ### 4. BANK VERIFICATION SUBMISSION (ORGANIZER)
