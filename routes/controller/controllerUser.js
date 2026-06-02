@@ -1103,6 +1103,7 @@ const getUserProfileById = async (req, res) => {
       totalAttended: totalAttended,
       totalInterests: totalInterests,
       isFollowed: isFollowed,
+      isAllVerified: user.isAllVerified,
       isMyProfile: isMyProfile,
       createdAt: user.createdAt,
       verifications: user.verifications || {},
