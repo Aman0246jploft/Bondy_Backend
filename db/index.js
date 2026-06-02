@@ -56,6 +56,28 @@ mongoose
         { upsert: true, new: true }
       );
       console.log("✅ Default global settings seeded");
+
+      // Seed major banks of Mongolia
+      const BankModel = require("./models/Bank");
+      const mongolianBanks = [
+        "Bank of Mongolia",
+        "Khan Bank",
+        "Trade and Development Bank",
+        "Golomt Bank",
+        "State Bank",
+        "XacBank",
+        "Capitron Bank",
+        "National Investment Bank",
+        "Chinggis Khaan Bank"
+      ];
+      for (const name of mongolianBanks) {
+        await BankModel.findOneAndUpdate(
+          { bankName: name },
+          { $setOnInsert: { bankName: name, isActive: true } },
+          { upsert: true, new: true }
+        );
+      }
+      console.log("✅ Mongolian banks seeded successfully");
     } catch (seedErr) {
       console.error("Seed error:", seedErr.message);
     }
@@ -66,6 +88,7 @@ mongoose
 
 module.exports = {
   User: require("./models/User"),
+  Bank: require("./models/Bank"),
   Category: require("./models/Category"),
   Event: require("./models/Event"),
   Course: require("./models/Course"),

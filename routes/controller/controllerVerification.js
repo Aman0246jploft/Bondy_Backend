@@ -18,7 +18,7 @@ const {
 
 const HTTP_STATUS = require("../../utils/statusCode");
 const User = require("../../db/models/User");
-const { Referral, WalletHistory, GlobalSetting } = require("../../db");
+const { Referral, WalletHistory, GlobalSetting, Bank } = require("../../db");
 const constantsMessage = require("../../utils/constantsMessage");
 const { roleId } = require("../../utils/Role");
 const checkRole = require("../../middlewares/checkRole");
@@ -807,6 +807,123 @@ router.post(
   "/audit",
   checkRole([roleId.SUPER_ADMIN]),
   verifyOrganizer,
+);
+
+// --- Bank Management APIs ---
+
+// 1. Add Bank (Admin Only)
+const addBank = async (req, res) => {
+  try {
+    const { bankName } = req.body;
+    if (!bankName) {
+      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Bank Name is required.");
+    }
+
+    const existingBank = await Bank.findOne({ bankName: bankName.trim() });
+    if (existingBank) {
+      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Bank Name already exists.");
+    }
+
+    const newBank = new Bank({ bankName: bankName.trim() });
+    await newBank.save();
+
+    return apiSuccessRes(HTTP_STATUS.OK, res, "Bank added successfully.", { bank: newBank });
+  } catch (error) {
+    console.error("Error in addBank:", error);
+    return apiErrorRes(HTTP_STATUS.INTERNAL_SERVER_ERROR, res, error.message);
+  }
+};
+
+// 2. Update Bank (Admin Only)
+const updateBank = async (req, res) => {
+  try {
+    const { bankId } = req.params;
+    const { bankName, isActive } = req.body;
+
+    const bank = await Bank.findById(bankId);
+    if (!bank) {
+      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Bank not found.");
+    }
+
+    if (bankName !== undefined) {
+      const existingBank = await Bank.findOne({ bankName: bankName.trim(), _id: { $ne: bankId } });
+      if (existingBank) {
+        return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Bank Name already exists.");
+      }
+      bank.bankName = bankName.trim();
+    }
+
+    if (isActive !== undefined) {
+      bank.isActive = isActive;
+    }
+
+    await bank.save();
+
+    return apiSuccessRes(HTTP_STATUS.OK, res, "Bank updated successfully.", { bank });
+  } catch (error) {
+    console.error("Error in updateBank:", error);
+    return apiErrorRes(HTTP_STATUS.INTERNAL_SERVER_ERROR, res, error.message);
+  }
+};
+
+// 3. Delete Bank (Admin Only)
+const deleteBank = async (req, res) => {
+  try {
+    const { bankId } = req.params;
+
+    const bank = await Bank.findByIdAndDelete(bankId);
+    if (!bank) {
+      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Bank not found.");
+    }
+
+    return apiSuccessRes(HTTP_STATUS.OK, res, "Bank deleted successfully.");
+  } catch (error) {
+    console.error("Error in deleteBank:", error);
+    return apiErrorRes(HTTP_STATUS.INTERNAL_SERVER_ERROR, res, error.message);
+  }
+};
+
+// 4. Get Active Banks (All Authenticated Users)
+const getActiveBanks = async (req, res) => {
+  try {
+    const banks = await Bank.find({ isActive: true }).sort({ bankName: 1 }).lean();
+    return apiSuccessRes(HTTP_STATUS.OK, res, "Active banks fetched successfully.", { banks });
+  } catch (error) {
+    console.error("Error in getActiveBanks:", error);
+    return apiErrorRes(HTTP_STATUS.INTERNAL_SERVER_ERROR, res, error.message);
+  }
+};
+
+// Bank Management Routes
+
+// Get all active banks (General/Organizer selection)
+router.get(
+  "/banks",
+  perApiLimiter(),
+  checkRole([roleId.ORGANIZER, roleId.CUSTOMER, roleId.SUPER_ADMIN]),
+  getActiveBanks,
+);
+
+// Admin Bank endpoints
+router.post(
+  "/banks/admin",
+  perApiLimiter(),
+  checkRole([roleId.SUPER_ADMIN]),
+  addBank,
+);
+
+router.put(
+  "/banks/admin/:bankId",
+  perApiLimiter(),
+  checkRole([roleId.SUPER_ADMIN]),
+  updateBank,
+);
+
+router.delete(
+  "/banks/admin/:bankId",
+  perApiLimiter(),
+  checkRole([roleId.SUPER_ADMIN]),
+  deleteBank,
 );
 
 module.exports = router;

@@ -1,0 +1,45 @@
+### Environment Variables
+@baseUrl = http://localhost:8080/api/v1
+
+### User Setup
+# Replace with actual JWT tokens after logging in / signing up
+@userToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTFlNzE2NzkzNTBmYzFmMDU4NDNlNjMiLCJyb2xlSWQiOjIsImlhdCI6MTc4MDM4MzA2NCwiZXhwIjoyNjQ0MzgzMDY0fQ.2kg91m7YZrpyEexQwmVCNJXWOvrZK6dbyOpQsBZ0dcM
+@adminToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2OTZmMmEwMGE0ODU5NGFlZjg5NjRhZjMiLCJyb2xlSWQiOjEsImlhdCI6MTc4MDM4MDM2OCwiZXhwIjoyNjQ0MzgwMzY4fQ.UVpy8eXWG5kNMIfvujmVBTPIHdvuAdFXizcpfE28_hc
+
+### ----------------------------------------------------
+### 1. GENERAL / PUBLIC BANK API
+### ----------------------------------------------------
+
+### Get Active Banks List (Organizer Selection)
+GET {{baseUrl}}/verification/banks
+Authorization: Bearer {{userToken}}
+
+
+### ----------------------------------------------------
+### 2. ADMIN BANK CRUD MANAGEMENT APIs
+### ----------------------------------------------------
+
+### Step 2.1: Admin Adds a New Mongolian Bank
+POST {{baseUrl}}/verification/banks/admin
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "bankName": "Arig Bank"
+}
+
+### Step 2.2: Admin Updates a Bank Name or Status
+# Replace bankId below with actual mongo ObjectId of a bank
+PUT {{baseUrl}}/verification/banks/admin/665efb5f1cd98a221f7c320d
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "bankName": "Arig Bank Mongolia",
+  "isActive": true
+}
+
+### Step 2.3: Admin Deletes a Bank
+# Replace bankId below with actual mongo ObjectId of a bank
+DELETE {{baseUrl}}/verification/banks/admin/665efb5f1cd98a221f7c320d
+Authorization: Bearer {{adminToken}}

@@ -199,3 +199,38 @@ Content-Type: application/json
   "type": "bankVerification",
   "action": "approve"
 }
+
+
+### ----------------------------------------------------
+### 6. BANK MANAGEMENT & CRUD FLOW
+### ----------------------------------------------------
+
+### Step 6.1: Admin Adds a New Bank
+# @name addBankRequest
+POST {{baseUrl}}/verification/banks/admin
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "bankName": "Chase Bank"
+}
+
+### Step 6.2: Get Active Banks List
+GET {{baseUrl}}/verification/banks
+Authorization: Bearer {{userToken}}
+
+### Step 6.3: Admin Updates Bank Name or Status
+# Replace bankId below with actual mongo ObjectId returned from Step 6.1
+PUT {{baseUrl}}/verification/banks/admin/665efb5f1cd98a221f7c320d
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "bankName": "JP Morgan Chase Bank",
+  "isActive": true
+}
+
+### Step 6.4: Admin Deletes Bank
+# Replace bankId below with actual mongo ObjectId returned from Step 6.1
+DELETE {{baseUrl}}/verification/banks/admin/665efb5f1cd98a221f7c320d
+Authorization: Bearer {{adminToken}}
