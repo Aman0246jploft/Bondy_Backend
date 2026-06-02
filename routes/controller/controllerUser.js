@@ -1104,6 +1104,7 @@ const getUserProfileById = async (req, res) => {
       totalInterests: totalInterests,
       isFollowed: isFollowed,
       isMyProfile: isMyProfile,
+      createdAt: user.createdAt,
       totalFollowers: 0, // Default to 0, overwritten below
       totalFollowing: 0, // Default to 0, overwritten below
     };
