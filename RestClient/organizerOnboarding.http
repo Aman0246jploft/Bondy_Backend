@@ -12,7 +12,7 @@ Content-Type: application/json
 
 {
   "fullname": "Alex Organizer",
-  "email": "alex.organizer@example.com",
+  "email": "alex.organizer1@example.com",
   "countryCode": "+91",
   "contactNumber": "9005267079",
   "password": "password123",
