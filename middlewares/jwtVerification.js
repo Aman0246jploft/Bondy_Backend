@@ -15,6 +15,7 @@ const publicRoutes = [
   "/api/v1/user/login/verify",
 
   "/api/v1/user/admin/login",
+  "/api/v1/user/staff/login",
 
   "/api/v1/user/upload",
   "/api/v1/event/list",

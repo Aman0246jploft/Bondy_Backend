@@ -10,25 +10,30 @@ const customerSignupSchema = Joi.object({
 });
 
 const organizerSignupSchema = Joi.object({
-  firstName: Joi.string().required(),
-  lastName: Joi.string().required(),
+  fullname: Joi.string().required(),
   email: Joi.string().email().required(),
-  countryCode: Joi.string().required(),
-  contactNumber: Joi.string().required(),
   password: Joi.string().min(6).required(),
   confirmPassword: Joi.string().valid(Joi.ref("password")).required().strict(),
-  businessType: Joi.string().optional().allow(null, ""),
   acceptTerms: Joi.boolean().valid(true).required(),
-  documents: Joi.array()
-    .items(
-      Joi.object({
-        name: Joi.string().optional(),
-        file: Joi.string().required(),
-      }),
-    )
-    .optional(),
   referralCode: Joi.string().optional().allow(null, ""),
   fmcToken: Joi.string().optional().allow(null, ""),
+});
+
+const organizerInfoSchema = Joi.object({
+  businessName: Joi.string().required(),
+  category: Joi.string().hex().length(24).required(),
+  shortDesc: Joi.string().required(),
+  socialMediaLink: Joi.string().optional().allow("", null),
+});
+
+const adminVerifyOrganizerSchema = Joi.object({
+  userId: Joi.string().hex().length(24).required(),
+  action: Joi.string().valid("approve", "reject").required(),
+  reason: Joi.string().when("action", {
+    is: "reject",
+    then: Joi.required(),
+    otherwise: Joi.optional().allow("", null),
+  }),
 });
 
 const loginInitSchema = Joi.object({
@@ -84,6 +89,10 @@ const updateUserSchema = Joi.object({
     zipcode: Joi.string().optional().allow(null, ""),
   }).optional().allow(null, ""),
   fmcToken: Joi.string().optional().allow(null, ""),
+  businessName: Joi.string().trim().optional(),
+  businessCategory: Joi.string().hex().length(24).optional(),
+  shortDesc: Joi.string().trim().optional(),
+  socialMediaLink: Joi.string().trim().optional().allow(null, ""),
 });
 
 const socialLoginSchema = Joi.object({
@@ -119,6 +128,18 @@ const changePasswordSchema = Joi.object({
     .strict(),
 });
 
+const addStaffSchema = Joi.object({
+  fullname: Joi.string().required(),
+  email: Joi.string().email().required(),
+  password: Joi.string().min(6).required(),
+  profilePhoto: Joi.string().optional().allow("", null),
+});
+
+const assignStaffSchema = Joi.object({
+  entityId: Joi.string().hex().length(24).required(),
+  staffIds: Joi.array().items(Joi.string().hex().length(24)).required(),
+});
+
 module.exports = {
   customerSignupSchema,
   organizerSignupSchema,
@@ -132,4 +153,8 @@ module.exports = {
   forgotPasswordInitSchema,
   resetPasswordSchema,
   changePasswordSchema,
+  addStaffSchema,
+  assignStaffSchema,
+  organizerInfoSchema,
+  adminVerifyOrganizerSchema,
 };

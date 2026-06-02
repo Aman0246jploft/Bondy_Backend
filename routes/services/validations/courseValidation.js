@@ -8,6 +8,7 @@ const batchSchema = Joi.object({
     endTime: Joi.string().optional(),
     days: Joi.array().items(Joi.string().valid(...Object.values(daysOfWeek))).optional(),
     seats: Joi.number().integer().min(1).optional(),
+    ReservedExternally: Joi.number().integer().min(0).optional(),
 });
 
 const createCourseSchema = Joi.object({

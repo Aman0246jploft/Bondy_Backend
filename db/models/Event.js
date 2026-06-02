@@ -133,6 +133,18 @@ const eventSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    ReservedExternally: {
+      type: Number,
+      min: 0,
+      default: 0,
+    },
+    assignedStaff: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+        default: [],
+      },
+    ],
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",

@@ -15,6 +15,7 @@ const {
   updateCourseParamsSchema,
 } = require("../services/validations/courseValidation");
 const validateRequest = require("../../middlewares/validateRequest");
+const { assignStaffSchema } = require("../services/validations/userValidation");
 const perApiLimiter = require("../../middlewares/rateLimiter");
 const checkRole = require("../../middlewares/checkRole");
 const { roleId, eventStatus, daysOfWeek } = require("../../utils/Role");
@@ -876,13 +877,16 @@ const getCourses = async (req, res) => {
       if (course.createdBy?.profileImage) course.createdBy.profileImage = formatResponseUrl(course.createdBy.profileImage);
 
       let courseTotalSeats = 0;
+      let totalReservedExternally = 0;
       if (course.batches && Array.isArray(course.batches)) {
         course.batches = course.batches.map((batch) => {
           const batchId = batch._id?.toString();
           const acquired = bookingMap[`${course._id}_${batchId}`] || 0;
           const seats = batch.seats || 0;
+          const reserved = batch.ReservedExternally || 0;
           courseTotalSeats += seats;
-          const available = Math.max(0, seats - acquired);
+          totalReservedExternally += reserved;
+          const available = Math.max(0, seats - acquired - reserved);
           const userBookedBatches = bookedScheduleMap[course._id.toString()];
           return {
             ...batch,
@@ -895,7 +899,7 @@ const getCourses = async (req, res) => {
       }
 
       const acquiredTotal = courseBookingMap[course._id.toString()] || 0;
-      const leftSeats = Math.max(0, courseTotalSeats - acquiredTotal);
+      const leftSeats = Math.max(0, courseTotalSeats - acquiredTotal - totalReservedExternally);
 
       let earliestStartTime = "00:00";
       let latestEndTime = "23:59";
@@ -1052,10 +1056,13 @@ const getCoursesAdmin = async (req, res) => {
 
       // Calculate aggregated seat stats
       const acquiredSeats = bookingMap[course._id.toString()] || 0;
+      const totalReserved = course.batches && Array.isArray(course.batches)
+        ? course.batches.reduce((sum, b) => sum + (b.ReservedExternally || 0), 0)
+        : 0;
 
       course.totalSeats = totalSeats;
       course.acquiredSeats = acquiredSeats;
-      course.leftSeats = Math.max(0, totalSeats - acquiredSeats);
+      course.leftSeats = Math.max(0, totalSeats - acquiredSeats - totalReserved);
 
       return course;
     });
@@ -1226,22 +1233,32 @@ const updateCourse = async (req, res) => {
       );
     }
 
-    // Handle batch-specific seats limit check vs existing transactions (prevent reducing seats below paid count)
+    // Handle batch-specific seats limit check vs existing transactions (prevent reducing seats below paid count + reserved externally count)
     if (updateData.batches) {
       for (const batch of updateData.batches) {
-        if (batch._id && batch.seats !== undefined) {
-          const enrolledCount = await Transaction.countDocuments({
+        let enrolledCount = 0;
+        if (batch._id) {
+          enrolledCount = await Transaction.countDocuments({
             courseId: courseId,
             scheduleId: batch._id.toString(),
             status: "PAID",
           });
-          if (batch.seats < enrolledCount) {
-            return apiErrorRes(
-              HTTP_STATUS.BAD_REQUEST,
-              res,
-              `Cannot reduce seats below ${enrolledCount} enrolled students for batch "${batch.batchName || batch._id}"`,
-            );
-          }
+        }
+        
+        let existingBatch = null;
+        if (batch._id && existingCourse.batches) {
+          existingBatch = existingCourse.batches.find(b => b._id.toString() === batch._id.toString());
+        }
+
+        const seatsVal = batch.seats !== undefined ? batch.seats : (existingBatch ? existingBatch.seats : 0);
+        const reservedVal = batch.ReservedExternally !== undefined ? batch.ReservedExternally : (existingBatch ? (existingBatch.ReservedExternally || 0) : 0);
+
+        if (seatsVal < enrolledCount + reservedVal) {
+          return apiErrorRes(
+            HTTP_STATUS.BAD_REQUEST,
+            res,
+            `Seats limit (${seatsVal}) cannot be less than enrolled count (${enrolledCount}) + externally reserved seats (${reservedVal}) for batch "${batch.batchName || (existingBatch ? existingBatch.batchName : '') || batch._id || 'new batch'}"`,
+          );
         }
       }
     }
@@ -1446,13 +1463,16 @@ const getCourseDetails = async (req, res) => {
 
     // 4. Enrich Batches
     let courseTotalSeats = 0;
+    let totalReservedExternally = 0;
     if (course.batches && Array.isArray(course.batches)) {
       course.batches = course.batches.map((batch) => {
         const batchId = batch._id?.toString();
         const acquired = bookingMap[batchId] || 0;
         const seats = batch.seats || 0;
+        const reserved = batch.ReservedExternally || 0;
         courseTotalSeats += seats;
-        const available = Math.max(0, seats - acquired);
+        totalReservedExternally += reserved;
+        const available = Math.max(0, seats - acquired - reserved);
 
         return {
           ...batch,
@@ -1521,7 +1541,7 @@ const getCourseDetails = async (req, res) => {
       duration,
       durationTranslation,
       acquiredSeats: totalAcquiredSeats,
-      leftSeats: Math.max(0, courseTotalSeats - totalAcquiredSeats),
+      leftSeats: Math.max(0, courseTotalSeats - totalAcquiredSeats - totalReservedExternally),
       isBooked,
       isWishlisted,
     };
@@ -1633,6 +1653,10 @@ const getOrganizerCourses = async (req, res) => {
         enrollments: 0,
       };
 
+      const totalReserved = course.batches && Array.isArray(course.batches)
+        ? course.batches.reduce((sum, b) => sum + (b.ReservedExternally || 0), 0)
+        : 0;
+
       return {
         ...course,
         totalSeats,
@@ -1640,7 +1664,7 @@ const getOrganizerCourses = async (req, res) => {
         totalRevenue: courseStats.revenue,
         totalEnrollments: courseStats.enrollments,
         acquiredSeats: courseStats.enrollments,
-        leftSeats: Math.max(0, totalSeats - courseStats.enrollments),
+        leftSeats: Math.max(0, totalSeats - courseStats.enrollments - totalReserved),
       };
     });
 
@@ -1687,6 +1711,61 @@ router.get(
   perApiLimiter(),
   checkRole([roleId.ORGANIZER]),
   getOrganizerCourses,
+);
+
+const assignStaffToCourse = async (req, res) => {
+  try {
+    const { entityId: courseId, staffIds } = req.body;
+    const organizerId = req.user.userId;
+
+    const course = await Course.findById(courseId);
+    if (!course) {
+      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Course not found");
+    }
+
+    if (course.createdBy.toString() !== organizerId) {
+      return apiErrorRes(
+        HTTP_STATUS.FORBIDDEN,
+        res,
+        "You are not authorized to assign staff to this course",
+      );
+    }
+
+    const validStaffCount = await User.countDocuments({
+      _id: { $in: staffIds },
+      roleId: roleId.STAFF,
+      isDeleted: false,
+    });
+
+    if (validStaffCount !== staffIds.length) {
+      return apiErrorRes(
+        HTTP_STATUS.BAD_REQUEST,
+        res,
+        "One or more provided user IDs are not valid staff members",
+      );
+    }
+
+    course.assignedStaff = staffIds;
+    await course.save();
+
+    return apiSuccessRes(
+      HTTP_STATUS.OK,
+      res,
+      "Staff successfully assigned to the course",
+      { course },
+    );
+  } catch (error) {
+    console.error("Error in assignStaffToCourse:", error);
+    return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
+  }
+};
+
+router.post(
+  "/assign-staff",
+  perApiLimiter(),
+  checkRole([roleId.ORGANIZER]),
+  validateRequest(assignStaffSchema),
+  assignStaffToCourse,
 );
 
 module.exports = router;

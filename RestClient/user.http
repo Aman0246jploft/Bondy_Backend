@@ -61,14 +61,10 @@ POST {{baseUrl}}/user/organizer/signup
 Content-Type: application/json
 
 {
-  "firstName": "Test",
-  "lastName": "Organizer",
+  "fullname": "Test Organizer",
   "email": "testOrganizer@example.com",
-  "countryCode": "+91",
-  "contactNumber": "9005267079",
-  "password": "123465",
-  "confirmPassword": "123465",
-  "businessType": "Entertainment",
+  "password": "password123",
+  "confirmPassword": "password123",
   "acceptTerms": true,
   "referralCode": "",
   "fmcToken": "sample_fmc_token_456"
@@ -135,4 +131,51 @@ Content-Type: application/json
   "firstName": "Jane",
   "lastName": "Smith",
   "profileImage": "https://example.com/jane.jpg"
+}
+
+
+### ----------------------------------------------------
+### ORGANIZER PROFILE & BUSINESS INFO UPDATES
+### ----------------------------------------------------
+
+### 11. Organizer Update Business Info
+# Authenticated organizer submits/updates business name, category, short desc, and social media link.
+# Note: This will set the account review status to "pending" for admin review/approval.
+@organizerToken = YOUR_ORGANIZER_BEARER_TOKEN_HERE
+@categoryId = 647f1234567890abcdef1234
+POST {{baseUrl}}/user/organizer/info
+Authorization: Bearer {{organizerToken}}
+Content-Type: application/json
+
+{
+  "businessName": "Updated Business Name Ltd",
+  "category": "{{categoryId}}",
+  "shortDesc": "We updated our business description to offer even better events.",
+  "socialMediaLink": "https://instagram.com/updatedbusiness"
+}
+
+
+### 12. Update Profile & Business Info (Universal Profile Update)
+# Update standard fields (name, profile image, contact, location) and/or organizer business fields.
+POST {{baseUrl}}/user/update-profile
+Authorization: Bearer {{organizerToken}}
+Content-Type: application/json
+
+{
+  "firstName": "Alex",
+  "lastName": "Organizer",
+  "profileImage": "uploads/profile/organizer1.jpg",
+  "contactNumber": "9876543210",
+  "countryCode": "+1",
+  "location": {
+    "latitude": 40.7128,
+    "longitude": -74.0060,
+    "city": "New York",
+    "country": "USA",
+    "address": "123 Event Street"
+  },
+  "businessName": "Updated Business Name Ltd",
+  "businessCategory": "{{categoryId}}",
+  "shortDesc": "We updated our business description directly through the profile update endpoint.",
+  "socialMediaLink": "https://instagram.com/updatedbusiness"
 }

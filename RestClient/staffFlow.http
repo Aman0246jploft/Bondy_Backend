@@ -1,0 +1,106 @@
+### Environment Variables
+@baseUrl = http://localhost:8080/api/v1
+@organizerToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTFkMWIxYmQ3ZTI2ODRjOTNjYmFkNmIiLCJyb2xlSWQiOjIsImlhdCI6MTc4MDI5MjU3MCwiZXhwIjoyNjQ0MjkyNTcwfQ.jj_rppLYsCL8Wg51zbVo6c-OiszjSpntFmui5jkVjgI
+
+### 1. Organizer Adds a Staff Member
+# The organizer creates a staff account with fullname, email, and password.
+POST {{baseUrl}}/user/organizer/staff/add
+Authorization: Bearer {{organizerToken}}
+Content-Type: application/json
+
+{
+  "fullname": "John Staff Doe",
+  "email": "john.staff@example.com",
+  "password": "password123",
+  "profilePhoto": "uploads/profile/staff1.jpg"
+}
+
+
+### 2. Organizer Lists All Staff Members
+# Retrieve the list of all staff members managed by this organizer.
+GET {{baseUrl}}/user/organizer/staff/list
+Authorization: Bearer {{organizerToken}}
+
+
+### 3. Setup Variables for Assignment and Verification
+@eventId = 6a1d642c5fa63c6370bdebce
+@courseId = 647f8765432109abcdef8765
+@staffId = 67fa7e9ab921ef559102c019
+
+### 4. Organizer Assigns Staff to an Event
+# Assign one or more staff members to check in attendees for a specific event.
+POST {{baseUrl}}/event/assign-staff
+Authorization: Bearer {{organizerToken}}
+Content-Type: application/json
+
+{
+  "entityId": "{{eventId}}",
+  "staffIds": ["{{staffId}}"]
+}
+
+
+### 5. Organizer Assigns Staff to a Course
+# Assign one or more staff members to check in students for a specific course.
+POST {{baseUrl}}/course/assign-staff
+Authorization: Bearer {{organizerToken}}
+Content-Type: application/json
+
+{
+  "entityId": "{{courseId}}",
+  "staffIds": ["{{staffId}}"]
+}
+
+
+### 6. Staff Direct Login (No OTP Required)
+# Staff logs in directly using email and password to receive a JWT token.
+POST {{baseUrl}}/user/staff/login
+Content-Type: application/json
+
+{
+  "email": "john.staff@example.com",
+  "password": "password123"
+}
+
+
+### 7. Setup Staff Token Variable
+@staffToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2N2ZhN2U5YWI5MjFlZjU1OTEwMmMwMTkiLCJyb2xlSWQiOjUsImlhdCI6MTc4MDI5MjU3MCwiZXhwIjoyNjQ0MjkyNTcwfQ.abc_staff_signature
+
+### 8. Staff Views Assigned Events and Courses
+# Retrieve the list of all active non-draft events and courses assigned to the logged-in staff.
+GET {{baseUrl}}/user/staff/assigned
+Authorization: Bearer {{staffToken}}
+
+
+### 9. Staff Views Ticket Details (Verify QR Code)
+# Scan ticket number (parsed from QR) to show full ticket details.
+@ticketNumber = TKT-EBCE-178029-1
+GET {{baseUrl}}/attendee/ticket/{{ticketNumber}}
+Authorization: Bearer {{staffToken}}
+
+
+### 10. Staff Performs Attendee Check-In
+# Staff checks in the attendee using their ticket number.
+POST {{baseUrl}}/attendee/check-in
+Authorization: Bearer {{staffToken}}
+Content-Type: application/json
+
+{
+  "ticketNumber": "{{ticketNumber}}"
+}
+
+
+### 11. Staff Performs QR Code Scan Check-In (Unified QR Scan Endpoint)
+# Check in attendee by posting the raw QR code data directly.
+POST {{baseUrl}}/attendee/scan-qr
+Authorization: Bearer {{staffToken}}
+Content-Type: application/json
+
+{
+  "qrCodeData": "ATTENDEE-{{ticketNumber}}-67fa7e9ab921ef559102c019-1780292570"
+}
+
+
+### 12. Staff Views Check-in Scan History
+# Retrieve history of all check-ins performed by the logged-in staff member.
+GET {{baseUrl}}/user/staff/scan-history
+Authorization: Bearer {{staffToken}}

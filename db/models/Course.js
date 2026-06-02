@@ -46,6 +46,11 @@ const batchSchema = new mongoose.Schema(
         return parent && !parent.isDraft;
       },
     },
+    ReservedExternally: {
+      type: Number,
+      min: 0,
+      default: 0,
+    },
   }
 );
 
@@ -130,7 +135,13 @@ const courseSchema = new mongoose.Schema(
       ref: "PromotionPackage",
       default: null,
     },
-
+    assignedStaff: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+        default: [],
+      },
+    ],
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",

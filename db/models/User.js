@@ -65,6 +65,11 @@ const UserSchema = new Schema(
       default: roleId.CUSTOMER,
       index: true,
     },
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
     categories: [
       {
         type: mongoose.Schema.Types.ObjectId,
@@ -133,6 +138,31 @@ const UserSchema = new Schema(
       default: null, // not required
     },
     businessType: {
+      type: String,
+      trim: true,
+      default: null,
+    },
+    businessName: {
+      type: String,
+      trim: true,
+      default: null,
+    },
+    businessCategory: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Category",
+      default: null,
+    },
+    shortDesc: {
+      type: String,
+      trim: true,
+      default: null,
+    },
+    socialMediaLink: {
+      type: String,
+      trim: true,
+      default: null,
+    },
+    organizerRejectionReason: {
       type: String,
       trim: true,
       default: null,
@@ -259,15 +289,15 @@ UserSchema.pre("save", function (next) {
     this.isVerified = true;
   }
 
-  // ✅ organizerVerificationStatus = approved ONLY if BOTH approved
-  if (isBusinessApproved && isGovApproved) {
-    this.organizerVerificationStatus = "approved";
-  } else if (latestDocs.some((d) => d.status === "rejected")) {
-    this.organizerVerificationStatus = "rejected";
-  } else if (latestDocs.length) {
-    this.organizerVerificationStatus = "pending";
-  } else {
-    this.organizerVerificationStatus = "unverified";
+  // ✅ organizerVerificationStatus is updated from documents ONLY if they exist
+  if (latestDocs.length > 0) {
+    if (isBusinessApproved && isGovApproved) {
+      this.organizerVerificationStatus = "approved";
+    } else if (latestDocs.some((d) => d.status === "rejected")) {
+      this.organizerVerificationStatus = "rejected";
+    } else if (latestDocs.length) {
+      this.organizerVerificationStatus = "pending";
+    }
   }
 
   next();

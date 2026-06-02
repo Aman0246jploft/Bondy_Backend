@@ -1,0 +1,132 @@
+### Environment Variables
+@baseUrl = http://localhost:8080/api/v1
+
+### ----------------------------------------------------
+### ORGANIZER ONBOARDING & SIGNUP FLOW
+### ----------------------------------------------------
+
+### Step 1: Organizer Signup Init
+# Submit basic details to receive a signup OTP (default is "12345" in development).
+POST {{baseUrl}}/user/organizer/signup
+Content-Type: application/json
+
+{
+  "fullname": "Alex Organizer",
+  "email": "alex.organizer@example.com",
+  "password": "password123",
+  "confirmPassword": "password123",
+  "acceptTerms": true
+}
+
+
+### Step 2: Organizer Verify OTP
+# Verify OTP to register the account with "unverified" status and get a JWT token.
+POST {{baseUrl}}/user/organizer/verify-otp
+Content-Type: application/json
+
+{
+  "email": "alex.organizer@example.com",
+  "otp": "12345"
+}
+
+
+### Setup Signup Token (Copy from Step 2 response token)
+@signupToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTFkMWIxYmQ3ZTI2ODRjOTNjYmFkNmIiLCJyb2xlSWQiOjIsImlhdCI6MTc4MDI5MjU3MCwiZXhwIjoyNjQ0MjkyNTcwfQ.sample_signup_token
+
+
+### Step 3: Fetch Categories (Optional but recommended)
+# Call the category list endpoint to find a valid hex category ID for Step 4.
+GET {{baseUrl}}/category/list?page=1&limit=10&type=event
+
+
+### Step 4: Submit Organizer Info
+# Authenticated organizer submits business name, category, short desc, and social media link.
+# This moves the account status to "pending" (Under Review).
+@categoryId = 647f1234567890abcdef1234
+POST {{baseUrl}}/user/organizer/info
+Authorization: Bearer {{signupToken}}
+Content-Type: application/json
+
+{
+  "businessName": "Alex Events Ltd",
+  "category": "{{categoryId}}",
+  "shortDesc": "Leading provider of concert, festival, and corporate experiences.",
+  "socialMediaLink": "https://instagram.com/alexevents"
+}
+
+
+### Step 5: Test Organizer Login (Must Fail - Status is 'pending')
+# The login attempt should fail with HTTP 403 Forbidden since the account is not yet approved by the admin.
+POST {{baseUrl}}/user/login/init
+Content-Type: application/json
+
+{
+  "email": "alex.organizer@example.com",
+  "password": "password123",
+  "type": "ORGANIZER"
+}
+
+
+### Step 6: Admin Login
+# Log in as the Super Admin to get an admin authentication token.
+POST {{baseUrl}}/user/admin/login
+Content-Type: application/json
+
+{
+  "email": "superadmin@mailinator.com",
+  "password": "123456"
+}
+
+
+### Setup Admin Token (Copy from Step 6 response token)
+@adminToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTFkMWIxYmQ3ZTI2ODRjOTNjYmFkNmIiLCJyb2xlSWQiOjEsImlhdCI6MTc4MDI5MjU3MCwiZXhwIjoyNjQ0MjkyNTcwfQ.sample_admin_token
+@organizerUserId = 67fa7e9ab921ef559102c019
+
+
+### Step 7a: Admin Reviews Organizer (Approve Option)
+# Admin approves the organizer. This sets `organizerVerificationStatus = "approved"` and `isVerified = true`.
+POST {{baseUrl}}/user/admin/organizer/verify
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "userId": "{{organizerUserId}}",
+  "action": "approve"
+}
+
+
+### Step 7b: Admin Reviews Organizer (Reject Option - Alternate)
+# If the admin decides to reject, action is "reject" and they must supply a reason.
+# This sets `organizerVerificationStatus = "rejected"` and stores the reason.
+# POST {{baseUrl}}/user/admin/organizer/verify
+# Authorization: Bearer {{adminToken}}
+# Content-Type: application/json
+# 
+# {
+#   "userId": "{{organizerUserId}}",
+#   "action": "reject",
+#   "reason": "Business registration document or proof is missing/unclear."
+# }
+
+
+### Step 8: Test Organizer Login (Must Succeed after Admin Approval - Step 1: Init)
+# Now that the organizer is approved, this request will successfully trigger OTP generation and return a login OTP.
+POST {{baseUrl}}/user/login/init
+Content-Type: application/json
+
+{
+  "email": "alex.organizer@example.com",
+  "password": "password123",
+  "type": "ORGANIZER"
+}
+
+
+### Step 9: Test Organizer Login (Step 2: Verify Login OTP)
+# Submit the login OTP to receive the final login token.
+POST {{baseUrl}}/user/login/verify
+Content-Type: application/json
+
+{
+  "email": "alex.organizer@example.com",
+  "otp": "12345"
+}

@@ -28,6 +28,7 @@ const {
   toggleEventSliderSchema,
 } = require("../services/validations/eventValidation");
 const validateRequest = require("../../middlewares/validateRequest");
+const { assignStaffSchema } = require("../services/validations/userValidation");
 const perApiLimiter = require("../../middlewares/rateLimiter");
 const checkRole = require("../../middlewares/checkRole");
 const { roleId, userRole, eventStatus } = require("../../utils/Role");
@@ -92,6 +93,26 @@ const createEvent = async (req, res) => {
         );
       }
 
+      if (!isDraftValue) {
+        const reservedVal = req.body.ReservedExternally !== undefined ? req.body.ReservedExternally : (event.ReservedExternally || 0);
+        const ticketsVal = req.body.tickets || event.tickets || [];
+        const totalSeats = ticketsVal.reduce((sum, t) => sum + (t.qty || 0), 0);
+
+        const eventBookings = await Transaction.aggregate([
+          { $match: { eventId: event._id, status: "PAID", bookingType: "EVENT" } },
+          { $group: { _id: null, bookedQty: { $sum: "$qty" } } },
+        ]);
+        const bookedQty = eventBookings.length > 0 ? eventBookings[0].bookedQty : 0;
+
+        if (totalSeats < bookedQty + reservedVal) {
+          return apiErrorRes(
+            HTTP_STATUS.BAD_REQUEST,
+            res,
+            `Total event seats (${totalSeats}) cannot be less than booked count (${bookedQty}) + externally reserved seats (${reservedVal})`
+          );
+        }
+      }
+
       // Update fields
       Object.assign(event, eventData);
 
@@ -130,6 +151,20 @@ const createEvent = async (req, res) => {
 
       await event.save();
     } else {
+      if (!isDraftValue) {
+        const reservedVal = req.body.ReservedExternally || 0;
+        const ticketsVal = req.body.tickets || [];
+        const totalSeats = ticketsVal.reduce((sum, t) => sum + (t.qty || 0), 0);
+
+        if (totalSeats < reservedVal) {
+          return apiErrorRes(
+            HTTP_STATUS.BAD_REQUEST,
+            res,
+            `Total event seats (${totalSeats}) cannot be less than externally reserved seats (${reservedVal})`
+          );
+        }
+      }
+
       // CREATE new event
       event = new Event({
         ...eventData,
@@ -232,7 +267,7 @@ const formatEvent = (event, bookedEventIds = new Set(), bookedQty = 0, pendingQt
   event.totalBooked = bookedQty;
   event.totalPendingTicket = pendingQty;
 
-  const leftSeats = Math.max(0, totalTickets - bookedQty);
+  const leftSeats = Math.max(0, totalTickets - bookedQty - (event.ReservedExternally || 0));
   event.leftSeats = leftSeats;
   event.ticketQtyAvailable = leftSeats;
   event.acquiredSeats = bookedQty;
@@ -1974,6 +2009,25 @@ const updateEvent = async (req, res) => {
       }
     }
 
+    // 7.5. Validate ReservedExternally vs total capacity and bookings
+    const reservedVal = updateData.ReservedExternally !== undefined ? updateData.ReservedExternally : (existingEvent.ReservedExternally || 0);
+    const ticketsVal = updateData.tickets || existingEvent.tickets || [];
+    const totalSeats = ticketsVal.reduce((sum, t) => sum + (t.qty || 0), 0);
+
+    const eventBookings = await Transaction.aggregate([
+      { $match: { eventId: existingEvent._id, status: "PAID", bookingType: "EVENT" } },
+      { $group: { _id: null, bookedQty: { $sum: "$qty" } } },
+    ]);
+    const bookedQty = eventBookings.length > 0 ? eventBookings[0].bookedQty : 0;
+
+    if (totalSeats < bookedQty + reservedVal) {
+      return apiErrorRes(
+        HTTP_STATUS.BAD_REQUEST,
+        res,
+        `Total event seats (${totalSeats}) cannot be less than booked count (${bookedQty}) + externally reserved seats (${reservedVal})`
+      );
+    }
+
     // 8. Update fields on the mongoose document
     const simpleFields = [
       "eventTitle",
@@ -1996,7 +2050,8 @@ const updateEvent = async (req, res) => {
       "ageRestriction",
       "dressCode",
       "isDraft",
-      "tickets"
+      "tickets",
+      "ReservedExternally"
     ];
 
     simpleFields.forEach((field) => {
@@ -2198,6 +2253,61 @@ router.post(
   checkRole([roleId.ORGANIZER]),
   // validateRequest(updateEventSchema),
   updateEvent,
+);
+
+const assignStaffToEvent = async (req, res) => {
+  try {
+    const { entityId: eventId, staffIds } = req.body;
+    const organizerId = req.user.userId;
+
+    const event = await Event.findById(eventId);
+    if (!event) {
+      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Event not found");
+    }
+
+    if (event.createdBy.toString() !== organizerId) {
+      return apiErrorRes(
+        HTTP_STATUS.FORBIDDEN,
+        res,
+        "You are not authorized to assign staff to this event",
+      );
+    }
+
+    const validStaffCount = await User.countDocuments({
+      _id: { $in: staffIds },
+      roleId: roleId.STAFF,
+      isDeleted: false,
+    });
+
+    if (validStaffCount !== staffIds.length) {
+      return apiErrorRes(
+        HTTP_STATUS.BAD_REQUEST,
+        res,
+        "One or more provided user IDs are not valid staff members",
+      );
+    }
+
+    event.assignedStaff = staffIds;
+    await event.save();
+
+    return apiSuccessRes(
+      HTTP_STATUS.OK,
+      res,
+      "Staff successfully assigned to the event",
+      { event },
+    );
+  } catch (error) {
+    console.error("Error in assignStaffToEvent:", error);
+    return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
+  }
+};
+
+router.post(
+  "/assign-staff",
+  perApiLimiter(),
+  checkRole([roleId.ORGANIZER]),
+  validateRequest(assignStaffSchema),
+  assignStaffToEvent,
 );
 
 module.exports = router;

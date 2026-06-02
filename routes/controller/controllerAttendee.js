@@ -13,6 +13,7 @@ const {
 } = require("../services/validations/attendeeValidation");
 const validateRequest = require("../../middlewares/validateRequest");
 const perApiLimiter = require("../../middlewares/rateLimiter");
+const { roleId } = require("../../utils/Role");
 
 // Helper to generate unique ticket number
 const generateTicketNumber = (eventId, index) => {
@@ -285,9 +286,12 @@ const checkInAttendee = async (req, res) => {
       return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.TICKET_NOT_FOUND);
     }
 
-    // Verify Event/Course Ownership
+    // Verify Event/Course Ownership or Assigned Staff
     const targetItem = attendee.eventId || attendee.courseId;
-    if (targetItem.createdBy.toString() !== userId) {
+    const isCreator = targetItem.createdBy.toString() === userId;
+    const isAssignedStaff = req.user.roleId === roleId.STAFF && targetItem.assignedStaff && targetItem.assignedStaff.some(id => id.toString() === userId);
+
+    if (!isCreator && !isAssignedStaff) {
       return apiErrorRes(
         HTTP_STATUS.FORBIDDEN,
         res,
@@ -335,9 +339,12 @@ const getAttendeeByTicket = async (req, res) => {
       return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.TICKET_NOT_FOUND);
     }
 
-    // Verify Event/Course Ownership
+    // Verify Event/Course Ownership or Assigned Staff
     const targetItem = attendee.eventId || attendee.courseId;
-    if (targetItem.createdBy.toString() !== userId) {
+    const isCreator = targetItem.createdBy.toString() === userId;
+    const isAssignedStaff = req.user.roleId === roleId.STAFF && targetItem.assignedStaff && targetItem.assignedStaff.some(id => id.toString() === userId);
+
+    if (!isCreator && !isAssignedStaff) {
       return apiErrorRes(
         HTTP_STATUS.FORBIDDEN,
         res,
@@ -489,8 +496,11 @@ const scanQRAndCheckIn = async (req, res) => {
       return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.ENTITY_NOT_FOUND);
     }
 
-    // Verify Event Ownership
-    if (event.createdBy.toString() !== organizerId) {
+    // Verify Event/Course Ownership or Assigned Staff
+    const isCreator = event.createdBy.toString() === organizerId;
+    const isAssignedStaff = req.user.roleId === roleId.STAFF && event.assignedStaff && event.assignedStaff.some(id => id.toString() === organizerId);
+
+    if (!isCreator && !isAssignedStaff) {
       return apiErrorRes(
         HTTP_STATUS.FORBIDDEN,
         res,

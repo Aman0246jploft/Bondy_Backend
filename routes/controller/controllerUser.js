@@ -36,6 +36,9 @@ const {
   universalOtpSchema,
   universalResendOtpSchema,
   changePasswordSchema,
+  addStaffSchema,
+  organizerInfoSchema,
+  adminVerifyOrganizerSchema,
 } = require("../services/validations/userValidation");
 const validateRequest = require("../../middlewares/validateRequest");
 const perApiLimiter = require("../../middlewares/rateLimiter");
@@ -195,7 +198,7 @@ const customerSignupVerify = async (req, res) => {
 // Organizer Signup - Step 1: Init
 const organizerSignupInit = async (req, res) => {
   try {
-    const { email, contactNumber, countryCode } = req.body;
+    const { email } = req.body;
 
     // Check if email already exists
     const existingEmail = await User.findOne({ email, isDeleted: false });
@@ -207,25 +210,10 @@ const organizerSignupInit = async (req, res) => {
       );
     }
 
-    // Check if contact number already exists
-    const existingContact = await User.findOne({
-      contactNumber,
-      countryCode,
-      isDeleted: false,
-    });
-    if (existingContact) {
-      return apiErrorRes(
-        HTTP_STATUS.BAD_REQUEST,
-        res,
-        constantsMessage.CONTACT_ALREADY_EXISTS,
-      );
-    }
-
     // Generate OTP (12345 for development, random OTP for production)
     const otp =
-      process.env.NODE_ENV === "development" ? "12345" : generateOTP(); // TODO: Implement SMS/Email service for production
+      process.env.NODE_ENV === "development" ? "12345" : generateOTP();
 
-    // Capture referralCode from body OR query param (?ref=CODE)
     const referralCode = req.body.referralCode || req.query.ref || null;
     const dataToStore = {
       ...req.body,
@@ -276,6 +264,9 @@ const organizerSignupVerify = async (req, res) => {
     }
 
     const userData = JSON.parse(redisData.data);
+    const parts = userData.fullname ? userData.fullname.trim().split(" ") : ["", ""];
+    const firstName = parts[0];
+    const lastName = parts.slice(1).join(" ") || "";
 
     // Check if user already exists (deleted or not)
     let user = await User.findOne({ email });
@@ -292,33 +283,25 @@ const organizerSignupVerify = async (req, res) => {
       // Reactivate Deleted User
       user.isDeleted = false;
       user.isDisable = false;
-      user.firstName = userData.firstName;
-      user.lastName = userData.lastName;
+      user.firstName = firstName;
+      user.lastName = lastName;
       user.password = userData.password;
-      user.contactNumber = userData.contactNumber || userData.mobileNumber;
-      user.countryCode = userData.countryCode;
-      user.businessType = userData.businessType;
       user.acceptTerms = userData.acceptTerms;
-      user.documents = userData.documents;
       user.roleId = roleId.ORGANIZER;
       user.fmcToken = userData.fmcToken || user.fmcToken;
-      user.organizerVerificationStatus = "pending";
+      user.organizerVerificationStatus = "unverified";
 
       await user.save();
     } else {
       // Create New User
       user = new User({
-        firstName: userData.firstName,
-        lastName: userData.lastName,
+        firstName,
+        lastName,
         email: userData.email,
         password: userData.password,
-        contactNumber: userData.contactNumber || userData.mobileNumber,
-        countryCode: userData.countryCode,
-        businessType: userData.businessType,
         acceptTerms: userData.acceptTerms,
-        documents: userData.documents,
         roleId: roleId.ORGANIZER, // ORGANIZER
-        organizerVerificationStatus: "pending",
+        organizerVerificationStatus: "unverified",
         fmcToken: userData.fmcToken || null,
       });
 
@@ -526,16 +509,16 @@ const loginInit = async (req, res) => {
     }
 
     // Check Organizer Status
-    // if (
-    //   user.roleId === roleId.ORGANIZER &&
-    //   user.organizerVerificationStatus !== "approved"
-    // ) {
-    //   return apiErrorRes(
-    //     HTTP_STATUS.FORBIDDEN,
-    //     res,
-    //     `${constantsMessage.ACCOUNT_STATUS_PREFIX}${user.organizerVerificationStatus}${constantsMessage.WAIT_FOR_ADMIN_APPROVAL}`,
-    //   );
-    // }
+    if (
+      user.roleId === roleId.ORGANIZER &&
+      user.organizerVerificationStatus !== "approved"
+    ) {
+      return apiErrorRes(
+        HTTP_STATUS.FORBIDDEN,
+        res,
+        `${constantsMessage.ACCOUNT_STATUS_PREFIX}${user.organizerVerificationStatus}${constantsMessage.WAIT_FOR_ADMIN_APPROVAL}`,
+      );
+    }
 
     // Generate OTP
     const otp =
@@ -708,16 +691,16 @@ const resendLoginOtp = async (req, res) => {
     }
 
     // Check Organizer Status
-    // if (
-    //   user.roleId === roleId.ORGANIZER &&
-    //   user.organizerVerificationStatus !== "approved"
-    // ) {
-    //   return apiErrorRes(
-    //     HTTP_STATUS.FORBIDDEN,
-    //     res,
-    //     `${constantsMessage.ACCOUNT_STATUS_PREFIX}${user.organizerVerificationStatus}${constantsMessage.WAIT_FOR_ADMIN_APPROVAL}`,
-    //   );
-    // }
+    if (
+      user.roleId === roleId.ORGANIZER &&
+      user.organizerVerificationStatus !== "approved"
+    ) {
+      return apiErrorRes(
+        HTTP_STATUS.FORBIDDEN,
+        res,
+        `${constantsMessage.ACCOUNT_STATUS_PREFIX}${user.organizerVerificationStatus}${constantsMessage.WAIT_FOR_ADMIN_APPROVAL}`,
+      );
+    }
 
     // Generate OTP
     const otp =
@@ -1954,6 +1937,311 @@ router.post(
   perApiLimiter(),
   validateRequest(universalResendOtpSchema),
   resendUniversalOtp,
+);
+
+// --- STAFF FLOW ENDPOINTS ---
+
+const addStaff = async (req, res) => {
+  try {
+    const { fullname, email, password, profilePhoto } = req.body;
+    const organizerId = req.user.userId;
+
+    const existingUser = await User.findOne({ email, isDeleted: false });
+    if (existingUser) {
+      return apiErrorRes(
+        HTTP_STATUS.BAD_REQUEST,
+        res,
+        constantsMessage.EMAIL_ALREADY_EXISTS || "Email already exists",
+      );
+    }
+
+    const parts = fullname.trim().split(" ");
+    const firstName = parts[0];
+    const lastName = parts.slice(1).join(" ") || "";
+
+    const staffUser = new User({
+      firstName,
+      lastName,
+      email,
+      password,
+      profileImage: profilePhoto || null,
+      roleId: roleId.STAFF,
+      createdBy: organizerId,
+      isVerified: true,
+      organizerVerificationStatus: "approved",
+    });
+
+    await staffUser.save();
+
+    return apiSuccessRes(
+      HTTP_STATUS.OK,
+      res,
+      "Staff member added successfully",
+      { staff: staffUser.toObject() },
+    );
+  } catch (error) {
+    console.error("Error in addStaff:", error);
+    return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
+  }
+};
+
+const listStaff = async (req, res) => {
+  try {
+    const organizerId = req.user.userId;
+    const staffList = await User.find({
+      createdBy: organizerId,
+      roleId: roleId.STAFF,
+      isDeleted: false,
+    }).sort({ createdAt: -1 });
+
+    return apiSuccessRes(
+      HTTP_STATUS.OK,
+      res,
+      "Staff list retrieved successfully",
+      { staff: staffList },
+    );
+  } catch (error) {
+    console.error("Error in listStaff:", error);
+    return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
+  }
+};
+
+const staffLogin = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    const user = await User.findOne({ email, isDeleted: false });
+    if (!user || user.roleId !== roleId.STAFF) {
+      return apiErrorRes(
+        HTTP_STATUS.BAD_REQUEST,
+        res,
+        "Invalid email or password",
+      );
+    }
+
+    if (user.isDisable) {
+      return apiErrorRes(
+        HTTP_STATUS.FORBIDDEN,
+        res,
+        constantsMessage.ACCOUNT_DISABLED || "Account is disabled",
+      );
+    }
+
+    const isMatch = await verifyPassword(user.password, password);
+    if (!isMatch) {
+      return apiErrorRes(
+        HTTP_STATUS.BAD_REQUEST,
+        res,
+        "Invalid email or password",
+      );
+    }
+
+    const token = signToken({ userId: user._id, roleId: user.roleId });
+
+    return apiSuccessRes(
+      HTTP_STATUS.OK,
+      res,
+      "Staff logged in successfully",
+      {
+        user: { ...user.toObject(), userRole: userRole[user.roleId] },
+        token,
+      },
+    );
+  } catch (error) {
+    console.error("Error in staffLogin:", error);
+    return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
+  }
+};
+
+const getStaffAssignedList = async (req, res) => {
+  try {
+    const staffId = req.user.userId;
+
+    const events = await Event.find({ assignedStaff: staffId, isDraft: false })
+      .populate("eventCategory", "name")
+      .populate("createdBy", "firstName lastName email")
+      .lean();
+
+    const courses = await Course.find({ assignedStaff: staffId, isDraft: false })
+      .populate("courseCategory", "name")
+      .populate("createdBy", "firstName lastName email")
+      .lean();
+
+    return apiSuccessRes(
+      HTTP_STATUS.OK,
+      res,
+      "Assigned list retrieved successfully",
+      { events, courses },
+    );
+  } catch (error) {
+    console.error("Error in getStaffAssignedList:", error);
+    return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
+  }
+};
+
+const getStaffScanHistory = async (req, res) => {
+  try {
+    const staffId = req.user.userId;
+    const { Attendee: AttendeeModel } = require("../../db");
+
+    const scanHistory = await AttendeeModel.find({
+      checkedInBy: staffId,
+      isCheckedIn: true,
+    })
+      .populate("eventId", "eventTitle startDate endDate venueName")
+      .populate("courseId", "courseTitle startDate endDate venueName")
+      .populate("userId", "firstName lastName email profileImage")
+      .populate("transactionId", "bookingId totalAmount status")
+      .sort({ checkedInAt: -1 });
+
+    return apiSuccessRes(
+      HTTP_STATUS.OK,
+      res,
+      "Scan history retrieved successfully",
+      { scanHistory },
+    );
+  } catch (error) {
+    console.error("Error in getStaffScanHistory:", error);
+    return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
+  }
+};
+
+router.post(
+  "/organizer/staff/add",
+  perApiLimiter(),
+  checkRole([roleId.ORGANIZER]),
+  validateRequest(addStaffSchema),
+  addStaff,
+);
+
+router.get(
+  "/organizer/staff/list",
+  perApiLimiter(),
+  checkRole([roleId.ORGANIZER]),
+  listStaff,
+);
+
+router.post(
+  "/staff/login",
+  perApiLimiter(),
+  staffLogin,
+);
+
+router.get(
+  "/staff/assigned",
+  perApiLimiter(),
+  checkRole([roleId.STAFF]),
+  getStaffAssignedList,
+);
+
+router.get(
+  "/staff/scan-history",
+  perApiLimiter(),
+  checkRole([roleId.STAFF]),
+  getStaffScanHistory,
+);
+
+const addOrganizerInfo = async (req, res) => {
+  try {
+    const { businessName, category, shortDesc, socialMediaLink } = req.body;
+    const userId = req.user.userId;
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return apiErrorRes(
+        HTTP_STATUS.NOT_FOUND,
+        res,
+        constantsMessage.USER_NOT_FOUND || "User not found",
+      );
+    }
+
+    if (user.roleId !== roleId.ORGANIZER) {
+      return apiErrorRes(
+        HTTP_STATUS.FORBIDDEN,
+        res,
+        "Only organizers can update organizer info",
+      );
+    }
+
+    user.businessName = businessName;
+    user.businessCategory = category;
+    user.shortDesc = shortDesc;
+    user.socialMediaLink = socialMediaLink || null;
+    user.organizerVerificationStatus = "pending";
+
+    await user.save();
+
+    return apiSuccessRes(
+      HTTP_STATUS.OK,
+      res,
+      "Organizer info submitted successfully. Your account is now under review.",
+      { user },
+    );
+  } catch (error) {
+    console.error("Error in addOrganizerInfo:", error);
+    return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
+  }
+};
+
+router.post(
+  "/organizer/info",
+  perApiLimiter(),
+  checkRole([roleId.ORGANIZER]),
+  validateRequest(organizerInfoSchema),
+  addOrganizerInfo,
+);
+
+const adminVerifyOrganizer = async (req, res) => {
+  try {
+    const { userId, action, reason } = req.body;
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return apiErrorRes(
+        HTTP_STATUS.NOT_FOUND,
+        res,
+        constantsMessage.USER_NOT_FOUND || "User not found",
+      );
+    }
+
+    if (user.roleId !== roleId.ORGANIZER) {
+      return apiErrorRes(
+        HTTP_STATUS.BAD_REQUEST,
+        res,
+        "User is not an organizer",
+      );
+    }
+
+    if (action === "approve") {
+      user.organizerVerificationStatus = "approved";
+      user.isVerified = true;
+      user.organizerRejectionReason = null;
+    } else {
+      user.organizerVerificationStatus = "rejected";
+      user.isVerified = false;
+      user.organizerRejectionReason = reason;
+    }
+
+    await user.save();
+
+    return apiSuccessRes(
+      HTTP_STATUS.OK,
+      res,
+      `Organizer account successfully ${action}d.`,
+      { user },
+    );
+  } catch (error) {
+    console.error("Error in adminVerifyOrganizer:", error);
+    return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
+  }
+};
+
+router.post(
+  "/admin/organizer/verify",
+  perApiLimiter(),
+  checkRole([roleId.SUPER_ADMIN]),
+  validateRequest(adminVerifyOrganizerSchema),
+  adminVerifyOrganizer,
 );
 
 module.exports = router;

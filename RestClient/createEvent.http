@@ -21,6 +21,7 @@ Content-Type: application/json
 {
   "isDraft": false,
   "eventTitle": "Summer Music Festival 2026",
+  "ReservedExternally": 10,
   "eventCategory": "647f1234567890abcdef1234",
   "shortdesc": "A vibrant celebration of music and arts.",
   "longdesc": "Join us for three days of incredible live performances, local food stalls, and art installations.",
