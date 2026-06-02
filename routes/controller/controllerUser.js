@@ -2233,11 +2233,12 @@ const adminVerifyOrganizer = async (req, res) => {
     const { userId, action, reason } = req.body;
 
     const user = await User.findById(userId);
+
     if (!user) {
       return apiErrorRes(
         HTTP_STATUS.NOT_FOUND,
         res,
-        constantsMessage.USER_NOT_FOUND || "User not found",
+        constantsMessage.USER_NOT_FOUND || "User not found"
       );
     }
 
@@ -2245,30 +2246,41 @@ const adminVerifyOrganizer = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        "User is not an organizer",
-      );
-      if (action === "approve") {
-        user.organizerVerificationStatus = "approved";
-        user.isVerified = true;
-        user.organizerRejectionReason = null;
-      } else {
-        user.organizerVerificationStatus = "rejected";
-        user.isVerified = false;
-        user.organizerRejectionReason = reason;
-      }
-
-      await user.save();
-      return apiSuccessRes(
-        HTTP_STATUS.OK,
-        res,
-        `Organizer account successfully ${action}d.`,
-        { user },
+        "User is not an organizer"
       );
     }
-  }
-  catch (error) {
+
+    if (action === "approve") {
+      user.organizerVerificationStatus = "approved";
+      user.isVerified = true;
+      user.organizerRejectionReason = null;
+    } else if (action === "reject") {
+      user.organizerVerificationStatus = "rejected";
+      user.isVerified = false;
+      user.organizerRejectionReason = reason || null;
+    } else {
+      return apiErrorRes(
+        HTTP_STATUS.BAD_REQUEST,
+        res,
+        "Invalid action. Use 'approve' or 'reject'."
+      );
+    }
+
+    await user.save();
+
+    return apiSuccessRes(
+      HTTP_STATUS.OK,
+      res,
+      `Organizer account successfully ${action === "approve" ? "approved" : "rejected"}.`,
+      { user }
+    );
+  } catch (error) {
     console.error("Error in adminVerifyOrganizer:", error);
-    return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
+    return apiErrorRes(
+      HTTP_STATUS.SERVER_ERROR,
+      res,
+      error.message
+    );
   }
 };
 
