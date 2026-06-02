@@ -179,6 +179,12 @@ const UserSchema = new Schema(
       index: true,
     },
 
+    isAllVerified: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+
     countryCode: {
       type: String,
       trim: true,
@@ -277,6 +283,16 @@ UserSchema.pre("save", function (next) {
     const isIdApproved = (this.verifications?.idVerification?.nationalId?.isVerified || false) ||
       (this.verifications?.idVerification?.drivingLicence?.isVerified || false);
 
+    if (this.isVerified || isIdApproved) {
+      this.isVerified = true;
+    }
+
+    // isAllVerified is true ONLY if Phone, Email, at least one ID, and Bank are all verified
+    const isPhoneVerified = this.verifications?.phone?.isVerified || false;
+    const isEmailVerified = this.verifications?.email?.isVerified || false;
+    const isBankApproved = this.verifications?.bankVerification?.isVerified || false;
+
+    this.isAllVerified = isPhoneVerified && isEmailVerified && isIdApproved && isBankApproved;
 
     // Keep organizerVerificationStatus in sync
     const nationalIdStatus = this.verifications?.idVerification?.nationalId?.status || "unverified";

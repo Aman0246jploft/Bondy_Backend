@@ -915,9 +915,7 @@ const updateUserProfile = async (req, res) => {
         res,
         constantsMessage.SUPER_ADMIN_UPDATE_NOT_ALLOWED,
       );
-    }
-
-    const { email, location, ...updateData } = req.body;
+    } const { email, contactNumber, countryCode, location, ...updateData } = req.body;
 
     // Check if email already exists (if email is being updated)
     if (email) {
@@ -934,8 +932,16 @@ const updateUserProfile = async (req, res) => {
         );
       }
       updateData.email = email;
+      updateData["verifications.email.isVerified"] = false;
+      updateData["verifications.email.verifiedAt"] = null;
     }
 
+    if (contactNumber || countryCode) {
+      if (contactNumber) updateData.contactNumber = contactNumber;
+      if (countryCode) updateData.countryCode = countryCode;
+      updateData["verifications.phone.isVerified"] = false;
+      updateData["verifications.phone.verifiedAt"] = null;
+    }
     // Handle location update
     if (location) {
       updateData.location = {
@@ -2238,7 +2244,7 @@ const adminVerifyOrganizer = async (req, res) => {
         res,
         "User is not an organizer",
       );
-    }    if (action === "approve") {
+    } if (action === "approve") {
       user.organizerVerificationStatus = "approved";
       user.isVerified = true;
       user.organizerRejectionReason = null;
