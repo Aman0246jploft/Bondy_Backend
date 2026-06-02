@@ -442,7 +442,7 @@ const sendPhoneOTP = async (req, res) => {
     await setKeyWithTime(`phone_verify_otp:${userId}`, otp, OTP_EXPIRY_MINUTES);
     await setKeyWithTime(`phone_verify_data:${userId}`, JSON.stringify({ countryCode, contactNumber }), OTP_EXPIRY_MINUTES);
 
-    return apiSuccessRes(HTTP_STATUS.OK, res, "OTP sent successfully to your phone number.", { otp, expiryTime: OTP_EXPIRY_MINUTES });
+    return apiSuccessRes(HTTP_STATUS.OK, res, "OTP sent successfully to your phone number.", { otp });
   } catch (error) {
     console.error("Error in sendPhoneOTP:", error);
     return apiErrorRes(HTTP_STATUS.INTERNAL_SERVER_ERROR, res, error.message);
@@ -480,7 +480,7 @@ const resendPhoneOTP = async (req, res) => {
     await setKeyWithTime(`phone_verify_otp:${userId}`, otp, OTP_EXPIRY_MINUTES);
     await setKeyWithTime(`phone_verify_data:${userId}`, JSON.stringify({ countryCode, contactNumber }), OTP_EXPIRY_MINUTES);
 
-    return apiSuccessRes(HTTP_STATUS.OK, res, "OTP resent successfully to your phone number.", { otp, expiryTime: OTP_EXPIRY_MINUTES });
+    return apiSuccessRes(HTTP_STATUS.OK, res, "OTP resent successfully to your phone number.", { otp });
   } catch (error) {
     console.error("Error in resendPhoneOTP:", error);
     return apiErrorRes(HTTP_STATUS.INTERNAL_SERVER_ERROR, res, error.message);
@@ -552,7 +552,7 @@ const sendEmailOTP = async (req, res) => {
     await setKeyWithTime(`email_verify_otp:${userId}`, otp, OTP_EXPIRY_MINUTES);
     await setKeyWithTime(`email_verify_data:${userId}`, email.toLowerCase(), OTP_EXPIRY_MINUTES);
 
-    return apiSuccessRes(HTTP_STATUS.OK, res, "OTP sent successfully to your email address.", { otp, expiryTime: OTP_EXPIRY_MINUTES });
+    return apiSuccessRes(HTTP_STATUS.OK, res, "OTP sent successfully to your email address.", { otp });
   } catch (error) {
     console.error("Error in sendEmailOTP:", error);
     return apiErrorRes(HTTP_STATUS.INTERNAL_SERVER_ERROR, res, error.message);
@@ -586,7 +586,7 @@ const resendEmailOTP = async (req, res) => {
     await setKeyWithTime(`email_verify_otp:${userId}`, otp, OTP_EXPIRY_MINUTES);
     await setKeyWithTime(`email_verify_data:${userId}`, email.toLowerCase(), OTP_EXPIRY_MINUTES);
 
-    return apiSuccessRes(HTTP_STATUS.OK, res, "OTP resent successfully to your email address.", { otp, expiryTime: OTP_EXPIRY_MINUTES });
+    return apiSuccessRes(HTTP_STATUS.OK, res, "OTP resent successfully to your email address.", { otp });
   } catch (error) {
     console.error("Error in resendEmailOTP:", error);
     return apiErrorRes(HTTP_STATUS.INTERNAL_SERVER_ERROR, res, error.message);
