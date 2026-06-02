@@ -95,8 +95,8 @@ POST {{baseUrl}}/user/login/init
 Content-Type: application/json
 
 {
-  "email": "testOrganizer@example.com",
-  "password": "123465",
+  "email": "new@gmail.com",
+  "password": "Test@123",
   "type": "ORGANIZER"
 }
 
@@ -107,7 +107,7 @@ POST {{baseUrl}}/user/verify-otp
 Content-Type: application/json
 
 {
-  "email": "testOrganizer@example.com",
+  "email": "new@gmail.com",
   "otp": "12345",
   "type": "LOGIN"
 }
@@ -147,7 +147,7 @@ Content-Type: application/json
 ### 11. Organizer Update Business Info
 # Authenticated organizer submits/updates business name, category, short desc, and social media link.
 # Note: This will set the account review status to "pending" for admin review/approval.
-@organizerToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTFlNzE2NzkzNTBmYzFmMDU4NDNlNjMiLCJyb2xlSWQiOjIsImlhdCI6MTc4MDM4MzA2NCwiZXhwIjoyNjQ0MzgzMDY0fQ.2kg91m7YZrpyEexQwmVCNJXWOvrZK6dbyOpQsBZ0dcM
+@organizerToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTFlODA2NjU5NzliZWVlNDFjZjVmNGIiLCJyb2xlSWQiOjIsImlhdCI6MTc4MDM5MjI0MiwiZXhwIjoyNjQ0MzkyMjQyfQ._seTKBMgKAGg5VFeHLwsMQuqSxUstNw1MXkayMYs40M
 @categoryId = 647f1234567890abcdef1234
 POST {{baseUrl}}/user/organizer/info
 Authorization: Bearer {{organizerToken}}
@@ -168,22 +168,22 @@ Authorization: Bearer {{organizerToken}}
 Content-Type: application/json
 
 {
-  "firstName": "Alex",
-  "lastName": "Organizer",
-  "profileImage": "uploads/profile/organizer1.jpg",
-  "contactNumber": "9876543210",
-  "countryCode": "+1",
-  "location": {
-    "latitude": 40.7128,
-    "longitude": -74.0060,
-    "city": "New York",
-    "country": "USA",
-    "address": "123 Event Street"
-  },
-  "businessName": "Updated Business Name Ltd",
-  "businessCategory": "{{categoryId}}",
-  "shortDesc": "We updated our business description directly through the profile update endpoint.",
-  "socialMediaLink": "https://instagram.com/updatedbusiness"
+  # "firstName": "Alex",
+  # "lastName": "Organizer",
+  # "profileImage": "uploads/profile/organizer1.jpg",
+  # "contactNumber": "9876543210",
+  # "countryCode": "+1",
+  # "location": {
+  #   "latitude": 40.7128,
+  #   "longitude": -74.0060,
+  #   "city": "New York",
+  #   "country": "USA",
+  #   "address": "123 Event Street"
+  # },
+  # "businessName": "Updated Business Name Ltd",
+  # "businessCategory": "{{categoryId}}",
+  # "shortDesc": "We updated our business description directly through the profile update endpoint.",
+  # "socialMediaLink": "https://instagram.com/updatedbusiness"
 }
 
 

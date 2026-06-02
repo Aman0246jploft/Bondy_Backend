@@ -279,45 +279,51 @@ UserSchema.pre("save", function (next) {
     this.isVerified = true;
   }
   else if (this.roleId === roleId.ORGANIZER) {
-    // isVerified is strictly dependent ONLY on ID verification approval (nationalId or drivingLicence)
-    const isIdApproved = (this.verifications?.idVerification?.nationalId?.isVerified || false) ||
-      (this.verifications?.idVerification?.drivingLicence?.isVerified || false);
+    const verificationsModified = this.isModified("verifications");
 
-    if (this.isVerified || isIdApproved) {
-      this.isVerified = true;
-    }
+    if (verificationsModified || this.organizerVerificationStatus !== "approved") {
+      // isVerified is strictly dependent ONLY on ID verification approval (nationalId or drivingLicence)
+      const isIdApproved = (this.verifications?.idVerification?.nationalId?.isVerified || false) ||
+        (this.verifications?.idVerification?.drivingLicence?.isVerified || false);
 
-    // isAllVerified is true ONLY if Phone, Email, at least one ID, and Bank are all verified
-    const isPhoneVerified = this.verifications?.phone?.isVerified || false;
-    const isEmailVerified = this.verifications?.email?.isVerified || false;
-    const isBankApproved = this.verifications?.bankVerification?.isVerified || false;
+      if (this.isVerified || isIdApproved) {
+        this.isVerified = true;
+      } else {
+        this.isVerified = false;
+      }
 
-    this.isAllVerified = isPhoneVerified && isEmailVerified && isIdApproved && isBankApproved;
+      // isAllVerified is true ONLY if Phone, Email, at least one ID, and Bank are all verified
+      const isPhoneVerified = this.verifications?.phone?.isVerified || false;
+      const isEmailVerified = this.verifications?.email?.isVerified || false;
+      const isBankApproved = this.verifications?.bankVerification?.isVerified || false;
 
-    // Keep organizerVerificationStatus in sync
-    const nationalIdStatus = this.verifications?.idVerification?.nationalId?.status || "unverified";
-    const drivingLicenceStatus = this.verifications?.idVerification?.drivingLicence?.status || "unverified";
-    const bankStatus = this.verifications?.bankVerification?.status || "unverified";
+      this.isAllVerified = isPhoneVerified && isEmailVerified && isIdApproved && isBankApproved;
 
-    if (
-      (nationalIdStatus === "approved" || drivingLicenceStatus === "approved") &&
-      bankStatus === "approved"
-    ) {
-      this.organizerVerificationStatus = "approved";
-    } else if (
-      nationalIdStatus === "pending" ||
-      drivingLicenceStatus === "pending" ||
-      bankStatus === "pending"
-    ) {
-      this.organizerVerificationStatus = "pending";
-    } else if (
-      nationalIdStatus === "rejected" ||
-      drivingLicenceStatus === "rejected" ||
-      bankStatus === "rejected"
-    ) {
-      this.organizerVerificationStatus = "rejected";
-    } else {
-      this.organizerVerificationStatus = "unverified";
+      // Keep organizerVerificationStatus in sync
+      const nationalIdStatus = this.verifications?.idVerification?.nationalId?.status || "unverified";
+      const drivingLicenceStatus = this.verifications?.idVerification?.drivingLicence?.status || "unverified";
+      const bankStatus = this.verifications?.bankVerification?.status || "unverified";
+
+      if (
+        (nationalIdStatus === "approved" || drivingLicenceStatus === "approved") &&
+        bankStatus === "approved"
+      ) {
+        this.organizerVerificationStatus = "approved";
+      } else if (
+        nationalIdStatus === "pending" ||
+        drivingLicenceStatus === "pending" ||
+        bankStatus === "pending"
+      ) {
+        this.organizerVerificationStatus = "pending";
+      } else if (
+        nationalIdStatus === "rejected" ||
+        drivingLicenceStatus === "rejected" ||
+        bankStatus === "rejected"
+      ) {
+        this.organizerVerificationStatus = "rejected";
+      } else {
+        this.organizerVerificationStatus = "unverified";
+      }
     }
   }
 

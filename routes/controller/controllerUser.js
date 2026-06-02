@@ -2247,46 +2247,32 @@ const adminVerifyOrganizer = async (req, res) => {
         res,
         "User is not an organizer",
       );
-    } if (action === "approve") {
-      user.organizerVerificationStatus = "approved";
-      user.isVerified = true;
-      user.organizerRejectionReason = null;
+      if (action === "approve") {
+        user.organizerVerificationStatus = "approved";
+        user.isVerified = true;
+        user.organizerRejectionReason = null;
+      } else {
+        user.organizerVerificationStatus = "rejected";
+        user.isVerified = false;
+        user.organizerRejectionReason = reason;
+      }
 
-      // Update verification sub-documents for consistency
-      user.verifications.idVerification.nationalId.status = "approved";
-      user.verifications.idVerification.nationalId.isVerified = true;
-      user.verifications.idVerification.nationalId.verifiedAt = new Date();
-      user.verifications.bankVerification.status = "approved";
-      user.verifications.bankVerification.isVerified = true;
-      user.verifications.bankVerification.verifiedAt = new Date();
-    } else {
-      user.organizerVerificationStatus = "rejected";
-      user.isVerified = false;
-      user.organizerRejectionReason = reason;
-
-      // Update verification sub-documents for consistency
-      user.verifications.idVerification.nationalId.status = "rejected";
-      user.verifications.idVerification.nationalId.isVerified = false;
-      user.verifications.idVerification.nationalId.rejectionReason = reason;
-      user.verifications.idVerification.nationalId.verifiedAt = new Date();
-      user.verifications.bankVerification.status = "rejected";
-      user.verifications.bankVerification.isVerified = false;
-      user.verifications.bankVerification.rejectionReason = reason;
-      user.verifications.bankVerification.verifiedAt = new Date();
+      await user.save();
+      return apiSuccessRes(
+        HTTP_STATUS.OK,
+        res,
+        `Organizer account successfully ${action}d.`,
+        { user },
+      );
     }
-
-    await user.save();
-    return apiSuccessRes(
-      HTTP_STATUS.OK,
-      res,
-      `Organizer account successfully ${action}d.`,
-      { user },
-    );
-  } catch (error) {
+  }
+  catch (error) {
     console.error("Error in adminVerifyOrganizer:", error);
     return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
   }
 };
+
+
 
 router.post(
   "/admin/organizer/verify",
