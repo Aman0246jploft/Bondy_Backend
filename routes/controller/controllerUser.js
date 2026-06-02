@@ -2285,7 +2285,7 @@ const addOrganizerInfo = async (req, res) => {
     user.shortDesc = shortDesc;
     user.socialMediaLink = socialMediaLink || null;
     user.organizerVerificationStatus = "pending";
-    
+
     // Manage business verification state
     user.isBusinessVerified = false;
     user.businessVerificationStatus = "pending";
@@ -2386,6 +2386,7 @@ const adminVerifyOrganizer = async (req, res) => {
         "Invalid action. Use 'approve' or 'reject'."
       );
     }
+    console.log(user.organizerVerificationStatus);
 
     await user.save();
 
