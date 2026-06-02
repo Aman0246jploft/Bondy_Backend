@@ -51,6 +51,11 @@ const batchSchema = new mongoose.Schema(
       min: 0,
       default: 0,
     },
+    status: {
+      type: String,
+      enum: ["Active", "Cancelled"],
+      default: "Active",
+    },
   }
 );
 
@@ -203,8 +208,8 @@ courseSchema.pre("save", function (next) {
     return next(new Error("You cannot create a course in the past"));
   }
 
-  // ✅ Auto-manage status (only if dates are provided)
-  if (this.startDate && this.endDate) {
+  // ✅ Auto-manage status (only if dates are provided and status is not Cancelled)
+  if (this.status !== eventStatus.CANCELLED && this.startDate && this.endDate) {
     if (now < this.startDate) {
       this.status = eventStatus.UPCOMING;
     } else if (now >= this.startDate && now <= this.endDate) {

@@ -154,7 +154,7 @@ const UserSchema = new Schema(
           {
             type: {
               type: String,
-              enum: ["nationalId", "drivingLicence", "bankVerification"],
+              enum: ["nationalId", "drivingLicence", "bankVerification", "businessVerification"],
               required: true,
             },
             frontImage: { type: String, default: null },
@@ -163,6 +163,11 @@ const UserSchema = new Schema(
             bankHolderName: { type: String, default: null },
             accountNumber: { type: String, default: null },
             otherDetails: { type: String, default: null },
+            // Business Verification fields in history
+            businessName: { type: String, default: null },
+            businessCategory: { type: mongoose.Schema.Types.ObjectId, ref: "Category", default: null },
+            shortDesc: { type: String, default: null },
+            socialMediaLink: { type: String, default: null },
             status: { type: String, required: true },
             rejectionReason: { type: String, default: null },
             actionBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
@@ -216,6 +221,21 @@ const UserSchema = new Schema(
       default: null,
     },
     socialMediaLink: {
+      type: String,
+      trim: true,
+      default: null,
+    },
+    isBusinessVerified: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    businessVerificationStatus: {
+      type: String,
+      enum: ["unverified", "pending", "approved", "rejected"],
+      default: "unverified",
+    },
+    businessRejectionReason: {
       type: String,
       trim: true,
       default: null,

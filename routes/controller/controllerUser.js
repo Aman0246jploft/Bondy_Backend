@@ -915,7 +915,18 @@ const updateUserProfile = async (req, res) => {
         res,
         constantsMessage.SUPER_ADMIN_UPDATE_NOT_ALLOWED,
       );
-    } const { email, contactNumber, countryCode, location, ...updateData } = req.body;
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return apiErrorRes(
+        HTTP_STATUS.NOT_FOUND,
+        res,
+        constantsMessage.USER_NOT_FOUND,
+      );
+    }
+
+    const { email, contactNumber, countryCode, location, ...updateData } = req.body;
 
     // Check if email already exists (if email is being updated)
     if (email) {
@@ -931,20 +942,21 @@ const updateUserProfile = async (req, res) => {
           constantsMessage.EMAIL_ALREADY_EXISTS,
         );
       }
-      updateData.email = email;
-      updateData["verifications.email.isVerified"] = false;
-      updateData["verifications.email.verifiedAt"] = null;
+      user.email = email;
+      user.verifications.email.isVerified = false;
+      user.verifications.email.verifiedAt = null;
     }
 
     if (contactNumber || countryCode) {
-      if (contactNumber) updateData.contactNumber = contactNumber;
-      if (countryCode) updateData.countryCode = countryCode;
-      updateData["verifications.phone.isVerified"] = false;
-      updateData["verifications.phone.verifiedAt"] = null;
+      if (contactNumber) user.contactNumber = contactNumber;
+      if (countryCode) user.countryCode = countryCode;
+      user.verifications.phone.isVerified = false;
+      user.verifications.phone.verifiedAt = null;
     }
+
     // Handle location update
     if (location) {
-      updateData.location = {
+      user.location = {
         type: "Point",
         coordinates: [location.longitude, location.latitude],
         city: location.city,
@@ -955,28 +967,74 @@ const updateUserProfile = async (req, res) => {
       };
     }
 
-    const updatedUser = await User.findByIdAndUpdate(userId, updateData, {
-      new: true,
-    })
+    // Manage business verification history and state if business fields are updated (only for organizers)
+    const { businessName, businessCategory, shortDesc, socialMediaLink } = req.body;
+    const isBusinessFieldPresent = (
+      businessName !== undefined ||
+      businessCategory !== undefined ||
+      shortDesc !== undefined ||
+      socialMediaLink !== undefined
+    );
+
+    if (isBusinessFieldPresent && user.roleId === roleId.ORGANIZER) {
+      // Check if there was pre-existing info to save to history
+      const hasPreExistingInfo = (
+        user.businessName ||
+        user.businessCategory ||
+        user.shortDesc ||
+        user.socialMediaLink
+      );
+
+      if (hasPreExistingInfo) {
+        user.verifications.history.push({
+          type: "businessVerification",
+          businessName: user.businessName,
+          businessCategory: user.businessCategory,
+          shortDesc: user.shortDesc,
+          socialMediaLink: user.socialMediaLink,
+          status: user.businessVerificationStatus || "unverified",
+          rejectionReason: user.businessRejectionReason || null,
+          actionBy: user._id,
+          createdAt: new Date(),
+        });
+      }
+
+      // Update business details
+      if (businessName !== undefined) user.businessName = businessName;
+      if (businessCategory !== undefined) user.businessCategory = businessCategory;
+      if (shortDesc !== undefined) user.shortDesc = shortDesc;
+      if (socialMediaLink !== undefined) user.socialMediaLink = socialMediaLink;
+
+      // Set to pending review
+      user.isBusinessVerified = false;
+      user.businessVerificationStatus = "pending";
+      user.businessRejectionReason = null;
+    }
+
+    // Apply any remaining dynamic update fields
+    Object.keys(updateData).forEach((key) => {
+      // Prevent overwriting nested fields or already processed fields
+      if (!["businessName", "businessCategory", "shortDesc", "socialMediaLink"].includes(key)) {
+        user[key] = updateData[key];
+      }
+    });
+
+    await user.save();
+
+    // Populate categories to return format matching populate logic
+    const populatedUser = await User.findById(userId)
       .populate("categories")
       .lean();
 
-    if (!updatedUser) {
-      return apiErrorRes(
-        HTTP_STATUS.NOT_FOUND,
-        res,
-        constantsMessage.USER_NOT_FOUND,
-      );
-    }
-    if (updatedUser.profileImage) {
-      updatedUser.profileImage = formatResponseUrl(updatedUser.profileImage);
+    if (populatedUser.profileImage) {
+      populatedUser.profileImage = formatResponseUrl(populatedUser.profileImage);
     }
 
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
       constantsMessage.PROFILE_UPDATED,
-      { user: { ...updatedUser, userRole: userRole[updatedUser.roleId] } },
+      { user: { ...populatedUser, userRole: userRole[populatedUser.roleId] } },
     );
   } catch (error) {
     console.error("Error in updateUserProfile:", error);
@@ -2200,11 +2258,38 @@ const addOrganizerInfo = async (req, res) => {
       );
     }
 
+    // Capture history for previous business info before modifying it
+    const hasPreExistingInfo = (
+      user.businessName ||
+      user.businessCategory ||
+      user.shortDesc ||
+      user.socialMediaLink
+    );
+
+    if (hasPreExistingInfo) {
+      user.verifications.history.push({
+        type: "businessVerification",
+        businessName: user.businessName,
+        businessCategory: user.businessCategory,
+        shortDesc: user.shortDesc,
+        socialMediaLink: user.socialMediaLink,
+        status: user.businessVerificationStatus || "unverified",
+        rejectionReason: user.businessRejectionReason || null,
+        actionBy: user._id,
+        createdAt: new Date(),
+      });
+    }
+
     user.businessName = businessName;
     user.businessCategory = category;
     user.shortDesc = shortDesc;
     user.socialMediaLink = socialMediaLink || null;
     user.organizerVerificationStatus = "pending";
+    
+    // Manage business verification state
+    user.isBusinessVerified = false;
+    user.businessVerificationStatus = "pending";
+    user.businessRejectionReason = null;
 
     await user.save();
 
@@ -2254,10 +2339,46 @@ const adminVerifyOrganizer = async (req, res) => {
       user.organizerVerificationStatus = "approved";
       user.isVerified = true;
       user.organizerRejectionReason = null;
+
+      // Update business verification state
+      user.isBusinessVerified = true;
+      user.businessVerificationStatus = "approved";
+      user.businessRejectionReason = null;
+
+      // Log business verification history
+      user.verifications.history.push({
+        type: "businessVerification",
+        businessName: user.businessName,
+        businessCategory: user.businessCategory,
+        shortDesc: user.shortDesc,
+        socialMediaLink: user.socialMediaLink,
+        status: "approved",
+        rejectionReason: null,
+        actionBy: req.user.userId,
+        createdAt: new Date(),
+      });
     } else if (action === "reject") {
       user.organizerVerificationStatus = "rejected";
       user.isVerified = false;
       user.organizerRejectionReason = reason || null;
+
+      // Update business verification state
+      user.isBusinessVerified = false;
+      user.businessVerificationStatus = "rejected";
+      user.businessRejectionReason = reason || null;
+
+      // Log business verification history
+      user.verifications.history.push({
+        type: "businessVerification",
+        businessName: user.businessName,
+        businessCategory: user.businessCategory,
+        shortDesc: user.shortDesc,
+        socialMediaLink: user.socialMediaLink,
+        status: "rejected",
+        rejectionReason: reason || null,
+        actionBy: req.user.userId,
+        createdAt: new Date(),
+      });
     } else {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,

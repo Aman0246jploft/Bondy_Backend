@@ -147,11 +147,55 @@ const submitVerification = async (req, res) => {
       updated = true;
     }
 
+    // 4. Business Verification Submission
+    const businessVerification = req.body.businessVerification;
+    if (businessVerification) {
+      const { businessName, businessCategory, shortDesc, socialMediaLink } = businessVerification;
+      if (!businessName || !businessCategory) {
+        return apiErrorRes(
+          HTTP_STATUS.BAD_REQUEST,
+          res,
+          "Business Name and Business Category are required for Business Verification.",
+        );
+      }
+
+      // If pre-existing submission, push to history
+      const hasPreExistingInfo = (
+        user.businessName ||
+        user.businessCategory ||
+        user.shortDesc ||
+        user.socialMediaLink
+      );
+
+      if (hasPreExistingInfo) {
+        user.verifications.history.push({
+          type: "businessVerification",
+          businessName: user.businessName,
+          businessCategory: user.businessCategory,
+          shortDesc: user.shortDesc,
+          socialMediaLink: user.socialMediaLink,
+          status: user.businessVerificationStatus || "unverified",
+          rejectionReason: user.businessRejectionReason || null,
+          actionBy: user._id,
+          createdAt: new Date(),
+        });
+      }
+
+      user.businessName = businessName;
+      user.businessCategory = businessCategory;
+      user.shortDesc = shortDesc || null;
+      user.socialMediaLink = socialMediaLink || null;
+      user.isBusinessVerified = false;
+      user.businessVerificationStatus = "pending";
+      user.businessRejectionReason = null;
+      updated = true;
+    }
+
     if (!updated) {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        "No verification details provided. Please submit nationalId, drivingLicence, or bankVerification.",
+        "No verification details provided. Please submit nationalId, drivingLicence, bankVerification, or businessVerification.",
       );
     }
 
@@ -163,6 +207,9 @@ const submitVerification = async (req, res) => {
       constantsMessage.VERIFICATION_DOCS_UPDATED || "Verification documents updated successfully.",
       {
         organizerVerificationStatus: user.organizerVerificationStatus,
+        isBusinessVerified: user.isBusinessVerified,
+        businessVerificationStatus: user.businessVerificationStatus,
+        businessRejectionReason: user.businessRejectionReason,
         verifications: user.verifications,
       },
     );
@@ -186,7 +233,8 @@ const getVerificationRequests = async (req, res) => {
       query.$or = [
         { "verifications.idVerification.nationalId.status": status },
         { "verifications.idVerification.drivingLicence.status": status },
-        { "verifications.bankVerification.status": status }
+        { "verifications.bankVerification.status": status },
+        { "businessVerificationStatus": status }
       ];
     }
 
@@ -204,7 +252,7 @@ const getVerificationRequests = async (req, res) => {
     const [users, total] = await Promise.all([
       User.find(query)
         .select(
-          "firstName lastName email countryCode contactNumber businessType organizerVerificationStatus verifications createdAt",
+          "firstName lastName email countryCode contactNumber businessType businessName businessCategory shortDesc socialMediaLink isBusinessVerified businessVerificationStatus businessRejectionReason organizerVerificationStatus verifications createdAt",
         )
         .sort({ createdAt: -1 })
         .skip(skip)
@@ -269,11 +317,11 @@ const verifyOrganizer = async (req, res) => {
       );
     }
 
-    if (!["nationalId", "drivingLicence", "bankVerification"].includes(type)) {
+    if (!["nationalId", "drivingLicence", "bankVerification", "businessVerification"].includes(type)) {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        "Invalid verification type. Must be 'nationalId', 'drivingLicence', or 'bankVerification'.",
+        "Invalid verification type. Must be 'nationalId', 'drivingLicence', 'bankVerification', or 'businessVerification'.",
       );
     }
 
@@ -354,6 +402,26 @@ const verifyOrganizer = async (req, res) => {
           swiftCode: "",
         };
       }
+    } else if (type === "businessVerification") {
+      if (user.businessVerificationStatus === "unverified") {
+        return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Business details have not been submitted yet.");
+      }
+      user.isBusinessVerified = isApprove;
+      user.businessVerificationStatus = isApprove ? "approved" : "rejected";
+      user.businessRejectionReason = isApprove ? null : reason;
+
+      // Log history
+      user.verifications.history.push({
+        type: "businessVerification",
+        businessName: user.businessName,
+        businessCategory: user.businessCategory,
+        shortDesc: user.shortDesc,
+        socialMediaLink: user.socialMediaLink,
+        status: isApprove ? "approved" : "rejected",
+        rejectionReason: isApprove ? null : reason,
+        actionBy: req.user.userId,
+        createdAt: new Date(),
+      });
     }
 
     await user.save(); // save updates verification status and isVerified
