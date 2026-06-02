@@ -1164,7 +1164,23 @@ const getUserProfileById = async (req, res) => {
       isAllVerified: user.isAllVerified,
       isMyProfile: isMyProfile,
       createdAt: user.createdAt,
-      verifications: { email: user.verifications.email, phone: user.verifications.phone, idVerification: user.verifications.idVerification, bankVerification: user.verifications.bankVerification } || {},
+      verifications: {
+        email: user.verifications?.email,
+        phone: user.verifications?.phone,
+        idVerification: user.verifications?.idVerification ? {
+          nationalId: user.verifications.idVerification.nationalId ? {
+            ...user.verifications.idVerification.nationalId,
+            frontImage: formatResponseUrl(user.verifications.idVerification.nationalId.frontImage),
+            backImage: formatResponseUrl(user.verifications.idVerification.nationalId.backImage),
+          } : undefined,
+          drivingLicence: user.verifications.idVerification.drivingLicence ? {
+            ...user.verifications.idVerification.drivingLicence,
+            frontImage: formatResponseUrl(user.verifications.idVerification.drivingLicence.frontImage),
+            backImage: formatResponseUrl(user.verifications.idVerification.drivingLicence.backImage),
+          } : undefined,
+        } : undefined,
+        bankVerification: user.verifications?.bankVerification,
+      } || {},
       totalFollowers: 0, // Default to 0, overwritten below
       totalFollowing: 0, // Default to 0, overwritten below
     };
