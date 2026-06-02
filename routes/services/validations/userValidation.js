@@ -12,6 +12,8 @@ const customerSignupSchema = Joi.object({
 const organizerSignupSchema = Joi.object({
   fullname: Joi.string().required(),
   email: Joi.string().email().required(),
+  countryCode: Joi.string().required(),
+  contactNumber: Joi.string().required(),
   password: Joi.string().min(6).required(),
   confirmPassword: Joi.string().valid(Joi.ref("password")).required().strict(),
   acceptTerms: Joi.boolean().valid(true).required(),

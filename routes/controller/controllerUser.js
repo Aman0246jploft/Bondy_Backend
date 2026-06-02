@@ -287,6 +287,8 @@ const organizerSignupVerify = async (req, res) => {
       user.lastName = lastName;
       user.password = userData.password;
       user.acceptTerms = userData.acceptTerms;
+      user.countryCode = userData.countryCode || user.countryCode;
+      user.contactNumber = userData.contactNumber || user.contactNumber;
       user.roleId = roleId.ORGANIZER;
       user.fmcToken = userData.fmcToken || user.fmcToken;
       user.organizerVerificationStatus = "unverified";
@@ -300,6 +302,8 @@ const organizerSignupVerify = async (req, res) => {
         email: userData.email,
         password: userData.password,
         acceptTerms: userData.acceptTerms,
+        countryCode: userData.countryCode || null,
+        contactNumber: userData.contactNumber || null,
         roleId: roleId.ORGANIZER, // ORGANIZER
         organizerVerificationStatus: "unverified",
         fmcToken: userData.fmcToken || null,

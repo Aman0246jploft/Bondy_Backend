@@ -63,6 +63,8 @@ Content-Type: application/json
 {
   "fullname": "Test Organizer",
   "email": "testOrganizer@example.com",
+  "countryCode": "+91",
+  "contactNumber": "9005267079",
   "password": "password123",
   "confirmPassword": "password123",
   "acceptTerms": true,
