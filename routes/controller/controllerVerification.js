@@ -25,6 +25,44 @@ const checkRole = require("../../middlewares/checkRole");
 
 const OTP_EXPIRY_MINUTES = process.env.OTP_EXPIRY_MINUTES ? parseInt(process.env.OTP_EXPIRY_MINUTES, 10) : 10;
 
+const formatUserVerifications = (verifications) => {
+  if (!verifications) return verifications;
+  const formatted = { ...verifications };
+  
+  if (formatted.idVerification) {
+    formatted.idVerification = { ...formatted.idVerification };
+    if (formatted.idVerification.nationalId) {
+      formatted.idVerification.nationalId = { ...formatted.idVerification.nationalId };
+      if (formatted.idVerification.nationalId.frontImage) {
+        formatted.idVerification.nationalId.frontImage = formatResponseUrl(formatted.idVerification.nationalId.frontImage);
+      }
+      if (formatted.idVerification.nationalId.backImage) {
+        formatted.idVerification.nationalId.backImage = formatResponseUrl(formatted.idVerification.nationalId.backImage);
+      }
+    }
+    if (formatted.idVerification.drivingLicence) {
+      formatted.idVerification.drivingLicence = { ...formatted.idVerification.drivingLicence };
+      if (formatted.idVerification.drivingLicence.frontImage) {
+        formatted.idVerification.drivingLicence.frontImage = formatResponseUrl(formatted.idVerification.drivingLicence.frontImage);
+      }
+      if (formatted.idVerification.drivingLicence.backImage) {
+        formatted.idVerification.drivingLicence.backImage = formatResponseUrl(formatted.idVerification.drivingLicence.backImage);
+      }
+    }
+  }
+
+  if (formatted.history && Array.isArray(formatted.history)) {
+    formatted.history = formatted.history.map((hist) => {
+      const h = { ...hist };
+      if (h.frontImage) h.frontImage = formatResponseUrl(h.frontImage);
+      if (h.backImage) h.backImage = formatResponseUrl(h.backImage);
+      return h;
+    });
+  }
+
+  return formatted;
+};
+
 // Submit Verification Documents (Organizer)
 const submitVerification = async (req, res) => {
   try {
@@ -229,7 +267,7 @@ const submitVerification = async (req, res) => {
         isBusinessVerified: user.isBusinessVerified,
         businessVerificationStatus: user.businessVerificationStatus,
         businessRejectionReason: user.businessRejectionReason,
-        verifications: user.verifications,
+        verifications: formatUserVerifications(user.verifications?.toObject ? user.verifications.toObject() : user.verifications),
       },
     );
   } catch (error) {
@@ -282,24 +320,9 @@ const getVerificationRequests = async (req, res) => {
 
     // Format URLs for any images in the response
     const formattedUsers = users.map(user => {
-      const verifications = { ...user.verifications };
-      if (verifications.idVerification) {
-        if (verifications.idVerification.nationalId?.frontImage) {
-          verifications.idVerification.nationalId.frontImage = formatResponseUrl(verifications.idVerification.nationalId.frontImage);
-        }
-        if (verifications.idVerification.nationalId?.backImage) {
-          verifications.idVerification.nationalId.backImage = formatResponseUrl(verifications.idVerification.nationalId.backImage);
-        }
-        if (verifications.idVerification.drivingLicence?.frontImage) {
-          verifications.idVerification.drivingLicence.frontImage = formatResponseUrl(verifications.idVerification.drivingLicence.frontImage);
-        }
-        if (verifications.idVerification.drivingLicence?.backImage) {
-          verifications.idVerification.drivingLicence.backImage = formatResponseUrl(verifications.idVerification.drivingLicence.backImage);
-        }
-      }
       return {
         ...user,
-        verifications
+        verifications: formatUserVerifications(user.verifications)
       };
     });
 
