@@ -14,8 +14,6 @@ Content-Type: application/json
 }
 
 
-
-
 ### ----------------------------------------------------
 ### CUSTOMER SIGNUP FLOW
 ### ----------------------------------------------------
@@ -187,3 +185,9 @@ Content-Type: application/json
   "shortDesc": "We updated our business description directly through the profile update endpoint.",
   "socialMediaLink": "https://instagram.com/updatedbusiness"
 }
+
+
+### 13. Get My Profile
+GET {{baseUrl}}/user/selfProfile
+Authorization: Bearer {{organizerToken}}
+Content-Type: application/json
