@@ -22,6 +22,9 @@ const { Referral, WalletHistory, GlobalSetting } = require("../../db");
 const constantsMessage = require("../../utils/constantsMessage");
 const { roleId } = require("../../utils/Role");
 const checkRole = require("../../middlewares/checkRole");
+
+const OTP_EXPIRY_MINUTES = process.env.OTP_EXPIRY_MINUTES ? parseInt(process.env.OTP_EXPIRY_MINUTES, 10) : 10;
+
 // Submit Verification Documents (Organizer)
 const submitVerification = async (req, res) => {
   try {
@@ -435,13 +438,51 @@ const sendPhoneOTP = async (req, res) => {
 
     const otp = process.env.NODE_ENV === "development" ? "12345" : generateOTP();
 
-    // Store in Redis (10 minutes)
-    await setKeyWithTime(`phone_verify_otp:${userId}`, otp, 10);
-    await setKeyWithTime(`phone_verify_data:${userId}`, JSON.stringify({ countryCode, contactNumber }), 10);
+    // Store in Redis (backend-managed minutes)
+    await setKeyWithTime(`phone_verify_otp:${userId}`, otp, OTP_EXPIRY_MINUTES);
+    await setKeyWithTime(`phone_verify_data:${userId}`, JSON.stringify({ countryCode, contactNumber }), OTP_EXPIRY_MINUTES);
 
-    return apiSuccessRes(HTTP_STATUS.OK, res, "OTP sent successfully to your phone number.", { otp });
+    return apiSuccessRes(HTTP_STATUS.OK, res, "OTP sent successfully to your phone number.", { otp, expiryTime: OTP_EXPIRY_MINUTES });
   } catch (error) {
     console.error("Error in sendPhoneOTP:", error);
+    return apiErrorRes(HTTP_STATUS.INTERNAL_SERVER_ERROR, res, error.message);
+  }
+};
+
+// Resend Phone OTP
+const resendPhoneOTP = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const user = await User.findById(userId);
+    if (!user) {
+      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.USER_NOT_FOUND);
+    }
+
+    const redisData = await getKey(`phone_verify_data:${userId}`);
+    let countryCode = req.body.countryCode;
+    let contactNumber = req.body.contactNumber;
+
+    if (redisData.statusCode === CONSTANTS.SUCCESS && redisData.data) {
+      const parsed = JSON.parse(redisData.data);
+      countryCode = countryCode || parsed.countryCode;
+      contactNumber = contactNumber || parsed.contactNumber;
+    }
+
+    countryCode = countryCode || user.countryCode;
+    contactNumber = contactNumber || user.contactNumber;
+
+    if (!contactNumber || !countryCode) {
+      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Country code and contact number are required to resend OTP.");
+    }
+
+    const otp = process.env.NODE_ENV === "development" ? "12345" : generateOTP();
+
+    await setKeyWithTime(`phone_verify_otp:${userId}`, otp, OTP_EXPIRY_MINUTES);
+    await setKeyWithTime(`phone_verify_data:${userId}`, JSON.stringify({ countryCode, contactNumber }), OTP_EXPIRY_MINUTES);
+
+    return apiSuccessRes(HTTP_STATUS.OK, res, "OTP resent successfully to your phone number.", { otp, expiryTime: OTP_EXPIRY_MINUTES });
+  } catch (error) {
+    console.error("Error in resendPhoneOTP:", error);
     return apiErrorRes(HTTP_STATUS.INTERNAL_SERVER_ERROR, res, error.message);
   }
 };
@@ -507,13 +548,47 @@ const sendEmailOTP = async (req, res) => {
 
     const otp = process.env.NODE_ENV === "development" ? "12345" : generateOTP();
 
-    // Store in Redis (10 minutes)
-    await setKeyWithTime(`email_verify_otp:${userId}`, otp, 10);
-    await setKeyWithTime(`email_verify_data:${userId}`, email.toLowerCase(), 10);
+    // Store in Redis (backend-managed minutes)
+    await setKeyWithTime(`email_verify_otp:${userId}`, otp, OTP_EXPIRY_MINUTES);
+    await setKeyWithTime(`email_verify_data:${userId}`, email.toLowerCase(), OTP_EXPIRY_MINUTES);
 
-    return apiSuccessRes(HTTP_STATUS.OK, res, "OTP sent successfully to your email address.", { otp });
+    return apiSuccessRes(HTTP_STATUS.OK, res, "OTP sent successfully to your email address.", { otp, expiryTime: OTP_EXPIRY_MINUTES });
   } catch (error) {
     console.error("Error in sendEmailOTP:", error);
+    return apiErrorRes(HTTP_STATUS.INTERNAL_SERVER_ERROR, res, error.message);
+  }
+};
+
+// Resend Email OTP
+const resendEmailOTP = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const user = await User.findById(userId);
+    if (!user) {
+      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.USER_NOT_FOUND);
+    }
+
+    const redisData = await getKey(`email_verify_data:${userId}`);
+    let email = req.body.email;
+
+    if (redisData.statusCode === CONSTANTS.SUCCESS && redisData.data) {
+      email = email || redisData.data;
+    }
+
+    email = email || user.email;
+
+    if (!email) {
+      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Email is required to resend OTP.");
+    }
+
+    const otp = process.env.NODE_ENV === "development" ? "12345" : generateOTP();
+
+    await setKeyWithTime(`email_verify_otp:${userId}`, otp, OTP_EXPIRY_MINUTES);
+    await setKeyWithTime(`email_verify_data:${userId}`, email.toLowerCase(), OTP_EXPIRY_MINUTES);
+
+    return apiSuccessRes(HTTP_STATUS.OK, res, "OTP resent successfully to your email address.", { otp, expiryTime: OTP_EXPIRY_MINUTES });
+  } catch (error) {
+    console.error("Error in resendEmailOTP:", error);
     return apiErrorRes(HTTP_STATUS.INTERNAL_SERVER_ERROR, res, error.message);
   }
 };
@@ -570,6 +645,12 @@ router.post(
   sendPhoneOTP,
 );
 router.post(
+  "/phone/resend-otp",
+  perApiLimiter(),
+  checkRole([roleId.ORGANIZER, roleId.CUSTOMER]),
+  resendPhoneOTP,
+);
+router.post(
   "/phone/verify-otp",
   perApiLimiter(),
   checkRole([roleId.ORGANIZER, roleId.CUSTOMER]),
@@ -582,6 +663,12 @@ router.post(
   perApiLimiter(),
   checkRole([roleId.ORGANIZER, roleId.CUSTOMER]),
   sendEmailOTP,
+);
+router.post(
+  "/email/resend-otp",
+  perApiLimiter(),
+  checkRole([roleId.ORGANIZER, roleId.CUSTOMER]),
+  resendEmailOTP,
 );
 router.post(
   "/email/verify-otp",
