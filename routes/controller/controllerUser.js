@@ -2331,7 +2331,7 @@ router.post(
 
 const adminVerifyOrganizer = async (req, res) => {
   try {
-    const { userId, action, reason } = req.body;
+    const { userId, action, reason, reasonTitle } = req.body;
 
     const user = await User.findById(userId);
 
@@ -2355,11 +2355,13 @@ const adminVerifyOrganizer = async (req, res) => {
       user.organizerVerificationStatus = "approved";
       user.isVerified = true;
       user.organizerRejectionReason = null;
+      user.organizerRejectionReasonTitle = null;
 
       // Update business verification state
       user.isBusinessVerified = true;
       user.businessVerificationStatus = "approved";
       user.businessRejectionReason = null;
+      user.businessRejectionReasonTitle = null;
 
       // Log business verification history
       user.verifications.history.push({
@@ -2370,6 +2372,7 @@ const adminVerifyOrganizer = async (req, res) => {
         socialMediaLink: user.socialMediaLink,
         status: "approved",
         rejectionReason: null,
+        rejectionReasonTitle: null,
         actionBy: req.user.userId,
         createdAt: new Date(),
       });
@@ -2377,11 +2380,13 @@ const adminVerifyOrganizer = async (req, res) => {
       user.organizerVerificationStatus = "rejected";
       user.isVerified = false;
       user.organizerRejectionReason = reason || null;
+      user.organizerRejectionReasonTitle = reasonTitle || null;
 
       // Update business verification state
       user.isBusinessVerified = false;
       user.businessVerificationStatus = "rejected";
       user.businessRejectionReason = reason || null;
+      user.businessRejectionReasonTitle = reasonTitle || null;
 
       // Log business verification history
       user.verifications.history.push({
@@ -2392,6 +2397,7 @@ const adminVerifyOrganizer = async (req, res) => {
         socialMediaLink: user.socialMediaLink,
         status: "rejected",
         rejectionReason: reason || null,
+        rejectionReasonTitle: reasonTitle || null,
         actionBy: req.user.userId,
         createdAt: new Date(),
       });

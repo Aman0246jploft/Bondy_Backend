@@ -22,13 +22,14 @@ const { Referral, WalletHistory, GlobalSetting, Bank } = require("../../db");
 const constantsMessage = require("../../utils/constantsMessage");
 const { roleId } = require("../../utils/Role");
 const checkRole = require("../../middlewares/checkRole");
+const { notifyVerificationResult } = require("../services/serviceNotification");
 
 const OTP_EXPIRY_MINUTES = process.env.OTP_EXPIRY_MINUTES ? parseInt(process.env.OTP_EXPIRY_MINUTES, 10) : 10;
 
 const formatUserVerifications = (verifications) => {
   if (!verifications) return verifications;
   const formatted = { ...verifications };
-  
+
   if (formatted.idVerification) {
     formatted.idVerification = { ...formatted.idVerification };
     if (formatted.idVerification.nationalId) {
@@ -67,7 +68,7 @@ const formatUserVerifications = (verifications) => {
 const submitVerification = async (req, res) => {
   try {
     const userId = req.user.userId;
-    
+
     let nationalId = req.body.nationalId;
     let drivingLicence = req.body.drivingLicence;
     const bankVerification = req.body.bankVerification;
@@ -309,7 +310,7 @@ const getVerificationRequests = async (req, res) => {
     const [users, total] = await Promise.all([
       User.find(query)
         .select(
-          "firstName lastName email countryCode contactNumber businessType businessName businessCategory shortDesc socialMediaLink isBusinessVerified businessVerificationStatus businessRejectionReason organizerVerificationStatus verifications createdAt",
+          "firstName lastName email countryCode contactNumber businessType businessName businessCategory shortDesc socialMediaLink isBusinessVerified businessVerificationStatus businessRejectionReason businessRejectionReasonTitle organizerRejectionReason organizerRejectionReasonTitle organizerVerificationStatus verifications createdAt",
         )
         .sort({ createdAt: -1 })
         .skip(skip)
@@ -347,7 +348,7 @@ const getVerificationRequests = async (req, res) => {
 // Approve/Reject Individual Document (Admin)
 const verifyOrganizer = async (req, res) => {
   try {
-    const { userId, type, action, reason } = req.body;
+    const { userId, type, action, reason, reasonTitle } = req.body;
     // type: "nationalId" | "drivingLicence" | "bankVerification"
     // action: "approve" | "reject"
 
@@ -381,6 +382,7 @@ const verifyOrganizer = async (req, res) => {
       user.verifications.idVerification.nationalId.isVerified = isApprove;
       user.verifications.idVerification.nationalId.status = isApprove ? "approved" : "rejected";
       user.verifications.idVerification.nationalId.rejectionReason = isApprove ? null : reason;
+      user.verifications.idVerification.nationalId.rejectionReasonTitle = isApprove ? null : reasonTitle;
       user.verifications.idVerification.nationalId.verifiedAt = new Date();
 
       // Log history
@@ -390,6 +392,7 @@ const verifyOrganizer = async (req, res) => {
         backImage: user.verifications.idVerification.nationalId.backImage,
         status: isApprove ? "approved" : "rejected",
         rejectionReason: isApprove ? null : reason,
+        rejectionReasonTitle: isApprove ? null : reasonTitle,
         actionBy: req.user.userId,
         createdAt: new Date(),
       });
@@ -400,6 +403,7 @@ const verifyOrganizer = async (req, res) => {
       user.verifications.idVerification.drivingLicence.isVerified = isApprove;
       user.verifications.idVerification.drivingLicence.status = isApprove ? "approved" : "rejected";
       user.verifications.idVerification.drivingLicence.rejectionReason = isApprove ? null : reason;
+      user.verifications.idVerification.drivingLicence.rejectionReasonTitle = isApprove ? null : reasonTitle;
       user.verifications.idVerification.drivingLicence.verifiedAt = new Date();
 
       // Log history
@@ -409,6 +413,7 @@ const verifyOrganizer = async (req, res) => {
         backImage: user.verifications.idVerification.drivingLicence.backImage,
         status: isApprove ? "approved" : "rejected",
         rejectionReason: isApprove ? null : reason,
+        rejectionReasonTitle: isApprove ? null : reasonTitle,
         actionBy: req.user.userId,
         createdAt: new Date(),
       });
@@ -419,6 +424,7 @@ const verifyOrganizer = async (req, res) => {
       user.verifications.bankVerification.isVerified = isApprove;
       user.verifications.bankVerification.status = isApprove ? "approved" : "rejected";
       user.verifications.bankVerification.rejectionReason = isApprove ? null : reason;
+      user.verifications.bankVerification.rejectionReasonTitle = isApprove ? null : reasonTitle;
       user.verifications.bankVerification.verifiedAt = new Date();
 
       // Log history
@@ -430,6 +436,7 @@ const verifyOrganizer = async (req, res) => {
         otherDetails: user.verifications.bankVerification.otherDetails,
         status: isApprove ? "approved" : "rejected",
         rejectionReason: isApprove ? null : reason,
+        rejectionReasonTitle: isApprove ? null : reasonTitle,
         actionBy: req.user.userId,
         createdAt: new Date(),
       });
@@ -451,6 +458,7 @@ const verifyOrganizer = async (req, res) => {
       user.isBusinessVerified = isApprove;
       user.businessVerificationStatus = isApprove ? "approved" : "rejected";
       user.businessRejectionReason = isApprove ? null : reason;
+      user.businessRejectionReasonTitle = isApprove ? null : reasonTitle;
 
       // Log history
       user.verifications.history.push({
@@ -461,6 +469,7 @@ const verifyOrganizer = async (req, res) => {
         socialMediaLink: user.socialMediaLink,
         status: isApprove ? "approved" : "rejected",
         rejectionReason: isApprove ? null : reason,
+        rejectionReasonTitle: isApprove ? null : reasonTitle,
         actionBy: req.user.userId,
         createdAt: new Date(),
       });

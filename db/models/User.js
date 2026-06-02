@@ -115,6 +115,7 @@ const UserSchema = new Schema(
           backImage: { type: String, default: null },
           isVerified: { type: Boolean, default: false },
           rejectionReason: { type: String, default: null },
+          rejectionReasonTitle: { type: String, default: null },
           verifiedAt: { type: Date, default: null },
           status: {
             type: String,
@@ -127,6 +128,7 @@ const UserSchema = new Schema(
           backImage: { type: String, default: null },
           isVerified: { type: Boolean, default: false },
           rejectionReason: { type: String, default: null },
+          rejectionReasonTitle: { type: String, default: null },
           verifiedAt: { type: Date, default: null },
           status: {
             type: String,
@@ -142,6 +144,7 @@ const UserSchema = new Schema(
         otherDetails: { type: String, default: null },
         isVerified: { type: Boolean, default: false },
         rejectionReason: { type: String, default: null },
+        rejectionReasonTitle: { type: String, default: null },
         verifiedAt: { type: Date, default: null },
         status: {
           type: String,
@@ -170,6 +173,7 @@ const UserSchema = new Schema(
             socialMediaLink: { type: String, default: null },
             status: { type: String, required: true },
             rejectionReason: { type: String, default: null },
+            rejectionReasonTitle: { type: String, default: null },
             actionBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
             createdAt: { type: Date, default: Date.now },
           },
@@ -240,7 +244,17 @@ const UserSchema = new Schema(
       trim: true,
       default: null,
     },
+    businessRejectionReasonTitle: {
+      type: String,
+      trim: true,
+      default: null,
+    },
     organizerRejectionReason: {
+      type: String,
+      trim: true,
+      default: null,
+    },
+    organizerRejectionReasonTitle: {
       type: String,
       trim: true,
       default: null,
