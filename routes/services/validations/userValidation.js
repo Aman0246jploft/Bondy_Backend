@@ -36,6 +36,7 @@ const adminVerifyOrganizerSchema = Joi.object({
     then: Joi.required(),
     otherwise: Joi.optional().allow("", null),
   }),
+  reasonTitle: Joi.string().optional().allow("", null),
 });
 
 const loginInitSchema = Joi.object({

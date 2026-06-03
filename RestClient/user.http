@@ -107,7 +107,7 @@ POST {{baseUrl}}/user/verify-otp
 Content-Type: application/json
 
 {
-  "email": "new@gmail.com",
+  "email": "joy@gmail.com",
   "otp": "12345",
   "type": "LOGIN"
 }
@@ -147,7 +147,7 @@ Content-Type: application/json
 ### 11. Organizer Update Business Info
 # Authenticated organizer submits/updates business name, category, short desc, and social media link.
 # Note: This will set the account review status to "pending" for admin review/approval.
-@organizerToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTFlODA2NjU5NzliZWVlNDFjZjVmNGIiLCJyb2xlSWQiOjIsImlhdCI6MTc4MDM5MjI0MiwiZXhwIjoyNjQ0MzkyMjQyfQ._seTKBMgKAGg5VFeHLwsMQuqSxUstNw1MXkayMYs40M
+@organizerToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTIwMWI1MDNkNjIzMDJkZjZhZjgxNmUiLCJyb2xlSWQiOjIsImlhdCI6MTc4MDQ5MTQzNCwiZXhwIjoyNjQ0NDkxNDM0fQ.qFwyUSRc8JOeFYGP0TgjtP2R8qlQSK48L5wUqKAlZmI
 @categoryId = 647f1234567890abcdef1234
 POST {{baseUrl}}/user/organizer/info
 Authorization: Bearer {{organizerToken}}

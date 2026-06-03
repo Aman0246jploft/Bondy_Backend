@@ -539,7 +539,8 @@ const loginInit = async (req, res) => {
     // Check Organizer Status
     if (
       user.roleId === roleId.ORGANIZER &&
-      user.organizerVerificationStatus !== "approved"
+      user.organizerVerificationStatus !== "approved" &&
+      !user.hasBeenApproved
     ) {
       return apiErrorRes(
         HTTP_STATUS.FORBIDDEN,
@@ -728,7 +729,8 @@ const resendLoginOtp = async (req, res) => {
     // Check Organizer Status
     if (
       user.roleId === roleId.ORGANIZER &&
-      user.organizerVerificationStatus !== "approved"
+      user.organizerVerificationStatus !== "approved" &&
+      !user.hasBeenApproved
     ) {
       return apiErrorRes(
         HTTP_STATUS.FORBIDDEN,
@@ -1153,6 +1155,30 @@ const getUserProfileById = async (req, res) => {
     // Get interested category names
     const interestedCategories = (user.categories || []).map((cat) => cat.name);
 
+    // Calculate allVerifiedAt: latest timestamp of all verifications when fully verified
+    let allVerifiedAt = null;
+    if (user.isAllVerified) {
+      const dates = [];
+      if (user.verifications?.phone?.isVerified && user.verifications.phone.verifiedAt) {
+        dates.push(new Date(user.verifications.phone.verifiedAt));
+      }
+      if (user.verifications?.email?.isVerified && user.verifications.email.verifiedAt) {
+        dates.push(new Date(user.verifications.email.verifiedAt));
+      }
+      if (user.verifications?.idVerification?.nationalId?.isVerified && user.verifications.idVerification.nationalId.verifiedAt) {
+        dates.push(new Date(user.verifications.idVerification.nationalId.verifiedAt));
+      }
+      if (user.verifications?.idVerification?.drivingLicence?.isVerified && user.verifications.idVerification.drivingLicence.verifiedAt) {
+        dates.push(new Date(user.verifications.idVerification.drivingLicence.verifiedAt));
+      }
+      if (user.verifications?.bankVerification?.isVerified && user.verifications.bankVerification.verifiedAt) {
+        dates.push(new Date(user.verifications.bankVerification.verifiedAt));
+      }
+      if (dates.length > 0) {
+        allVerifiedAt = new Date(Math.max(...dates.map(d => d.getTime())));
+      }
+    }
+
     // Base profile data (common for all users)
     const profileData = {
       _id: user._id,
@@ -1176,6 +1202,7 @@ const getUserProfileById = async (req, res) => {
       totalInterests: totalInterests,
       isFollowed: isFollowed,
       isAllVerified: user.isAllVerified,
+      allVerifiedAt: allVerifiedAt,
       isMyProfile: isMyProfile,
       createdAt: user.createdAt,
       verifications: {
@@ -1194,6 +1221,7 @@ const getUserProfileById = async (req, res) => {
           } : undefined,
         } : undefined,
         bankVerification: user.verifications?.bankVerification,
+        allVerifiedAt: allVerifiedAt,
       } || {},
       totalFollowers: 0, // Default to 0, overwritten below
       totalFollowing: 0, // Default to 0, overwritten below
@@ -1451,6 +1479,7 @@ const getUserProfileById = async (req, res) => {
     return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
   }
 };
+
 
 const userList = async (req, res) => {
   try {

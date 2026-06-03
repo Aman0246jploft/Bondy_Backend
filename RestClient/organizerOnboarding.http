@@ -83,7 +83,7 @@ Content-Type: application/json
 
 ### Setup Admin Token (Copy from Step 6 response token)
 @adminToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2OTZmMmEwMGE0ODU5NGFlZjg5NjRhZjMiLCJyb2xlSWQiOjEsImlhdCI6MTc4MDM4MDM2OCwiZXhwIjoyNjQ0MzgwMzY4fQ.UVpy8eXWG5kNMIfvujmVBTPIHdvuAdFXizcpfE28_hc
-@organizerUserId = 6a1e80665979beee41cf5f4b
+@organizerUserId = 6a201b503d62302df6af816e
 
 
 ### Step 7a: Admin Reviews Organizer (Approve Option)
@@ -94,7 +94,9 @@ Content-Type: application/json
 
 {
   "userId": "{{organizerUserId}}",
-  "action": "approve"
+  "action": "reject",
+  "reason": "Documents provided are invalid",
+  "reasonTitle": "Invalid Documents"
 }
 
 

@@ -264,6 +264,11 @@ const UserSchema = new Schema(
       enum: ["unverified", "pending", "approved", "rejected"],
       default: "unverified",
     },
+    hasBeenApproved: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
     timeZone: { type: String },
     lastLogin: {
       type: Date,
@@ -359,6 +364,11 @@ UserSchema.pre("save", function (next) {
       //   this.organizerVerificationStatus = "unverified";
       // }
     }
+  }
+
+  // If organizerVerificationStatus is approved, make sure hasBeenApproved is true
+  if (this.organizerVerificationStatus === "approved") {
+    this.hasBeenApproved = true;
   }
 
   next();
