@@ -15,9 +15,11 @@ const walletHistorySchema = new mongoose.Schema(
             type: String,
             enum: [
                 "TICKET_SALE",
+                "COURSE_SALE",
                 "PAYOUT_REQUEST",
                 "PAYOUT_REJECTED",
                 "REFUND",
+                "CANCELLATION_DEDUCTION",
                 "ADJUSTMENT",
                 "REFERRAL",
             ],

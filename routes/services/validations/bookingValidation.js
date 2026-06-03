@@ -7,17 +7,28 @@ const initiateBookingSchema = Joi.object({
   courseId: Joi.string().optional().messages({
     "string.empty": "Course ID is required",
   }),
-  scheduleId: Joi.string().when("courseId", {
+  // For Event bookings: the specific ticket type sub-doc _id (single or multiple)
+  ticketId: Joi.string().optional(),
+  qty: Joi.number().integer().min(1).optional().messages({
+    "number.base": "Quantity must be a number",
+    "number.min": "Quantity must be at least 1",
+  }),
+  tickets: Joi.array().items(Joi.object({
+    ticketId: Joi.string().required().messages({
+      "any.required": "Ticket ID is required for each ticket selection",
+    }),
+    qty: Joi.number().integer().min(1).required().messages({
+      "number.min": "Quantity must be at least 1",
+      "any.required": "Quantity is required for each ticket selection",
+    }),
+  })).optional(),
+  // For Course bookings: the specific batch sub-doc _id
+  batchId: Joi.string().when("courseId", {
     is: Joi.exist(),
     then: Joi.required(),
     otherwise: Joi.optional(),
   }).messages({
-    "any.required": "Schedule ID is required for course booking",
-  }),
-  qty: Joi.number().integer().min(1).required().messages({
-    "number.base": "Quantity must be a number",
-    "number.min": "Quantity must be at least 1",
-    "any.required": "Quantity is required",
+    "any.required": "Batch ID is required for course booking",
   }),
   discountCode: Joi.string().allow(null, "").optional(),
   bookingType: Joi.string().valid("EVENT", "COURSE").optional(),
@@ -30,6 +41,31 @@ const confirmPaymentSchema = Joi.object({
   }),
 });
 
+const cancelBookingSchema = Joi.object({
+  transactionId: Joi.string().required().messages({
+    "string.empty": "Transaction ID is required",
+    "any.required": "Transaction ID is required",
+  }),
+  reason: Joi.string().allow(null, "").optional(),
+});
+
+const cancelEventSchema = Joi.object({
+  eventId: Joi.string().required().messages({
+    "string.empty": "Event ID is required",
+    "any.required": "Event ID is required",
+  }),
+  reason: Joi.string().allow(null, "").optional(),
+});
+
+const cancelCourseSchema = Joi.object({
+  courseId: Joi.string().required().messages({
+    "string.empty": "Course ID is required",
+    "any.required": "Course ID is required",
+  }),
+  batchId: Joi.string().allow(null, "").optional(),
+  reason: Joi.string().allow(null, "").optional(),
+});
+
 const scanQRCodeSchema = Joi.object({
   qrCodeData: Joi.string().required().messages({
     "string.empty": "QR code data is required",
@@ -40,5 +76,8 @@ const scanQRCodeSchema = Joi.object({
 module.exports = {
   initiateBookingSchema,
   confirmPaymentSchema,
+  cancelBookingSchema,
+  cancelEventSchema,
+  cancelCourseSchema,
   scanQRCodeSchema,
 };

@@ -58,10 +58,7 @@ const createAttendees = async (req, res) => {
     if (transaction.bookingType === "EVENT") {
       endDate = transaction.eventId.endDate;
     } else {
-      const schedule = transaction.courseId.schedules.id(
-        transaction.scheduleId,
-      );
-      endDate = schedule ? schedule.endDate : transaction.courseId.createdAt;
+      endDate = transaction.courseId.endDate || transaction.courseId.createdAt;
     }
 
     if (now > new Date(endDate)) {
@@ -100,6 +97,20 @@ const createAttendees = async (req, res) => {
       );
     }
 
+    // Generate ticket queue
+    const ticketQueue = [];
+    if (transaction.tickets && transaction.tickets.length > 0) {
+      for (const t of transaction.tickets) {
+        for (let i = 0; i < t.qty; i++) {
+          ticketQueue.push({ ticketId: t.ticketId, ticketName: t.ticketName });
+        }
+      }
+    } else {
+      for (let i = 0; i < transaction.qty; i++) {
+        ticketQueue.push({ ticketId: transaction.ticketId, ticketName: transaction.ticketName });
+      }
+    }
+
     // Create Attendees
     const attendeeDocuments = attendees.map((attendee, index) => {
       const ticketNumber = generateTicketNumber(
@@ -108,11 +119,13 @@ const createAttendees = async (req, res) => {
           : transaction.courseId._id,
         index + 1,
       );
+      const ticketInfo = ticketQueue[index] || { ticketId: transaction.ticketId, ticketName: transaction.ticketName };
+
       return {
         transactionId: transaction._id,
         eventId: transaction.eventId ? transaction.eventId._id : null,
         courseId: transaction.courseId ? transaction.courseId._id : null,
-        scheduleId: transaction.scheduleId || null,
+        batchId: transaction.batchId || null,
         userId: transaction.userId,
         firstName: attendee.firstName,
         lastName: attendee.lastName,
@@ -120,6 +133,8 @@ const createAttendees = async (req, res) => {
         contactNumber: attendee.contactNumber || null,
         ticketNumber,
         qrCodeData: "", // Will be set after creation
+        ticketId: ticketInfo.ticketId,
+        ticketName: ticketInfo.ticketName,
       };
     });
 
@@ -405,8 +420,7 @@ const scanQRAndCheckIn = async (req, res) => {
       if (transaction.bookingType === "EVENT") {
         endDate = event.endDate;
       } else {
-        const schedule = event.schedules.id(transaction.scheduleId);
-        endDate = schedule ? schedule.endDate : event.createdAt;
+        endDate = event.endDate || event.createdAt;
       }
     } else if (qrCodeData.startsWith("ATTENDEE-")) {
       // Case 2: Individual Attendee QR
@@ -428,8 +442,7 @@ const scanQRAndCheckIn = async (req, res) => {
       if (attendee.eventId) {
         endDate = event.endDate;
       } else {
-        const schedule = event.schedules.id(attendee.scheduleId);
-        endDate = schedule ? schedule.endDate : event.createdAt;
+        endDate = event.endDate || event.createdAt;
       }
       transaction = attendee.transactionId;
     } else if (mongoose.Types.ObjectId.isValid(qrCodeData)) {
@@ -480,8 +493,7 @@ const scanQRAndCheckIn = async (req, res) => {
       if (transaction.bookingType === "EVENT") {
         endDate = event.endDate;
       } else {
-        const schedule = event.schedules.id(transaction.scheduleId);
-        endDate = schedule ? schedule.endDate : event.createdAt;
+        endDate = event.endDate || event.createdAt;
       }
     } else {
       return apiErrorRes(
@@ -570,6 +582,19 @@ const scanQRAndCheckIn = async (req, res) => {
 
       if (currentAttendees.length === 0) {
         // Auto-create attendees if none exist
+        const ticketQueue = [];
+        if (transaction.tickets && transaction.tickets.length > 0) {
+          for (const t of transaction.tickets) {
+            for (let j = 0; j < t.qty; j++) {
+              ticketQueue.push({ ticketId: t.ticketId, ticketName: t.ticketName });
+            }
+          }
+        } else {
+          for (let j = 0; j < transaction.qty; j++) {
+            ticketQueue.push({ ticketId: transaction.ticketId, ticketName: transaction.ticketName });
+          }
+        }
+
         const attendeeDocs = [];
         for (let i = 0; i < transaction.qty; i++) {
           const ticketNumber = generateTicketNumber(
@@ -578,6 +603,8 @@ const scanQRAndCheckIn = async (req, res) => {
               : transaction.courseId._id || transaction.courseId,
             i + 1,
           );
+          const ticketInfo = ticketQueue[i] || { ticketId: transaction.ticketId, ticketName: transaction.ticketName };
+
           attendeeDocs.push({
             transactionId: transaction._id,
             eventId: transaction.eventId
@@ -586,7 +613,7 @@ const scanQRAndCheckIn = async (req, res) => {
             courseId: transaction.courseId
               ? transaction.courseId._id || transaction.courseId
               : null,
-            scheduleId: transaction.scheduleId || null,
+            batchId: transaction.batchId || null,
             userId: transaction.userId._id || transaction.userId,
             firstName: transaction.userId.firstName || "Guest",
             lastName: transaction.userId.lastName || `Attendee ${i + 1}`,
@@ -594,6 +621,8 @@ const scanQRAndCheckIn = async (req, res) => {
             ticketNumber,
             qrCodeData: "",
             isCheckedIn: false, // Initially false, will check in one below
+            ticketId: ticketInfo.ticketId,
+            ticketName: ticketInfo.ticketName,
           });
         }
         const created = await Attendee.insertMany(attendeeDocs);
@@ -630,13 +659,7 @@ const scanQRAndCheckIn = async (req, res) => {
           $inc: { totalAttendees: 1 },
         });
       } else {
-        await Course.updateOne(
-          {
-            _id: transaction.courseId._id,
-            "schedules._id": transaction.scheduleId,
-          },
-          { $inc: { "schedules.$.presentCount": 1 } },
-        );
+        // No presentCount to update — seat tracking is done via Transaction aggregation
       }
 
       return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.CHECK_IN_SUCCESS, {
@@ -688,13 +711,7 @@ const scanQRAndCheckIn = async (req, res) => {
           $inc: { totalAttendees: 1 },
         });
       } else if (transaction.bookingType === "COURSE") {
-        await Course.updateOne(
-          {
-            _id: transaction.courseId._id,
-            "schedules._id": transaction.scheduleId,
-          },
-          { $inc: { "schedules.$.presentCount": 1 } },
-        );
+        // No presentCount to update — seat tracking is done via Transaction aggregation
       }
 
       return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.CHECK_IN_SUCCESS, {

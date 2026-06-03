@@ -1,0 +1,154 @@
+### Environment Variables
+@baseUrl = http://localhost:8080/api/v1
+@authToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTFkMWIxYmQ3ZTI2ODRjOTNjYmFkNmIiLCJyb2xlSWQiOjIsImlhdCI6MTc4MDI5MjU3MCwiZXhwIjoyNjQ0MjkyNTcwfQ.jj_rppLYsCL8Wg51zbVo6c-OiszjSpntFmui5jkVjgI
+@customerToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTFkMWIxYmQ3ZTI2ODRjOTNjYmFkNmIiLCJyb2xlSWQiOjMsImlhdCI6MTc4MDI5MjU3MCwiZXhwIjoyNjQ0MjkyNTcwfQ.REPLACE_WITH_CUSTOMER_TOKEN
+
+### ─── Replace these with actual IDs ───
+@eventId = REPLACE_WITH_EVENT_ID
+@courseId = REPLACE_WITH_COURSE_ID
+@batchId = REPLACE_WITH_BATCH_SUBDOC_ID
+@transactionId = REPLACE_WITH_TRANSACTION_ID
+
+#==========================================================
+# USER CANCELLATION (Customer cancels their own booking)
+#==========================================================
+
+### 1. Cancel an Event Booking (User)
+# The refund amount depends on the event's refundPolicy:
+#   - "No Refund"       → Cancelled, refundAmount = 0
+#   - "1 Day Before"    → Full refund if event starts > 24h from now
+#   - "7 Days Before"   → Full refund if event starts > 7 days from now
+POST {{baseUrl}}/booking/cancel
+Authorization: Bearer {{customerToken}}
+Content-Type: application/json
+
+{
+  "transactionId": "{{transactionId}}",
+  "reason": "Cannot attend due to personal reasons"
+}
+
+### 2. Cancel a Course Booking (User)
+POST {{baseUrl}}/booking/cancel
+Authorization: Bearer {{customerToken}}
+Content-Type: application/json
+
+{
+  "transactionId": "{{transactionId}}",
+  "reason": "Schedule conflict with another commitment"
+}
+
+### 3. Cancel Without a Reason (Valid — reason is optional)
+POST {{baseUrl}}/booking/cancel
+Authorization: Bearer {{customerToken}}
+Content-Type: application/json
+
+{
+  "transactionId": "{{transactionId}}"
+}
+
+#==========================================================
+# ORGANIZER CANCELLATION — CANCEL ENTIRE EVENT
+#==========================================================
+
+### 4. Cancel Entire Event (Organizer — all bookings get full refund)
+# This sets event.status → "Cancelled" and refunds ALL PAID bookings
+# regardless of refund policy (organizer-initiated = full refund)
+POST {{baseUrl}}/booking/cancel-event
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "eventId": "{{eventId}}",
+  "reason": "Event venue no longer available"
+}
+
+### 5. Cancel Entire Event Without Reason
+POST {{baseUrl}}/booking/cancel-event
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "eventId": "{{eventId}}"
+}
+
+#==========================================================
+# ORGANIZER CANCELLATION — CANCEL ENTIRE COURSE
+#==========================================================
+
+### 6. Cancel Entire Course (Organizer — all bookings get full refund)
+# This sets course.status → "Cancelled", cancels all batches,
+# and refunds ALL PAID bookings
+POST {{baseUrl}}/booking/cancel-course
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "courseId": "{{courseId}}",
+  "reason": "Instructor unavailable"
+}
+
+#==========================================================
+# ORGANIZER CANCELLATION — CANCEL SPECIFIC BATCH
+#==========================================================
+
+### 7. Cancel a Specific Batch (Only bookings in this batch get refunded)
+# This sets batch.status → "Cancelled" but keeps the course active.
+# Only transactions with this batchId are refunded.
+POST {{baseUrl}}/booking/cancel-course
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "courseId": "{{courseId}}",
+  "batchId": "{{batchId}}",
+  "reason": "Not enough enrollment for this batch"
+}
+
+#==========================================================
+# EDGE CASES & ERROR SCENARIOS
+#==========================================================
+
+### 8. Try to cancel an already-cancelled booking (should fail)
+POST {{baseUrl}}/booking/cancel
+Authorization: Bearer {{customerToken}}
+Content-Type: application/json
+
+{
+  "transactionId": "{{transactionId}}",
+  "reason": "Trying again"
+}
+
+### 9. Try to cancel without transactionId (validation error)
+POST {{baseUrl}}/booking/cancel
+Authorization: Bearer {{customerToken}}
+Content-Type: application/json
+
+{
+  "reason": "No transaction ID provided"
+}
+
+### 10. Try to cancel event as non-organizer (should fail with 403)
+POST {{baseUrl}}/booking/cancel-event
+Authorization: Bearer {{customerToken}}
+Content-Type: application/json
+
+{
+  "eventId": "{{eventId}}",
+  "reason": "I'm not the organizer"
+}
+
+#==========================================================
+# VIEW CANCELLED/REFUNDED TRANSACTIONS
+#==========================================================
+
+### 11. Get All My Tickets (includes CANCELLED and REFUNDED)
+GET {{baseUrl}}/booking/list
+Authorization: Bearer {{customerToken}}
+
+### 12. Get Recent Bookings — Filter by CANCELLED status (Organizer)
+GET {{baseUrl}}/booking/recent?status=CANCELLED&limit=10&page=1
+Authorization: Bearer {{authToken}}
+
+### 13. Get Recent Bookings — Filter by REFUNDED status (Organizer)
+GET {{baseUrl}}/booking/recent?status=REFUNDED&limit=10&page=1
+Authorization: Bearer {{authToken}}

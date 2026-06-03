@@ -545,6 +545,7 @@ const loginInit = async (req, res) => {
         HTTP_STATUS.FORBIDDEN,
         res,
         `${constantsMessage.ACCOUNT_STATUS_PREFIX}${user.organizerVerificationStatus}${constantsMessage.WAIT_FOR_ADMIN_APPROVAL}`,
+        { organizerVerificationStatus: user.organizerVerificationStatus },
       );
     }
 
@@ -727,6 +728,7 @@ const resendLoginOtp = async (req, res) => {
         HTTP_STATUS.FORBIDDEN,
         res,
         `${constantsMessage.ACCOUNT_STATUS_PREFIX}${user.organizerVerificationStatus}${constantsMessage.WAIT_FOR_ADMIN_APPROVAL}`,
+        { organizerVerificationStatus: user.organizerVerificationStatus },
       );
     }
 

@@ -20,7 +20,7 @@ Content-Type: application/json
 
 {
   "isDraft": false,
-  "eventTitle": "Summer Music Festival 2026",
+  "eventTitle": "6june",
   "ReservedExternally": 10,
   "eventCategory": "647f1234567890abcdef1234",
   "shortdesc": "A vibrant celebration of music and arts.",

@@ -17,8 +17,8 @@ const attendeeSchema = new mongoose.Schema(
             ref: "Course",
             required: false, // Optional if it's an event
         },
-        scheduleId: {
-            type: String, // ID of the schedule in the Course
+        batchId: {
+            type: String, // ID of the batch in the Course
             required: false,
         },
         userId: {
@@ -50,6 +50,14 @@ const attendeeSchema = new mongoose.Schema(
             type: String,
             required: true,
             unique: true,
+        },
+        ticketId: {
+            type: String,
+            default: null,
+        },
+        ticketName: {
+            type: String,
+            default: null,
         },
         qrCodeData: {
             type: String,

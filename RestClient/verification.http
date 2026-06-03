@@ -201,6 +201,20 @@ Content-Type: application/json
   "action": "approve"
 }
 
+### Step 5.5: Admin Rejects Bank Account Verification
+POST {{baseUrl}}/verification/audit
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "userId": "{{organizerUserId}}",
+  "type": "bankVerification",
+  "action": "approve"
+  # "reason": "The account number entered does not match the bank statement.",
+  # "reasonTitle": "Incorrect Account Details"
+}
+
+
 
 ### ----------------------------------------------------
 ### 6. BANK MANAGEMENT & CRUD FLOW

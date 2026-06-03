@@ -1055,19 +1055,47 @@ const seed = async () => {
         continue;
       }
 
-      // Use collection.insertOne to bypass any pre-save hooks
-      // Ensure each schedule has a unique _id
-      const schedulesWithIds = co.schedules.map(s => ({
+      // Map schedules to batches, startDate, and endDate conforming to Course schema
+      const startDates = co.schedules.map(s => new Date(s.startDate));
+      const endDates = co.schedules.map(s => new Date(s.endDate));
+      const minStartDate = new Date(Math.min(...startDates));
+      const maxEndDate = new Date(Math.max(...endDates));
+
+      const batches = co.schedules.map((s, idx) => ({
         _id: new mongoose.Types.ObjectId(),
-        ...s
+        batchName: `Batch ${idx + 1}`,
+        startTime: s.startTime || "09:00",
+        endTime: s.endTime || "17:00",
+        days: ["Mon", "Wed", "Fri"], // Default to standard days
+        seats: Math.max(1, Math.floor((co.totalSeats || 30) / co.schedules.length)),
+        ReservedExternally: 0,
+        status: "Active",
       }));
 
-      await Course.collection.insertOne({
-        ...co,
-        schedules: schedulesWithIds,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
+      const courseDoc = {
+        courseTitle: co.courseTitle,
+        courseCategory: co.courseCategory,
+        posterImage: co.posterImage,
+        galleryImages: co.galleryImages,
+        shortdesc: co.shortdesc,
+        longdesc: co.longdesc || co.shortdesc,
+        whatYouWillLearn: co.whatYouWillLearn,
+        price: co.price,
+        enrollmentType: co.enrollmentType,
+        startDate: minStartDate,
+        endDate: maxEndDate,
+        totalSessions: co.totalSessions || 10,
+        venueName: co.venueName || "Online / Venue TBD",
+        venueAddress: co.venueAddress,
+        batches: batches,
+        isFeatured: co.isFeatured || false,
+        createdBy: co.createdBy,
+        isDraft: false,
+        status: "Upcoming",
+      };
+
+      const newCourse = new Course(courseDoc);
+      await newCourse.save();
 
       console.log(
         `   ✔ Inserted [${co.enrollmentType}] ${co.enrollmentType === "Ongoing" ? `(${co.schedules.length} batches)` : "(fixed)"}: ${co.courseTitle}`

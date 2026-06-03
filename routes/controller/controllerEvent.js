@@ -2243,6 +2243,23 @@ router.post(
   toggleEventSlider,
 );
 
+const getRefundPolicies = async (req, res) => {
+  try {
+    const { refundPolicy } = require("../../utils/Role");
+    return apiSuccessRes(
+      HTTP_STATUS.OK,
+      res,
+      "Refund policies retrieved successfully",
+      Object.values(refundPolicy),
+    );
+  } catch (error) {
+    console.error("Error in getRefundPolicies:", error);
+    return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
+  }
+};
+
+router.get("/refund-policies", perApiLimiter(), getRefundPolicies);
+
 router.get("/details/:eventId", perApiLimiter(), getEventDetails);
 
 router.get("/attendees/:eventId", perApiLimiter(), getAllEventAttendees);

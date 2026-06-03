@@ -62,7 +62,7 @@ Content-Type: application/json
 
 {
   "fullname": "Test Organizer",
-  "email": "testOrganizer@example.com",
+  "email": "testOrganizer6@example.com",
   "countryCode": "+91",
   "contactNumber": "9005267079",
   "password": "password123",
@@ -79,7 +79,7 @@ POST {{baseUrl}}/user/verify-otp
 Content-Type: application/json
 
 {
-  "email": "testOrganizer@example.com",
+  "email": "testOrganizer6@example.com",
   "otp": "12345",
   "type": "ORGANIZER"
 }
@@ -95,8 +95,8 @@ POST {{baseUrl}}/user/login/init
 Content-Type: application/json
 
 {
-  "email": "new@gmail.com",
-  "password": "Test@123",
+  "email": "testOrganizer6@example.com",
+  "password": "password123",
   "type": "ORGANIZER"
 }
 

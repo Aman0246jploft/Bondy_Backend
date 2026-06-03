@@ -1,5 +1,6 @@
 const cron = require("node-cron");
 const { Course } = require("../db");
+const { eventStatus } = require("../utils/Role");
 
 // Run every 10 minutes, similar to eventStatus.cron.js
 cron.schedule("*/10 * * * *", async () => {
@@ -7,49 +8,31 @@ cron.schedule("*/10 * * * *", async () => {
     const now = new Date();
 
     // 1. Update PAST courses
-    // A course is past if ALL its schedules' endDates are strictly less than now.
-    // Equivalent: does NOT have any schedule with endDate >= now
     await Course.updateMany(
       {
-        schedules: {
-          $not: { $elemMatch: { endDate: { $gte: now } } },
-        },
+        status: { $ne: eventStatus.CANCELLED },
+        endDate: { $lt: now },
       },
-      { status: "Past" }
+      { status: eventStatus.PAST }
     );
 
     // 2. Update UPCOMING courses
-    // A course is upcoming if it has at least one schedule starting in the future,
-    // AND none of its schedules are currently live.
     await Course.updateMany(
       {
-        $and: [
-          {
-            schedules: {
-              $elemMatch: { startDate: { $gt: now } },
-            },
-          },
-          {
-            schedules: {
-              $not: {
-                $elemMatch: { startDate: { $lte: now }, endDate: { $gte: now } },
-              },
-            },
-          },
-        ],
+        status: { $ne: eventStatus.CANCELLED },
+        startDate: { $gt: now },
       },
-      { status: "Upcoming" }
+      { status: eventStatus.UPCOMING }
     );
 
     // 3. Update LIVE courses
-    // A course is live if ANY of its schedules are currently overlapping with now.
     await Course.updateMany(
       {
-        schedules: {
-          $elemMatch: { startDate: { $lte: now }, endDate: { $gte: now } },
-        },
+        status: { $ne: eventStatus.CANCELLED },
+        startDate: { $lte: now },
+        endDate: { $gte: now },
       },
-      { status: "Live" }
+      { status: eventStatus.LIVE }
     );
 
     console.log("✅ Course status cron ran successfully");

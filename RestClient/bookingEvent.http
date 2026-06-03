@@ -1,0 +1,139 @@
+### Environment Variables
+@baseUrl = http://localhost:8080/api/v1
+@authToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTFkMWIxYmQ3ZTI2ODRjOTNjYmFkNmIiLCJyb2xlSWQiOjIsImlhdCI6MTc4MDI5MjU3MCwiZXhwIjoyNjQ0MjkyNTcwfQ.jj_rppLYsCL8Wg51zbVo6c-OiszjSpntFmui5jkVjgI
+@customerToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTFkMWIxYmQ3ZTI2ODRjOTNjYmFkNmIiLCJyb2xlSWQiOjMsImlhdCI6MTc4MDI5MjU3MCwiZXhwIjoyNjQ0MjkyNTcwfQ.REPLACE_WITH_CUSTOMER_TOKEN
+
+### ─── Replace these with actual IDs after creating an event ───
+@eventId = REPLACE_WITH_EVENT_ID
+@ticketId = REPLACE_WITH_TICKET_SUBDOC_ID
+@transactionId = REPLACE_WITH_TRANSACTION_ID
+
+#==========================================================
+# EVENT BOOKING FLOW
+#==========================================================
+
+### 1. Calculate Event Booking (Preview — no transaction created)
+# Use this to show the user a price breakdown before they commit.
+# Replace ticketId with the _id of the ticket sub-document in Event.tickets[]
+POST {{baseUrl}}/booking/calculate
+Authorization: Bearer {{customerToken}}
+Content-Type: application/json
+
+{
+  "eventId": "{{eventId}}",
+  "ticketId": "{{ticketId}}",
+  "qty": 2,
+  "discountCode": ""
+}
+
+### 2. Calculate Event Booking WITH Promo Code
+POST {{baseUrl}}/booking/calculate
+Authorization: Bearer {{customerToken}}
+Content-Type: application/json
+
+{
+  "eventId": "{{eventId}}",
+  "ticketId": "{{ticketId}}",
+  "qty": 1,
+  "discountCode": "SUMMER2026"
+}
+
+### 3. Initiate Event Booking (Creates PENDING transaction)
+POST {{baseUrl}}/booking/initiate
+Authorization: Bearer {{customerToken}}
+Content-Type: application/json
+
+{
+  "eventId": "{{eventId}}",
+  "ticketId": "{{ticketId}}",
+  "qty": 2,
+  "discountCode": ""
+}
+
+### 4. Confirm Payment (Mock — transitions PENDING → PAID)
+# Use the transactionId returned from the initiate step
+POST {{baseUrl}}/booking/confirm-payment
+Authorization: Bearer {{customerToken}}
+Content-Type: application/json
+
+{
+  "transactionId": "{{transactionId}}"
+}
+
+### 5. Get My Event Tickets (Upcoming)
+GET {{baseUrl}}/booking/list?bookingType=EVENT&type=upcoming
+Authorization: Bearer {{customerToken}}
+
+### 6. Get My Event Tickets (Past)
+GET {{baseUrl}}/booking/list?bookingType=EVENT&type=past
+Authorization: Bearer {{customerToken}}
+
+### 7. Get All My Event Tickets
+GET {{baseUrl}}/booking/list?bookingType=EVENT
+Authorization: Bearer {{customerToken}}
+
+### 8. Get Ticket Detail
+GET {{baseUrl}}/booking/detail/{{transactionId}}
+Authorization: Bearer {{customerToken}}
+
+### 9. Generate Share & Download URLs
+GET {{baseUrl}}/booking/public/generate-urls/{{transactionId}}
+Authorization: Bearer {{customerToken}}
+
+### 10. Get Public Ticket Detail (No auth required)
+GET {{baseUrl}}/booking/public/detail/{{transactionId}}
+
+#==========================================================
+# EVENT ATTENDEE MANAGEMENT (Organizer)
+#==========================================================
+
+### 11. Get Event Attendees List
+GET {{baseUrl}}/booking/event/{{eventId}}/attendees
+Authorization: Bearer {{authToken}}
+
+### 12. Get Event Attendees — Checked-in Only
+GET {{baseUrl}}/booking/event/{{eventId}}/attendees?status=checked-in
+Authorization: Bearer {{authToken}}
+
+### 13. Get Event Attendees — Not Checked-in
+GET {{baseUrl}}/booking/event/{{eventId}}/attendees?status=not-checked-in
+Authorization: Bearer {{authToken}}
+
+### 14. Get Event Attendee Statistics
+GET {{baseUrl}}/booking/event/{{eventId}}/stats
+Authorization: Bearer {{authToken}}
+
+### 15. Scan QR Code (Gate Keeper Check-in)
+POST {{baseUrl}}/booking/scan-qr
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "qrCodeData": "TICKET-REPLACE_TXN_ID-REPLACE_USER_ID-1234567890"
+}
+
+### 16. Cancel My Event Booking (User cancellation)
+POST {{baseUrl}}/booking/cancel
+Authorization: Bearer {{customerToken}}
+Content-Type: application/json
+
+{
+  "transactionId": "{{transactionId}}",
+  "reason": "Cannot attend due to personal reasons"
+}
+
+#==========================================================
+# RECENT BOOKINGS (Organizer Dashboard)
+#==========================================================
+
+### 17. Get Recent Event Bookings (Organizer)
+GET {{baseUrl}}/booking/recent?bookingType=EVENT&limit=10&page=1
+Authorization: Bearer {{authToken}}
+
+### 18. Get Recent Event Bookings — Filter by Status
+GET {{baseUrl}}/booking/recent?bookingType=EVENT&status=PAID&limit=10&page=1
+Authorization: Bearer {{authToken}}
+
+### 19. Get Recent Event Bookings — Filter by Event
+GET {{baseUrl}}/booking/recent?eventId={{eventId}}&limit=10&page=1
+Authorization: Bearer {{authToken}}

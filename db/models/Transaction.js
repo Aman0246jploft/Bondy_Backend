@@ -21,12 +21,33 @@ const transactionSchema = new mongoose.Schema(
                 return this.bookingType === "COURSE";
             },
         },
-        scheduleId: {
-            type: String, // ID of the schedule in the Course
+        // For Course bookings: references the batch _id in Course.batches[]
+        batchId: {
+            type: String,
             required: function () {
                 return this.bookingType === "COURSE";
             },
         },
+        // For Event bookings: references the ticket _id in Event.tickets[]
+        ticketId: {
+            type: String,
+            required: function () {
+                return this.bookingType === "EVENT";
+            },
+        },
+        // Snapshot of the ticket type name at booking time
+        ticketName: {
+            type: String,
+            default: null,
+        },
+        tickets: [
+            {
+                ticketId: { type: String, required: true },
+                ticketName: { type: String, required: true },
+                qty: { type: Number, required: true, min: 1 },
+                basePrice: { type: Number, required: true },
+            }
+        ],
         bookingType: {
             type: String,
             enum: ["EVENT", "COURSE", "PROMOTION"],
@@ -86,7 +107,7 @@ const transactionSchema = new mongoose.Schema(
         ],
         status: {
             type: String,
-            enum: ["PENDING", "PAID", "FAILED", "CANCELLED", "REFUND_INITIATED"],
+            enum: ["PENDING", "PAID", "FAILED", "CANCELLED", "REFUND_INITIATED", "REFUNDED"],
             default: "PENDING",
         },
         paymentId: {
@@ -112,7 +133,29 @@ const transactionSchema = new mongoose.Schema(
             type: mongoose.Schema.Types.ObjectId,
             ref: "User",
             default: null,
-        }
+        },
+        // ── Refund / Cancellation fields ──
+        refundAmount: {
+            type: Number,
+            default: 0,
+        },
+        refundReason: {
+            type: String,
+            default: null,
+        },
+        refundedAt: {
+            type: Date,
+            default: null,
+        },
+        cancelledAt: {
+            type: Date,
+            default: null,
+        },
+        cancelledBy: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User",
+            default: null,
+        },
     },
     {
         timestamps: true,

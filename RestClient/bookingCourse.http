@@ -1,0 +1,119 @@
+### Environment Variables
+@baseUrl = http://localhost:8080/api/v1
+@authToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTFkMWIxYmQ3ZTI2ODRjOTNjYmFkNmIiLCJyb2xlSWQiOjIsImlhdCI6MTc4MDI5MjU3MCwiZXhwIjoyNjQ0MjkyNTcwfQ.jj_rppLYsCL8Wg51zbVo6c-OiszjSpntFmui5jkVjgI
+@customerToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTFkMWIxYmQ3ZTI2ODRjOTNjYmFkNmIiLCJyb2xlSWQiOjMsImlhdCI6MTc4MDI5MjU3MCwiZXhwIjoyNjQ0MjkyNTcwfQ.REPLACE_WITH_CUSTOMER_TOKEN
+
+### ─── Replace these with actual IDs after creating a course ───
+@courseId = REPLACE_WITH_COURSE_ID
+@batchId = REPLACE_WITH_BATCH_SUBDOC_ID
+@transactionId = REPLACE_WITH_TRANSACTION_ID
+
+#==========================================================
+# COURSE BOOKING FLOW
+#==========================================================
+
+### 1. Calculate Course Booking (Preview — no transaction created)
+# Use this to show the user a price breakdown before they commit.
+# Replace batchId with the _id of the batch sub-document in Course.batches[]
+POST {{baseUrl}}/booking/calculate
+Authorization: Bearer {{customerToken}}
+Content-Type: application/json
+
+{
+  "courseId": "{{courseId}}",
+  "batchId": "{{batchId}}",
+  "qty": 1,
+  "discountCode": ""
+}
+
+### 2. Calculate Course Booking WITH Promo Code
+POST {{baseUrl}}/booking/calculate
+Authorization: Bearer {{customerToken}}
+Content-Type: application/json
+
+{
+  "courseId": "{{courseId}}",
+  "batchId": "{{batchId}}",
+  "qty": 1,
+  "discountCode": "LEARN2026"
+}
+
+### 3. Initiate Course Booking (Creates PENDING transaction)
+POST {{baseUrl}}/booking/initiate
+Authorization: Bearer {{customerToken}}
+Content-Type: application/json
+
+{
+  "courseId": "{{courseId}}",
+  "batchId": "{{batchId}}",
+  "qty": 1,
+  "discountCode": ""
+}
+
+### 4. Confirm Payment (Mock — transitions PENDING → PAID)
+# Use the transactionId returned from the initiate step
+POST {{baseUrl}}/booking/confirm-payment
+Authorization: Bearer {{customerToken}}
+Content-Type: application/json
+
+{
+  "transactionId": "{{transactionId}}"
+}
+
+### 5. Get My Course Tickets (Upcoming)
+GET {{baseUrl}}/booking/list?bookingType=COURSE&type=upcoming
+Authorization: Bearer {{customerToken}}
+
+### 6. Get My Course Tickets (Past)
+GET {{baseUrl}}/booking/list?bookingType=COURSE&type=past
+Authorization: Bearer {{customerToken}}
+
+### 7. Get All My Course Tickets
+GET {{baseUrl}}/booking/list?bookingType=COURSE
+Authorization: Bearer {{customerToken}}
+
+### 8. Get Ticket Detail
+GET {{baseUrl}}/booking/detail/{{transactionId}}
+Authorization: Bearer {{customerToken}}
+
+### 9. Generate Share & Download URLs
+GET {{baseUrl}}/booking/public/generate-urls/{{transactionId}}
+Authorization: Bearer {{customerToken}}
+
+### 10. Get Public Ticket Detail (No auth required)
+GET {{baseUrl}}/booking/public/detail/{{transactionId}}
+
+### 11. Cancel My Course Booking (User cancellation)
+POST {{baseUrl}}/booking/cancel
+Authorization: Bearer {{customerToken}}
+Content-Type: application/json
+
+{
+  "transactionId": "{{transactionId}}",
+  "reason": "Schedule conflict"
+}
+
+#==========================================================
+# RECENT BOOKINGS (Organizer Dashboard)
+#==========================================================
+
+### 12. Get Recent Course Bookings (Organizer)
+GET {{baseUrl}}/booking/recent?bookingType=COURSE&limit=10&page=1
+Authorization: Bearer {{authToken}}
+
+### 13. Get Recent Course Bookings — Filter by Status
+GET {{baseUrl}}/booking/recent?bookingType=COURSE&status=PAID&limit=10&page=1
+Authorization: Bearer {{authToken}}
+
+### 14. Get Recent Course Bookings — Filter by Course
+GET {{baseUrl}}/booking/recent?courseId={{courseId}}&limit=10&page=1
+Authorization: Bearer {{authToken}}
+
+### 15. Scan QR Code for Course (Gate Keeper Check-in)
+POST {{baseUrl}}/booking/scan-qr
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "qrCodeData": "TICKET-REPLACE_TXN_ID-REPLACE_USER_ID-1234567890"
+}

@@ -122,6 +122,11 @@ const courseSchema = new mongoose.Schema(
       type: String,
       enum: Object.values(refundPolicy),
     },
+    enrollmentType: {
+      type: String,
+      enum: ["Ongoing", "fixedStart"],
+      default: "Ongoing",
+    },
 
     status: {
       type: String,

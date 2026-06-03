@@ -20,6 +20,7 @@ const perApiLimiter = require("../../middlewares/rateLimiter");
 const checkRole = require("../../middlewares/checkRole");
 const { roleId, eventStatus, daysOfWeek } = require("../../utils/Role");
 const { notifyCourseChange } = require("../services/serviceNotification");
+const { default: mongoose } = require("mongoose");
 
 // Create Course
 const createCourse = async (req, res) => {
@@ -132,6 +133,7 @@ const getCourses = async (req, res) => {
       northEastLng,
       southWestLat,
       southWestLng,
+      enrollmentType,
     } = req.query;
 
     const normalizeLongitude = (lng) => {
@@ -186,31 +188,41 @@ const getCourses = async (req, res) => {
     let query = {};
     let startDateConditions = [];
 
-    // Draft filter (explicit param or through filter string)
-    if (isDraft === "true" || isDraft === true || filters.includes("draft")) {
-      if (!loginUser) {
-        console.warn(`[getCourses] Unauthorized attempt to access drafts`);
-        return apiErrorRes(
-          HTTP_STATUS.UNAUTHORIZED,
-          res,
-          constantsMessage.LOGIN_REQUIRED_DRAFTS,
-        );
+    const isOrganizerList = req.originalUrl.includes("/organizer/list");
+    if (isOrganizerList) {
+      query.createdBy = new mongoose.Types.ObjectId(req.user.userId);
+      if (isDraft === "true" || isDraft === true || filters.includes("draft")) {
+        query.isDraft = true;
+      } else if (isDraft === "false" || isDraft === false) {
+        query.isDraft = false;
       }
-      query.isDraft = true;
-      query.createdBy = new mongoose.Types.ObjectId(loginUser);
     } else {
-      query.isDraft = false;
-
-      // Status query parameter or default time constraints
-      if (status) {
-        query.status = status;
+      // Draft filter (explicit param or through filter string)
+      if (isDraft === "true" || isDraft === true || filters.includes("draft")) {
+        if (!loginUser) {
+          console.warn(`[getCourses] Unauthorized attempt to access drafts`);
+          return apiErrorRes(
+            HTTP_STATUS.UNAUTHORIZED,
+            res,
+            constantsMessage.LOGIN_REQUIRED_DRAFTS,
+          );
+        }
+        query.isDraft = true;
+        query.createdBy = new mongoose.Types.ObjectId(loginUser);
       } else {
-        // Default time constraints (active courses) - unless "past" filter is specifically requested
-        if (!filters.includes("past")) {
-          query.endDate = { $gte: now };
-          query.status = { $ne: eventStatus.PAST };
+        query.isDraft = false;
+
+        // Status query parameter or default time constraints
+        if (status) {
+          query.status = status;
         } else {
-          query.endDate = { $lt: now };
+          // Default time constraints (active courses) - unless "past" filter is specifically requested
+          if (!filters.includes("past")) {
+            query.endDate = { $gte: now };
+            query.status = { $ne: eventStatus.PAST };
+          } else {
+            query.endDate = { $lt: now };
+          }
         }
       }
     }
@@ -218,6 +230,11 @@ const getCourses = async (req, res) => {
     // CreatedBy filter
     if (userId && mongoose.Types.ObjectId.isValid(userId)) {
       query.createdBy = new mongoose.Types.ObjectId(userId);
+    }
+
+    // Apply enrollmentType filter
+    if (enrollmentType) {
+      query.enrollmentType = enrollmentType;
     }
 
     // Multiple Categories filter
@@ -835,36 +852,39 @@ const getCourses = async (req, res) => {
       { $match: { courseId: { $in: courseIds }, status: "PAID", bookingType: "COURSE" } },
       {
         $group: {
-          _id: { course: "$courseId", schedule: "$scheduleId" },
+          _id: { course: "$courseId", batch: "$batchId" },
           count: { $sum: "$qty" },
+          revenue: { $sum: "$totalAmount" },
         },
       },
     ]);
 
     const bookingMap = {};
     const courseBookingMap = {};
+    const courseRevenueMap = {};
     bookingCounts.forEach((b) => {
       const courseId = b._id.course.toString();
-      const scheduleId = b._id.schedule ? b._id.schedule.toString() : "null";
-      bookingMap[`${courseId}_${scheduleId}`] = b.count;
+      const batchIdStr = b._id.batch ? b._id.batch.toString() : "null";
+      bookingMap[`${courseId}_${batchIdStr}`] = b.count;
       courseBookingMap[courseId] = (courseBookingMap[courseId] || 0) + b.count;
+      courseRevenueMap[courseId] = (courseRevenueMap[courseId] || 0) + (b.revenue || 0);
     });
 
     const bookedCourseIds = new Set();
-    const bookedScheduleMap = {};
+    const bookedBatchMap = {};
     if (viewerId) {
       const bookings = await Transaction.find({
         userId: viewerId,
         courseId: { $in: courseIds },
         status: "PAID",
         bookingType: "COURSE",
-      }).select("courseId scheduleId");
+      }).select("courseId batchId");
       bookings.forEach((b) => {
         bookedCourseIds.add(b.courseId.toString());
-        if (b.scheduleId) {
+        if (b.batchId) {
           const cId = b.courseId.toString();
-          if (!bookedScheduleMap[cId]) bookedScheduleMap[cId] = new Set();
-          bookedScheduleMap[cId].add(b.scheduleId.toString());
+          if (!bookedBatchMap[cId]) bookedBatchMap[cId] = new Set();
+          bookedBatchMap[cId].add(b.batchId.toString());
         }
       });
     }
@@ -887,7 +907,7 @@ const getCourses = async (req, res) => {
           courseTotalSeats += seats;
           totalReservedExternally += reserved;
           const available = Math.max(0, seats - acquired - reserved);
-          const userBookedBatches = bookedScheduleMap[course._id.toString()];
+          const userBookedBatches = bookedBatchMap[course._id.toString()];
           return {
             ...batch,
             acquiredSeats: acquired,
@@ -899,6 +919,7 @@ const getCourses = async (req, res) => {
       }
 
       const acquiredTotal = courseBookingMap[course._id.toString()] || 0;
+      const totalRevenue = courseRevenueMap[course._id.toString()] || 0;
       const leftSeats = Math.max(0, courseTotalSeats - acquiredTotal - totalReservedExternally);
 
       let earliestStartTime = "00:00";
@@ -951,8 +972,15 @@ const getCourses = async (req, res) => {
         duration,
         durationTranslation,
         isBooked: bookedCourseIds.has(course._id.toString()),
+        totalRevenue,
+        totalEnrollments: acquiredTotal,
       };
     });
+
+    const grandTotalRevenue = formattedCourses.reduce(
+      (sum, c) => sum + (c.totalRevenue || 0),
+      0,
+    );
 
     return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.SUCCESS, {
       courses: formattedCourses,
@@ -960,6 +988,7 @@ const getCourses = async (req, res) => {
       totalPages: Math.ceil(totalCount / limit),
       currentPage: parseInt(page),
       coursesPerPage: parseInt(limit),
+      grandTotalRevenue,
     });
   } catch (error) {
     console.error("Error in getCourses:", error);
@@ -1240,11 +1269,11 @@ const updateCourse = async (req, res) => {
         if (batch._id) {
           enrolledCount = await Transaction.countDocuments({
             courseId: courseId,
-            scheduleId: batch._id.toString(),
+            batchId: batch._id.toString(),
             status: "PAID",
           });
         }
-        
+
         let existingBatch = null;
         if (batch._id && existingCourse.batches) {
           existingBatch = existingCourse.batches.find(b => b._id.toString() === batch._id.toString());
@@ -1403,7 +1432,7 @@ const getCourseDetails = async (req, res) => {
       },
       {
         $group: {
-          _id: "$scheduleId",
+          _id: "$batchId",
           count: { $sum: "$qty" },
         },
       },
@@ -1422,7 +1451,7 @@ const getCourseDetails = async (req, res) => {
     let viewerId = null;
     const authHeader = req.headers.authorization;
     let isBooked = false;
-    const bookedScheduleIds = new Set();
+    const bookedBatchIds = new Set();
 
     if (authHeader?.startsWith("Bearer ")) {
       try {
@@ -1440,12 +1469,12 @@ const getCourseDetails = async (req, res) => {
         courseId: course._id,
         status: "PAID",
         bookingType: "COURSE",
-      }).select("scheduleId");
+      }).select("batchId");
 
       if (existingBookings.length > 0) {
         isBooked = true;
         existingBookings.forEach((b) => {
-          if (b.scheduleId) bookedScheduleIds.add(b.scheduleId.toString());
+          if (b.batchId) bookedBatchIds.add(b.batchId.toString());
         });
       }
     }
@@ -1479,7 +1508,7 @@ const getCourseDetails = async (req, res) => {
           acquiredSeats: acquired,
           availableSeats: available,
           isFull: available <= 0,
-          isBooked: bookedScheduleIds.has(batchId),
+          isBooked: bookedBatchIds.has(batchId),
         };
       });
     }
@@ -1564,7 +1593,7 @@ const getCourseDetails = async (req, res) => {
 const getOrganizerCourses = async (req, res) => {
   try {
     const userId = req.user.userId;
-    const { categoryId, search, page = 1, limit = 10 } = req.query;
+    const { categoryId, search, page = 1, limit = 10, isDraft, enrollmentType } = req.query;
 
     const skip = (page - 1) * limit;
     let query = { createdBy: userId };
@@ -1572,6 +1601,18 @@ const getOrganizerCourses = async (req, res) => {
     // Apply category filter
     if (categoryId) {
       query.courseCategory = categoryId;
+    }
+
+    // Apply isDraft filter
+    if (isDraft === "true" || isDraft === true) {
+      query.isDraft = true;
+    } else if (isDraft === "false" || isDraft === false) {
+      query.isDraft = false;
+    }
+
+    // Apply enrollmentType filter
+    if (enrollmentType) {
+      query.enrollmentType = enrollmentType;
     }
 
     // Apply search
@@ -1615,6 +1656,26 @@ const getOrganizerCourses = async (req, res) => {
       };
     });
 
+    // Aggregate bookings by batch for detailed available seats calculation
+    const bookingCounts = await Transaction.aggregate([
+      { $match: { courseId: { $in: courseIds }, status: "PAID", bookingType: "COURSE" } },
+      {
+        $group: {
+          _id: { course: "$courseId", batch: "$batchId" },
+          count: { $sum: "$qty" },
+        },
+      },
+    ]);
+
+    const bookingMap = {};
+    const courseBookingMap = {};
+    bookingCounts.forEach((b) => {
+      const courseId = b._id.course.toString();
+      const batchIdStr = b._id.batch ? b._id.batch.toString() : "null";
+      bookingMap[`${courseId}_${batchIdStr}`] = b.count;
+      courseBookingMap[courseId] = (courseBookingMap[courseId] || 0) + b.count;
+    });
+
     const formattedCourses = courses.map((course) => {
       // Format images
       if (Array.isArray(course.posterImage)) course.posterImage = course.posterImage.map(formatResponseUrl);
@@ -1623,48 +1684,87 @@ const getOrganizerCourses = async (req, res) => {
       if (course.courseCategory?.image) course.courseCategory.image = formatResponseUrl(course.courseCategory.image);
       if (course.createdBy?.profileImage) course.createdBy.profileImage = formatResponseUrl(course.createdBy.profileImage);
 
-      const totalSeats = course.batches && Array.isArray(course.batches)
-        ? course.batches.reduce((sum, b) => sum + (b.seats || 0), 0)
-        : 0;
+      let courseTotalSeats = 0;
+      let totalReservedExternally = 0;
+      if (course.batches && Array.isArray(course.batches)) {
+        course.batches = course.batches.map((batch) => {
+          const batchId = batch._id?.toString();
+          const acquired = bookingMap[`${course._id}_${batchId}`] || 0;
+          const seats = batch.seats || 0;
+          const reserved = batch.ReservedExternally || 0;
+          courseTotalSeats += seats;
+          totalReservedExternally += reserved;
+          const available = Math.max(0, seats - acquired - reserved);
+          return {
+            ...batch,
+            acquiredSeats: acquired,
+            availableSeats: available,
+            isFull: available <= 0,
+          };
+        });
+      }
 
-      // Calculate duration from first batch
-      let duration = null;
+      const acquiredTotal = courseBookingMap[course._id.toString()] || 0;
+      const leftSeats = Math.max(0, courseTotalSeats - acquiredTotal - totalReservedExternally);
+
+      // Calculate schedule boundaries
+      let earliestStartTime = "00:00";
+      let latestEndTime = "23:59";
       if (course.batches && course.batches.length > 0) {
-        const batch = course.batches[0];
-        if (batch.startTime && batch.endTime) {
-          const [startH, startM] = batch.startTime.split(":").map(Number);
-          const [endH, endM] = batch.endTime.split(":").map(Number);
-          let diffMins = endH * 60 + endM - (startH * 60 + startM);
-          if (diffMins < 0) diffMins += 24 * 60;
-
-          if (diffMins > 0) {
-            const hours = Math.floor(diffMins / 60);
-            const minutes = diffMins % 60;
-            if (hours > 0 && minutes > 0) duration = `${hours} H ${minutes} min`;
-            else if (hours > 0) duration = `${hours} H`;
-            else duration = `${minutes} min`;
-          }
+        const startTimes = course.batches.map((b) => b.startTime).filter(Boolean);
+        const endTimes = course.batches.map((b) => b.endTime).filter(Boolean);
+        if (startTimes.length > 0) {
+          startTimes.sort();
+          earliestStartTime = startTimes[0];
+        }
+        if (endTimes.length > 0) {
+          endTimes.sort();
+          latestEndTime = endTimes[endTimes.length - 1];
         }
       }
 
-      // Add stats
+      const currentSchedule = {
+        startDate: course.startDate,
+        endDate: course.endDate,
+        startTime: earliestStartTime,
+        endTime: latestEndTime,
+      };
+
+      const sessionStatus = getSessionStatus(currentSchedule);
+
+      // Duration calculations
+      let duration = null;
+      let durationTranslation = null;
+      if (earliestStartTime && latestEndTime) {
+        const [sh, sm] = earliestStartTime.split(":").map(Number);
+        const [eh, em] = latestEndTime.split(":").map(Number);
+        let mins = eh * 60 + em - (sh * 60 + sm);
+        if (mins < 0) mins += 1440;
+        if (mins > 0) {
+          const h = Math.floor(mins / 60);
+          const m = mins % 60;
+          duration = h ? (m ? `${h} H ${m} min` : `${h} H`) : `${m} min`;
+          durationTranslation = h ? (m ? `${h} Цаг ${m} мин` : `${h} Цаг`) : `${m} мин`;
+        }
+      }
+
       const courseStats = statsMap[course._id.toString()] || {
         revenue: 0,
         enrollments: 0,
       };
 
-      const totalReserved = course.batches && Array.isArray(course.batches)
-        ? course.batches.reduce((sum, b) => sum + (b.ReservedExternally || 0), 0)
-        : 0;
-
       return {
         ...course,
-        totalSeats,
+        totalSeats: courseTotalSeats,
+        acquiredSeats: acquiredTotal,
+        leftSeats,
+        currentSchedule,
+        sessionStatus,
+        isAvailable: !!currentSchedule && sessionStatus !== "PAST",
         duration,
+        durationTranslation,
         totalRevenue: courseStats.revenue,
         totalEnrollments: courseStats.enrollments,
-        acquiredSeats: courseStats.enrollments,
-        leftSeats: Math.max(0, totalSeats - courseStats.enrollments - totalReserved),
       };
     });
 
@@ -1710,7 +1810,7 @@ router.get(
   "/organizer/list",
   perApiLimiter(),
   checkRole([roleId.ORGANIZER]),
-  getOrganizerCourses,
+  getCourses,
 );
 
 const assignStaffToCourse = async (req, res) => {
