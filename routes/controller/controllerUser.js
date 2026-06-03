@@ -545,7 +545,13 @@ const loginInit = async (req, res) => {
         HTTP_STATUS.FORBIDDEN,
         res,
         `${constantsMessage.ACCOUNT_STATUS_PREFIX}${user.organizerVerificationStatus}${constantsMessage.WAIT_FOR_ADMIN_APPROVAL}`,
-        { organizerVerificationStatus: user.organizerVerificationStatus },
+        {
+          organizerVerificationStatus: user.organizerVerificationStatus,
+          businessName: user.businessName || null,
+          businessCategory: user.businessCategory || null,
+          shortDesc: user.shortDesc || null,
+          socialMediaLink: user.socialMediaLink || null,
+        },
       );
     }
 
@@ -728,7 +734,13 @@ const resendLoginOtp = async (req, res) => {
         HTTP_STATUS.FORBIDDEN,
         res,
         `${constantsMessage.ACCOUNT_STATUS_PREFIX}${user.organizerVerificationStatus}${constantsMessage.WAIT_FOR_ADMIN_APPROVAL}`,
-        { organizerVerificationStatus: user.organizerVerificationStatus },
+        {
+          organizerVerificationStatus: user.organizerVerificationStatus,
+          businessName: user.businessName || null,
+          businessCategory: user.businessCategory || null,
+          shortDesc: user.shortDesc || null,
+          socialMediaLink: user.socialMediaLink || null,
+        },
       );
     }
 

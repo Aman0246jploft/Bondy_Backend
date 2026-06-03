@@ -95,8 +95,8 @@ POST {{baseUrl}}/user/login/init
 Content-Type: application/json
 
 {
-  "email": "testOrganizer6@example.com",
-  "password": "password123",
+  "email": "joy@gmail.com",
+  "password": "Test@123",
   "type": "ORGANIZER"
 }
 
@@ -180,10 +180,10 @@ Content-Type: application/json
   #   "country": "USA",
   #   "address": "123 Event Street"
   # },
-  # "businessName": "Updated Business Name Ltd",
-  # "businessCategory": "{{categoryId}}",
-  # "shortDesc": "We updated our business description directly through the profile update endpoint.",
-  # "socialMediaLink": "https://instagram.com/updatedbusiness"
+  "businessName": "Updated Business Name Ltd",
+   "businessCategory": "{{categoryId}}",
+   "shortDesc": "We updated our business description directly through the profile update endpoint.",
+  "socialMediaLink": "https://instagram.com/updatedbusiness"
 }
 
 
