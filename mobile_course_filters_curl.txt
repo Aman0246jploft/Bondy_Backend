@@ -1,0 +1,162 @@
+BONDY APP - COURSE FILTERING API REFERENCE FOR MOBILE DEVELOPERS
+================================================================
+
+Base URL: http://localhost:8080/api/v1
+Endpoint: GET /api/v1/course/list
+
+Note: All organizer and user-specific queries (drafts, recommendations, mycourses) 
+require the "Authorization: Bearer <JWT_TOKEN>" header.
+
+--------------------------------------------------------------------------------
+1. ORGANIZER FILTERS (Requires Organizer JWT Token)
+--------------------------------------------------------------------------------
+
+A. Fetch Organizer's Courses (Newest First)
+-------------------------------------------
+Retrieves all courses created by the logged-in organizer, sorted by newest first.
+cURL:
+curl -X GET "http://localhost:8080/api/v1/course/list?filter=organizer" \
+     -H "Authorization: Bearer <ORGANIZER_JWT_TOKEN>"
+
+B. Filter Organizer's Courses by Enrollment Type (Ongoing / fixedStart)
+----------------------------------------------------------------------
+Finds only Ongoing or fixedStart courses created by the organizer. Can be queried via the "enrollmentType" query param or directly appended inside the "filter" param.
+cURL (Using filters parameter - recommended):
+curl -X GET "http://localhost:8080/api/v1/course/list?filter=organizer,ongoing" \
+     -H "Authorization: Bearer <ORGANIZER_JWT_TOKEN>"
+
+curl -X GET "http://localhost:8080/api/v1/course/list?filter=organizer,fixedstart" \
+     -H "Authorization: Bearer <ORGANIZER_JWT_TOKEN>"
+
+cURL (Using enrollmentType query parameter):
+curl -X GET "http://localhost:8080/api/v1/course/list?filter=organizer&enrollmentType=Ongoing" \
+     -H "Authorization: Bearer <ORGANIZER_JWT_TOKEN>"
+
+curl -X GET "http://localhost:8080/api/v1/course/list?filter=organizer&enrollmentType=fixedStart" \
+     -H "Authorization: Bearer <ORGANIZER_JWT_TOKEN>"
+
+C. Fetch Organizer's Drafts vs Published Courses
+------------------------------------------------
+Filter organizer courses specifically by draft status.
+cURL (Fetch Drafts only):
+curl -X GET "http://localhost:8080/api/v1/course/list?filter=organizer&isDraft=true" \
+     -H "Authorization: Bearer <ORGANIZER_JWT_TOKEN>"
+
+curl -X GET "http://localhost:8080/api/v1/course/list?filter=organizer,draft" \
+     -H "Authorization: Bearer <ORGANIZER_JWT_TOKEN>"
+
+cURL (Fetch Published only):
+curl -X GET "http://localhost:8080/api/v1/course/list?filter=organizer&isDraft=false" \
+     -H "Authorization: Bearer <ORGANIZER_JWT_TOKEN>"
+
+
+--------------------------------------------------------------------------------
+2. GENERAL CUSTOMER / EXPLORE FILTERS
+--------------------------------------------------------------------------------
+
+A. Default Paginated Course List (Active & Upcoming)
+-----------------------------------------------------
+cURL:
+curl -X GET "http://localhost:8080/api/v1/course/list?page=1&limit=10"
+
+B. Full Text Search
+-------------------
+Search by title, short description, or long description.
+cURL:
+curl -X GET "http://localhost:8080/api/v1/course/list?search=Nodejs"
+
+C. Filter by Categories
+-----------------------
+Filter by a single category ID or multiple comma-separated category IDs.
+cURL (Single Category):
+curl -X GET "http://localhost:8080/api/v1/course/list?categoryId=647f1234567890abcdef1234"
+
+cURL (Multiple Categories):
+curl -X GET "http://localhost:8080/api/v1/course/list?categoryId=647f1234567890abcdef1234,647f567890abcdef12341234"
+
+
+--------------------------------------------------------------------------------
+3. DATE AND TIME FILTERS
+--------------------------------------------------------------------------------
+
+A. Past Courses Filter
+----------------------
+Retrieve courses that have already ended.
+cURL:
+curl -X GET "http://localhost:8080/api/v1/course/list?filter=past"
+
+B. Time Preset Filters
+----------------------
+Supported presets: upcoming, today, tomorrow, thisweek, thisweekend, thismonth, happeningsoon (within 48h), thisyear, nextweek.
+cURL (Today):
+curl -X GET "http://localhost:8080/api/v1/course/list?filter=today"
+
+cURL (This Weekend):
+curl -X GET "http://localhost:8080/api/v1/course/list?filter=thisweekend"
+
+C. Custom Date Range Filters
+----------------------------
+Filter courses starting within a custom date/time range.
+cURL:
+curl -X GET "http://localhost:8080/api/v1/course/list?fromDate=2026-06-01T00:00:00Z&toDate=2026-06-30T23:59:59Z"
+
+D. Time of Day Filters
+----------------------
+Filter by startTime slot (Morning: 6AM-12PM, Afternoon: 12PM-5PM, Evening: 5PM-6AM).
+cURL (Morning):
+curl -X GET "http://localhost:8080/api/v1/course/list?timeOfDay=morning"
+
+cURL (Morning & Afternoon):
+curl -X GET "http://localhost:8080/api/v1/course/list?timeOfDay=morning,afternoon"
+
+
+--------------------------------------------------------------------------------
+4. LOCATION AND GEOSPATIAL FILTERS
+--------------------------------------------------------------------------------
+
+A. Radial Coordinate Search
+---------------------------
+Find courses near a latitude/longitude point within a radius (in km, default 100, max 500).
+cURL:
+curl -X GET "http://localhost:8080/api/v1/course/list?latitude=37.7749&longitude=-122.4194&radius=50"
+
+B. Map Viewport Search (Bounding Box)
+-------------------------------------
+Find courses inside a rectangular bounding box on a map.
+cURL:
+curl -X GET "http://localhost:8080/api/v1/course/list?north=37.85&south=37.70&east=-122.35&west=-122.48"
+
+C. "Near You" Preset (Fallback to User Profile Address)
+-------------------------------------------------------
+Fetches courses in the user's city/country defined in their profile settings.
+cURL:
+curl -X GET "http://localhost:8080/api/v1/course/list?filter=nearyou" \
+     -H "Authorization: Bearer <USER_JWT_TOKEN>"
+
+D. City / Country Explicit Filtering
+------------------------------------
+cURL:
+curl -X GET "http://localhost:8080/api/v1/course/list?city=San%20Francisco&country=USA"
+
+
+--------------------------------------------------------------------------------
+5. RECOMMENDATIONS & PLACEMENTS
+--------------------------------------------------------------------------------
+
+A. Featured Courses
+-------------------
+cURL:
+curl -X GET "http://localhost:8080/api/v1/course/list?filter=featured"
+
+B. Personalised Recommendations
+--------------------------------
+Retrieves courses that match the interest categories selected in the user's profile.
+cURL:
+curl -X GET "http://localhost:8080/api/v1/course/list?filter=recommended" \
+     -H "Authorization: Bearer <USER_JWT_TOKEN>"
+
+C. Placement Promotion Matches
+------------------------------
+Retrieves courses with active promotions on specific pages (homePage or explorePage).
+cURL:
+curl -X GET "http://localhost:8080/api/v1/course/list?placement=homePage"

@@ -126,6 +126,7 @@ const getCoursesSchema = Joi.object({
     northEastLng: Joi.number().optional(),
     southWestLat: Joi.number().optional(),
     southWestLng: Joi.number().optional(),
+    enrollmentType: Joi.string().valid("Ongoing", "fixedStart").optional(),
 });
 
 const updateCourseParamsSchema = Joi.object({

@@ -175,4 +175,24 @@ Authorization: Bearer {{authToken}}
 GET {{baseUrl}}/course/list?north=37.850000&south=37.700000&east=-122.350000&west=-122.480000
 Authorization: Bearer {{authToken}}
 
+
+### 14. List Courses - Organizer Courses (Latest Created First)
+GET {{baseUrl}}/course/list?filter=organizer
+Authorization: Bearer {{authToken}}
+
+
+### 15. List Courses - Organizer Courses Filtered by Ongoing Enrollment
+GET {{baseUrl}}/course/list?filter=organizer,ongoing
+Authorization: Bearer {{authToken}}
+
+
+### 16. List Courses - Organizer Courses Filtered by fixedStart Enrollment
+GET {{baseUrl}}/course/list?filter=organizer,fixedstart
+Authorization: Bearer {{authToken}}
+
+
+### 17. List Courses - Organizer Draft Courses Only
+GET {{baseUrl}}/course/list?filter=organizer,draft
+Authorization: Bearer {{authToken}}
+
 #===========================================================FILTER=========================================================================

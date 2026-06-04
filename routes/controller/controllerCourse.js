@@ -188,9 +188,17 @@ const getCourses = async (req, res) => {
     let query = {};
     let startDateConditions = [];
 
-    const isOrganizerList = req.originalUrl.includes("/organizer/list");
+    const isOrganizerList = filters.includes("organizer");
     if (isOrganizerList) {
-      query.createdBy = new mongoose.Types.ObjectId(req.user.userId);
+      if (!loginUser) {
+        console.warn(`[getCourses] Unauthorized attempt to access organizer list`);
+        return apiErrorRes(
+          HTTP_STATUS.UNAUTHORIZED,
+          res,
+          constantsMessage.LOGIN_REQUIRED_DRAFTS,
+        );
+      }
+      query.createdBy = new mongoose.Types.ObjectId(loginUser);
       if (isDraft === "true" || isDraft === true || filters.includes("draft")) {
         query.isDraft = true;
       } else if (isDraft === "false" || isDraft === false) {
@@ -235,6 +243,10 @@ const getCourses = async (req, res) => {
     // Apply enrollmentType filter
     if (enrollmentType) {
       query.enrollmentType = enrollmentType;
+    } else if (filters.includes("ongoing")) {
+      query.enrollmentType = "Ongoing";
+    } else if (filters.includes("fixedstart") || filters.includes("fixed_start") || filters.includes("fixed-start")) {
+      query.enrollmentType = "fixedStart";
     }
 
     // Multiple Categories filter
@@ -776,11 +788,13 @@ const getCourses = async (req, res) => {
           {
             $sort: {
               isPromoMatch: -1,
-              ...(filters.includes("past")
-                ? { endDate: -1, startDate: -1 }
-                : filters.includes("draft")
-                  ? { updatedAt: -1 }
-                  : { isFeatured: -1, startDate: 1, endDate: 1 }),
+              ...(isOrganizerList
+                ? { createdAt: -1 }
+                : filters.includes("past")
+                  ? { endDate: -1, startDate: -1 }
+                  : filters.includes("draft")
+                    ? { updatedAt: -1 }
+                    : { isFeatured: -1, startDate: 1, endDate: 1 }),
             },
           },
           { $skip: parseInt(skip) },
@@ -821,11 +835,13 @@ const getCourses = async (req, res) => {
         ]);
         totalCount = await Course.countDocuments(query);
       } else {
-        const sortOrder = filters.includes("past")
-          ? { endDate: -1, startDate: -1 }
-          : filters.includes("draft")
-            ? { updatedAt: -1 }
-            : { isFeatured: -1, startDate: 1, endDate: 1 };
+        const sortOrder = isOrganizerList
+          ? { createdAt: -1 }
+          : filters.includes("past")
+            ? { endDate: -1, startDate: -1 }
+            : filters.includes("draft")
+              ? { updatedAt: -1 }
+              : { isFeatured: -1, startDate: 1, endDate: 1 };
         courses = await Course.find(query)
           .populate("courseCategory")
           .populate("createdBy", "firstName lastName profileImage isVerified")
@@ -1928,12 +1944,7 @@ router.get(
   getCoursesAdmin,
 );
 
-router.get(
-  "/organizer/list",
-  perApiLimiter(),
-  checkRole([roleId.ORGANIZER]),
-  getCourses,
-);
+
 
 const assignStaffToCourse = async (req, res) => {
   try {
