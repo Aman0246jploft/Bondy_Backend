@@ -71,25 +71,32 @@ GET {{baseUrl}}/user/staff/assigned
 Authorization: Bearer {{staffToken}}
 
 
-### 9. Staff Views Ticket Details (Verify QR Code)
+### 9. Staff Views Attendees List for an Event or Course
+# Retrieve the list of attendees for a specific assigned event or course (with pagination/search/check-in status filter).
+GET {{baseUrl}}/attendee/event/{{eventId}}?page=1&limit=50&search=&checkedIn=true
+Authorization: Bearer {{staffToken}}
+
+
+### 10. Staff Views Ticket Details (Verify QR Code)
 # Scan ticket number (parsed from QR) to show full ticket details.
 @ticketNumber = TKT-EBCE-178029-1
 GET {{baseUrl}}/attendee/ticket/{{ticketNumber}}
 Authorization: Bearer {{staffToken}}
 
 
-### 10. Staff Performs Attendee Check-In
+### 11. Staff Performs Attendee Check-In
 # Staff checks in the attendee using their ticket number.
 POST {{baseUrl}}/attendee/check-in
 Authorization: Bearer {{staffToken}}
 Content-Type: application/json
 
 {
-  "ticketNumber": "{{ticketNumber}}"
+  "ticketNumber": "{{ticketNumber}}",
+  "entityId": "{{eventId}}"
 }
 
 
-### 11. Staff Performs QR Code Scan Check-In (Unified QR Scan Endpoint)
+### 12. Staff Performs QR Code Scan Check-In (Unified QR Scan Endpoint)
 # Check in attendee by posting the raw QR code data directly.
 POST {{baseUrl}}/attendee/scan-qr
 Authorization: Bearer {{staffToken}}
@@ -100,7 +107,7 @@ Content-Type: application/json
 }
 
 
-### 12. Staff Views Check-in Scan History
+### 13. Staff Views Check-in Scan History
 # Retrieve history of all check-ins performed by the logged-in staff member.
 GET {{baseUrl}}/user/staff/scan-history
 Authorization: Bearer {{staffToken}}

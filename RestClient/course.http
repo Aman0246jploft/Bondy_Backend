@@ -11,7 +11,8 @@ Content-Type: application/json
 {
   "isDraft": true,
   "courseTitle": "Fullstack Web Development with Node.js (Draft)",
-  "shortdesc": "A basic draft of web developer course."
+  "shortdesc": "A basic draft of web developer course.",
+  "enrollmentType": "Ongoing"
 }
 
 
@@ -63,7 +64,8 @@ Content-Type: application/json
     }
   ],
   "price": 299.99,
-  "refundPolicy": "7 Days Before"
+  "refundPolicy": "7 Days Before",
+  "enrollmentType": "fixedStart"
 }
 
 
@@ -112,7 +114,8 @@ Content-Type: application/json
       "seats": 15
     }
   ],
-  "price": 499.00
+  "price": 499.00,
+  "enrollmentType": "Ongoing"
 }
 
 

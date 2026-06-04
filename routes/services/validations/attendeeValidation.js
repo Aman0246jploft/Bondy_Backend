@@ -17,6 +17,7 @@ const createAttendeesSchema = Joi.object({
 
 const checkInSchema = Joi.object({
     ticketNumber: Joi.string().required(),
+    entityId: Joi.string().optional(),
 });
 
 const scanQRSchema = Joi.object({

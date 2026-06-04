@@ -1223,9 +1223,13 @@ const updateCourse = async (req, res) => {
       const priceVal = updateData.price !== undefined ? updateData.price : existingCourse.price;
       const venueAddressVal = updateData.venueAddress || existingCourse.venueAddress;
       const batchesVal = updateData.batches || existingCourse.batches;
+      const enrollmentTypeVal = updateData.enrollmentType || existingCourse.enrollmentType;
 
       if (!courseTitleVal) {
         return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Course title is required for a published course");
+      }
+      if (!enrollmentTypeVal) {
+        return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Enrollment type is required for a published course");
       }
       if (!courseCategoryVal) {
         return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Course category is required for a published course");
@@ -1371,6 +1375,7 @@ const updateCourse = async (req, res) => {
       "isFeatured",
       "featuredExpiry",
       "activePromotionPackage",
+      "enrollmentType",
     ];
 
     simpleFields.forEach((field) => {

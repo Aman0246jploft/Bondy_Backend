@@ -163,29 +163,39 @@ const createAttendees = async (req, res) => {
   }
 };
 
-// 2. Get Attendees for an Event (Organizer Only)
+// 2. Get Attendees for an Event or Course (Organizer and Assigned Staff Allowed)
 const getEventAttendees = async (req, res) => {
   try {
     const { eventId } = req.params;
     const userId = req.user.userId;
     const { page = 1, limit = 50, search = "", checkedIn } = req.query;
 
-    // Verify Event Ownership
-    const event = await Event.findById(eventId);
-    if (!event) {
-      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Event not found");
+    // Verify Event or Course
+    let entity = await Event.findById(eventId);
+    let isEvent = true;
+    if (!entity) {
+      entity = await Course.findById(eventId);
+      isEvent = false;
     }
 
-    if (event.createdBy.toString() !== userId) {
+    if (!entity) {
+      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Event or Course not found");
+    }
+
+    // Verify Event/Course Ownership or Assigned Staff
+    const isCreator = entity.createdBy.toString() === userId;
+    const isAssignedStaff = req.user.roleId === roleId.STAFF && entity.assignedStaff && entity.assignedStaff.some(id => id.toString() === userId);
+
+    if (!isCreator && !isAssignedStaff) {
       return apiErrorRes(
         HTTP_STATUS.FORBIDDEN,
         res,
-        "You are not authorized to view attendees for this event",
+        "You are not authorized to view attendees for this item",
       );
     }
 
     // Build query
-    const query = { eventId };
+    const query = isEvent ? { eventId } : { courseId: eventId };
 
     // Filter by check-in status
     if (checkedIn !== undefined) {
@@ -216,7 +226,7 @@ const getEventAttendees = async (req, res) => {
 
     // Get statistics
     const stats = await Attendee.aggregate([
-      { $match: { eventId: event._id } },
+      { $match: isEvent ? { eventId: entity._id } : { courseId: entity._id } },
       {
         $group: {
           _id: null,
@@ -289,7 +299,7 @@ const getMyAttendees = async (req, res) => {
 // 4. Check-in Attendee (Organizer Only)
 const checkInAttendee = async (req, res) => {
   try {
-    const { ticketNumber } = req.body;
+    const { ticketNumber, entityId } = req.body;
     const userId = req.user.userId;
 
     // Find Attendee
@@ -299,6 +309,18 @@ const checkInAttendee = async (req, res) => {
 
     if (!attendee) {
       return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.TICKET_NOT_FOUND);
+    }
+
+    // If an entityId context is specified, verify the ticket belongs to it
+    if (entityId) {
+      const attendeeEntityId = attendee.eventId?._id?.toString() || attendee.courseId?._id?.toString();
+      if (attendeeEntityId !== entityId) {
+        return apiErrorRes(
+          HTTP_STATUS.BAD_REQUEST,
+          res,
+          "This ticket does not belong to the selected event/course",
+        );
+      }
     }
 
     // Verify Event/Course Ownership or Assigned Staff
@@ -506,6 +528,22 @@ const scanQRAndCheckIn = async (req, res) => {
     // --- Common Validations ---
     if (!event) {
       return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.ENTITY_NOT_FOUND);
+    }
+
+    // Verify that the ticket matches the selected event/course context
+    if (eventId && event._id.toString() !== eventId) {
+      return apiErrorRes(
+        HTTP_STATUS.BAD_REQUEST,
+        res,
+        "This ticket does not belong to the selected event",
+      );
+    }
+    if (courseId && event._id.toString() !== courseId) {
+      return apiErrorRes(
+        HTTP_STATUS.BAD_REQUEST,
+        res,
+        "This ticket does not belong to the selected course",
+      );
     }
 
     // Verify Event/Course Ownership or Assigned Staff

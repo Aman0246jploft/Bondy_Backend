@@ -87,7 +87,11 @@ const createCourseSchema = Joi.object({
         otherwise: Joi.required(),
     }),
     refundPolicy: Joi.string().valid(...Object.values(refundPolicy)).optional().allow(null, ""),
-    enrollmentType: Joi.string().valid("Ongoing", "fixedStart").optional(),
+    enrollmentType: Joi.string().valid("Ongoing", "fixedStart").when('isDraft', {
+        is: true,
+        then: Joi.optional(),
+        otherwise: Joi.required(),
+    }),
     isFeatured: Joi.boolean().optional(),
     featuredExpiry: Joi.date().optional().allow(null),
     activePromotionPackage: Joi.string().hex().length(24).optional().allow(null),
