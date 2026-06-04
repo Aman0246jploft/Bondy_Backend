@@ -25,11 +25,20 @@ const initiateBookingSchema = Joi.object({
   // For Course bookings: the specific batch sub-doc _id
   batchId: Joi.string().when("courseId", {
     is: Joi.exist(),
-    then: Joi.required(),
+    then: Joi.when("ongoingSlots", {
+      is: Joi.exist(),
+      then: Joi.optional(),
+      otherwise: Joi.required(),
+    }),
     otherwise: Joi.optional(),
   }).messages({
     "any.required": "Batch ID is required for course booking",
   }),
+  selectedDay: Joi.string().allow(null, "").optional(),
+  ongoingSlots: Joi.array().items(Joi.object({
+    batchId: Joi.string().required(),
+    selectedDay: Joi.string().required(),
+  })).optional(),
   discountCode: Joi.string().allow(null, "").optional(),
   bookingType: Joi.string().valid("EVENT", "COURSE").optional(),
 }).or("eventId", "courseId");

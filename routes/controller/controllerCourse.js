@@ -851,8 +851,28 @@ const getCourses = async (req, res) => {
     const bookingCounts = await Transaction.aggregate([
       { $match: { courseId: { $in: courseIds }, status: "PAID", bookingType: "COURSE" } },
       {
+        $project: {
+          courseId: 1,
+          qty: 1,
+          totalAmount: 1,
+          batches: {
+            $cond: {
+              if: {
+                $and: [
+                  { $isArray: "$ongoingSlots" },
+                  { $gt: [{ $size: "$ongoingSlots" }, 0] }
+                ]
+              },
+              then: "$ongoingSlots.batchId",
+              else: ["$batchId"]
+            }
+          }
+        }
+      },
+      { $unwind: "$batches" },
+      {
         $group: {
-          _id: { course: "$courseId", batch: "$batchId" },
+          _id: { course: "$courseId", batch: "$batches" },
           count: { $sum: "$qty" },
           revenue: { $sum: "$totalAmount" },
         },
@@ -878,13 +898,18 @@ const getCourses = async (req, res) => {
         courseId: { $in: courseIds },
         status: "PAID",
         bookingType: "COURSE",
-      }).select("courseId batchId");
+      }).select("courseId batchId ongoingSlots");
       bookings.forEach((b) => {
         bookedCourseIds.add(b.courseId.toString());
+        const cId = b.courseId.toString();
+        if (!bookedBatchMap[cId]) bookedBatchMap[cId] = new Set();
         if (b.batchId) {
-          const cId = b.courseId.toString();
-          if (!bookedBatchMap[cId]) bookedBatchMap[cId] = new Set();
           bookedBatchMap[cId].add(b.batchId.toString());
+        }
+        if (b.ongoingSlots && Array.isArray(b.ongoingSlots)) {
+          b.ongoingSlots.forEach((slot) => {
+            if (slot.batchId) bookedBatchMap[cId].add(slot.batchId.toString());
+          });
         }
       });
     }
@@ -961,12 +986,44 @@ const getCourses = async (req, res) => {
         }
       }
 
+      // 5a. Weekly Schedule (for Ongoing classes)
+      let weeklySchedule = null;
+      if (course.enrollmentType === "Ongoing" && course.batches && Array.isArray(course.batches)) {
+        const dayOrder = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+        const scheduleByDay = {};
+        for (const batch of course.batches) {
+          if (batch.days && Array.isArray(batch.days)) {
+            for (const day of batch.days) {
+              if (!scheduleByDay[day]) scheduleByDay[day] = [];
+              scheduleByDay[day].push({
+                batchId: batch._id,
+                batchName: batch.batchName,
+                startTime: batch.startTime,
+                endTime: batch.endTime,
+                seats: batch.seats,
+                availableSeats: batch.availableSeats,
+                isFull: batch.isFull,
+                isBooked: batch.isBooked,
+              });
+            }
+          }
+        }
+        for (const day of Object.keys(scheduleByDay)) {
+          scheduleByDay[day].sort((a, b) => (a.startTime || "").localeCompare(b.startTime || ""));
+        }
+        weeklySchedule = {};
+        for (const day of dayOrder) {
+          if (scheduleByDay[day]) weeklySchedule[day] = scheduleByDay[day];
+        }
+      }
+
       return {
         ...course,
         totalSeats: courseTotalSeats,
         acquiredSeats: acquiredTotal,
         leftSeats,
         currentSchedule,
+        weeklySchedule,
         sessionStatus,
         isAvailable: !!currentSchedule && sessionStatus !== "PAST",
         duration,
@@ -1431,8 +1488,26 @@ const getCourseDetails = async (req, res) => {
         },
       },
       {
+        $project: {
+          qty: 1,
+          batches: {
+            $cond: {
+              if: {
+                $and: [
+                  { $isArray: "$ongoingSlots" },
+                  { $gt: [{ $size: "$ongoingSlots" }, 0] }
+                ]
+              },
+              then: "$ongoingSlots.batchId",
+              else: ["$batchId"]
+            }
+          }
+        }
+      },
+      { $unwind: "$batches" },
+      {
         $group: {
-          _id: "$batchId",
+          _id: "$batches",
           count: { $sum: "$qty" },
         },
       },
@@ -1469,12 +1544,17 @@ const getCourseDetails = async (req, res) => {
         courseId: course._id,
         status: "PAID",
         bookingType: "COURSE",
-      }).select("batchId");
+      }).select("batchId ongoingSlots");
 
       if (existingBookings.length > 0) {
         isBooked = true;
         existingBookings.forEach((b) => {
           if (b.batchId) bookedBatchIds.add(b.batchId.toString());
+          if (b.ongoingSlots && Array.isArray(b.ongoingSlots)) {
+            b.ongoingSlots.forEach((slot) => {
+              if (slot.batchId) bookedBatchIds.add(slot.batchId.toString());
+            });
+          }
         });
       }
     }
@@ -1560,11 +1640,48 @@ const getCourseDetails = async (req, res) => {
       }
     }
 
+    // 5a. Weekly Schedule (for Ongoing classes)
+    let weeklySchedule = null;
+    if (course.enrollmentType === "Ongoing" && course.batches && Array.isArray(course.batches)) {
+      const dayOrder = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+      const scheduleByDay = {};
+
+      for (const batch of course.batches) {
+        if (batch.days && Array.isArray(batch.days)) {
+          for (const day of batch.days) {
+            if (!scheduleByDay[day]) scheduleByDay[day] = [];
+            scheduleByDay[day].push({
+              batchId: batch._id,
+              batchName: batch.batchName,
+              startTime: batch.startTime,
+              endTime: batch.endTime,
+              seats: batch.seats,
+              availableSeats: batch.availableSeats,
+              isFull: batch.isFull,
+              isBooked: batch.isBooked,
+            });
+          }
+        }
+      }
+
+      // Sort slots within each day by startTime, and order days correctly
+      for (const day of Object.keys(scheduleByDay)) {
+        scheduleByDay[day].sort((a, b) => (a.startTime || "").localeCompare(b.startTime || ""));
+      }
+
+      // Build ordered result (only days that have slots)
+      weeklySchedule = {};
+      for (const day of dayOrder) {
+        if (scheduleByDay[day]) weeklySchedule[day] = scheduleByDay[day];
+      }
+    }
+
     // 8. Final Object Construction
     const formattedCourse = {
       ...course,
       totalSeats: courseTotalSeats,
       currentSchedule,
+      weeklySchedule,
       sessionStatus,
       isAvailable: !!currentSchedule && sessionStatus !== "PAST",
       duration,

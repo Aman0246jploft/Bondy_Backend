@@ -28,6 +28,18 @@ const transactionSchema = new mongoose.Schema(
                 return this.bookingType === "COURSE";
             },
         },
+        // For Ongoing courses: the specific day of the week selected (e.g. "Mon", "Tue")
+        selectedDay: {
+            type: String,
+            default: null,
+        },
+        // For Ongoing courses: array of selected batches and days
+        ongoingSlots: [
+            {
+                batchId: { type: String, required: true },
+                selectedDay: { type: String, required: true },
+            }
+        ],
         // For Event bookings: references the ticket _id in Event.tickets[]
         ticketId: {
             type: String,

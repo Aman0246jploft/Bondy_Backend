@@ -110,8 +110,11 @@ const getCourseBatchBookedCount = async (courseId, batchId) => {
     {
       $match: {
         courseId: courseId,
-        batchId: String(batchId),
         status: "PAID",
+        $or: [
+          { batchId: String(batchId) },
+          { "ongoingSlots.batchId": String(batchId) }
+        ]
       },
     },
     { $group: { _id: null, total: { $sum: "$qty" } } },
@@ -313,7 +316,7 @@ const formatItemMedia = (tObj, bookingType) => {
 
 const calculateBooking = async (req, res) => {
   try {
-    const { eventId, courseId, batchId, ticketId, qty, tickets, discountCode } = req.body;
+    const { eventId, courseId, batchId, ticketId, qty, tickets, discountCode, ongoingSlots, selectedDay } = req.body;
 
     let basePrice = 0;
     let ticketName = null;
@@ -377,14 +380,36 @@ const calculateBooking = async (req, res) => {
       if (!course) return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.COURSE_NOT_FOUND);
       if (course.status === "Cancelled") return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.COURSE_NOT_ACTIVE);
 
-      const batch = course.batches.id(batchId);
-      if (!batch) return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.BATCH_NOT_FOUND);
-      if (batch.status === "Cancelled") return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.BATCH_INACTIVE);
+      if (course.enrollmentType === "Ongoing") {
+        const slotsToValidate = ongoingSlots && ongoingSlots.length > 0
+          ? ongoingSlots
+          : (batchId ? [{ batchId, selectedDay }] : []);
 
-      const bookedCount = await getCourseBatchBookedCount(course._id, batchId);
-      const available = batch.seats - (batch.ReservedExternally || 0) - bookedCount;
-      if (available < qty) {
-        return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.BATCH_FULL);
+        if (slotsToValidate.length === 0) {
+          return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "At least one ongoing slot is required");
+        }
+
+        for (const slot of slotsToValidate) {
+          const batch = course.batches.id(slot.batchId);
+          if (!batch) return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, `Batch not found: ${slot.batchId}`);
+          if (batch.status === "Cancelled") return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, `Batch inactive: ${batch.batchName || slot.batchId}`);
+
+          const bookedCount = await getCourseBatchBookedCount(course._id, slot.batchId);
+          const available = batch.seats - (batch.ReservedExternally || 0) - bookedCount;
+          if (available < qty) {
+            return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, `Batch full: ${batch.batchName || slot.batchId}`);
+          }
+        }
+      } else {
+        const batch = course.batches.id(batchId);
+        if (!batch) return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.BATCH_NOT_FOUND);
+        if (batch.status === "Cancelled") return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.BATCH_INACTIVE);
+
+        const bookedCount = await getCourseBatchBookedCount(course._id, batchId);
+        const available = batch.seats - (batch.ReservedExternally || 0) - bookedCount;
+        if (available < qty) {
+          return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.BATCH_FULL);
+        }
       }
 
       basePrice = roundToTwo(course.price * qty);
@@ -428,7 +453,7 @@ const calculateBooking = async (req, res) => {
 
 const initiateBooking = async (req, res) => {
   try {
-    const { eventId, courseId, batchId, ticketId, qty, tickets, discountCode } = req.body;
+    const { eventId, courseId, batchId, ticketId, qty, tickets, discountCode, ongoingSlots, selectedDay } = req.body;
     const userId = req.user.userId;
 
     let bookingType;
@@ -509,14 +534,32 @@ const initiateBooking = async (req, res) => {
       if (!course) return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.COURSE_NOT_FOUND);
       if (course.status === "Cancelled") return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.COURSE_NOT_ACTIVE);
 
-      const batch = course.batches.id(batchId);
-      if (!batch) return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.BATCH_NOT_FOUND);
-      if (batch.status === "Cancelled") return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.BATCH_INACTIVE);
+      if (course.enrollmentType === "Ongoing") {
+        if (!ongoingSlots || ongoingSlots.length === 0) {
+          return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "At least one ongoing slot selection is required");
+        }
 
-      const bookedCount = await getCourseBatchBookedCount(course._id, batchId);
-      const available = batch.seats - (batch.ReservedExternally || 0) - bookedCount;
-      if (available < qty) {
-        return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.BATCH_FULL);
+        for (const slot of ongoingSlots) {
+          const batch = course.batches.id(slot.batchId);
+          if (!batch) return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, `Batch not found: ${slot.batchId}`);
+          if (batch.status === "Cancelled") return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, `Batch inactive: ${batch.batchName || slot.batchId}`);
+
+          const bookedCount = await getCourseBatchBookedCount(course._id, slot.batchId);
+          const available = batch.seats - (batch.ReservedExternally || 0) - bookedCount;
+          if (available < qty) {
+            return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, `Batch full: ${batch.batchName || slot.batchId}`);
+          }
+        }
+      } else {
+        const batch = course.batches.id(batchId);
+        if (!batch) return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.BATCH_NOT_FOUND);
+        if (batch.status === "Cancelled") return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.BATCH_INACTIVE);
+
+        const bookedCount = await getCourseBatchBookedCount(course._id, batchId);
+        const available = batch.seats - (batch.ReservedExternally || 0) - bookedCount;
+        if (available < qty) {
+          return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.BATCH_FULL);
+        }
       }
 
       totalBasePrice = roundToTwo(course.price * qty);
@@ -553,9 +596,6 @@ const initiateBooking = async (req, res) => {
     const { taxAmount: totalTaxAmount, appliedTaxIds } = await applyTaxes(remainingAmount);
     const totalFinalAmount = roundToTwo(remainingAmount + totalTaxAmount);
 
-    const transactionIds = [];
-    const bookingIds = [];
-
     if (bookingType === "EVENT") {
       const transactionData = {
         userId,
@@ -589,6 +629,7 @@ const initiateBooking = async (req, res) => {
         },
       });
     } else {
+      const isOngoing = ongoingSlots && ongoingSlots.length > 0;
       const transactionData = {
         userId,
         bookingId: generateBookingId(),
@@ -602,7 +643,9 @@ const initiateBooking = async (req, res) => {
         status: "PENDING",
         bookingType,
         courseId,
-        batchId,
+        batchId: isOngoing ? ongoingSlots[0].batchId : batchId,
+        selectedDay: isOngoing ? ongoingSlots[0].selectedDay : (selectedDay || null),
+        ongoingSlots: isOngoing ? ongoingSlots : [],
       };
 
       const transaction = new Transaction(transactionData);
@@ -675,17 +718,23 @@ const confirmPayment = async (req, res) => {
       const course = transaction.courseId;
       if (!course) return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.COURSE_NOT_FOUND);
 
-      const batch = course.batches.id(transaction.batchId);
-      if (!batch) return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.BATCH_NOT_FOUND);
+      const slotsToCheck = transaction.ongoingSlots && transaction.ongoingSlots.length > 0
+        ? transaction.ongoingSlots
+        : [{ batchId: transaction.batchId }];
 
-      const bookedCount = await getCourseBatchBookedCount(course._id, transaction.batchId);
-      const available = batch.seats - (batch.ReservedExternally || 0) - bookedCount;
-      if (available < transaction.qty) {
-        transaction.status = "REFUND_INITIATED";
-        await transaction.save();
-        return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.REFUND_INITIATED_SEATS, {
-          transaction: transaction.toObject(),
-        });
+      for (const slot of slotsToCheck) {
+        const batch = course.batches.id(slot.batchId);
+        if (!batch) return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.BATCH_NOT_FOUND);
+
+        const bookedCount = await getCourseBatchBookedCount(course._id, slot.batchId);
+        const available = batch.seats - (batch.ReservedExternally || 0) - bookedCount;
+        if (available < transaction.qty) {
+          transaction.status = "REFUND_INITIATED";
+          await transaction.save();
+          return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.REFUND_INITIATED_SEATS, {
+            transaction: transaction.toObject(),
+          });
+        }
       }
     }
 
@@ -938,7 +987,13 @@ const cancelCourse = async (req, res) => {
       batch.status = "Cancelled";
       await course.save();
 
-      filter.batchId = String(batchId);
+      filter = {
+        ...filter,
+        $or: [
+          { batchId: String(batchId) },
+          { "ongoingSlots.batchId": String(batchId) }
+        ]
+      };
       cancelMessage = constantsMessage.BATCH_CANCELLED;
     } else {
       // Cancel entire course

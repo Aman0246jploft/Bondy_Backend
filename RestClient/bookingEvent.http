@@ -14,7 +14,8 @@
 
 ### 1. Calculate Event Booking (Preview — no transaction created)
 # Use this to show the user a price breakdown before they commit.
-# Replace ticketId with the _id of the ticket sub-document in Event.tickets[]
+# - For Single Ticket type: pass "ticketId" and "qty".
+# - For Multi-Ticket selections: pass "tickets" array instead.
 POST {{baseUrl}}/booking/calculate
 Authorization: Bearer {{customerToken}}
 Content-Type: application/json
@@ -24,6 +25,10 @@ Content-Type: application/json
   "ticketId": "{{ticketId}}",
   "qty": 2,
   "discountCode": ""
+  // Or for Multi-Ticket selections:
+  // "tickets": [
+  //   { "ticketId": "{{ticketId}}", "qty": 2 }
+  // ]
 }
 
 ### 2. Calculate Event Booking WITH Promo Code
@@ -39,6 +44,8 @@ Content-Type: application/json
 }
 
 ### 3. Initiate Event Booking (Creates PENDING transaction)
+# - For Single Ticket type: pass "ticketId" and "qty".
+# - For Multi-Ticket selections: pass "tickets" array instead.
 POST {{baseUrl}}/booking/initiate
 Authorization: Bearer {{customerToken}}
 Content-Type: application/json
@@ -48,6 +55,10 @@ Content-Type: application/json
   "ticketId": "{{ticketId}}",
   "qty": 2,
   "discountCode": ""
+  // Or for Multi-Ticket selections:
+  // "tickets": [
+  //   { "ticketId": "{{ticketId}}", "qty": 2 }
+  // ]
 }
 
 ### 4. Confirm Payment (Mock — transitions PENDING → PAID)

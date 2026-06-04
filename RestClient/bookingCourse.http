@@ -14,7 +14,8 @@
 
 ### 1. Calculate Course Booking (Preview — no transaction created)
 # Use this to show the user a price breakdown before they commit.
-# Replace batchId with the _id of the batch sub-document in Course.batches[]
+# - For Fixed Start courses: pass "batchId".
+# - For Ongoing courses: pass "ongoingSlots" instead of "batchId".
 POST {{baseUrl}}/booking/calculate
 Authorization: Bearer {{customerToken}}
 Content-Type: application/json
@@ -24,6 +25,10 @@ Content-Type: application/json
   "batchId": "{{batchId}}",
   "qty": 1,
   "discountCode": ""
+  // Or for Ongoing courses:
+  // "ongoingSlots": [
+  //   { "batchId": "{{batchId}}", "selectedDay": "Mon" }
+  // ]
 }
 
 ### 2. Calculate Course Booking WITH Promo Code
@@ -39,6 +44,8 @@ Content-Type: application/json
 }
 
 ### 3. Initiate Course Booking (Creates PENDING transaction)
+# - For Fixed Start courses: pass "batchId".
+# - For Ongoing courses: pass "ongoingSlots" instead of "batchId".
 POST {{baseUrl}}/booking/initiate
 Authorization: Bearer {{customerToken}}
 Content-Type: application/json
@@ -48,6 +55,10 @@ Content-Type: application/json
   "batchId": "{{batchId}}",
   "qty": 1,
   "discountCode": ""
+  // Or for Ongoing courses:
+  // "ongoingSlots": [
+  //   { "batchId": "{{batchId}}", "selectedDay": "Mon" }
+  // ]
 }
 
 ### 4. Confirm Payment (Mock — transitions PENDING → PAID)
