@@ -1309,7 +1309,7 @@ const getEventDetails = async (req, res) => {
     event.durationTranslation = durationTranslation;
 
     // 3. Parallel Fetch for Related Data
-    const [reviews, comments, totalAttendeesAgg, recentTransactions] =
+    const [reviews, comments, totalAttendeesAgg, recentTransactions, ticketSalesAgg] =
       await Promise.all([
         // Top 5 Reviews
         Review.find({ entityId: eventId, entityModel: "Event" })
@@ -1352,10 +1352,78 @@ const getEventDetails = async (req, res) => {
           .limit(10) // Limit to 10 to get some unique users
           .populate("userId", "firstName lastName profileImage isVerified")
           .lean(),
+
+        // Ticket-wise sales aggregation
+        Transaction.aggregate([
+          {
+            $match: {
+              eventId: new mongoose.Types.ObjectId(eventId),
+              status: "PAID",
+              bookingType: "EVENT"
+            }
+          },
+          { $unwind: { path: "$tickets", preserveNullAndEmptyArrays: true } },
+          {
+            $group: {
+              _id: {
+                $ifNull: ["$tickets.ticketId", "$ticketId"]
+              },
+              soldQty: {
+                $sum: {
+                  $ifNull: ["$tickets.qty", "$qty"]
+                }
+              }
+            }
+          }
+        ])
       ]);
 
     const totalAttendees =
       totalAttendeesAgg.length > 0 ? totalAttendeesAgg[0].totalQty : 0;
+
+    // Map ticket sales
+    const ticketSalesMap = {};
+    if (ticketSalesAgg && ticketSalesAgg.length > 0) {
+      ticketSalesAgg.forEach(item => {
+        if (item._id) {
+          ticketSalesMap[item._id.toString()] = item.soldQty;
+        }
+      });
+    }
+
+    // Process tickets with sales info
+    if (Array.isArray(event.tickets)) {
+      event.tickets = event.tickets.map(t => {
+        const ticketIdStr = t._id ? t._id.toString() : "";
+        const soldQty = ticketSalesMap[ticketIdStr] || 0;
+        const availableQty = Math.max(0, (t.qty || 0) - soldQty);
+        return {
+          ...t,
+          soldQty,
+          availableQty,
+        };
+      });
+    }
+
+    // Calculate overall ticket capacity and statistics
+    const totalTicketCount = Array.isArray(event.tickets)
+      ? event.tickets.reduce((sum, t) => sum + (t.qty || 0), 0)
+      : event.totalTickets || 0;
+
+    const reservedExternally = event.ReservedExternally || 0;
+    const availableSeats = Math.max(0, totalTicketCount - totalAttendees - reservedExternally);
+
+    event.totalTickets = totalTicketCount;
+    event.totalSeats = totalTicketCount;
+    event.totalBooked = totalAttendees;
+    event.leftSeats = availableSeats;
+    event.ticketQtyAvailable = availableSeats;
+    event.acquiredSeats = totalAttendees;
+    event.isFewSeatsAvailable = checkFewSeatsAvailable(
+      availableSeats,
+      totalTicketCount,
+      10,
+    );
 
     // Sync event.totalAttendees with calculated totalAttendees
     event.totalAttendees = totalAttendees;
@@ -1419,11 +1487,18 @@ const getEventDetails = async (req, res) => {
 // Get Events for Organizer
 const getEventsByOrganizer = async (req, res) => {
   try {
-    const { categoryId, search, page = 1, limit = 10, status } = req.query;
+    const { categoryId, search, page = 1, limit = 10, status, isDraft } = req.query;
     const userId = req.user.userId;
 
     const skip = (page - 1) * limit;
     let query = { createdBy: userId };
+
+    // Apply draft filter
+    if (isDraft === "true" || isDraft === true) {
+      query.isDraft = true;
+    } else if (isDraft === "false" || isDraft === false) {
+      query.isDraft = false;
+    }
 
     const now = new Date();
 

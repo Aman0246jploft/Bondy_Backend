@@ -71,14 +71,15 @@ Content-Type: application/json
 
 
 ### 3. Update an Event (Draft or Published)
-@eventId = 6a1d642c5fa63c6370bdebce
+@eventId = 6a212e2cc9f463c94cd7ffe9
 POST {{baseUrl}}/event/edit/{{eventId}}
 Authorization: Bearer {{authToken}}
 Content-Type: application/json
 
 {
   "eventTitle": "Summer Music Festival 2026 (Updated)",
-  "shortdesc": "An updated vibrant celebration of music and arts."
+  "shortdesc": "An updated vibrant celebration of music and arts.",
+  "ReservedExternally": 15
 }
 
 
@@ -175,4 +176,10 @@ GET {{baseUrl}}/event/list?north=40.800000&south=40.700000&east=-73.900000&west=
 Authorization: Bearer {{authToken}}
 
 #===========================================================FILTER=========================================================================
+
+
+### 14. Get Event Details
+GET {{baseUrl}}/event/details/{{eventId}}
+Authorization: Bearer {{authToken}}
+
 
