@@ -591,15 +591,17 @@ const getCourses = async (req, res) => {
           },
         },
         {
-          $sort: {
-            cityMatch: -1,
-            countryMatch: -1,
-            isPromoMatch: -1,
-            isFeatured: -1,
-            startDate: 1,
-            endDate: 1,
-            distance: 1,
-          },
+          $sort: (isOrganizerList || filters.includes("latest") || filters.includes("newest"))
+            ? { createdAt: -1 }
+            : {
+              cityMatch: -1,
+              countryMatch: -1,
+              isPromoMatch: -1,
+              isFeatured: -1,
+              startDate: 1,
+              endDate: 1,
+              distance: 1,
+            },
         },
         { $skip: parseInt(skip) },
         { $limit: parseInt(limit) },
@@ -691,13 +693,15 @@ const getCourses = async (req, res) => {
             },
           },
           {
-            $sort: {
-              isPromoMatch: -1,
-              isFeatured: -1,
-              startDate: 1,
-              endDate: 1,
-              distance: 1,
-            },
+            $sort: (isOrganizerList || filters.includes("latest") || filters.includes("newest"))
+              ? { createdAt: -1 }
+              : {
+                isPromoMatch: -1,
+                isFeatured: -1,
+                startDate: 1,
+                endDate: 1,
+                distance: 1,
+              },
           },
           { $skip: parseInt(skip) },
           { $limit: parseInt(limit) },
@@ -788,7 +792,7 @@ const getCourses = async (req, res) => {
           {
             $sort: {
               isPromoMatch: -1,
-              ...(isOrganizerList
+              ...((isOrganizerList || filters.includes("latest") || filters.includes("newest"))
                 ? { createdAt: -1 }
                 : filters.includes("past")
                   ? { endDate: -1, startDate: -1 }
@@ -835,7 +839,7 @@ const getCourses = async (req, res) => {
         ]);
         totalCount = await Course.countDocuments(query);
       } else {
-        const sortOrder = isOrganizerList
+        const sortOrder = (isOrganizerList || filters.includes("latest") || filters.includes("newest"))
           ? { createdAt: -1 }
           : filters.includes("past")
             ? { endDate: -1, startDate: -1 }

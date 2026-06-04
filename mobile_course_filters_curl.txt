@@ -160,3 +160,66 @@ C. Placement Promotion Matches
 Retrieves courses with active promotions on specific pages (homePage or explorePage).
 cURL:
 curl -X GET "http://localhost:8080/api/v1/course/list?placement=homePage"
+
+
+--------------------------------------------------------------------------------
+6. SORTING FILTERS (LATEST / NEWEST)
+--------------------------------------------------------------------------------
+
+A. Fetch Courses Sorted by Latest / Newest (createdAt Descending)
+--------------------------------------------------------------
+Retrieve the list of courses sorted by their creation date (newest first).
+cURL:
+curl -X GET "http://localhost:8080/api/v1/course/list?filter=latest"
+
+curl -X GET "http://localhost:8080/api/v1/course/list?filter=newest"
+
+
+================================================================================
+BONDY APP - EVENT FILTERING API REFERENCE FOR MOBILE DEVELOPERS
+================================================================================
+
+Base URL: http://localhost:8080/api/v1
+Endpoint: GET /api/v1/event/list
+
+Note: All organizer and user-specific queries (drafts, recommendations) 
+require the "Authorization: Bearer <JWT_TOKEN>" header.
+
+--------------------------------------------------------------------------------
+1. ORGANIZER FILTERS (Requires Organizer JWT Token)
+--------------------------------------------------------------------------------
+
+A. Fetch Organizer's Events (Newest First)
+------------------------------------------
+Retrieves all events created by the logged-in organizer, sorted by newest first.
+cURL:
+curl -X GET "http://localhost:8080/api/v1/event/list?filter=organizer" \
+     -H "Authorization: Bearer <ORGANIZER_JWT_TOKEN>"
+
+B. Fetch Organizer's Draft Events
+---------------------------------
+cURL:
+curl -X GET "http://localhost:8080/api/v1/event/list?filter=organizer,draft" \
+     -H "Authorization: Bearer <ORGANIZER_JWT_TOKEN>"
+
+curl -X GET "http://localhost:8080/api/v1/event/list?filter=organizer&isDraft=true" \
+     -H "Authorization: Bearer <ORGANIZER_JWT_TOKEN>"
+
+C. Fetch Organizer's Published Events
+-------------------------------------
+cURL:
+curl -X GET "http://localhost:8080/api/v1/event/list?filter=organizer&isDraft=false" \
+     -H "Authorization: Bearer <ORGANIZER_JWT_TOKEN>"
+
+
+--------------------------------------------------------------------------------
+2. GENERAL EXPLORE & SORTING FILTERS
+--------------------------------------------------------------------------------
+
+A. Fetch Events Sorted by Latest / Newest (createdAt Descending)
+--------------------------------------------------------------
+Retrieve the list of events sorted by their creation date (newest first).
+cURL:
+curl -X GET "http://localhost:8080/api/v1/event/list?filter=latest"
+
+curl -X GET "http://localhost:8080/api/v1/event/list?filter=newest"

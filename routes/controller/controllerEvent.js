@@ -454,31 +454,49 @@ const getEvents = async (req, res) => {
     let query = {};
     let startDateConditions = [];
 
-    // Draft filter (explicit param or through filter string)
-    if (isDraft === "true" || isDraft === true || filters.includes("draft")) {
+    const isOrganizerList = filters.includes("organizer");
+    if (isOrganizerList) {
       if (!loginUser) {
-        console.warn(`[getEvents] Unauthorized attempt to access drafts`);
+        console.warn(`[getEvents] Unauthorized attempt to access organizer list`);
         return apiErrorRes(
           HTTP_STATUS.UNAUTHORIZED,
           res,
           constantsMessage.LOGIN_REQUIRED_DRAFTS,
         );
       }
-      query.isDraft = true;
-      query.createdBy = loginUser;
+      query.createdBy = new mongoose.Types.ObjectId(loginUser);
+      if (isDraft === "true" || isDraft === true || filters.includes("draft")) {
+        query.isDraft = true;
+      } else if (isDraft === "false" || isDraft === false) {
+        query.isDraft = false;
+      }
     } else {
-      query.isDraft = false;
-
-      // Status query parameter or default time constraints
-      if (status) {
-        query.status = status;
+      // Draft filter (explicit param or through filter string)
+      if (isDraft === "true" || isDraft === true || filters.includes("draft")) {
+        if (!loginUser) {
+          console.warn(`[getEvents] Unauthorized attempt to access drafts`);
+          return apiErrorRes(
+            HTTP_STATUS.UNAUTHORIZED,
+            res,
+            constantsMessage.LOGIN_REQUIRED_DRAFTS,
+          );
+        }
+        query.isDraft = true;
+        query.createdBy = loginUser;
       } else {
-        // Default time constraints (active events) - unless "past" filter is specifically requested
-        if (!filters.includes("past")) {
-          query.endDate = { $gte: now };
-          query.status = { $ne: eventStatus.PAST };
+        query.isDraft = false;
+
+        // Status query parameter or default time constraints
+        if (status) {
+          query.status = status;
         } else {
-          query.endDate = { $lt: now };
+          // Default time constraints (active events) - unless "past" filter is specifically requested
+          if (!filters.includes("past")) {
+            query.endDate = { $gte: now };
+            query.status = { $ne: eventStatus.PAST };
+          } else {
+            query.endDate = { $lt: now };
+          }
         }
       }
     }
@@ -827,16 +845,18 @@ const getEvents = async (req, res) => {
           },
         },
         {
-          $sort: {
-            cityMatch: -1,
-            countryMatch: -1,
-            isPromoMatch: -1,
-            fetcherEvent: -1,
-            isFeatured: -1,
-            startDate: 1,
-            endDate: 1,
-            distance: 1,
-          },
+          $sort: (isOrganizerList || filters.includes("latest") || filters.includes("newest"))
+            ? { createdAt: -1 }
+            : {
+              cityMatch: -1,
+              countryMatch: -1,
+              isPromoMatch: -1,
+              fetcherEvent: -1,
+              isFeatured: -1,
+              startDate: 1,
+              endDate: 1,
+              distance: 1,
+            },
         },
         { $skip: parseInt(skip) },
         { $limit: parseInt(limit) },
@@ -928,14 +948,16 @@ const getEvents = async (req, res) => {
             },
           },
           {
-            $sort: {
-              isPromoMatch: -1,
-              fetcherEvent: -1,
-              isFeatured: -1,
-              startDate: 1,
-              endDate: 1,
-              distance: 1,
-            },
+            $sort: (isOrganizerList || filters.includes("latest") || filters.includes("newest"))
+              ? { createdAt: -1 }
+              : {
+                isPromoMatch: -1,
+                fetcherEvent: -1,
+                isFeatured: -1,
+                startDate: 1,
+                endDate: 1,
+                distance: 1,
+              },
           },
           { $skip: parseInt(skip) },
           { $limit: parseInt(limit) },
@@ -1027,11 +1049,13 @@ const getEvents = async (req, res) => {
             $sort: {
               isPromoMatch: -1,
               fetcherEvent: -1,
-              ...(filters.includes("past")
-                ? { endDate: -1, startDate: -1 }
-                : filters.includes("draft")
-                  ? { updatedAt: -1 }
-                  : { isFeatured: -1, startDate: 1, endDate: 1 }),
+              ...((isOrganizerList || filters.includes("latest") || filters.includes("newest"))
+                ? { createdAt: -1 }
+                : filters.includes("past")
+                  ? { endDate: -1, startDate: -1 }
+                  : filters.includes("draft")
+                    ? { updatedAt: -1 }
+                    : { isFeatured: -1, startDate: 1, endDate: 1 }),
             },
           },
           { $skip: parseInt(skip) },
@@ -1072,11 +1096,13 @@ const getEvents = async (req, res) => {
         ]);
         totalCount = await Event.countDocuments(query);
       } else {
-        const sortOrder = filters.includes("past")
-          ? { fetcherEvent: -1, endDate: -1, startDate: -1 }
-          : filters.includes("draft")
-            ? { updatedAt: -1 }
-            : { fetcherEvent: -1, isFeatured: -1, startDate: 1, endDate: 1 };
+        const sortOrder = (isOrganizerList || filters.includes("latest") || filters.includes("newest"))
+          ? { createdAt: -1 }
+          : filters.includes("past")
+            ? { fetcherEvent: -1, endDate: -1, startDate: -1 }
+            : filters.includes("draft")
+              ? { updatedAt: -1 }
+              : { fetcherEvent: -1, isFeatured: -1, startDate: 1, endDate: 1 };
         events = await Event.find(query)
           .populate("eventCategory")
           .populate("createdBy", "firstName lastName profileImage isVerified")
@@ -2333,13 +2359,7 @@ router.get(
 
 router.get("/top/list", getTopEvents);
 
-// this is for the organizer Pannel
-router.get(
-  "/organizer/list",
-  perApiLimiter(),
-  checkRole([roleId.ORGANIZER]),
-  getEventsByOrganizer,
-);
+
 
 router.get(
   "/organizer/stats",

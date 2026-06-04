@@ -94,28 +94,34 @@ const createEventSchema = Joi.object({
 });
 
 const getEventsSchema = Joi.object({
-    filter: Joi.string()
-        .valid("all", "nearYou", "upcoming", "today", "tomorrow", "thisWeek", "thisWeekend", "thisYear", "nextWeek", "recommended")
-        .default("all"),
-    latitude: Joi.number().when("filter", {
-        is: "nearYou",
-        then: Joi.required(),
-        otherwise: Joi.optional(),
-    }),
-    longitude: Joi.number().when("filter", {
-        is: "nearYou",
-        then: Joi.required(),
-        otherwise: Joi.optional(),
-    }),
+    filter: Joi.string().default("all"),
+    latitude: Joi.number().optional(),
+    longitude: Joi.number().optional(),
     radius: Joi.number().min(1).max(500).default(50), // in kilometers
-    categoryId: Joi.string().hex().length(24).optional().allow("", null),
+    categoryId: Joi.string().optional().allow('', null),
+    category: Joi.string().optional().allow('', null),
     search: Joi.string().optional().allow('', null),
     page: Joi.number().integer().min(1).default(1),
     limit: Joi.number().integer().min(1).max(100).default(10),
-    date: Joi.string().optional(),
     userId: Joi.string().hex().length(24).optional(),
     placement: Joi.string().valid("homePage", "explorePage").optional(),
+    startDate: Joi.string().optional(),
+    endDate: Joi.string().optional(),
+    fromDate: Joi.string().optional(),
+    toDate: Joi.string().optional(),
+    isDraft: Joi.any().optional(),
     timeOfDay: Joi.string().optional(),
+    city: Joi.string().optional().allow('', null),
+    country: Joi.string().optional().allow('', null),
+    status: Joi.string().optional().allow('', null),
+    north: Joi.number().optional(),
+    south: Joi.number().optional(),
+    east: Joi.number().optional(),
+    west: Joi.number().optional(),
+    northEastLat: Joi.number().optional(),
+    northEastLng: Joi.number().optional(),
+    southWestLat: Joi.number().optional(),
+    southWestLng: Joi.number().optional(),
 });
 
 const getEventDetailsSchema = Joi.object({

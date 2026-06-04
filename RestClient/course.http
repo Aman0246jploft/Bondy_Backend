@@ -182,6 +182,11 @@ GET {{baseUrl}}/course/list?filter=organizer
 Authorization: Bearer {{authToken}}
 
 
+### 14.a. List Courses - Sorted by Latest Created (Public exploration)
+GET {{baseUrl}}/course/list?filter=latest
+Authorization: Bearer {{authToken}}
+
+
 ### 15. List Courses - Organizer Courses Filtered by Ongoing Enrollment
 GET {{baseUrl}}/course/list?filter=organizer,ongoing
 Authorization: Bearer {{authToken}}

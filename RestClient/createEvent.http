@@ -175,6 +175,26 @@ Authorization: Bearer {{authToken}}
 GET {{baseUrl}}/event/list?north=40.800000&south=40.700000&east=-73.900000&west=-74.000000
 Authorization: Bearer {{authToken}}
 
+
+### 14. List Events - Organizer Events (Latest Created First)
+GET {{baseUrl}}/event/list?filter=organizer
+Authorization: Bearer {{authToken}}
+
+
+### 14.a. List Events - Sorted by Latest Created (Public exploration)
+GET {{baseUrl}}/event/list?filter=latest
+Authorization: Bearer {{authToken}}
+
+
+### 14.b. List Events - Organizer Draft Events Only
+GET {{baseUrl}}/event/list?filter=organizer,draft
+Authorization: Bearer {{authToken}}
+
+
+### 14.c. List Events - Organizer Published Events Only
+GET {{baseUrl}}/event/list?filter=organizer&isDraft=false
+Authorization: Bearer {{authToken}}
+
 #===========================================================FILTER=========================================================================
 
 
