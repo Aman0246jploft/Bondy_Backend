@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const { Course, Transaction, User, Wishlist } = require("../../db");
+const { Course, Transaction, User, Wishlist, GlobalSetting } = require("../../db");
 const constantsMessage = require("../../utils/constantsMessage");
 const HTTP_STATUS = require("../../utils/statusCode");
 const {
@@ -1924,6 +1924,31 @@ const getOrganizerCourses = async (req, res) => {
     return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
   }
 };
+
+const getBookingCutOffs = async (req, res) => {
+  try {
+    const setting = await GlobalSetting.findOne({ key: "BOOKING_CUT_OFF_CONFIG" });
+    const options = setting?.value || [
+      { key: "1h", label: "1 hour before session" },
+      { key: "2h", label: "2 hours before session" },
+      { key: "4h", label: "4 hours before session" },
+      { key: "12h", label: "12 hours before session" },
+      { key: "24h", label: "24 hours before session" },
+      { key: "48h", label: "48 hours before session" }
+    ];
+    return apiSuccessRes(
+      HTTP_STATUS.OK,
+      res,
+      "Booking cut-off options retrieved successfully",
+      options
+    );
+  } catch (error) {
+    console.error("Error in getBookingCutOffs:", error);
+    return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
+  }
+};
+
+router.get("/booking-cutoffs", perApiLimiter(), getBookingCutOffs);
 
 // Get Courses with Filters
 router.get(

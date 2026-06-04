@@ -310,6 +310,53 @@ const formatItemMedia = (tObj, bookingType) => {
   }
 };
 
+/**
+ * Check if the course booking cut-off time has been reached
+ */
+const isBookingCutOffReached = (course, batch, selectedDay) => {
+  if (!course.bookingCutOff) return false;
+
+  const match = course.bookingCutOff.match(/^(\d+)h$/i);
+  if (!match) return false;
+  const cutOffHours = parseInt(match[1], 10);
+  const cutOffMs = cutOffHours * 60 * 60 * 1000;
+
+  const now = new Date();
+  let sessionStart = null;
+
+  if (course.enrollmentType === "Ongoing" && selectedDay && batch?.startTime) {
+    const daysMap = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+    const targetDay = daysMap[selectedDay];
+    if (targetDay !== undefined) {
+      sessionStart = new Date();
+      const currentDay = now.getDay();
+      let daysToAdd = targetDay - currentDay;
+      if (daysToAdd < 0) {
+        daysToAdd += 7;
+      }
+      const [hours, minutes] = batch.startTime.split(":").map(Number);
+      sessionStart.setDate(now.getDate() + daysToAdd);
+      sessionStart.setHours(hours, minutes, 0, 0);
+
+      // If target day is today but start time has passed, get the occurrence for next week
+      if (daysToAdd === 0 && sessionStart < now) {
+        sessionStart.setDate(sessionStart.getDate() + 7);
+      }
+    }
+  } else if (course.enrollmentType === "fixedStart" && course.startDate) {
+    sessionStart = new Date(course.startDate);
+  }
+
+  if (sessionStart) {
+    const msUntilStart = sessionStart.getTime() - now.getTime();
+    if (msUntilStart < cutOffMs) {
+      return true;
+    }
+  }
+
+  return false;
+};
+
 
 // ════════════════════════════════════════════════════════════════════════════
 // 1. CALCULATE BOOKING (Preview — No Transaction Created)
@@ -395,6 +442,14 @@ const calculateBooking = async (req, res) => {
           if (!batch) return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, `Batch not found: ${slot.batchId}`);
           if (batch.status === "Cancelled") return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, `Batch inactive: ${batch.batchName || slot.batchId}`);
 
+          if (isBookingCutOffReached(course, batch, slot.selectedDay || selectedDay)) {
+            return apiErrorRes(
+              HTTP_STATUS.BAD_REQUEST,
+              res,
+              `Booking is closed for slot: ${batch.batchName || slot.batchId} (cut-off time reached)`
+            );
+          }
+
           const bookedCount = await getCourseBatchBookedCount(course._id, slot.batchId);
           const available = batch.seats - (batch.ReservedExternally || 0) - bookedCount;
           if (available < qty) {
@@ -405,6 +460,14 @@ const calculateBooking = async (req, res) => {
         const batch = course.batches.id(batchId);
         if (!batch) return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.BATCH_NOT_FOUND);
         if (batch.status === "Cancelled") return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.BATCH_INACTIVE);
+
+        if (isBookingCutOffReached(course, batch)) {
+          return apiErrorRes(
+            HTTP_STATUS.BAD_REQUEST,
+            res,
+            "Booking is closed for this course (cut-off time reached)"
+          );
+        }
 
         const bookedCount = await getCourseBatchBookedCount(course._id, batchId);
         const available = batch.seats - (batch.ReservedExternally || 0) - bookedCount;
@@ -545,6 +608,14 @@ const initiateBooking = async (req, res) => {
           if (!batch) return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, `Batch not found: ${slot.batchId}`);
           if (batch.status === "Cancelled") return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, `Batch inactive: ${batch.batchName || slot.batchId}`);
 
+          if (isBookingCutOffReached(course, batch, slot.selectedDay || selectedDay)) {
+            return apiErrorRes(
+              HTTP_STATUS.BAD_REQUEST,
+              res,
+              `Booking is closed for slot: ${batch.batchName || slot.batchId} (cut-off time reached)`
+            );
+          }
+
           const bookedCount = await getCourseBatchBookedCount(course._id, slot.batchId);
           const available = batch.seats - (batch.ReservedExternally || 0) - bookedCount;
           if (available < qty) {
@@ -555,6 +626,14 @@ const initiateBooking = async (req, res) => {
         const batch = course.batches.id(batchId);
         if (!batch) return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.BATCH_NOT_FOUND);
         if (batch.status === "Cancelled") return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.BATCH_INACTIVE);
+
+        if (isBookingCutOffReached(course, batch)) {
+          return apiErrorRes(
+            HTTP_STATUS.BAD_REQUEST,
+            res,
+            "Booking is closed for this course (cut-off time reached)"
+          );
+        }
 
         const bookedCount = await getCourseBatchBookedCount(course._id, batchId);
         const available = batch.seats - (batch.ReservedExternally || 0) - bookedCount;

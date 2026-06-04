@@ -65,7 +65,8 @@ Content-Type: application/json
   ],
   "price": 299.99,
   "refundPolicy": "7 Days Before",
-  "enrollmentType": "fixedStart"
+  "enrollmentType": "fixedStart",
+  "bookingCutOff": "2h"
 }
 
 
@@ -194,5 +195,9 @@ Authorization: Bearer {{authToken}}
 ### 17. List Courses - Organizer Draft Courses Only
 GET {{baseUrl}}/course/list?filter=organizer,draft
 Authorization: Bearer {{authToken}}
+
+
+### 18. Retrieve Course Booking Cut-off Options
+GET {{baseUrl}}/course/booking-cutoffs
 
 #===========================================================FILTER=========================================================================

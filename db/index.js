@@ -55,6 +55,24 @@ mongoose
         { $setOnInsert: { key: "REFERRAL_REWARD_AMOUNT", value: "0", description: "Reward amount for referrals" } },
         { upsert: true, new: true }
       );
+      await GlobalSetting.findOneAndUpdate(
+        { key: "BOOKING_CUT_OFF_CONFIG" },
+        {
+          $setOnInsert: {
+            key: "BOOKING_CUT_OFF_CONFIG",
+            value: [
+              { key: "1h", label: "1 hour before session" },
+              { key: "2h", label: "2 hours before session" },
+              { key: "4h", label: "4 hours before session" },
+              { key: "12h", label: "12 hours before session" },
+              { key: "24h", label: "24 hours before session" },
+              { key: "48h", label: "48 hours before session" }
+            ],
+            description: "Available options for course/class booking cut-off times"
+          }
+        },
+        { upsert: true, new: true }
+      );
       console.log("✅ Default global settings seeded");
 
       // Seed major banks of Mongolia

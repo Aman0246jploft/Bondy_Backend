@@ -95,6 +95,7 @@ const createCourseSchema = Joi.object({
     isFeatured: Joi.boolean().optional(),
     featuredExpiry: Joi.date().optional().allow(null),
     activePromotionPackage: Joi.string().hex().length(24).optional().allow(null),
+    bookingCutOff: Joi.string().optional().allow(null, ""),
 });
 
 const getCoursesSchema = Joi.object({
@@ -170,6 +171,7 @@ const updateCourseSchema = Joi.object({
     isFeatured: Joi.boolean().optional(),
     featuredExpiry: Joi.date().optional().allow(null),
     activePromotionPackage: Joi.string().hex().length(24).optional().allow(null),
+    bookingCutOff: Joi.string().optional().allow(null, ""),
 }).min(1);
 
 module.exports = {

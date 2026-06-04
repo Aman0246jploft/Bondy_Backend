@@ -20,6 +20,7 @@ const publicRoutes = [
   "/api/v1/user/upload",
   "/api/v1/event/list",
   "/api/v1/course/list",
+  "/api/v1/course/booking-cutoffs",
 
   "/api/v1/faq/list",
   "/api/v1/globalsetting/all",

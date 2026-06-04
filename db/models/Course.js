@@ -138,6 +138,10 @@ const courseSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    bookingCutOff: {
+      type: String,
+      default: "",
+    },
     isFeatured: { type: Boolean, default: false },
     featuredExpiry: { type: Date, default: null },
     activePromotionPackage: {
