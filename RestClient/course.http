@@ -1,7 +1,7 @@
 ### Environment Variables
 @baseUrl = http://localhost:8080/api/v1
 @authToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTFlODA2NjU5NzliZWVlNDFjZjVmNGIiLCJyb2xlSWQiOjIsImlhdCI6MTc4MDQ5NzgwNiwiZXhwIjoyNjQ0NDk3ODA2fQ.XSvrEpbwY_Jt6VjNaYIHmfnsHVQtPTXjSEsVy6H6XzE
-@courseId = 647f8765432109abcdef8765
+@courseId = 6a217b3e29deb21eb1adaf2a
 
 ### 1. Create a Draft Course (Allows missing fields for draft mode)
 POST {{baseUrl}}/course/create
@@ -32,7 +32,7 @@ Content-Type: application/json
     "uploads/courses/nodejs_adv.jpg"
   ],
   "startDate": "2026-09-01T09:00:00.000Z",
-  "endDate": "2026-11-30T17:00:00.000Z",
+  # "endDate": "2026-11-30T17:00:00.000Z",
   "totalSessions": 24,
   "timeZone": "UTC",
   "venueName": "Silicon Valley Coding Hub",
@@ -65,7 +65,7 @@ Content-Type: application/json
   ],
   "price": 299.99,
   "refundPolicy": "7 Days Before",
-  "enrollmentType": "fixedStart",
+  "enrollmentType": "Ongoing",
   "bookingCutOff": "2h"
 }
 
@@ -93,7 +93,7 @@ Content-Type: application/json
   "shortdesc": "Comprehensive fullstack coding boot camp.",
   "longdesc": "Learn HTML, CSS, JavaScript, Node.js, Express, and MongoDB.",
   "startDate": "2026-10-15T09:00:00.000Z",
-  "endDate": "2026-12-15T13:00:00.000Z",
+  # "endDate": "2026-12-15T13:00:00.000Z",
   "totalSessions": 20,
   "timeZone": "UTC",
   "venueName": "Downtown Learning Hub",

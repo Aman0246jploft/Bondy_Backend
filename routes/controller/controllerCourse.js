@@ -1269,8 +1269,14 @@ const updateCourse = async (req, res) => {
       if (!courseCategoryVal) {
         return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Course category is required for a published course");
       }
-      if (!startDateVal || !endDateVal) {
-        return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Start and end dates are required for a published course");
+      if (enrollmentTypeVal === "fixedStart") {
+        if (!startDateVal || !endDateVal) {
+          return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Start and end dates are required for a published course");
+        }
+      } else {
+        if (!startDateVal) {
+          return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Start date is required for a published course");
+        }
       }
       if (totalSessionsVal === undefined || totalSessionsVal === null) {
         return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Total sessions is required for a published course");
@@ -1313,7 +1319,10 @@ const updateCourse = async (req, res) => {
     }
 
     // 6. Time and Status Check
-    const isLive = existingCourse.status === eventStatus.LIVE || (existingCourse.startDate <= now && existingCourse.endDate >= now);
+    const isLive = existingCourse.status === eventStatus.LIVE || (
+      existingCourse.startDate <= now &&
+      (!existingCourse.endDate || existingCourse.endDate >= now)
+    );
     if (isLive) {
       if (updateData.startDate && new Date(updateData.startDate).getTime() !== new Date(existingCourse.startDate).getTime()) {
         return apiErrorRes(
@@ -1336,10 +1345,12 @@ const updateCourse = async (req, res) => {
       }
     }
 
-    // Ensure endDate is in the future
-    if (!targetIsDraft) {
+    const targetEnrollmentType = updateData.enrollmentType !== undefined ? updateData.enrollmentType : existingCourse.enrollmentType;
+
+    // Ensure endDate is in the future for fixedStart courses
+    if (!targetIsDraft && targetEnrollmentType === "fixedStart") {
       const newEnd = updateData.endDate ? new Date(updateData.endDate) : new Date(existingCourse.endDate);
-      if (newEnd < now) {
+      if (!newEnd || isNaN(newEnd.getTime()) || newEnd < now) {
         return apiErrorRes(
           HTTP_STATUS.BAD_REQUEST,
           res,
@@ -1349,7 +1360,9 @@ const updateCourse = async (req, res) => {
     }
 
     const newStart = updateData.startDate ? new Date(updateData.startDate) : new Date(existingCourse.startDate);
-    const newEnd = updateData.endDate ? new Date(updateData.endDate) : new Date(existingCourse.endDate);
+    const newEnd = (updateData.endDate !== undefined)
+      ? (updateData.endDate ? new Date(updateData.endDate) : null)
+      : (existingCourse.endDate ? new Date(existingCourse.endDate) : null);
     if (newStart && newEnd && newStart >= newEnd) {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
