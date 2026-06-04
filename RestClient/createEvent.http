@@ -183,3 +183,21 @@ GET {{baseUrl}}/event/details/{{eventId}}
 Authorization: Bearer {{authToken}}
 
 
+### 15. Cancel an Event (Organizer/Admin cancels event and processes all refunds)
+POST {{baseUrl}}/booking/cancel-event
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "eventId": "{{eventId}}",
+  "reason": "Cancelled due to severe weather conditions"
+}
+
+
+### 16. Get Unique Event Attendees List (With Aggregated Ticket Details)
+GET {{baseUrl}}/event/attendees/{{eventId}}
+Authorization: Bearer {{authToken}}
+
+
+
+

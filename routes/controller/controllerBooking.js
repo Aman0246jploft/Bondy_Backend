@@ -11,6 +11,7 @@ const {
   GlobalSetting,
   Attendee,
   WalletHistory,
+  Wishlist,
 } = require("../../db");
 const HTTP_STATUS = require("../../utils/statusCode");
 const {
@@ -896,6 +897,10 @@ const cancelEvent = async (req, res) => {
     const event = await Event.findById(eventId);
     if (!event) return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.EVENT_NOT_FOUND);
 
+    if (event.status === "Cancelled") {
+      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Event is already cancelled");
+    }
+
     // Authorization check
     if (
       event.createdBy.toString() !== userId.toString() &&
@@ -908,10 +913,30 @@ const cancelEvent = async (req, res) => {
     event.status = "Cancelled";
     await event.save();
 
+    // Cancel all PENDING transactions for this event so they cannot be paid
+    await Transaction.updateMany(
+      { eventId: event._id, status: "PENDING", bookingType: "EVENT" },
+      {
+        $set: {
+          status: "CANCELLED",
+          cancelledAt: new Date(),
+          cancelledBy: userId,
+          refundReason: reason || "Event cancelled by organizer"
+        }
+      }
+    );
+
+    // Delete attendee records associated with the event
+    await Attendee.deleteMany({ eventId: event._id });
+
+    // Remove event from user wishlists
+    await Wishlist.deleteMany({ entityId: event._id, entityModel: "Event" });
+
     // Find all PAID transactions for this event
     const paidTransactions = await Transaction.find({
       eventId: event._id,
       status: "PAID",
+      bookingType: "EVENT",
     });
 
     let totalRefunded = 0;
@@ -976,7 +1001,7 @@ const cancelCourse = async (req, res) => {
       return apiErrorRes(HTTP_STATUS.FORBIDDEN, res, constantsMessage.CANCEL_COURSE_UNAUTHORIZED);
     }
 
-    let filter = { courseId: course._id, status: "PAID" };
+    let filter = { courseId: course._id, status: "PAID", bookingType: "COURSE" };
     let cancelMessage;
 
     if (batchId) {
@@ -986,6 +1011,30 @@ const cancelCourse = async (req, res) => {
 
       batch.status = "Cancelled";
       await course.save();
+
+      // Cancel PENDING transactions for this batch
+      await Transaction.updateMany(
+        {
+          courseId: course._id,
+          status: "PENDING",
+          bookingType: "COURSE",
+          $or: [
+            { batchId: String(batchId) },
+            { "ongoingSlots.batchId": String(batchId) }
+          ]
+        },
+        {
+          $set: {
+            status: "CANCELLED",
+            cancelledAt: new Date(),
+            cancelledBy: userId,
+            refundReason: reason || "Batch cancelled by organizer"
+          }
+        }
+      );
+
+      // Delete attendee records for this batch
+      await Attendee.deleteMany({ courseId: course._id, batchId: String(batchId) });
 
       filter = {
         ...filter,
@@ -1003,6 +1052,26 @@ const cancelCourse = async (req, res) => {
         if (b.status === "Active") b.status = "Cancelled";
       });
       await course.save();
+
+      // Cancel all PENDING transactions for this course
+      await Transaction.updateMany(
+        { courseId: course._id, status: "PENDING", bookingType: "COURSE" },
+        {
+          $set: {
+            status: "CANCELLED",
+            cancelledAt: new Date(),
+            cancelledBy: userId,
+            refundReason: reason || "Course cancelled by organizer"
+          }
+        }
+      );
+
+      // Delete attendee records for the course
+      await Attendee.deleteMany({ courseId: course._id });
+
+      // Remove course from user wishlists
+      await Wishlist.deleteMany({ entityId: course._id, entityModel: "Course" });
+
       cancelMessage = constantsMessage.COURSE_CANCELLED;
     }
 
@@ -1384,6 +1453,23 @@ const getEventAttendeesList = async (req, res) => {
           checkedInQty: transaction.checkedInQty || 0,
           remainingQty: transaction.qty - (transaction.checkedInQty || 0),
           isFullyCheckedIn: (transaction.checkedInQty || 0) >= transaction.qty,
+          details: (transaction.tickets && transaction.tickets.length > 0)
+            ? transaction.tickets.map((t) => ({
+                ticketId: t.ticketId,
+                ticketName: t.ticketName,
+                qty: t.qty,
+                price: t.qty ? roundToTwo(t.basePrice / t.qty) : 0,
+                totalPrice: t.basePrice,
+              }))
+            : [
+                {
+                  ticketId: transaction.ticketId,
+                  ticketName: transaction.ticketName,
+                  qty: transaction.qty,
+                  price: transaction.qty ? roundToTwo(transaction.basePrice / transaction.qty) : 0,
+                  totalPrice: transaction.basePrice,
+                },
+              ],
         },
         checkInInfo: {
           checkedInAt: transaction.checkedInAt,

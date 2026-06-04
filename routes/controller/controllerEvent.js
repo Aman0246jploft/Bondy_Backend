@@ -1856,6 +1856,8 @@ const getAllEventAttendees = async (req, res) => {
       .sort({ createdAt: -1 })
       .lean();
 
+    const roundToTwo = (num) => Math.round((num + Number.EPSILON) * 100) / 100;
+
     // Deduplicate users
     const uniqueUsers = [];
     const seenUserIds = new Set();
@@ -1869,13 +1871,57 @@ const getAllEventAttendees = async (req, res) => {
           if (!fullName.includes(search.toLowerCase())) continue;
         }
 
+        // Find all paid event transactions for this user
+        const userTransactions = transactions.filter(
+          (tr) => tr.userId && tr.userId._id.toString() === user._id.toString()
+        );
+
+        const ticketGroups = {};
+        for (const tr of userTransactions) {
+          const ticketItems = (tr.tickets && tr.tickets.length > 0)
+            ? tr.tickets
+            : [
+              {
+                ticketId: tr.ticketId,
+                ticketName: tr.ticketName,
+                qty: tr.qty,
+                basePrice: tr.basePrice,
+              },
+            ];
+
+          for (const item of ticketItems) {
+            const key = item.ticketId || item.ticketName;
+            if (!ticketGroups[key]) {
+              ticketGroups[key] = {
+                ticketId: item.ticketId,
+                ticketName: item.ticketName,
+                qty: 0,
+                totalPrice: 0,
+              };
+            }
+            ticketGroups[key].qty += item.qty;
+            ticketGroups[key].totalPrice += item.basePrice;
+          }
+        }
+
+        const tickets = Object.values(ticketGroups).map((tg) => ({
+          ticketId: tg.ticketId,
+          ticketName: tg.ticketName,
+          qty: tg.qty,
+          price: tg.qty ? roundToTwo(tg.totalPrice / tg.qty) : 0,
+          totalPrice: tg.totalPrice,
+        }));
+
+        const totalTicketsBought = tickets.reduce((sum, tk) => sum + tk.qty, 0);
+
         uniqueUsers.push({
           _id: user._id,
           firstName: user.firstName,
           lastName: user.lastName,
           profileImage: formatResponseUrl(user.profileImage),
-          ticketsBought: t.qty, // Optional: show how many tickets they bought
+          ticketsBought: totalTicketsBought,
           userRole: userRole[user.roleId] || "GUEST",
+          tickets: tickets,
         });
         seenUserIds.add(user._id.toString());
       }

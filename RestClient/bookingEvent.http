@@ -4,7 +4,7 @@
 @customerToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTFkMWIxYmQ3ZTI2ODRjOTNjYmFkNmIiLCJyb2xlSWQiOjMsImlhdCI6MTc4MDI5MjU3MCwiZXhwIjoyNjQ0MjkyNTcwfQ.REPLACE_WITH_CUSTOMER_TOKEN
 
 ### ─── Replace these with actual IDs after creating an event ───
-@eventId = REPLACE_WITH_EVENT_ID
+@eventId = 6a1ffb91a4cf079984219dcd
 @ticketId = REPLACE_WITH_TICKET_SUBDOC_ID
 @transactionId = REPLACE_WITH_TRANSACTION_ID
 
@@ -114,6 +114,11 @@ Authorization: Bearer {{authToken}}
 GET {{baseUrl}}/booking/event/{{eventId}}/stats
 Authorization: Bearer {{authToken}}
 
+### 14b. Get Unique Event Attendees List (With Aggregated Ticket Details)
+GET {{baseUrl}}/event/attendees/{{eventId}}?search=New
+Authorization: Bearer {{authToken}}
+
+
 ### 15. Scan QR Code (Gate Keeper Check-in)
 POST {{baseUrl}}/booking/scan-qr
 Authorization: Bearer {{authToken}}
@@ -148,3 +153,15 @@ Authorization: Bearer {{authToken}}
 ### 19. Get Recent Event Bookings — Filter by Event
 GET {{baseUrl}}/booking/recent?eventId={{eventId}}&limit=10&page=1
 Authorization: Bearer {{authToken}}
+
+
+
+### 15. Cancel an Event (Organizer/Admin cancels event and processes all refunds)
+POST {{baseUrl}}/booking/cancel-event
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "eventId": "{{eventId}}",
+  "reason": "Cancelled due to severe weather conditions"
+}
