@@ -37,7 +37,11 @@ const createCourseSchema = Joi.object({
     endDate: Joi.date().when('isDraft', {
         is: true,
         then: Joi.optional(),
-        otherwise: Joi.required(),
+        otherwise: Joi.when('enrollmentType', {
+            is: 'fixedStart',
+            then: Joi.required(),
+            otherwise: Joi.optional(),
+        }),
     }),
     totalSessions: Joi.number().integer().min(1).when('isDraft', {
         is: true,

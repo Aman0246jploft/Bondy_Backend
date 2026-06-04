@@ -204,6 +204,16 @@ const getCourses = async (req, res) => {
       } else if (isDraft === "false" || isDraft === false) {
         query.isDraft = false;
       }
+
+      // Status query parameter for organizer
+      if (status) {
+        const statusValues = status.split(",").map((s) => s.trim());
+        if (statusValues.length > 1) {
+          query.status = { $in: statusValues };
+        } else {
+          query.status = statusValues[0];
+        }
+      }
     } else {
       // Draft filter (explicit param or through filter string)
       if (isDraft === "true" || isDraft === true || filters.includes("draft")) {
@@ -222,11 +232,16 @@ const getCourses = async (req, res) => {
 
         // Status query parameter or default time constraints
         if (status) {
-          query.status = status;
+          const statusValues = status.split(",").map((s) => s.trim());
+          if (statusValues.length > 1) {
+            query.status = { $in: statusValues };
+          } else {
+            query.status = statusValues[0];
+          }
         } else {
           // Default time constraints (active courses) - unless "past" filter is specifically requested
           if (!filters.includes("past")) {
-            query.endDate = { $gte: now };
+            query.endDate = { $not: { $lt: now } };
             query.status = { $ne: eventStatus.PAST };
           } else {
             query.endDate = { $lt: now };

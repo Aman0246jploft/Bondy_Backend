@@ -30,7 +30,11 @@ cron.schedule("*/10 * * * *", async () => {
       {
         status: { $ne: eventStatus.CANCELLED },
         startDate: { $lte: now },
-        endDate: { $gte: now },
+        $or: [
+          { endDate: { $gte: now } },
+          { endDate: { $exists: false } },
+          { endDate: null }
+        ],
       },
       { status: eventStatus.LIVE }
     );

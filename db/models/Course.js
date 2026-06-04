@@ -87,7 +87,7 @@ const courseSchema = new mongoose.Schema(
     endDate: {
       type: Date,
       required: function () {
-        return !this.isDraft;
+        return !this.isDraft && this.enrollmentType === "fixedStart";
       },
     },
     totalSessions: {
@@ -217,14 +217,14 @@ courseSchema.pre("save", function (next) {
     return next(new Error("You cannot create a course in the past"));
   }
 
-  // ✅ Auto-manage status (only if dates are provided and status is not Cancelled)
-  if (this.status !== eventStatus.CANCELLED && this.startDate && this.endDate) {
+  // ✅ Auto-manage status (only if startDate is provided and status is not Cancelled)
+  if (this.status !== eventStatus.CANCELLED && this.startDate) {
     if (now < this.startDate) {
       this.status = eventStatus.UPCOMING;
-    } else if (now >= this.startDate && now <= this.endDate) {
-      this.status = eventStatus.LIVE;
-    } else if (this.endDate < now) {
+    } else if (this.endDate && this.endDate < now) {
       this.status = eventStatus.PAST;
+    } else {
+      this.status = eventStatus.LIVE;
     }
   }
 
