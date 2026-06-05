@@ -1592,6 +1592,146 @@ const getEventAttendeesList = async (req, res) => {
 
 
 // ════════════════════════════════════════════════════════════════════════════
+// 10.b GET COURSE ENROLLED USERS (Organizer/Admin)
+// ════════════════════════════════════════════════════════════════════════════
+
+const getCourseAttendeesList = async (req, res) => {
+  try {
+    const { courseId } = req.params;
+    const { status } = req.query;
+    const userId = req.user.userId;
+
+    const course = await Course.findById(courseId);
+    if (!course) {
+      return apiErrorRes(
+        HTTP_STATUS.NOT_FOUND,
+        res,
+        constantsMessage.COURSE_NOT_FOUND || "Course not found",
+      );
+    }
+
+    if (
+      course.createdBy.toString() !== userId.toString() &&
+      req.user.roleId !== roleId.SUPER_ADMIN
+    ) {
+      return apiErrorRes(
+        HTTP_STATUS.FORBIDDEN,
+        res,
+        "You don't have permission to view this course's attendees",
+      );
+    }
+
+    let filter = { courseId: course._id, status: "PAID", bookingType: "COURSE" };
+    if (status === "checked-in") filter.checkedInQty = { $gt: 0 };
+    else if (status === "not-checked-in") {
+      filter.$or = [{ checkedInQty: { $exists: false } }, { checkedInQty: 0 }];
+    }
+
+    const transactions = await Transaction.find(filter)
+      .populate("userId", "firstName lastName email profileImage contactNumber countryCode roleId")
+      .populate("checkedInBy", "firstName lastName email")
+      .sort({ createdAt: -1 });
+
+    let filteredTransactions = transactions;
+    if (status === "fully-checked-in") {
+      filteredTransactions = transactions.filter((t) => (t.checkedInQty || 0) >= t.qty);
+    } else if (status === "partial") {
+      filteredTransactions = transactions.filter(
+        (t) => (t.checkedInQty || 0) > 0 && (t.checkedInQty || 0) < t.qty,
+      );
+    }
+
+    const attendees = filteredTransactions.map((transaction) => {
+      const user = transaction.userId;
+      const checkedInByUser = transaction.checkedInBy;
+
+      let batchDetails = null;
+      if (transaction.batchId && course.batches && Array.isArray(course.batches)) {
+        const found = course.batches.find((b) => b._id.toString() === transaction.batchId.toString());
+        if (found) {
+          batchDetails = {
+            batchId: found._id,
+            batchName: found.batchName,
+            startTime: found.startTime,
+            endTime: found.endTime,
+          };
+        }
+      }
+
+      let slotsWithDetails = [];
+      if (transaction.ongoingSlots && Array.isArray(transaction.ongoingSlots) && course.batches && Array.isArray(course.batches)) {
+        slotsWithDetails = transaction.ongoingSlots.map((slot) => {
+          const found = course.batches.find((b) => b._id.toString() === slot.batchId.toString());
+          return {
+            batchId: slot.batchId,
+            selectedDay: slot.selectedDay,
+            batchName: found ? found.batchName : null,
+            startTime: found ? found.startTime : null,
+            endTime: found ? found.endTime : null,
+          };
+        });
+      }
+
+      return {
+        transactionId: transaction._id,
+        bookingId: transaction.bookingId,
+        batchDetails,
+        ongoingSlots: slotsWithDetails,
+        selectedDay: transaction.selectedDay,
+        user: {
+          _id: user?._id,
+          firstName: user?.firstName,
+          lastName: user?.lastName,
+          email: user?.email,
+          profileImage: user?.profileImage ? formatResponseUrl(user.profileImage) : null,
+          contactNumber: user?.contactNumber,
+          countryCode: user?.countryCode,
+          userRole: user?.roleId ? userRole[user.roleId] : null,
+        },
+        qty: transaction.qty,
+        checkedInQty: transaction.checkedInQty || 0,
+        remainingQty: transaction.qty - (transaction.checkedInQty || 0),
+        isFullyCheckedIn: (transaction.checkedInQty || 0) >= transaction.qty,
+        checkInInfo: {
+          checkedInAt: transaction.checkedInAt,
+          checkedInBy: checkedInByUser
+            ? {
+                _id: checkedInByUser._id,
+                firstName: checkedInByUser.firstName,
+                lastName: checkedInByUser.lastName,
+                email: checkedInByUser.email,
+              }
+            : null,
+        },
+        bookingDate: transaction.createdAt,
+      };
+    });
+
+    return apiSuccessRes(
+      HTTP_STATUS.OK,
+      res,
+      constantsMessage.ATTENDEE_LIST_FETCHED || "Attendees list fetched successfully",
+      {
+        course: {
+          _id: course._id,
+          courseTitle: course.courseTitle,
+          startDate: course.startDate,
+          endDate: course.endDate,
+        },
+        totalAttendees: attendees.length,
+        totalCheckedInTickets: attendees.reduce((sum, a) => sum + a.checkedInQty, 0),
+        attendees,
+      },
+    );
+  } catch (error) {
+    console.error("Error in getCourseAttendeesList:", error);
+    return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
+  }
+};
+
+
+
+// ════════════════════════════════════════════════════════════════════════════
 // 11. GET EVENT ATTENDEE STATS (Organizer)
 // ════════════════════════════════════════════════════════════════════════════
 
@@ -1975,6 +2115,12 @@ router.get(
   perApiLimiter(),
   checkRole([roleId.ORGANIZER, roleId.SUPER_ADMIN]),
   getEventAttendeesList,
+);
+router.get(
+  "/course/:courseId/attendees",
+  perApiLimiter(),
+  checkRole([roleId.ORGANIZER, roleId.SUPER_ADMIN]),
+  getCourseAttendeesList,
 );
 router.get(
   "/event/:eventId/stats",

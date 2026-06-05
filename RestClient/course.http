@@ -282,4 +282,11 @@ Content-Type: application/json
 GET {{baseUrl}}/course/details/{{courseId}}
 Authorization: Bearer {{authToken}}
 
-#===========================================================FILTER=========================================================================
+
+#=========================================================ENROLLED USERS===================================================================
+
+### 23. Get Course Enrolled Users List (Attendees)
+# Retrieves the list of users who enroller this course.
+GET {{baseUrl}}/booking/course/{{courseId}}/attendees
+Authorization: Bearer {{authToken}}
+

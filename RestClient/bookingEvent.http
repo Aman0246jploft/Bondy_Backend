@@ -165,3 +165,5 @@ Content-Type: application/json
   "eventId": "{{eventId}}",
   "reason": "Cancelled due to severe weather conditions"
 }
+
+
