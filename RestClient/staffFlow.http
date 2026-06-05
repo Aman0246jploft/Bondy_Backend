@@ -1,6 +1,7 @@
 ### Environment Variables
 @baseUrl = http://localhost:8080/api/v1
 @organizerToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTFkMWIxYmQ3ZTI2ODRjOTNjYmFkNmIiLCJyb2xlSWQiOjIsImlhdCI6MTc4MDI5MjU3MCwiZXhwIjoyNjQ0MjkyNTcwfQ.jj_rppLYsCL8Wg51zbVo6c-OiszjSpntFmui5jkVjgI
+@transactionId=
 
 ### 1. Organizer Adds a Staff Member
 # The organizer creates a staff account with fullname, email, and password.
@@ -146,4 +147,26 @@ Content-Type: application/json
 {
   "qrCodeData": "TICKET-{{transactionId}}-someUserId-timestamp"
 }
+
+
+### 17. Organizer Edits a Staff Member
+# Organizer updates the details (fullname, email, password, and/or profilePhoto) of a staff member.
+POST {{baseUrl}}/user/organizer/staff/edit/{{staffId}}
+Authorization: Bearer {{organizerToken}}
+Content-Type: application/json
+
+{
+  "fullname": "John Staff Edited",
+  "email": "john.staff.edited@example.com",
+  "password": "newpassword123",
+  "profilePhoto": "uploads/profile/staff_edited.jpg"
+}
+
+
+### 18. Organizer Removes a Staff Member
+# Organizer soft-deletes a staff member and removes their assignment from events and courses.
+POST {{baseUrl}}/user/organizer/staff/remove/{{staffId}}
+Authorization: Bearer {{organizerToken}}
+
+
 

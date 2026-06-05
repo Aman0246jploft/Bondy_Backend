@@ -37,6 +37,7 @@ const {
   universalResendOtpSchema,
   changePasswordSchema,
   addStaffSchema,
+  editStaffSchema,
   organizerInfoSchema,
   adminVerifyOrganizerSchema,
 } = require("../services/validations/userValidation");
@@ -2260,12 +2261,137 @@ const getStaffScanHistory = async (req, res) => {
   }
 };
 
+const editStaff = async (req, res) => {
+  try {
+    const { staffId } = req.params;
+    const organizerId = req.user.userId;
+    const { fullname, email, password, profilePhoto } = req.body;
+
+    const staffUser = await User.findOne({
+      _id: staffId,
+      roleId: roleId.STAFF,
+      createdBy: organizerId,
+      isDeleted: false,
+    });
+
+    if (!staffUser) {
+      return apiErrorRes(
+        HTTP_STATUS.NOT_FOUND,
+        res,
+        "Staff member not found or access denied",
+      );
+    }
+
+    if (email && email.toLowerCase() !== staffUser.email.toLowerCase()) {
+      const existingUser = await User.findOne({
+        email: email.toLowerCase(),
+        isDeleted: false,
+      });
+      if (existingUser) {
+        return apiErrorRes(
+          HTTP_STATUS.BAD_REQUEST,
+          res,
+          constantsMessage.EMAIL_ALREADY_EXISTS || "Email already exists",
+        );
+      }
+      staffUser.email = email.toLowerCase();
+    }
+
+    if (fullname !== undefined) {
+      const parts = fullname.trim().split(" ");
+      const firstName = parts[0];
+      const lastName = parts.slice(1).join(" ") || "";
+      staffUser.firstName = firstName;
+      staffUser.lastName = lastName;
+    }
+
+    if (password) {
+      staffUser.password = password;
+    }
+
+    if (profilePhoto !== undefined) {
+      staffUser.profileImage = profilePhoto || null;
+    }
+
+    await staffUser.save();
+
+    return apiSuccessRes(
+      HTTP_STATUS.OK,
+      res,
+      "Staff member updated successfully",
+      { staff: staffUser.toObject() },
+    );
+  } catch (error) {
+    console.error("Error in editStaff:", error);
+    return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
+  }
+};
+
+const removeStaff = async (req, res) => {
+  try {
+    const { staffId } = req.params;
+    const organizerId = req.user.userId;
+
+    const staffUser = await User.findOne({
+      _id: staffId,
+      roleId: roleId.STAFF,
+      createdBy: organizerId,
+      isDeleted: false,
+    });
+
+    if (!staffUser) {
+      return apiErrorRes(
+        HTTP_STATUS.NOT_FOUND,
+        res,
+        "Staff member not found or access denied",
+      );
+    }
+
+    staffUser.isDeleted = true;
+    await staffUser.save();
+
+    // Pull this staff member from all event and course assignments
+    await Event.updateMany(
+      { assignedStaff: staffId },
+      { $pull: { assignedStaff: staffId } }
+    );
+    await Course.updateMany(
+      { assignedStaff: staffId },
+      { $pull: { assignedStaff: staffId } }
+    );
+
+    return apiSuccessRes(
+      HTTP_STATUS.OK,
+      res,
+      "Staff member removed successfully",
+    );
+  } catch (error) {
+    console.error("Error in removeStaff:", error);
+    return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
+  }
+};
+
 router.post(
   "/organizer/staff/add",
   perApiLimiter(),
   checkRole([roleId.ORGANIZER]),
   validateRequest(addStaffSchema),
   addStaff,
+);
+
+router.post(
+  "/organizer/staff/edit/:staffId",
+  perApiLimiter(),
+  checkRole([roleId.ORGANIZER]),
+  validateRequest(editStaffSchema),
+  editStaff,
+);
+
+router.post(
+  "/organizer/staff/remove/:staffId",
+  perApiLimiter(),
+  checkRole([roleId.ORGANIZER]),
+  removeStaff,
 );
 
 router.get(

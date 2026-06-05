@@ -138,6 +138,13 @@ const addStaffSchema = Joi.object({
   profilePhoto: Joi.string().optional().allow("", null),
 });
 
+const editStaffSchema = Joi.object({
+  fullname: Joi.string().optional(),
+  email: Joi.string().email().optional(),
+  password: Joi.string().min(6).optional().allow("", null),
+  profilePhoto: Joi.string().optional().allow("", null),
+});
+
 const assignStaffSchema = Joi.object({
   entityId: Joi.string().hex().length(24).required(),
   staffIds: Joi.array().items(Joi.string().hex().length(24)).required(),
@@ -157,6 +164,7 @@ module.exports = {
   resetPasswordSchema,
   changePasswordSchema,
   addStaffSchema,
+  editStaffSchema,
   assignStaffSchema,
   organizerInfoSchema,
   adminVerifyOrganizerSchema,
