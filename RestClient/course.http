@@ -191,7 +191,7 @@ Authorization: Bearer {{authToken}}
 
 
 ### 14. List Courses - Organizer Courses (Latest Created First)
-GET {{baseUrl}}/course/list?filter=organizer,fixedstart
+GET {{baseUrl}}/course/list?page=1&limit=10&filter=organizer&status=&isDraft=true
 Authorization: Bearer {{authToken}}
 
 

@@ -299,13 +299,72 @@ const getMyAttendees = async (req, res) => {
 // 4. Check-in Attendee (Organizer Only)
 const checkInAttendee = async (req, res) => {
   try {
-    const { ticketNumber, entityId } = req.body;
+    let { ticketNumber, entityId } = req.body;
     const userId = req.user.userId;
 
-    // Find Attendee
-    const attendee = await Attendee.findOne({ ticketNumber })
-      .populate("eventId")
-      .populate("courseId");
+    let attendee = null;
+
+    // Handle scan QR inputs passed as ticketNumber (e.g., TICKET-... or ATTENDEE-...)
+    if (ticketNumber.startsWith("TICKET-") || ticketNumber.startsWith("ATTENDEE-")) {
+      if (ticketNumber.startsWith("ATTENDEE-")) {
+        attendee = await Attendee.findOne({ qrCodeData: ticketNumber })
+          .populate("eventId")
+          .populate("courseId");
+      } else {
+        const parts = ticketNumber.split("-");
+        const transactionId = parts[1];
+        const transaction = await Transaction.findById(transactionId);
+        if (transaction) {
+          attendee = await Attendee.findOne({ transactionId: transaction._id, isCheckedIn: false })
+            .populate("eventId")
+            .populate("courseId");
+        }
+      }
+    }
+    // Handle short Booking ID (BNDY-XXXXXX)
+    else if (ticketNumber.startsWith("BNDY-")) {
+      const transaction = await Transaction.findOne({ bookingId: ticketNumber });
+      if (!transaction) {
+        return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Booking not found");
+      }
+      if (transaction.status !== "PAID") {
+        return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Booking is not paid");
+      }
+
+      // Verify entityId context if specified
+      if (entityId) {
+        const transactionEntityId = transaction.eventId?.toString() || transaction.courseId?.toString();
+        if (transactionEntityId !== entityId) {
+          return apiErrorRes(
+            HTTP_STATUS.BAD_REQUEST,
+            res,
+            "This booking does not belong to the selected event/course",
+          );
+        }
+      }
+
+      // Check if all checked in
+      const totalAttendeesCount = transaction.qty;
+      const checkedInCount = await Attendee.countDocuments({ transactionId: transaction._id, isCheckedIn: true });
+      if (checkedInCount >= totalAttendeesCount) {
+        return apiErrorRes(
+          HTTP_STATUS.BAD_REQUEST,
+          res,
+          "All tickets for this booking are already checked in",
+        );
+      }
+
+      // Find first unchecked-in attendee
+      attendee = await Attendee.findOne({ transactionId: transaction._id, isCheckedIn: false })
+        .populate("eventId")
+        .populate("courseId");
+    }
+    // Default: Find by individual ticketNumber (TKT-...)
+    else {
+      attendee = await Attendee.findOne({ ticketNumber })
+        .populate("eventId")
+        .populate("courseId");
+    }
 
     if (!attendee) {
       return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.TICKET_NOT_FOUND);
@@ -350,6 +409,27 @@ const checkInAttendee = async (req, res) => {
     attendee.checkedInAt = new Date();
     attendee.checkedInBy = userId;
     await attendee.save();
+
+    // Update parent transaction check-in status and counts
+    const transaction = await Transaction.findById(attendee.transactionId);
+    if (transaction) {
+      const checkedInCount = await Attendee.countDocuments({
+        transactionId: transaction._id,
+        isCheckedIn: true,
+      });
+      transaction.checkedInQty = checkedInCount;
+      transaction.isCheckedIn = checkedInCount >= transaction.qty;
+      if (checkedInCount === 1) transaction.checkedInAt = new Date();
+      transaction.checkedInBy = userId;
+      await transaction.save();
+
+      // Update totalAttendees count (present list)
+      if (transaction.bookingType === "EVENT" && attendee.eventId) {
+        await Event.findByIdAndUpdate(attendee.eventId._id, {
+          $inc: { totalAttendees: 1 },
+        });
+      }
+    }
 
     return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.CHECK_IN_SUCCESS, {
       attendee,
