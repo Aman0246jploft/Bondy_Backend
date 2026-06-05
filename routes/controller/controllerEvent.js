@@ -265,7 +265,7 @@ const formatEvent = (event, bookedEventIds = new Set(), bookedQty = 0, pendingQt
 
   event.totalTickets = totalTickets;
   event.totalSeats = totalTickets;
-  event.totalBooked = bookedQty;
+  event.totalBooked = bookedQty + (event.ReservedExternally || 0);
   event.totalPendingTicket = pendingQty;
 
   const leftSeats = Math.max(0, totalTickets - bookedQty - (event.ReservedExternally || 0));
@@ -1488,7 +1488,7 @@ const getEventDetails = async (req, res) => {
 
     event.totalTickets = totalTicketCount;
     event.totalSeats = totalTicketCount;
-    event.totalBooked = totalAttendees;
+    event.totalBooked = totalAttendees + reservedExternally;
     event.leftSeats = availableSeats;
     event.ticketQtyAvailable = availableSeats;
     event.acquiredSeats = totalAttendees;
