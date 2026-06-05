@@ -144,7 +144,7 @@ Content-Type: application/json
 ### 7. List Events - Standard Retrieve (Active/Upcoming Events)
 # page=1&limit=10&filter=organizer&status=Live,Upcoming
 
-GET {{baseUrl}}/event/list?userId=6a1e80665979beee41cf5f4b&page=1&limit=10&filter=organizer&status=Live,Upcoming
+GET {{baseUrl}}/event/list?userId=6a1e80665979beee41cf5f4b&page=1&limit=10&filter=organizer&status=Past
 Authorization: Bearer {{authToken}}
 
 
