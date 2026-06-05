@@ -251,8 +251,3 @@ Authorization: Bearer {{authToken}}
 ### 18a. Get Event Attendees Check-in List — Paginated, Search by Name, bookingId or ticket (single field)
 GET {{baseUrl}}/attendee/event/{{eventId}}?page=1&limit=5&search=kashyap
 Authorization: Bearer {{authToken}}
-
-
-
-
-
