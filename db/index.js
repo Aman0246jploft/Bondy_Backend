@@ -134,4 +134,5 @@ module.exports = {
   Bug: require("./models/Bug"),
   StayUpdated: require("./models/StayUpdated"),
   EventView: require("./models/EventView"),
+  CourseView: require("./models/CourseView"),
 };

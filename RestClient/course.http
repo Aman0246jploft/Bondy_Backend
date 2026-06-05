@@ -1,7 +1,7 @@
 ### Environment Variables
 @baseUrl = http://localhost:8080/api/v1
 @authToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTFlODA2NjU5NzliZWVlNDFjZjVmNGIiLCJyb2xlSWQiOjIsImlhdCI6MTc4MDQ5NzgwNiwiZXhwIjoyNjQ0NDk3ODA2fQ.XSvrEpbwY_Jt6VjNaYIHmfnsHVQtPTXjSEsVy6H6XzE
-@courseId = 6a217b3e29deb21eb1adaf2a
+@courseId = 6a216d3aaf039f44dc5d6ef7
 
 ### 1. Create a Draft Course (Allows missing fields for draft mode)
 POST {{baseUrl}}/course/create
@@ -76,13 +76,26 @@ Content-Type: application/json
 
 
 ### 3. Update a Course (Draft or Published)
+# To update fields on specific batches (like ReservedExternally or seats), pass the entire batches array,
+# ensuring you include the "_id" of each existing batch.'
+
 POST {{baseUrl}}/course/edit/{{courseId}}
 Authorization: Bearer {{authToken}}
 Content-Type: application/json
 
 {
   "courseTitle": "Mastering Advanced Node.js 2026 (Updated)",
-  "shortdesc": "Updated summary of backend development master class."
+  "shortdesc": "Updated summary of backend development master class.",
+  "batches": [
+    {
+      "_id": "6a216d3aaf039f44dc5d6ef8",
+      "ReservedExternally": 10
+    },
+    {
+      "_id": "6a216d3aaf039f44dc5d6ef9", 
+      "ReservedExternally": 2
+    }
+  ]
 }
 
 
@@ -232,5 +245,41 @@ Authorization: Bearer {{authToken}}
 
 ### 18. Retrieve Course Booking Cut-off Options
 GET {{baseUrl}}/course/booking-cutoffs
+
+
+#=========================================================ANALYTICS========================================================================
+
+### 19. Organizer Courses Analytics Summary
+# Retrieves analytics summary for all courses created by the organizer.
+GET {{baseUrl}}/course/analytics/summary?filter=7d
+Authorization: Bearer {{authToken}}
+
+
+### 20. Single Course Analytics Details
+# Retrieves analytics detail for a single course.
+GET {{baseUrl}}/course/analytics/{{courseId}}?filter=30d
+Authorization: Bearer {{authToken}}
+
+
+#=========================================================CANCELLATION=====================================================================
+
+### 21. Cancel a Course
+# Organizer or Admin cancels an entire course (with optional batchId and reason).
+POST {{baseUrl}}/booking/cancel-course
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "courseId": "{{courseId}}",
+  "reason": "Cancelled due to unforeseen circumstances."
+}
+
+
+#=========================================================COURSE DETAILS===================================================================
+
+### 22. Get Course Details
+# Retrieves the details of a single course by its ID.
+GET {{baseUrl}}/course/details/{{courseId}}
+Authorization: Bearer {{authToken}}
 
 #===========================================================FILTER=========================================================================

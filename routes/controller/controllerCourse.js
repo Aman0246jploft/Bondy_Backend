@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const jwt = require("jsonwebtoken");
-const { Course, Transaction, User, Wishlist, GlobalSetting } = require("../../db");
+const { Course, Transaction, User, Wishlist, GlobalSetting, CourseView } = require("../../db");
 const constantsMessage = require("../../utils/constantsMessage");
 const HTTP_STATUS = require("../../utils/statusCode");
 const {
@@ -987,7 +987,7 @@ const getCourses = async (req, res) => {
           const userBookedBatches = bookedBatchMap[course._id.toString()];
           return {
             ...batch,
-            acquiredSeats: acquired,
+            acquiredSeats: acquired + reserved,
             availableSeats: available,
             isFull: available <= 0,
             isBooked: userBookedBatches ? userBookedBatches.has(batchId) : false,
@@ -995,9 +995,9 @@ const getCourses = async (req, res) => {
         });
       }
 
-      const acquiredTotal = courseBookingMap[course._id.toString()] || 0;
+      const acquiredTotal = (courseBookingMap[course._id.toString()] || 0) + totalReservedExternally;
       const totalRevenue = courseRevenueMap[course._id.toString()] || 0;
-      const leftSeats = Math.max(0, courseTotalSeats - acquiredTotal - totalReservedExternally);
+      const leftSeats = Math.max(0, courseTotalSeats - acquiredTotal);
 
       let earliestStartTime = "00:00";
       let latestEndTime = "23:59";
@@ -1193,14 +1193,14 @@ const getCoursesAdmin = async (req, res) => {
       course.duration = duration;
 
       // Calculate aggregated seat stats
-      const acquiredSeats = bookingMap[course._id.toString()] || 0;
       const totalReserved = course.batches && Array.isArray(course.batches)
         ? course.batches.reduce((sum, b) => sum + (b.ReservedExternally || 0), 0)
         : 0;
+      const acquiredSeats = (bookingMap[course._id.toString()] || 0) + totalReserved;
 
       course.totalSeats = totalSeats;
       course.acquiredSeats = acquiredSeats;
-      course.leftSeats = Math.max(0, totalSeats - acquiredSeats - totalReserved);
+      course.leftSeats = Math.max(0, totalSeats - acquiredSeats);
 
       return course;
     });
@@ -1233,6 +1233,28 @@ const updateCourse = async (req, res) => {
         res,
         constantsMessage.COURSE_NOT_FOUND || "Course not found",
       );
+    }
+
+    // Merge existing batch details for partial batch update payloads
+    if (updateData.batches && Array.isArray(updateData.batches)) {
+      updateData.batches = updateData.batches.map((b) => {
+        if (b._id && existingCourse.batches) {
+          const existingBatch = existingCourse.batches.id(b._id);
+          if (existingBatch) {
+            return {
+              _id: existingBatch._id,
+              batchName: b.batchName !== undefined ? b.batchName : existingBatch.batchName,
+              startTime: b.startTime !== undefined ? b.startTime : existingBatch.startTime,
+              endTime: b.endTime !== undefined ? b.endTime : existingBatch.endTime,
+              days: b.days !== undefined ? b.days : existingBatch.days,
+              seats: b.seats !== undefined ? b.seats : existingBatch.seats,
+              ReservedExternally: b.ReservedExternally !== undefined ? b.ReservedExternally : existingBatch.ReservedExternally,
+              status: b.status !== undefined ? b.status : existingBatch.status,
+            };
+          }
+        }
+        return b;
+      });
     }
 
     // 2. Verify ownership - only creator can update
@@ -1544,6 +1566,37 @@ const getCourseDetails = async (req, res) => {
   try {
     const { courseId } = req.params;
 
+    // Track Course View (async/non-blocking)
+    (async () => {
+      try {
+        let viewUserId = null;
+        const authHeader = req.headers.authorization;
+        if (authHeader && authHeader.startsWith("Bearer ")) {
+          try {
+            const token = authHeader.split(" ")[1];
+            const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY);
+            viewUserId = decoded.userId;
+          } catch (err) { }
+        }
+
+        const ipAddress = req.headers["x-forwarded-for"] || req.socket.remoteAddress || null;
+
+        if (viewUserId) {
+          const existingView = await CourseView.findOne({ courseId, userId: viewUserId });
+          if (!existingView) {
+            await CourseView.create({ courseId, userId: viewUserId, ipAddress });
+          }
+        } else if (ipAddress) {
+          const existingView = await CourseView.findOne({ courseId, ipAddress, userId: null });
+          if (!existingView) {
+            await CourseView.create({ courseId, ipAddress });
+          }
+        }
+      } catch (err) {
+        console.error("Error logging course view:", err);
+      }
+    })();
+
     // 1. Fetch Course
     const course = await Course.findById(courseId)
       .populate("courseCategory")
@@ -1661,7 +1714,7 @@ const getCourseDetails = async (req, res) => {
 
         return {
           ...batch,
-          acquiredSeats: acquired,
+          acquiredSeats: acquired + reserved,
           availableSeats: available,
           isFull: available <= 0,
           isBooked: bookedBatchIds.has(batchId),
@@ -1762,7 +1815,7 @@ const getCourseDetails = async (req, res) => {
       isAvailable: !!currentSchedule && sessionStatus !== "PAST",
       duration,
       durationTranslation,
-      acquiredSeats: totalAcquiredSeats,
+      acquiredSeats: totalAcquiredSeats + totalReservedExternally,
       leftSeats: Math.max(0, courseTotalSeats - totalAcquiredSeats - totalReservedExternally),
       isBooked,
       isWishlisted,
@@ -1890,15 +1943,15 @@ const getOrganizerCourses = async (req, res) => {
           const available = Math.max(0, seats - acquired - reserved);
           return {
             ...batch,
-            acquiredSeats: acquired,
+            acquiredSeats: acquired + reserved,
             availableSeats: available,
             isFull: available <= 0,
           };
         });
       }
 
-      const acquiredTotal = courseBookingMap[course._id.toString()] || 0;
-      const leftSeats = Math.max(0, courseTotalSeats - acquiredTotal - totalReservedExternally);
+      const acquiredTotal = (courseBookingMap[course._id.toString()] || 0) + totalReservedExternally;
+      const leftSeats = Math.max(0, courseTotalSeats - acquiredTotal);
 
       // Calculate schedule boundaries
       let earliestStartTime = "00:00";
@@ -2073,12 +2126,224 @@ const assignStaffToCourse = async (req, res) => {
   }
 };
 
+const parseDateRange = (query) => {
+  const { filter, startDate, endDate } = query;
+  let start = null;
+  let end = null;
+
+  if (filter === "7d") {
+    start = new Date();
+    start.setDate(start.getDate() - 7);
+    end = new Date();
+  } else if (filter === "30d") {
+    start = new Date();
+    start.setDate(start.getDate() - 30);
+    end = new Date();
+  } else if (filter === "thisMonth") {
+    const now = new Date();
+    start = new Date(now.getFullYear(), now.getMonth(), 1);
+    end = now;
+  } else if (filter === "thisYear") {
+    const now = new Date();
+    start = new Date(now.getFullYear(), 0, 1);
+    end = now;
+  } else if (startDate || endDate) {
+    if (startDate) start = new Date(startDate);
+    if (endDate) end = new Date(endDate);
+  }
+
+  const dbFilter = {};
+  if (start || end) {
+    dbFilter.createdAt = {};
+    if (start) dbFilter.createdAt.$gte = start;
+    if (end) dbFilter.createdAt.$lte = end;
+  }
+  return dbFilter;
+};
+
+const getOrganizerCoursesAnalytics = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+
+    const courses = await Course.find({ createdBy: userId }).select("_id courseTitle").lean();
+    const courseIds = courses.map((c) => c._id);
+
+    if (courseIds.length === 0) {
+      return apiSuccessRes(
+        HTTP_STATUS.OK,
+        res,
+        "Organizer has no courses for analytics",
+        {
+          summary: {
+            totalViews: 0,
+            totalBookings: 0,
+            totalTicketsSold: 0,
+            averageBookingRate: 0,
+            totalGrossRevenue: 0,
+            totalOrganizerRevenue: 0,
+          },
+          courses: [],
+        },
+      );
+    }
+
+    const dateFilter = parseDateRange(req.query);
+
+    const analyticsList = await Promise.all(
+      courses.map(async (course) => {
+        const viewCount = await CourseView.countDocuments({ courseId: course._id, ...dateFilter });
+        const transactions = await Transaction.find({
+          courseId: course._id,
+          status: "PAID",
+          bookingType: "COURSE",
+          ...dateFilter,
+        });
+
+        const totalBookingsCount = transactions.length;
+        const totalTicketsSold = transactions.reduce((sum, t) => sum + (t.qty || 0), 0);
+        const grossRevenue = transactions.reduce((sum, t) => sum + (t.totalAmount || 0), 0);
+        const organizerRevenue = transactions.reduce((sum, t) => sum + (t.organizerEarning || 0), 0);
+
+        let bookingRate = 0;
+        if (viewCount > 0) {
+          bookingRate = Number(((totalBookingsCount / viewCount) * 100).toFixed(2));
+        }
+
+        return {
+          courseId: course._id,
+          courseTitle: course.courseTitle,
+          viewCount,
+          totalBookings: totalBookingsCount,
+          totalTicketsSold,
+          bookingRate,
+          grossRevenue,
+          organizerRevenue,
+        };
+      })
+    );
+
+    const totalViews = analyticsList.reduce((sum, item) => sum + item.viewCount, 0);
+    const totalBookings = analyticsList.reduce((sum, item) => sum + item.totalBookings, 0);
+    const totalTicketsSold = analyticsList.reduce((sum, item) => sum + item.totalTicketsSold, 0);
+    const totalGrossRevenue = analyticsList.reduce((sum, item) => sum + item.grossRevenue, 0);
+    const totalOrganizerRevenue = analyticsList.reduce((sum, item) => sum + item.organizerRevenue, 0);
+
+    let averageBookingRate = 0;
+    if (totalViews > 0) {
+      averageBookingRate = Number(((totalBookings / totalViews) * 100).toFixed(2));
+    }
+
+    return apiSuccessRes(
+      HTTP_STATUS.OK,
+      res,
+      "Organizer courses analytics summary retrieved successfully",
+      {
+        summary: {
+          totalViews,
+          totalBookings,
+          totalTicketsSold,
+          averageBookingRate,
+          totalGrossRevenue,
+          totalOrganizerRevenue,
+        },
+        courses: analyticsList,
+      },
+    );
+  } catch (error) {
+    console.error("Error in getOrganizerCoursesAnalytics:", error);
+    return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
+  }
+};
+
+const getCourseAnalytics = async (req, res) => {
+  try {
+    const { courseId } = req.params;
+    const userId = req.user.userId;
+
+    const course = await Course.findById(courseId);
+    if (!course) {
+      return apiErrorRes(
+        HTTP_STATUS.NOT_FOUND,
+        res,
+        constantsMessage.COURSE_NOT_FOUND || "Course not found",
+      );
+    }
+
+    const isOwner = course.createdBy.toString() === userId;
+    const isAdmin = req.user.roleId === roleId.SUPER_ADMIN;
+
+    if (!isOwner && !isAdmin) {
+      return apiErrorRes(
+        HTTP_STATUS.FORBIDDEN,
+        res,
+        "You are not authorized to view analytics for this course",
+      );
+    }
+
+    const dateFilter = parseDateRange(req.query);
+
+    const viewQuery = { courseId, ...dateFilter };
+    const viewCount = await CourseView.countDocuments(viewQuery);
+
+    const transactionQuery = {
+      courseId: courseId,
+      status: "PAID",
+      bookingType: "COURSE",
+      ...dateFilter,
+    };
+    const transactions = await Transaction.find(transactionQuery);
+
+    const totalBookingsCount = transactions.length;
+    const totalTicketsSold = transactions.reduce((sum, t) => sum + (t.qty || 0), 0);
+    const grossRevenue = transactions.reduce((sum, t) => sum + (t.totalAmount || 0), 0);
+    const organizerRevenue = transactions.reduce((sum, t) => sum + (t.organizerEarning || 0), 0);
+
+    let bookingRate = 0;
+    if (viewCount > 0) {
+      bookingRate = Number(((totalBookingsCount / viewCount) * 100).toFixed(2));
+    }
+
+    return apiSuccessRes(
+      HTTP_STATUS.OK,
+      res,
+      "Course analytics retrieved successfully",
+      {
+        courseId: course._id,
+        courseTitle: course.courseTitle,
+        viewCount,
+        totalBookings: totalBookingsCount,
+        totalTicketsSold,
+        bookingRate,
+        grossRevenue,
+        organizerRevenue,
+      },
+    );
+  } catch (error) {
+    console.error("Error in getCourseAnalytics:", error);
+    return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
+  }
+};
+
 router.post(
   "/assign-staff",
   perApiLimiter(),
   checkRole([roleId.ORGANIZER]),
   validateRequest(assignStaffSchema),
   assignStaffToCourse,
+);
+
+router.get(
+  "/analytics/summary",
+  perApiLimiter(),
+  checkRole([roleId.ORGANIZER]),
+  getOrganizerCoursesAnalytics,
+);
+
+router.get(
+  "/analytics/:courseId",
+  perApiLimiter(),
+  checkRole([roleId.ORGANIZER, roleId.SUPER_ADMIN]),
+  getCourseAnalytics,
 );
 
 module.exports = router;
