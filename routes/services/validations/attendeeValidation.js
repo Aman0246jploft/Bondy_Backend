@@ -26,8 +26,14 @@ const scanQRSchema = Joi.object({
     courseId: Joi.string().optional(),
 });
 
+const verifySchema = Joi.object({
+    code: Joi.string().required(),
+    entityId: Joi.string().optional(),
+});
+
 module.exports = {
     createAttendeesSchema,
     checkInSchema,
     scanQRSchema,
+    verifySchema,
 };

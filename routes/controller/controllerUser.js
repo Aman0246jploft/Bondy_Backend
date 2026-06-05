@@ -472,7 +472,7 @@ const uploadDocument = async (req, res) => {
     }
 
     // Generate a temporary userId or use 'temp' folder for unauthenticated uploads
-    const userId = req.body.userId || "temp";
+    const userId = req.user?.userId || "temp";
 
     // Upload all files and collect their paths
     const uploadPromises = req.files.map((file) => storeImage(file, userId));

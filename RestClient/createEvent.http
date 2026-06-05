@@ -1,6 +1,6 @@
 ### Environment Variables
 @baseUrl = http://localhost:8080/api/v1
-@authToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTFkMWIxYmQ3ZTI2ODRjOTNjYmFkNmIiLCJyb2xlSWQiOjIsImlhdCI6MTc4MDI5MjU3MCwiZXhwIjoyNjQ0MjkyNTcwfQ.jj_rppLYsCL8Wg51zbVo6c-OiszjSpntFmui5jkVjgI
+@authToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTFlODA2NjU5NzliZWVlNDFjZjVmNGIiLCJyb2xlSWQiOjIsImlhdCI6MTc4MDQ5NzgwNiwiZXhwIjoyNjQ0NDk3ODA2fQ.XSvrEpbwY_Jt6VjNaYIHmfnsHVQtPTXjSEsVy6H6XzE
 
 ### 1. Create a Draft Event (Allows missing fields for draft mode)
 POST {{baseUrl}}/event/create
@@ -71,14 +71,14 @@ Content-Type: application/json
 
 
 ### 3. Update an Event (Draft or Published)
-@eventId = 6a212e2cc9f463c94cd7ffe9
+@eventId = 6a2180d152e63cd63815fcfa
 POST {{baseUrl}}/event/edit/{{eventId}}
 Authorization: Bearer {{authToken}}
 Content-Type: application/json
 
 {
-  "eventTitle": "Summer Music Festival 2026 (Updated)",
-  "shortdesc": "An updated vibrant celebration of music and arts.",
+  # "eventTitle": "Summer Music Festival 2026 (Updated)",
+  # "shortdesc": "An updated vibrant celebration of music and arts.",
   "ReservedExternally": 15
 }
 

@@ -12,11 +12,11 @@ Content-Type: application/json
 
 {
   "fullname": "Alex Organizer",
-  "email": "alex.organizer@example.com",
+  "email": "mohit@example.com",
   "countryCode": "+91",
-  "contactNumber": "9005267079",
-  "password": "password123",
-  "confirmPassword": "password123",
+  "contactNumber": "8901236668",
+  "password": "Test@123",
+  "confirmPassword": "Test@123",
   "acceptTerms": true
 }
 
@@ -28,7 +28,7 @@ POST {{baseUrl}}/user/verify-otp
 Content-Type: application/json
 
 {
-  "email": "alex.organizer4@example.com",
+  "email": "mohit@example.com",
   "otp": "12345",
   "type": "ORGANIZER"
 }
@@ -83,7 +83,7 @@ Content-Type: application/json
 
 ### Setup Admin Token (Copy from Step 6 response token)
 @adminToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2OTZmMmEwMGE0ODU5NGFlZjg5NjRhZjMiLCJyb2xlSWQiOjEsImlhdCI6MTc4MDM4MDM2OCwiZXhwIjoyNjQ0MzgwMzY4fQ.UVpy8eXWG5kNMIfvujmVBTPIHdvuAdFXizcpfE28_hc
-@organizerUserId = 6a201b503d62302df6af816e
+@organizerUserId = 6a227663a2023c86b5b23c65
 
 
 ### Step 7a: Admin Reviews Organizer (Approve Option)
@@ -94,9 +94,9 @@ Content-Type: application/json
 
 {
   "userId": "{{organizerUserId}}",
-  "action": "reject",
-  "reason": "Documents provided are invalid",
-  "reasonTitle": "Invalid Documents"
+  "action": "approve"
+  # "reason": "Documents provided are invalid",
+  # "reasonTitle": "Invalid Documents"
 }
 
 

@@ -2051,13 +2051,19 @@ const updateEvent = async (req, res) => {
       if (!startDateVal || !endDateVal) {
         return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Start and end dates are required for a published event");
       }
-      if (
-        !venueAddressVal ||
-        venueAddressVal.latitude === undefined ||
-        venueAddressVal.longitude === undefined ||
-        venueAddressVal.latitude === null ||
-        venueAddressVal.longitude === null
-      ) {
+      const hasValidCoords = (addr) => {
+        if (!addr) return false;
+        if (addr.latitude !== undefined && addr.longitude !== undefined && addr.latitude !== null && addr.longitude !== null) {
+          return true;
+        }
+        if (Array.isArray(addr.coordinates) && addr.coordinates.length >= 2) {
+          return addr.coordinates[0] !== undefined && addr.coordinates[0] !== null &&
+                 addr.coordinates[1] !== undefined && addr.coordinates[1] !== null;
+        }
+        return false;
+      };
+
+      if (!hasValidCoords(venueAddressVal)) {
         return apiErrorRes(
           HTTP_STATUS.BAD_REQUEST,
           res,

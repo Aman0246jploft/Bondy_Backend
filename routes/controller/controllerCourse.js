@@ -1284,13 +1284,19 @@ const updateCourse = async (req, res) => {
       if (priceVal === undefined || priceVal === null) {
         return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Price is required for a published course");
       }
-      if (
-        !venueAddressVal ||
-        venueAddressVal.latitude === undefined ||
-        venueAddressVal.longitude === undefined ||
-        venueAddressVal.latitude === null ||
-        venueAddressVal.longitude === null
-      ) {
+      const hasValidCoords = (addr) => {
+        if (!addr) return false;
+        if (addr.latitude !== undefined && addr.longitude !== undefined && addr.latitude !== null && addr.longitude !== null) {
+          return true;
+        }
+        if (Array.isArray(addr.coordinates) && addr.coordinates.length >= 2) {
+          return addr.coordinates[0] !== undefined && addr.coordinates[0] !== null &&
+                 addr.coordinates[1] !== undefined && addr.coordinates[1] !== null;
+        }
+        return false;
+      };
+
+      if (!hasValidCoords(venueAddressVal)) {
         return apiErrorRes(
           HTTP_STATUS.BAD_REQUEST,
           res,

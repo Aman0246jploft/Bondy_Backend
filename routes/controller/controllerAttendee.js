@@ -10,6 +10,7 @@ const {
   createAttendeesSchema,
   checkInSchema,
   scanQRSchema,
+  verifySchema,
 } = require("../services/validations/attendeeValidation");
 const validateRequest = require("../../middlewares/validateRequest");
 const perApiLimiter = require("../../middlewares/rateLimiter");
@@ -25,6 +26,64 @@ const generateTicketNumber = (eventId, index) => {
 // Helper to generate QR data for attendee
 const generateAttendeeQRData = (ticketNumber, attendeeId) => {
   return `ATTENDEE-${ticketNumber}-${attendeeId}-${Date.now()}`;
+};
+
+// Helper to auto-create attendees for a PAID transaction if none exist
+const ensureAttendeesExist = async (transaction) => {
+  const currentAttendees = await Attendee.find({ transactionId: transaction._id });
+  if (currentAttendees.length > 0) {
+    return currentAttendees;
+  }
+
+  const ticketQueue = [];
+  if (transaction.tickets && transaction.tickets.length > 0) {
+    for (const t of transaction.tickets) {
+      for (let j = 0; j < t.qty; j++) {
+        ticketQueue.push({ ticketId: t.ticketId, ticketName: t.ticketName });
+      }
+    }
+  } else {
+    for (let j = 0; j < transaction.qty; j++) {
+      ticketQueue.push({ ticketId: transaction.ticketId, ticketName: transaction.ticketName });
+    }
+  }
+
+  const attendeeDocs = [];
+  for (let i = 0; i < transaction.qty; i++) {
+    const ticketNumber = generateTicketNumber(
+      transaction.eventId
+        ? transaction.eventId._id || transaction.eventId
+        : transaction.courseId._id || transaction.courseId,
+      i + 1,
+    );
+    const ticketInfo = ticketQueue[i] || { ticketId: transaction.ticketId, ticketName: transaction.ticketName };
+
+    attendeeDocs.push({
+      transactionId: transaction._id,
+      eventId: transaction.eventId
+        ? transaction.eventId._id || transaction.eventId
+        : null,
+      courseId: transaction.courseId
+        ? transaction.courseId._id || transaction.courseId
+        : null,
+      batchId: transaction.batchId || null,
+      userId: transaction.userId._id || transaction.userId,
+      firstName: transaction.userId.firstName || "Guest",
+      lastName: transaction.userId.lastName || `Attendee ${i + 1}`,
+      email: transaction.userId.email || "guest@example.com",
+      ticketNumber,
+      qrCodeData: "",
+      isCheckedIn: false,
+      ticketId: ticketInfo.ticketId,
+      ticketName: ticketInfo.ticketName,
+    });
+  }
+  const created = await Attendee.insertMany(attendeeDocs);
+  for (let doc of created) {
+    doc.qrCodeData = generateAttendeeQRData(doc.ticketNumber, doc._id);
+    await doc.save();
+  }
+  return created;
 };
 
 // 1. Create Attendees for a Transaction
@@ -315,6 +374,7 @@ const checkInAttendee = async (req, res) => {
         const transactionId = parts[1];
         const transaction = await Transaction.findById(transactionId);
         if (transaction) {
+          await ensureAttendeesExist(transaction);
           attendee = await Attendee.findOne({ transactionId: transaction._id, isCheckedIn: false })
             .populate("eventId")
             .populate("courseId");
@@ -342,6 +402,56 @@ const checkInAttendee = async (req, res) => {
           );
         }
       }
+
+      await ensureAttendeesExist(transaction);
+
+      // Check if all checked in
+      const totalAttendeesCount = transaction.qty;
+      const checkedInCount = await Attendee.countDocuments({ transactionId: transaction._id, isCheckedIn: true });
+      if (checkedInCount >= totalAttendeesCount) {
+        return apiErrorRes(
+          HTTP_STATUS.BAD_REQUEST,
+          res,
+          "All tickets for this booking are already checked in",
+        );
+      }
+
+      // Find first unchecked-in attendee
+      attendee = await Attendee.findOne({ transactionId: transaction._id, isCheckedIn: false })
+        .populate("eventId")
+        .populate("courseId");
+    }
+    // Handle User ID Scan (Profile QR)
+    else if (mongoose.Types.ObjectId.isValid(ticketNumber)) {
+      if (!entityId) {
+        return apiErrorRes(
+          HTTP_STATUS.BAD_REQUEST,
+          res,
+          "entityId is required for User profile scans",
+        );
+      }
+      const filter = {
+        userId: ticketNumber,
+        status: "PAID",
+      };
+
+      const targetEvent = await Event.findById(entityId);
+      if (targetEvent) {
+        filter.eventId = entityId;
+      } else {
+        filter.courseId = entityId;
+      }
+
+      const transaction = await Transaction.findOne(filter);
+      if (!transaction) {
+        return apiErrorRes(
+          HTTP_STATUS.NOT_FOUND,
+          res,
+          "No paid booking found for this user",
+        );
+      }
+
+      await ensureAttendeesExist(transaction);
 
       // Check if all checked in
       const totalAttendeesCount = transaction.qty;
@@ -851,6 +961,257 @@ const scanQRAndCheckIn = async (req, res) => {
   }
 };
 
+// 7. Verify ticket details without check-in
+const verifyTicket = async (req, res) => {
+  try {
+    let { code, entityId } = req.body;
+    const userId = req.user.userId;
+
+    if (!code) {
+      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Ticket code or QR code is required");
+    }
+
+    let attendee = null;
+    let transaction = null;
+    let event = null;
+    let endDate = null;
+    let title = "";
+    let bookingType = "EVENT";
+
+    // 1. Resolve code
+    // Check if code is a Transaction QR (TICKET-...) or individual Attendee QR (ATTENDEE-...)
+    if (code.startsWith("TICKET-")) {
+      const parts = code.split("-");
+      const transactionId = parts[1];
+      transaction = await Transaction.findById(transactionId)
+        .populate("eventId")
+        .populate("courseId")
+        .populate("userId", "firstName lastName email profileImage");
+
+      if (!transaction) {
+        return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.TRANSACTION_NOT_FOUND);
+      }
+      await ensureAttendeesExist(transaction);
+      event = transaction.eventId || transaction.courseId;
+      bookingType = transaction.bookingType;
+
+      // Look up first unchecked-in attendee to display
+      attendee = await Attendee.findOne({ transactionId: transaction._id, isCheckedIn: false })
+        .populate("eventId")
+        .populate("courseId")
+        .populate("userId", "firstName lastName email profileImage");
+      if (!attendee) {
+        attendee = await Attendee.findOne({ transactionId: transaction._id })
+          .populate("eventId")
+          .populate("courseId")
+          .populate("userId", "firstName lastName email profileImage");
+      }
+    } else if (code.startsWith("ATTENDEE-")) {
+      attendee = await Attendee.findOne({ qrCodeData: code })
+        .populate("eventId")
+        .populate("courseId")
+        .populate("userId", "firstName lastName email profileImage")
+        .populate("transactionId", "bookingId totalAmount status bookingType");
+
+      if (!attendee) {
+        // Fallback search by ticketNumber extracted from QR data
+        const parts = code.split("-");
+        if (parts.length >= 2) {
+          const ticketNum = parts.slice(1, -2).join("-");
+          attendee = await Attendee.findOne({ ticketNumber: ticketNum })
+            .populate("eventId")
+            .populate("courseId")
+            .populate("userId", "firstName lastName email profileImage")
+            .populate("transactionId", "bookingId totalAmount status bookingType");
+        }
+      }
+
+      if (!attendee) {
+        return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Individual ticket not found");
+      }
+      event = attendee.eventId || attendee.courseId;
+      transaction = attendee.transactionId;
+      bookingType = transaction ? transaction.bookingType : (attendee.eventId ? "EVENT" : "COURSE");
+    } else if (code.startsWith("BNDY-")) {
+      transaction = await Transaction.findOne({ bookingId: code })
+        .populate("eventId")
+        .populate("courseId")
+        .populate("userId", "firstName lastName email profileImage");
+
+      if (!transaction) {
+        return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Booking not found");
+      }
+      await ensureAttendeesExist(transaction);
+      event = transaction.eventId || transaction.courseId;
+      bookingType = transaction.bookingType;
+
+      // Look up first unchecked-in attendee
+      attendee = await Attendee.findOne({ transactionId: transaction._id, isCheckedIn: false })
+        .populate("eventId")
+        .populate("courseId")
+        .populate("userId", "firstName lastName email profileImage");
+      if (!attendee) {
+        attendee = await Attendee.findOne({ transactionId: transaction._id })
+          .populate("eventId")
+          .populate("courseId")
+          .populate("userId", "firstName lastName email profileImage");
+      }
+    } else if (mongoose.Types.ObjectId.isValid(code)) {
+      // User ID Scan (Profile QR)
+      if (!entityId) {
+        return apiErrorRes(
+          HTTP_STATUS.BAD_REQUEST,
+          res,
+          "entityId is required for User profile scans",
+        );
+      }
+      const filter = {
+        userId: code,
+        status: "PAID",
+      };
+      const targetEvent = await Event.findById(entityId);
+      if (targetEvent) {
+        filter.eventId = entityId;
+      } else {
+        filter.courseId = entityId;
+      }
+
+      transaction = await Transaction.findOne(filter)
+        .populate("userId", "firstName lastName email profileImage")
+        .populate("eventId")
+        .populate("courseId");
+
+      if (!transaction) {
+        return apiErrorRes(
+          HTTP_STATUS.NOT_FOUND,
+          res,
+          "No paid booking found for this user",
+        );
+      }
+      await ensureAttendeesExist(transaction);
+      event = transaction.eventId || transaction.courseId;
+      bookingType = transaction.bookingType;
+
+      attendee = await Attendee.findOne({ transactionId: transaction._id, isCheckedIn: false })
+        .populate("eventId")
+        .populate("courseId")
+        .populate("userId", "firstName lastName email profileImage");
+      if (!attendee) {
+        attendee = await Attendee.findOne({ transactionId: transaction._id })
+          .populate("eventId")
+          .populate("courseId")
+          .populate("userId", "firstName lastName email profileImage");
+      }
+    } else {
+      // Default: Find by ticketNumber (TKT-...)
+      attendee = await Attendee.findOne({ ticketNumber: code })
+        .populate("eventId")
+        .populate("courseId")
+        .populate("userId", "firstName lastName email profileImage")
+        .populate("transactionId", "bookingId totalAmount status bookingType");
+
+      if (!attendee) {
+        return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.TICKET_NOT_FOUND);
+      }
+      event = attendee.eventId || attendee.courseId;
+      transaction = attendee.transactionId;
+      bookingType = transaction ? transaction.bookingType : (attendee.eventId ? "EVENT" : "COURSE");
+    }
+
+    // --- Common Validations ---
+    if (!event) {
+      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.ENTITY_NOT_FOUND);
+    }
+
+    // Verify entityId context if specified
+    if (entityId) {
+      if (event._id.toString() !== entityId) {
+        return apiErrorRes(
+          HTTP_STATUS.BAD_REQUEST,
+          res,
+          `This ticket does not belong to the selected ${bookingType === "EVENT" ? "event" : "course"}`,
+        );
+      }
+    }
+
+    // Verify Event/Course Ownership or Assigned Staff
+    const isCreator = event.createdBy.toString() === userId;
+    const isAssignedStaff = req.user.roleId === roleId.STAFF && event.assignedStaff && event.assignedStaff.some(id => id.toString() === userId);
+
+    if (!isCreator && !isAssignedStaff) {
+      return apiErrorRes(
+        HTTP_STATUS.FORBIDDEN,
+        res,
+        `You are not authorized to view details for this ${bookingType === "EVENT" ? "event" : "course"}`,
+      );
+    }
+
+    if (transaction && transaction.status !== "PAID") {
+      return apiErrorRes(
+        HTTP_STATUS.BAD_REQUEST,
+        res,
+        "Transaction is not PAID",
+      );
+    }
+
+    // Expiration check
+    title = event.eventTitle || event.courseTitle;
+    if (bookingType === "EVENT") {
+      endDate = event.endDate;
+    } else {
+      endDate = event.endDate || event.createdAt;
+    }
+    const now = new Date();
+    const isExpired = now > new Date(endDate);
+
+    // Determine check-in status
+    let isAlreadyCheckedIn = false;
+    let checkedInAt = null;
+
+    if (attendee) {
+      isAlreadyCheckedIn = attendee.isCheckedIn;
+      checkedInAt = attendee.checkedInAt;
+    } else if (transaction) {
+      isAlreadyCheckedIn = transaction.isCheckedIn;
+      checkedInAt = transaction.checkedInAt;
+    }
+
+    return apiSuccessRes(HTTP_STATUS.OK, res, "Ticket verified successfully", {
+      isValid: !isExpired && !isAlreadyCheckedIn,
+      isExpired,
+      isAlreadyCheckedIn,
+      checkedInAt,
+      bookingType,
+      event: {
+        _id: event._id,
+        title,
+        venueName: event.venueName || "Online",
+        startDate: event.startDate,
+        endDate,
+      },
+      attendee: attendee ? {
+        _id: attendee._id,
+        firstName: attendee.firstName,
+        lastName: attendee.lastName,
+        email: attendee.email,
+        ticketNumber: attendee.ticketNumber,
+        ticketName: attendee.ticketName,
+        isCheckedIn: attendee.isCheckedIn,
+      } : null,
+      transaction: transaction ? {
+        _id: transaction._id,
+        bookingId: transaction.bookingId,
+        qty: transaction.qty,
+        checkedInQty: transaction.checkedInQty,
+        isCheckedIn: transaction.isCheckedIn,
+      } : null,
+    });
+  } catch (error) {
+    console.error("Error in verifyTicket:", error);
+    return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
+  }
+};
+
 // Routes
 router.post(
   "/create",
@@ -878,4 +1239,12 @@ router.post(
   validateRequest(scanQRSchema),
   scanQRAndCheckIn,
 );
+
+router.post(
+  "/verify",
+  perApiLimiter(),
+  validateRequest(verifySchema),
+  verifyTicket,
+);
+
 module.exports = router;
