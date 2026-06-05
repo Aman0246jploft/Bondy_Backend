@@ -10,6 +10,7 @@ const {
   Comment,
   Attendee,
   Wishlist,
+  EventView,
 } = require("../../db");
 const constantsMessage = require("../../utils/constantsMessage");
 const HTTP_STATUS = require("../../utils/statusCode");
@@ -1257,6 +1258,37 @@ const getEventDetails = async (req, res) => {
       );
     }
 
+    // Record view in a non-blocking asynchronous way
+    (async () => {
+      try {
+        let viewUserId = null;
+        const authHeader = req.headers.authorization;
+        if (authHeader && authHeader.startsWith("Bearer ")) {
+          try {
+            const token = authHeader.split(" ")[1];
+            const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY);
+            viewUserId = decoded.userId;
+          } catch (err) { }
+        }
+
+        const ipAddress = req.headers["x-forwarded-for"] || req.socket.remoteAddress || null;
+
+        if (viewUserId) {
+          const existingView = await EventView.findOne({ eventId, userId: viewUserId });
+          if (!existingView) {
+            await EventView.create({ eventId, userId: viewUserId, ipAddress });
+          }
+        } else if (ipAddress) {
+          const existingView = await EventView.findOne({ eventId, ipAddress, userId: null });
+          if (!existingView) {
+            await EventView.create({ eventId, ipAddress });
+          }
+        }
+      } catch (err) {
+        console.error("Error logging event view:", err);
+      }
+    })();
+
     // 2. Determine Status & Booking
     const now = new Date();
     let status = "Upcoming";
@@ -2058,7 +2090,7 @@ const updateEvent = async (req, res) => {
         }
         if (Array.isArray(addr.coordinates) && addr.coordinates.length >= 2) {
           return addr.coordinates[0] !== undefined && addr.coordinates[0] !== null &&
-                 addr.coordinates[1] !== undefined && addr.coordinates[1] !== null;
+            addr.coordinates[1] !== undefined && addr.coordinates[1] !== null;
         }
         return false;
       };
@@ -2487,6 +2519,218 @@ router.post(
   checkRole([roleId.ORGANIZER]),
   validateRequest(assignStaffSchema),
   assignStaffToEvent,
+);
+
+const parseDateRange = (query) => {
+  const { filter, startDate, endDate } = query;
+  let start = null;
+  let end = null;
+
+  if (filter === "7d") {
+    start = new Date();
+    start.setDate(start.getDate() - 7);
+    end = new Date();
+  } else if (filter === "30d") {
+    start = new Date();
+    start.setDate(start.getDate() - 30);
+    end = new Date();
+  } else if (filter === "thisMonth") {
+    const now = new Date();
+    start = new Date(now.getFullYear(), now.getMonth(), 1);
+    end = now;
+  } else if (filter === "thisYear") {
+    const now = new Date();
+    start = new Date(now.getFullYear(), 0, 1);
+    end = now;
+  } else if (startDate || endDate) {
+    if (startDate) start = new Date(startDate);
+    if (endDate) end = new Date(endDate);
+  }
+
+  const dbFilter = {};
+  if (start || end) {
+    dbFilter.createdAt = {};
+    if (start) dbFilter.createdAt.$gte = start;
+    if (end) dbFilter.createdAt.$lte = end;
+  }
+  return dbFilter;
+};
+
+const getEventAnalytics = async (req, res) => {
+  try {
+    const { eventId } = req.params;
+    const userId = req.user.userId;
+
+    const event = await Event.findById(eventId);
+    if (!event) {
+      return apiErrorRes(
+        HTTP_STATUS.NOT_FOUND,
+        res,
+        constantsMessage.EVENT_NOT_FOUND,
+      );
+    }
+
+    const isOwner = event.createdBy.toString() === userId;
+    const isAdmin = req.user.roleId === roleId.SUPER_ADMIN;
+
+    if (!isOwner && !isAdmin) {
+      return apiErrorRes(
+        HTTP_STATUS.FORBIDDEN,
+        res,
+        "You are not authorized to view analytics for this event",
+      );
+    }
+
+    const dateFilter = parseDateRange(req.query);
+
+    const viewQuery = { eventId, ...dateFilter };
+    const viewCount = await EventView.countDocuments(viewQuery);
+
+    const transactionQuery = {
+      eventId: eventId,
+      status: "PAID",
+      bookingType: "EVENT",
+      ...dateFilter,
+    };
+    const transactions = await Transaction.find(transactionQuery);
+
+    const totalBookingsCount = transactions.length;
+    const totalTicketsSold = transactions.reduce((sum, t) => sum + (t.qty || 0), 0);
+    const grossRevenue = transactions.reduce((sum, t) => sum + (t.totalAmount || 0), 0);
+    const organizerRevenue = transactions.reduce((sum, t) => sum + (t.organizerEarning || 0), 0);
+
+    let bookingRate = 0;
+    if (viewCount > 0) {
+      bookingRate = Number(((totalBookingsCount / viewCount) * 100).toFixed(2));
+    }
+
+    return apiSuccessRes(
+      HTTP_STATUS.OK,
+      res,
+      "Event analytics retrieved successfully",
+      {
+        eventId: event._id,
+        eventTitle: event.eventTitle,
+        viewCount,
+        totalBookings: totalBookingsCount,
+        totalTicketsSold,
+        bookingRate,
+        grossRevenue,
+        organizerRevenue,
+      },
+    );
+  } catch (error) {
+    console.error("Error in getEventAnalytics:", error);
+    return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
+  }
+};
+
+const getOrganizerEventsAnalytics = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+
+    const events = await Event.find({ createdBy: userId }).select("_id eventTitle").lean();
+    const eventIds = events.map((e) => e._id);
+
+    if (eventIds.length === 0) {
+      return apiSuccessRes(
+        HTTP_STATUS.OK,
+        res,
+        "Organizer has no events for analytics",
+        {
+          summary: {
+            totalViews: 0,
+            totalBookings: 0,
+            totalTicketsSold: 0,
+            averageBookingRate: 0,
+            totalGrossRevenue: 0,
+            totalOrganizerRevenue: 0,
+          },
+          events: [],
+        },
+      );
+    }
+
+    const dateFilter = parseDateRange(req.query);
+
+    const analyticsList = await Promise.all(
+      events.map(async (event) => {
+        const viewCount = await EventView.countDocuments({ eventId: event._id, ...dateFilter });
+        const transactions = await Transaction.find({
+          eventId: event._id,
+          status: "PAID",
+          bookingType: "EVENT",
+          ...dateFilter,
+        });
+
+        const totalBookingsCount = transactions.length;
+        const totalTicketsSold = transactions.reduce((sum, t) => sum + (t.qty || 0), 0);
+        const grossRevenue = transactions.reduce((sum, t) => sum + (t.totalAmount || 0), 0);
+        const organizerRevenue = transactions.reduce((sum, t) => sum + (t.organizerEarning || 0), 0);
+
+        let bookingRate = 0;
+        if (viewCount > 0) {
+          bookingRate = Number(((totalBookingsCount / viewCount) * 100).toFixed(2));
+        }
+
+        return {
+          eventId: event._id,
+          eventTitle: event.eventTitle,
+          viewCount,
+          totalBookings: totalBookingsCount,
+          totalTicketsSold,
+          bookingRate,
+          grossRevenue,
+          organizerRevenue,
+        };
+      })
+    );
+
+    const totalViews = analyticsList.reduce((sum, item) => sum + item.viewCount, 0);
+    const totalBookings = analyticsList.reduce((sum, item) => sum + item.totalBookings, 0);
+    const totalTicketsSold = analyticsList.reduce((sum, item) => sum + item.totalTicketsSold, 0);
+    const totalGrossRevenue = analyticsList.reduce((sum, item) => sum + item.grossRevenue, 0);
+    const totalOrganizerRevenue = analyticsList.reduce((sum, item) => sum + item.organizerRevenue, 0);
+
+    let averageBookingRate = 0;
+    if (totalViews > 0) {
+      averageBookingRate = Number(((totalBookings / totalViews) * 100).toFixed(2));
+    }
+
+    return apiSuccessRes(
+      HTTP_STATUS.OK,
+      res,
+      "Organizer events analytics summary retrieved successfully",
+      {
+        summary: {
+          totalViews,
+          totalBookings,
+          totalTicketsSold,
+          averageBookingRate,
+          totalGrossRevenue,
+          totalOrganizerRevenue,
+        },
+        events: analyticsList,
+      },
+    );
+  } catch (error) {
+    console.error("Error in getOrganizerEventsAnalytics:", error);
+    return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
+  }
+};
+
+router.get(
+  "/analytics/summary",
+  perApiLimiter(),
+  checkRole([roleId.ORGANIZER]),
+  getOrganizerEventsAnalytics,
+);
+
+router.get(
+  "/analytics/:eventId",
+  perApiLimiter(),
+  checkRole([roleId.ORGANIZER, roleId.SUPER_ADMIN]),
+  getEventAnalytics,
 );
 
 module.exports = router;

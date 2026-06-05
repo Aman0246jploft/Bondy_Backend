@@ -133,4 +133,5 @@ module.exports = {
   Referral: require("./models/Referral"),
   Bug: require("./models/Bug"),
   StayUpdated: require("./models/StayUpdated"),
+  EventView: require("./models/EventView"),
 };

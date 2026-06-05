@@ -1,0 +1,48 @@
+### Environment Variables
+@baseUrl = http://localhost:8080/api/v1
+@authToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTFlODA2NjU5NzliZWVlNDFjZjVmNGIiLCJyb2xlSWQiOjIsImlhdCI6MTc4MDQ5NzgwNiwiZXhwIjoyNjQ0NDk3ODA2fQ.XSvrEpbwY_Jt6VjNaYIHmfnsHVQtPTXjSEsVy6H6XzE
+@eventId = 6a2180d152e63cd63815fcfa
+
+### 1. View Event Details (Triggers a view tracking log)
+GET {{baseUrl}}/event/details/{{eventId}}
+Authorization: Bearer {{authToken}}
+
+
+### 2. Fetch Single Event Analytics (No filter)
+GET {{baseUrl}}/event/analytics/{{eventId}}
+Authorization: Bearer {{authToken}}
+
+
+### 3. Fetch Single Event Analytics (Filter: last 7 days)
+GET {{baseUrl}}/event/analytics/{{eventId}}?filter=7d
+Authorization: Bearer {{authToken}}
+
+
+### 4. Fetch Single Event Analytics (Filter: last 30 days)
+GET {{baseUrl}}/event/analytics/{{eventId}}?filter=30d
+Authorization: Bearer {{authToken}}
+
+
+### 5. Fetch Single Event Analytics (Filter: this month)
+GET {{baseUrl}}/event/analytics/{{eventId}}?filter=thisMonth
+Authorization: Bearer {{authToken}}
+
+
+### 6. Fetch Single Event Analytics (Filter: custom date range)
+GET {{baseUrl}}/event/analytics/{{eventId}}?startDate=2026-06-01T00:00:00.000Z&endDate=2026-06-10T23:59:59.000Z
+Authorization: Bearer {{authToken}}
+
+
+### 7. Fetch Organizer's Events Analytics Summary (No filter)
+GET {{baseUrl}}/event/analytics/summary
+Authorization: Bearer {{authToken}}
+
+
+### 8. Fetch Organizer's Events Analytics Summary (Filter: last 7 days)
+GET {{baseUrl}}/event/analytics/summary?filter=7d
+Authorization: Bearer {{authToken}}
+
+
+### 9. Fetch Organizer's Events Analytics Summary (Filter: custom date range)
+GET {{baseUrl}}/event/analytics/summary?startDate=2026-06-01T00:00:00.000Z&endDate=2026-06-10T23:59:59.000Z
+Authorization: Bearer {{authToken}}
