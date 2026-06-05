@@ -467,7 +467,7 @@ const getEvents = async (req, res) => {
       query.createdBy = new mongoose.Types.ObjectId(loginUser);
       if (isDraft === "true" || isDraft === true || filters.includes("draft")) {
         query.isDraft = true;
-      } else if (isDraft === "false" || isDraft === false) {
+      } else {
         query.isDraft = false;
       }
     } else {

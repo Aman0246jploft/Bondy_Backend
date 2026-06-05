@@ -31,6 +31,11 @@ Content-Type: application/json
   "posterImage": [
     "uploads/courses/nodejs_adv.jpg"
   ],
+  "mediaLinks": [
+    "uploads/courses/nodejs_adv.jpg"
+  ],"shortTeaserVideo": [
+    "uploads/courses/nodejs_adv.jpg"
+  ],
   "startDate": "2026-09-01T09:00:00.000Z",
   # "endDate": "2026-11-30T17:00:00.000Z",
   "totalSessions": 24,
@@ -96,6 +101,14 @@ Content-Type: application/json
   # "endDate": "2026-12-15T13:00:00.000Z",
   "totalSessions": 20,
   "timeZone": "UTC",
+    "posterImage": [
+    "uploads/courses/nodejs_adv.jpg"
+  ],
+  "mediaLinks": [
+    "uploads/courses/nodejs_adv.jpg"
+  ],"shortTeaserVideo": [
+    "uploads/courses/nodejs_adv.jpg"
+  ],
   "venueName": "Downtown Learning Hub",
   "venueAddress": {
     "latitude": 40.712776,
