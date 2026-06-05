@@ -8,6 +8,8 @@
 @ticketId = REPLACE_WITH_TICKET_SUBDOC_ID
 @transactionId = REPLACE_WITH_TRANSACTION_ID
 
+@courseId=
+
 #==========================================================
 # EVENT BOOKING FLOW
 #==========================================================
@@ -102,6 +104,10 @@ GET {{baseUrl}}/booking/public/detail/{{transactionId}}
 GET {{baseUrl}}/booking/event/{{eventId}}/attendees
 Authorization: Bearer {{authToken}}
 
+### 11b. Get Event Attendees List — Paginated, Search by Name or bookingId (single field)
+GET {{baseUrl}}/booking/event/{{eventId}}/attendees?page=1&limit=5&search=New
+Authorization: Bearer {{authToken}}
+
 ### 12. Get Event Attendees — Checked-in Only
 GET {{baseUrl}}/booking/event/{{eventId}}/attendees?status=checked-in
 Authorization: Bearer {{authToken}}
@@ -165,5 +171,22 @@ Content-Type: application/json
   "eventId": "{{eventId}}",
   "reason": "Cancelled due to severe weather conditions"
 }
+
+
+#==========================================================
+# COURSE ATTENDEE MANAGEMENT (Organizer)
+#==========================================================
+
+### 20. Get Course Enrolled Users List
+GET {{baseUrl}}/booking/course/{{courseId}}/attendees
+Authorization: Bearer {{authToken}}
+
+### 20b. Get Course Enrolled Users — Filtered by Batch
+GET {{baseUrl}}/booking/course/{{courseId}}/attendees?batchId=6a216d3aaf039f44dc5d6ef9
+Authorization: Bearer {{authToken}}
+
+### 20c. Get Course Enrolled Users — Paginated, Search by Name or bookingId (single field)
+GET {{baseUrl}}/booking/course/{{courseId}}/attendees?page=1&limit=5&search=New
+Authorization: Bearer {{authToken}}
 
 

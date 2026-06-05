@@ -236,5 +236,23 @@ GET {{baseUrl}}/event/attendees/{{eventId}}
 Authorization: Bearer {{authToken}}
 
 
+### 17. Get Event Attendees List (Transaction level)
+GET {{baseUrl}}/booking/event/{{eventId}}/attendees
+Authorization: Bearer {{authToken}}
+
+### 17a. Get Event Attendees List — Paginated, Search by Name or bookingId (single field)
+GET {{baseUrl}}/booking/event/{{eventId}}/attendees?page=1&limit=5&search=kashyap
+Authorization: Bearer {{authToken}}
+
+### 18. Get Event Attendees Check-in List (Organizer/Staff)
+GET {{baseUrl}}/attendee/event/{{eventId}}
+Authorization: Bearer {{authToken}}
+
+### 18a. Get Event Attendees Check-in List — Paginated, Search by Name, bookingId or ticket (single field)
+GET {{baseUrl}}/attendee/event/{{eventId}}?page=1&limit=5&search=kashyap
+Authorization: Bearer {{authToken}}
+
+
+
 
 

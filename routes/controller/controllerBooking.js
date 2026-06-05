@@ -1489,7 +1489,7 @@ const scanQRCode = async (req, res) => {
 const getEventAttendeesList = async (req, res) => {
   try {
     const { eventId } = req.params;
-    const { status } = req.query;
+    const { status, search, page = 1, limit = 10 } = req.query;
     const userId = req.user.userId;
 
     const event = await Event.findById(eventId);
@@ -1502,27 +1502,51 @@ const getEventAttendeesList = async (req, res) => {
       return apiErrorRes(HTTP_STATUS.FORBIDDEN, res, "You don't have permission to view this event's attendees");
     }
 
-    let filter = { eventId: event._id, status: "PAID" };
-    if (status === "checked-in") filter.checkedInQty = { $gt: 0 };
-    else if (status === "not-checked-in") {
+    let filter = { eventId: event._id, status: "PAID", bookingType: "EVENT" };
+
+    if (status === "checked-in") {
+      filter.checkedInQty = { $gt: 0 };
+    } else if (status === "not-checked-in") {
       filter.$or = [{ checkedInQty: { $exists: false } }, { checkedInQty: 0 }];
+    } else if (status === "fully-checked-in") {
+      filter.$expr = { $gte: [{ $ifNull: ["$checkedInQty", 0] }, "$qty"] };
+    } else if (status === "partial") {
+      filter.checkedInQty = { $gt: 0 };
+      filter.$expr = { $lt: [{ $ifNull: ["$checkedInQty", 0] }, "$qty"] };
     }
+
+    if (search) {
+      const users = await User.find({
+        $or: [
+          { firstName: { $regex: search, $options: "i" } },
+          { lastName: { $regex: search, $options: "i" } }
+        ]
+      }).select("_id");
+      const userIds = users.map((u) => u._id);
+
+      filter.$and = filter.$and || [];
+      filter.$and.push({
+        $or: [
+          { bookingId: { $regex: search, $options: "i" } },
+          { userId: { $in: userIds } }
+        ]
+      });
+    }
+
+    const pageNum = parseInt(page, 10) || 1;
+    const limitNum = parseInt(limit, 10) || 10;
+    const skip = (pageNum - 1) * limitNum;
+
+    const totalCount = await Transaction.countDocuments(filter);
 
     const transactions = await Transaction.find(filter)
       .populate("userId", "firstName lastName email profileImage contactNumber countryCode roleId")
       .populate("checkedInBy", "firstName lastName email")
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limitNum);
 
-    let filteredTransactions = transactions;
-    if (status === "fully-checked-in") {
-      filteredTransactions = transactions.filter((t) => (t.checkedInQty || 0) >= t.qty);
-    } else if (status === "partial") {
-      filteredTransactions = transactions.filter(
-        (t) => (t.checkedInQty || 0) > 0 && (t.checkedInQty || 0) < t.qty,
-      );
-    }
-
-    const attendees = filteredTransactions.map((transaction) => {
+    const attendees = transactions.map((transaction) => {
       const user = transaction.userId;
       const checkedInByUser = transaction.checkedInBy;
 
@@ -1580,8 +1604,11 @@ const getEventAttendeesList = async (req, res) => {
         startDate: event.startDate,
         endDate: event.endDate,
       },
-      totalAttendees: attendees.length,
+      totalAttendees: totalCount,
       totalCheckedInTickets: attendees.reduce((sum, a) => sum + a.tickets.checkedInQty, 0),
+      totalPages: Math.ceil(totalCount / limitNum),
+      currentPage: pageNum,
+      limit: limitNum,
       attendees,
     });
   } catch (error) {
@@ -1598,7 +1625,7 @@ const getEventAttendeesList = async (req, res) => {
 const getCourseAttendeesList = async (req, res) => {
   try {
     const { courseId } = req.params;
-    const { status } = req.query;
+    const { status, batchId, search, page = 1, limit = 10 } = req.query;
     const userId = req.user.userId;
 
     const course = await Course.findById(courseId);
@@ -1622,26 +1649,60 @@ const getCourseAttendeesList = async (req, res) => {
     }
 
     let filter = { courseId: course._id, status: "PAID", bookingType: "COURSE" };
-    if (status === "checked-in") filter.checkedInQty = { $gt: 0 };
-    else if (status === "not-checked-in") {
+    
+    if (status === "checked-in") {
+      filter.checkedInQty = { $gt: 0 };
+    } else if (status === "not-checked-in") {
       filter.$or = [{ checkedInQty: { $exists: false } }, { checkedInQty: 0 }];
+    } else if (status === "fully-checked-in") {
+      filter.$expr = { $gte: [{ $ifNull: ["$checkedInQty", 0] }, "$qty"] };
+    } else if (status === "partial") {
+      filter.checkedInQty = { $gt: 0 };
+      filter.$expr = { $lt: [{ $ifNull: ["$checkedInQty", 0] }, "$qty"] };
     }
+
+    if (batchId) {
+      filter.$and = filter.$and || [];
+      filter.$and.push({
+        $or: [
+          { batchId: batchId },
+          { "ongoingSlots.batchId": batchId }
+        ]
+      });
+    }
+
+    if (search) {
+      const users = await User.find({
+        $or: [
+          { firstName: { $regex: search, $options: "i" } },
+          { lastName: { $regex: search, $options: "i" } }
+        ]
+      }).select("_id");
+      const userIds = users.map((u) => u._id);
+
+      filter.$and = filter.$and || [];
+      filter.$and.push({
+        $or: [
+          { bookingId: { $regex: search, $options: "i" } },
+          { userId: { $in: userIds } }
+        ]
+      });
+    }
+
+    const pageNum = parseInt(page, 10) || 1;
+    const limitNum = parseInt(limit, 10) || 10;
+    const skip = (pageNum - 1) * limitNum;
+
+    const totalCount = await Transaction.countDocuments(filter);
 
     const transactions = await Transaction.find(filter)
       .populate("userId", "firstName lastName email profileImage contactNumber countryCode roleId")
       .populate("checkedInBy", "firstName lastName email")
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limitNum);
 
-    let filteredTransactions = transactions;
-    if (status === "fully-checked-in") {
-      filteredTransactions = transactions.filter((t) => (t.checkedInQty || 0) >= t.qty);
-    } else if (status === "partial") {
-      filteredTransactions = transactions.filter(
-        (t) => (t.checkedInQty || 0) > 0 && (t.checkedInQty || 0) < t.qty,
-      );
-    }
-
-    const attendees = filteredTransactions.map((transaction) => {
+    const attendees = transactions.map((transaction) => {
       const user = transaction.userId;
       const checkedInByUser = transaction.checkedInBy;
 
@@ -1718,8 +1779,11 @@ const getCourseAttendeesList = async (req, res) => {
           startDate: course.startDate,
           endDate: course.endDate,
         },
-        totalAttendees: attendees.length,
+        totalAttendees: totalCount,
         totalCheckedInTickets: attendees.reduce((sum, a) => sum + a.checkedInQty, 0),
+        totalPages: Math.ceil(totalCount / limitNum),
+        currentPage: pageNum,
+        limit: limitNum,
         attendees,
       },
     );

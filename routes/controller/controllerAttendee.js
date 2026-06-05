@@ -261,13 +261,17 @@ const getEventAttendees = async (req, res) => {
       query.isCheckedIn = checkedIn === "true";
     }
 
-    // Search by name or email
+    // Search by name, email, ticket number, or bookingId
     if (search) {
+      const txns = await Transaction.find({ bookingId: { $regex: search, $options: "i" } }).select("_id");
+      const txnIds = txns.map((t) => t._id);
+
       query.$or = [
         { firstName: { $regex: search, $options: "i" } },
         { lastName: { $regex: search, $options: "i" } },
         { email: { $regex: search, $options: "i" } },
         { ticketNumber: { $regex: search, $options: "i" } },
+        { transactionId: { $in: txnIds } },
       ];
     }
 

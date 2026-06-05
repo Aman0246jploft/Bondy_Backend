@@ -290,3 +290,13 @@ Authorization: Bearer {{authToken}}
 GET {{baseUrl}}/booking/course/{{courseId}}/attendees
 Authorization: Bearer {{authToken}}
 
+### 23b. Get Course Enrolled Users — Filtered by Batch
+# Retrieves the list of users who enroller this course filtered by batch ID.
+GET {{baseUrl}}/booking/course/{{courseId}}/attendees?batchId=6a216d3aaf039f44dc5d6ef9
+Authorization: Bearer {{authToken}}
+
+### 23c. Get Course Enrolled Users — Paginated, Search by Name or bookingId (single field)
+# Retrieves the list of users who enroller this course filtered by name or booking ID in a single search parameter and paginated.
+GET {{baseUrl}}/booking/course/{{courseId}}/attendees?page=1&limit=5&search=BNDY-256211
+Authorization: Bearer {{authToken}}
+
