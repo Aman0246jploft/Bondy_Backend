@@ -1366,6 +1366,19 @@ const scanQRCode = async (req, res) => {
       });
     }
 
+    // Verify Event/Course Ownership or Assigned Staff
+    const isCreator = item.createdBy.toString() === gateKeeperId;
+    const isAssignedStaff = req.user.roleId === roleId.STAFF && item.assignedStaff && item.assignedStaff.some(id => id.toString() === gateKeeperId);
+    const isSuperAdmin = req.user.roleId === roleId.SUPER_ADMIN;
+
+    if (!isCreator && !isAssignedStaff && !isSuperAdmin) {
+      return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.QR_SCANNED, {
+        status: "INVALID",
+        message: "You are not authorized to check-in attendees for this event",
+        data: null,
+      });
+    }
+
     const now = new Date();
     const endDate = item.endDate;
     const title = transaction.bookingType === "EVENT" ? item.eventTitle : item.courseTitle;
@@ -1534,21 +1547,21 @@ const getEventAttendeesList = async (req, res) => {
           isFullyCheckedIn: (transaction.checkedInQty || 0) >= transaction.qty,
           details: (transaction.tickets && transaction.tickets.length > 0)
             ? transaction.tickets.map((t) => ({
-                ticketId: t.ticketId,
-                ticketName: t.ticketName,
-                qty: t.qty,
-                price: t.qty ? roundToTwo(t.basePrice / t.qty) : 0,
-                totalPrice: t.basePrice,
-              }))
+              ticketId: t.ticketId,
+              ticketName: t.ticketName,
+              qty: t.qty,
+              price: t.qty ? roundToTwo(t.basePrice / t.qty) : 0,
+              totalPrice: t.basePrice,
+            }))
             : [
-                {
-                  ticketId: transaction.ticketId,
-                  ticketName: transaction.ticketName,
-                  qty: transaction.qty,
-                  price: transaction.qty ? roundToTwo(transaction.basePrice / transaction.qty) : 0,
-                  totalPrice: transaction.basePrice,
-                },
-              ],
+              {
+                ticketId: transaction.ticketId,
+                ticketName: transaction.ticketName,
+                qty: transaction.qty,
+                price: transaction.qty ? roundToTwo(transaction.basePrice / transaction.qty) : 0,
+                totalPrice: transaction.basePrice,
+              },
+            ],
         },
         checkInInfo: {
           checkedInAt: transaction.checkedInAt,
@@ -1951,7 +1964,7 @@ router.get("/public/generate-urls/:transactionId", generateTicketUrls);
 router.post(
   "/scan-qr",
   perApiLimiter(),
-  checkRole([roleId.ORGANIZER, roleId.SUPER_ADMIN]),
+  checkRole([roleId.ORGANIZER, roleId.SUPER_ADMIN, roleId.STAFF]),
   validateRequest(scanQRCodeSchema),
   scanQRCode,
 );

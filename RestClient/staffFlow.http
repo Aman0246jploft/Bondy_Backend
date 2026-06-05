@@ -111,3 +111,39 @@ Content-Type: application/json
 # Retrieve history of all check-ins performed by the logged-in staff member.
 GET {{baseUrl}}/user/staff/scan-history
 Authorization: Bearer {{staffToken}}
+
+
+### 14. Staff Verifies Transaction QR Code
+# Staff verifies a transaction QR code details.
+POST {{baseUrl}}/attendee/verify
+Authorization: Bearer {{staffToken}}
+Content-Type: application/json
+
+{
+  "code": "TICKET-{{transactionId}}-someUserId-timestamp",
+  "entityId": "{{eventId}}"
+}
+
+
+### 15. Staff Checks In Transaction QR Code (First Available Attendee)
+# Staff checks in the first available attendee under the transaction.
+POST {{baseUrl}}/attendee/check-in
+Authorization: Bearer {{staffToken}}
+Content-Type: application/json
+
+{
+  "ticketNumber": "TICKET-{{transactionId}}-someUserId-timestamp",
+  "entityId": "{{eventId}}"
+}
+
+
+### 16. Staff Scans Transaction QR Code Directly (Booking scan-qr)
+# Staff scans a transaction QR code directly.
+POST {{baseUrl}}/booking/scan-qr
+Authorization: Bearer {{staffToken}}
+Content-Type: application/json
+
+{
+  "qrCodeData": "TICKET-{{transactionId}}-someUserId-timestamp"
+}
+

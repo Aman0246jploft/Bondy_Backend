@@ -302,6 +302,7 @@ const getEvents = async (req, res) => {
       fromDate,
       toDate,
       isDraft,
+      excludeMyEvents,
       timeOfDay,
       addToSlider,
       city,
@@ -445,11 +446,24 @@ const getEvents = async (req, res) => {
     let loginUser = null;
     if (req.user) {
       loginUser = req.user.userId;
+    } else {
+      const authHeader = req.headers.authorization;
+      if (authHeader && authHeader.startsWith("Bearer ")) {
+        try {
+          const token = authHeader.split(" ")[1];
+          const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY);
+          loginUser = decoded.userId;
+        } catch (err) { }
+      }
     }
     const now = new Date();
     const skip = (page - 1) * limit;
 
     const filters = filter.split(",").map((f) => f.trim().toLowerCase());
+    const shouldExcludeMyEvents =
+      String(excludeMyEvents).toLowerCase() === "true" ||
+      filters.includes("excludemyevents") ||
+      filters.includes("notmycreated");
 
     // 1. Build Base Query
     let query = {};
@@ -520,6 +534,8 @@ const getEvents = async (req, res) => {
     // CreatedBy filter
     if (userId && mongoose.Types.ObjectId.isValid(userId)) {
       query.createdBy = new mongoose.Types.ObjectId(userId);
+    } else if (shouldExcludeMyEvents && loginUser && !query.createdBy) {
+      query.createdBy = { $ne: new mongoose.Types.ObjectId(loginUser) };
     }
 
     // Multiple Categories filter

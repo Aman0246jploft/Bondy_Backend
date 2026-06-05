@@ -110,6 +110,7 @@ const getEventsSchema = Joi.object({
     fromDate: Joi.string().optional(),
     toDate: Joi.string().optional(),
     isDraft: Joi.any().optional(),
+    excludeMyEvents: Joi.any().optional(),
     timeOfDay: Joi.string().optional(),
     city: Joi.string().optional().allow('', null),
     country: Joi.string().optional().allow('', null),

@@ -378,6 +378,11 @@ const checkInAttendee = async (req, res) => {
           attendee = await Attendee.findOne({ transactionId: transaction._id, isCheckedIn: false })
             .populate("eventId")
             .populate("courseId");
+          if (!attendee) {
+            attendee = await Attendee.findOne({ transactionId: transaction._id })
+              .populate("eventId")
+              .populate("courseId");
+          }
         }
       }
     }
@@ -496,8 +501,9 @@ const checkInAttendee = async (req, res) => {
     const targetItem = attendee.eventId || attendee.courseId;
     const isCreator = targetItem.createdBy.toString() === userId;
     const isAssignedStaff = req.user.roleId === roleId.STAFF && targetItem.assignedStaff && targetItem.assignedStaff.some(id => id.toString() === userId);
+    const isSuperAdmin = req.user.roleId === roleId.SUPER_ADMIN;
 
-    if (!isCreator && !isAssignedStaff) {
+    if (!isCreator && !isAssignedStaff && !isSuperAdmin) {
       return apiErrorRes(
         HTTP_STATUS.FORBIDDEN,
         res,
@@ -739,8 +745,9 @@ const scanQRAndCheckIn = async (req, res) => {
     // Verify Event/Course Ownership or Assigned Staff
     const isCreator = event.createdBy.toString() === organizerId;
     const isAssignedStaff = req.user.roleId === roleId.STAFF && event.assignedStaff && event.assignedStaff.some(id => id.toString() === organizerId);
+    const isSuperAdmin = req.user.roleId === roleId.SUPER_ADMIN;
 
-    if (!isCreator && !isAssignedStaff) {
+    if (!isCreator && !isAssignedStaff && !isSuperAdmin) {
       return apiErrorRes(
         HTTP_STATUS.FORBIDDEN,
         res,
@@ -1137,8 +1144,9 @@ const verifyTicket = async (req, res) => {
     // Verify Event/Course Ownership or Assigned Staff
     const isCreator = event.createdBy.toString() === userId;
     const isAssignedStaff = req.user.roleId === roleId.STAFF && event.assignedStaff && event.assignedStaff.some(id => id.toString() === userId);
+    const isSuperAdmin = req.user.roleId === roleId.SUPER_ADMIN;
 
-    if (!isCreator && !isAssignedStaff) {
+    if (!isCreator && !isAssignedStaff && !isSuperAdmin) {
       return apiErrorRes(
         HTTP_STATUS.FORBIDDEN,
         res,

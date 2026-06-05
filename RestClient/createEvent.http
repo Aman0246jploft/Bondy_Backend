@@ -197,6 +197,16 @@ Authorization: Bearer {{authToken}}
 GET {{baseUrl}}/event/list?filter=organizer&isDraft=false
 Authorization: Bearer {{authToken}}
 
+
+### 14.d. List Events - Exclude My Created Events (using excludeMyEvents query parameter)
+GET {{baseUrl}}/event/list?excludeMyEvents=true
+Authorization: Bearer {{authToken}}
+
+
+### 14.e. List Events - Exclude My Created Events (using excludemyevents filter keyword)
+GET {{baseUrl}}/event/list?filter=excludemyevents
+Authorization: Bearer {{authToken}}
+
 #===========================================================FILTER=========================================================================
 
 

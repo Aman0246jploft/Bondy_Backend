@@ -21,6 +21,7 @@ const checkRole = require("../../middlewares/checkRole");
 const { roleId, eventStatus, daysOfWeek } = require("../../utils/Role");
 const { notifyCourseChange } = require("../services/serviceNotification");
 const { default: mongoose } = require("mongoose");
+const jwt = require("jsonwebtoken");
 
 // Create Course
 const createCourse = async (req, res) => {
@@ -178,6 +179,15 @@ const getCourses = async (req, res) => {
     let loginUser = null;
     if (req.user) {
       loginUser = req.user.userId;
+    } else {
+      const authHeader = req.headers.authorization;
+      if (authHeader && authHeader.startsWith("Bearer ")) {
+        try {
+          const token = authHeader.split(" ")[1];
+          const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY);
+          loginUser = decoded.userId;
+        } catch (err) { }
+      }
     }
     const now = new Date();
     const skip = (page - 1) * limit;
@@ -1291,7 +1301,7 @@ const updateCourse = async (req, res) => {
         }
         if (Array.isArray(addr.coordinates) && addr.coordinates.length >= 2) {
           return addr.coordinates[0] !== undefined && addr.coordinates[0] !== null &&
-                 addr.coordinates[1] !== undefined && addr.coordinates[1] !== null;
+            addr.coordinates[1] !== undefined && addr.coordinates[1] !== null;
         }
         return false;
       };
