@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+const jwt = require("jsonwebtoken");
 const { Course, Transaction, User, Wishlist, GlobalSetting } = require("../../db");
 const constantsMessage = require("../../utils/constantsMessage");
 const HTTP_STATUS = require("../../utils/statusCode");
@@ -21,7 +22,6 @@ const checkRole = require("../../middlewares/checkRole");
 const { roleId, eventStatus, daysOfWeek } = require("../../utils/Role");
 const { notifyCourseChange } = require("../services/serviceNotification");
 const { default: mongoose } = require("mongoose");
-const jwt = require("jsonwebtoken");
 
 // Create Course
 const createCourse = async (req, res) => {
@@ -122,6 +122,7 @@ const getCourses = async (req, res) => {
       fromDate,
       toDate,
       isDraft,
+      excludeMyCourses,
       timeOfDay,
       city,
       country,
@@ -193,6 +194,10 @@ const getCourses = async (req, res) => {
     const skip = (page - 1) * limit;
 
     const filters = filter.split(",").map((f) => f.trim().toLowerCase());
+    const shouldExcludeMyCourses =
+      String(excludeMyCourses).toLowerCase() === "true" ||
+      filters.includes("excludemycourses") ||
+      filters.includes("notmycreated");
 
     // 1. Build Base Query
     let query = {};
@@ -263,6 +268,8 @@ const getCourses = async (req, res) => {
     // CreatedBy filter
     if (userId && mongoose.Types.ObjectId.isValid(userId)) {
       query.createdBy = new mongoose.Types.ObjectId(userId);
+    } else if (shouldExcludeMyCourses && loginUser && !query.createdBy) {
+      query.createdBy = { $ne: new mongoose.Types.ObjectId(loginUser) };
     }
 
     // Apply enrollmentType filter

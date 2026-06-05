@@ -220,6 +220,16 @@ GET {{baseUrl}}/course/list?filter=organizer,draft
 Authorization: Bearer {{authToken}}
 
 
+### 17.a List Courses - Exclude My Created Courses (using excludeMyCourses query parameter)
+GET {{baseUrl}}/course/list?excludeMyCourses=true
+Authorization: Bearer {{authToken}}
+
+
+### 17.b List Courses - Exclude My Created Courses (using excludemycourses filter keyword)
+GET {{baseUrl}}/course/list?filter=excludemycourses
+Authorization: Bearer {{authToken}}
+
+
 ### 18. Retrieve Course Booking Cut-off Options
 GET {{baseUrl}}/course/booking-cutoffs
 

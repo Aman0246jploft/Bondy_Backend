@@ -119,6 +119,7 @@ const getCoursesSchema = Joi.object({
     fromDate: Joi.string().optional(),
     toDate: Joi.string().optional(),
     isDraft: Joi.any().optional(),
+    excludeMyCourses: Joi.any().optional(),
     timeOfDay: Joi.string().optional(),
     city: Joi.string().optional().allow('', null),
     country: Joi.string().optional().allow('', null),
