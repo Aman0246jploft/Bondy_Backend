@@ -1385,144 +1385,15 @@ const ensureAttendeesExist = async (transaction) => {
 const scanQRCode = async (req, res) => {
   try {
     const { qrCodeData } = req.body;
-    const gateKeeperId = req.user.userId;
-
-    const qrParts = qrCodeData.split("-");
-    if (qrParts.length < 4 || qrParts[0] !== "TICKET") {
-      return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.QR_SCANNED, {
-        status: "INVALID",
-        message: "Invalid QR code format",
-        data: null,
-      });
-    }
-
-    const txnId = qrParts[1];
-    const transaction = await Transaction.findById(txnId)
-      .populate("eventId")
-      .populate("courseId")
-      .populate("userId");
-    if (!transaction) {
-      return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.QR_SCANNED, {
-        status: "INVALID",
-        message: "Transaction not found",
-        data: null,
-      });
-    }
-
-    if (transaction.qrCodeData !== qrCodeData) {
-      return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.QR_SCANNED, {
-        status: "INVALID",
-        message: "QR code mismatch",
-        data: null,
-      });
-    }
-
-    if (transaction.status !== "PAID") {
-      return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.QR_SCANNED, {
-        status: "INVALID",
-        message: `Ticket status: ${transaction.status}`,
-        data: { transactionId: transaction._id, status: transaction.status },
-      });
-    }
-
-    const item = transaction.eventId || transaction.courseId;
-
-    if (!item) {
-      return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.QR_SCANNED, {
-        status: "INVALID",
-        message: "Event or Course not found",
-        data: null,
-      });
-    }
-
-    // Verify Event/Course Ownership or Assigned Staff
-    const isCreator = item.createdBy.toString() === gateKeeperId;
-    const isAssignedStaff = req.user.roleId === roleId.STAFF && item.assignedStaff && item.assignedStaff.some(id => id.toString() === gateKeeperId);
-    const isSuperAdmin = req.user.roleId === roleId.SUPER_ADMIN;
-
-    if (!isCreator && !isAssignedStaff && !isSuperAdmin) {
-      return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.QR_SCANNED, {
-        status: "INVALID",
-        message: "You are not authorized to check-in attendees for this event",
-        data: null,
-      });
-    }
-
-    const now = new Date();
-    const endDate = item.endDate;
-    const title = transaction.bookingType === "EVENT" ? item.eventTitle : item.courseTitle;
-
-    if (endDate && new Date(endDate) < now) {
-      return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.QR_SCANNED, {
-        status: "EXPIRED",
-        message: "Booking has expired",
-        data: { transactionId: transaction._id, title, endDate },
-      });
-    }
-
-    if (transaction.checkedInQty >= transaction.qty) {
-      return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.QR_SCANNED, {
-        status: "ALREADY_CHECKED_IN",
-        message: "All tickets checked in",
-        data: { transactionId: transaction._id, totalQty: transaction.qty },
-      });
-    }
-
-    // Ensure all attendee documents exist in the Attendee table first
-    await ensureAttendeesExist(transaction);
-
-    // Find first unchecked-in attendee
-    const firstAvailable = await Attendee.findOne({
-      transactionId: transaction._id,
-      isCheckedIn: false,
-    });
-
-    if (firstAvailable) {
-      firstAvailable.isCheckedIn = true;
-      firstAvailable.checkedInAt = now;
-      firstAvailable.checkedInBy = gateKeeperId;
-      await firstAvailable.save();
-    }
-
-    const newCheckedInQty = (transaction.checkedInQty || 0) + 1;
-    transaction.checkedInQty = newCheckedInQty;
-    transaction.isCheckedIn = newCheckedInQty >= transaction.qty;
-    if (newCheckedInQty === 1) transaction.checkedInAt = now;
-    transaction.checkedInBy = gateKeeperId;
-    await transaction.save();
-
-    // Update totalAttendees count (present list) for Event
-    if (transaction.bookingType === "EVENT" && transaction.eventId) {
-      await Event.findByIdAndUpdate(transaction.eventId._id, {
-        $inc: { totalAttendees: 1 },
-      });
-    }
-
-    const itemObj = item.toObject ? item.toObject() : item;
-    itemObj.posterImage = (itemObj.posterImage || []).map(formatResponseUrl);
-
-    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.QR_SCANNED, {
-      status: "OK",
-      message: "Checked in successfully",
-      data: {
-        transactionId: transaction._id,
-        bookingId: transaction.bookingId,
-        totalQty: transaction.qty,
-        checkedInQty: newCheckedInQty,
-        remainingQty: transaction.qty - newCheckedInQty,
-        item: {
-          _id: item._id,
-          title,
-          posterImage: itemObj.posterImage,
-        },
-        checkedInAt: transaction.checkedInAt,
-      },
-    });
+    req.body.code = qrCodeData;
+    const attendeeRouter = require("./controllerAttendee");
+    return attendeeRouter.verifyTicket(req, res);
   } catch (error) {
     console.error("Error in scanQRCode:", error);
     return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
   }
 };
+
 
 
 

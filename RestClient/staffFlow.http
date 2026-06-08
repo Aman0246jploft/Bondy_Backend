@@ -139,8 +139,8 @@ Content-Type: application/json
 }
 
 
-### 16. Staff Scans Transaction QR Code Directly (Booking scan-qr)
-# Staff scans a transaction QR code directly.
+### 16. Staff Verifies Transaction QR Code (Booking scan-qr - Verification Only)
+# Staff verifies a transaction QR code directly without check-in.
 POST {{baseUrl}}/booking/scan-qr
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTIxMmFmZmU1MDJiZDMzMGQ5MzlhN2IiLCJyb2xlSWQiOjUsImlhdCI6MTc4MDg5OTYyOSwiZXhwIjoyNjQ0ODk5NjI5fQ.uoXyltBI3ZdiKfbsX8WbB6Ez-isXKJ_m27ya4hwKdn0
 Content-Type: application/json

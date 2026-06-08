@@ -1259,4 +1259,7 @@ router.post(
   verifyTicket,
 );
 
+router.verifyTicket = verifyTicket;
+
 module.exports = router;
+
