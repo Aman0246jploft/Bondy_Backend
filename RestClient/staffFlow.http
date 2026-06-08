@@ -11,7 +11,7 @@ Content-Type: application/json
             
 {
   "fullname": "John Staff Doe",
-  "email": "john.staff@example.com",
+  "email": "staff1@gmail.com",
   "password": "password123",
   "profilePhoto": "uploads/profile/staff1.jpg"
 }
@@ -58,7 +58,7 @@ POST {{baseUrl}}/user/staff/login
 Content-Type: application/json
 
 {
-  "email": "john.staff@example.com",
+  "email": "staff1@gmail.com",
   "password": "password123"
 }
 
@@ -175,7 +175,7 @@ POST {{baseUrl}}/user/staff/forgot-password/init
 Content-Type: application/json
 
 {
-  "email": "john.staff@example.com"
+  "email": "staff1@gmail.com"
 }
 
 
@@ -185,7 +185,7 @@ POST {{baseUrl}}/user/staff/forgot-password/verify
 Content-Type: application/json
 
 {
-  "email": "john.staff@example.com",
+  "email": "staff1@gmail.com",
   "otp": "12345"
 }
 
@@ -196,7 +196,7 @@ POST {{baseUrl}}/user/staff/forgot-password/resend
 Content-Type: application/json
 
 {
-  "email": "john.staff@example.com"
+  "email": "staff1@gmail.com"
 }
 
 
