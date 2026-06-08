@@ -2417,27 +2417,56 @@ const getStaffScanHistory = async (req, res) => {
     const staffId = req.user.userId;
     const { Attendee: AttendeeModel } = require("../../db");
 
-    const scanHistory = await AttendeeModel.find({
+    const pageNo = parseInt(req.query.pageNo) || 1;
+    const size = parseInt(req.query.size) || 10;
+    const skip = (pageNo - 1) * size;
+
+    const query = {
       checkedInBy: staffId,
       isCheckedIn: true,
-    })
+    };
+
+    if (req.query.startDate || req.query.endDate) {
+      query.checkedInAt = {};
+      if (req.query.startDate) {
+        query.checkedInAt.$gte = new Date(req.query.startDate);
+      }
+      if (req.query.endDate) {
+        const end = new Date(req.query.endDate);
+        end.setHours(23, 59, 59, 999);
+        query.checkedInAt.$lte = end;
+      }
+    }
+
+    const total = await AttendeeModel.countDocuments(query);
+
+    const scanHistory = await AttendeeModel.find(query)
       .populate("eventId", "eventTitle startDate endDate venueName")
       .populate("courseId", "courseTitle startDate endDate venueName")
       .populate("userId", "firstName lastName email profileImage")
       .populate("transactionId", "bookingId totalAmount status")
-      .sort({ checkedInAt: -1 });
+      .sort({ checkedInAt: -1 })
+      .skip(skip)
+      .limit(size);
 
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
       "Scan history retrieved successfully",
-      { scanHistory },
+      {
+        scanHistory,
+        total,
+        pageNo,
+        size,
+        totalPages: Math.ceil(total / size),
+      },
     );
   } catch (error) {
     console.error("Error in getStaffScanHistory:", error);
     return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
   }
 };
+
 
 const editStaff = async (req, res) => {
   try {

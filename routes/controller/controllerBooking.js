@@ -1309,7 +1309,76 @@ const getTicketDetail = async (req, res) => {
 };
 
 
-// ════════════════════════════════════════════════════════════════════════════
+// Helper to generate unique ticket number
+const generateTicketNumber = (eventId, index) => {
+  const timestamp = Date.now().toString().slice(-6);
+  const eventPrefix = eventId.toString().slice(-4).toUpperCase();
+  return `TKT-${eventPrefix}-${timestamp}-${index}`;
+};
+
+// Helper to generate QR data for attendee
+const generateAttendeeQRData = (ticketNumber, attendeeId) => {
+  return `ATTENDEE-${ticketNumber}-${attendeeId}-${Date.now()}`;
+};
+
+// Helper to auto-create attendees for a PAID transaction if none exist
+const ensureAttendeesExist = async (transaction) => {
+  const currentAttendees = await Attendee.find({ transactionId: transaction._id });
+  if (currentAttendees.length > 0) {
+    return currentAttendees;
+  }
+
+  const ticketQueue = [];
+  if (transaction.tickets && transaction.tickets.length > 0) {
+    for (const t of transaction.tickets) {
+      for (let j = 0; j < t.qty; j++) {
+        ticketQueue.push({ ticketId: t.ticketId, ticketName: t.ticketName });
+      }
+    }
+  } else {
+    for (let j = 0; j < transaction.qty; j++) {
+      ticketQueue.push({ ticketId: transaction.ticketId, ticketName: transaction.ticketName });
+    }
+  }
+
+  const attendeeDocs = [];
+  for (let i = 0; i < transaction.qty; i++) {
+    const ticketNumber = generateTicketNumber(
+      transaction.eventId
+        ? transaction.eventId._id || transaction.eventId
+        : transaction.courseId._id || transaction.courseId,
+      i + 1,
+    );
+    const ticketInfo = ticketQueue[i] || { ticketId: transaction.ticketId, ticketName: transaction.ticketName };
+
+    attendeeDocs.push({
+      transactionId: transaction._id,
+      eventId: transaction.eventId
+        ? transaction.eventId._id || transaction.eventId
+        : null,
+      courseId: transaction.courseId
+        ? transaction.courseId._id || transaction.courseId
+        : null,
+      batchId: transaction.batchId || null,
+      userId: transaction.userId?._id || transaction.userId,
+      firstName: transaction.userId?.firstName || "Guest",
+      lastName: transaction.userId?.lastName || `Attendee ${i + 1}`,
+      email: transaction.userId?.email || "guest@example.com",
+      ticketNumber,
+      qrCodeData: "",
+      isCheckedIn: false,
+      ticketId: ticketInfo.ticketId,
+      ticketName: ticketInfo.ticketName,
+    });
+  }
+  const created = await Attendee.insertMany(attendeeDocs);
+  for (let doc of created) {
+    doc.qrCodeData = generateAttendeeQRData(doc.ticketNumber, doc._id);
+    await doc.save();
+  }
+  return created;
+};
+
 // 9. SCAN QR CODE (Gate Keeper)
 // ════════════════════════════════════════════════════════════════════════════
 
@@ -1399,6 +1468,22 @@ const scanQRCode = async (req, res) => {
       });
     }
 
+    // Ensure all attendee documents exist in the Attendee table first
+    await ensureAttendeesExist(transaction);
+
+    // Find first unchecked-in attendee
+    const firstAvailable = await Attendee.findOne({
+      transactionId: transaction._id,
+      isCheckedIn: false,
+    });
+
+    if (firstAvailable) {
+      firstAvailable.isCheckedIn = true;
+      firstAvailable.checkedInAt = now;
+      firstAvailable.checkedInBy = gateKeeperId;
+      await firstAvailable.save();
+    }
+
     const newCheckedInQty = (transaction.checkedInQty || 0) + 1;
     transaction.checkedInQty = newCheckedInQty;
     transaction.isCheckedIn = newCheckedInQty >= transaction.qty;
@@ -1406,53 +1491,11 @@ const scanQRCode = async (req, res) => {
     transaction.checkedInBy = gateKeeperId;
     await transaction.save();
 
-    // Sync with Attendee table
-    const currentAttendees = await Attendee.find({ transactionId: transaction._id });
-    if (currentAttendees.length > 0) {
-      const firstAvailable = await Attendee.findOne({
-        transactionId: transaction._id,
-        isCheckedIn: false,
+    // Update totalAttendees count (present list) for Event
+    if (transaction.bookingType === "EVENT" && transaction.eventId) {
+      await Event.findByIdAndUpdate(transaction.eventId._id, {
+        $inc: { totalAttendees: 1 },
       });
-      if (firstAvailable) {
-        firstAvailable.isCheckedIn = true;
-        firstAvailable.checkedInAt = now;
-        firstAvailable.checkedInBy = gateKeeperId;
-        await firstAvailable.save();
-      }
-    } else {
-      const ticketQueue = [];
-      if (transaction.tickets && transaction.tickets.length > 0) {
-        for (const t of transaction.tickets) {
-          for (let j = 0; j < t.qty; j++) {
-            ticketQueue.push({ ticketId: t.ticketId, ticketName: t.ticketName });
-          }
-        }
-      } else {
-        for (let j = 0; j < transaction.qty; j++) {
-          ticketQueue.push({ ticketId: transaction.ticketId, ticketName: transaction.ticketName });
-        }
-      }
-      const ticketInfo = ticketQueue[newCheckedInQty - 1] || { ticketId: transaction.ticketId, ticketName: transaction.ticketName };
-
-      const ticketNumber = `TKT-AUTO-${transaction._id.toString().slice(-4)}-${newCheckedInQty}`;
-      const newAttendee = new Attendee({
-        transactionId: transaction._id,
-        eventId: transaction.eventId ? transaction.eventId._id || transaction.eventId : null,
-        courseId: transaction.courseId ? transaction.courseId._id || transaction.courseId : null,
-        batchId: transaction.batchId || null,
-        userId: transaction?.userId?._id || transaction?.userId,
-        firstName: transaction?.userId?.firstName || "Guest",
-        lastName: transaction?.userId?.lastName || `Attendee ${newCheckedInQty}`,
-        email: transaction?.userId?.email || "guest@example.com",
-        ticketNumber,
-        isCheckedIn: true,
-        checkedInAt: now,
-        qrCodeData,
-        checkedInBy: gateKeeperId,
-        ticketId: ticketInfo.ticketId,
-        ticketName: ticketInfo.ticketName,
-      });
-      await newAttendee.save();
     }
 
     const itemObj = item.toObject ? item.toObject() : item;
@@ -1480,6 +1523,7 @@ const scanQRCode = async (req, res) => {
     return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
   }
 };
+
 
 
 // ════════════════════════════════════════════════════════════════════════════
