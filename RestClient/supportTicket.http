@@ -63,7 +63,7 @@ Authorization: Bearer {{adminToken}}
 Content-Type: application/json
 
 ### Admin: Update Ticket Status & Add Comment
-PUT {{baseUrl}}/support/admin/update/{{ticketId}}
+POST {{baseUrl}}/support/admin/update/{{ticketId}}
 Authorization: Bearer {{adminToken}}
 Content-Type: application/json
 

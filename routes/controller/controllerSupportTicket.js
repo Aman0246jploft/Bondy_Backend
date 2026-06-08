@@ -313,7 +313,7 @@ router.get(
   getAllTickets,
 );
 
-router.put(
+router.post(
   "/admin/update/:ticketId",
   perApiLimiter(),
   checkRole([roleId.SUPER_ADMIN]),
