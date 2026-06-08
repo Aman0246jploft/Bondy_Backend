@@ -2096,6 +2096,163 @@ router.post(
 
 // --- STAFF FLOW ENDPOINTS ---
 
+const staffForgotPasswordInit = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    const user = await User.findOne({ email, isDeleted: false, roleId: roleId.STAFF });
+    if (!user) {
+      return apiErrorRes(
+        HTTP_STATUS.NOT_FOUND,
+        res,
+        "Staff account not found",
+      );
+    }
+
+    if (user.isDisable) {
+      return apiErrorRes(
+        HTTP_STATUS.FORBIDDEN,
+        res,
+        constantsMessage.ACCOUNT_DISABLED,
+      );
+    }
+
+    const otp = process.env.NODE_ENV === "development" ? "12345" : generateOTP();
+
+    await setKeyWithTime(`staff_forgot_otp:${email}`, otp, 10);
+
+    return apiSuccessRes(
+      HTTP_STATUS.OK,
+      res,
+      constantsMessage.OTP_SENT_SUCCESS,
+      { otp },
+    );
+  } catch (error) {
+    console.error("Error in staffForgotPasswordInit:", error);
+    return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
+  }
+};
+
+const staffVerifyForgotPasswordOtp = async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+
+    const redisOtp = await getKey(`staff_forgot_otp:${email}`);
+    if (redisOtp.statusCode !== CONSTANTS.SUCCESS || redisOtp.data !== otp) {
+      return apiErrorRes(
+        HTTP_STATUS.BAD_REQUEST,
+        res,
+        constantsMessage.INVALID_OR_EXPIRED_OTP,
+      );
+    }
+
+    await removeKey(`staff_forgot_otp:${email}`);
+
+    const resetToken = signToken(
+      { email, scope: "staff_reset_password" },
+      "10m",
+    );
+
+    return apiSuccessRes(
+      HTTP_STATUS.OK,
+      res,
+      "OTP verified successfully. Use the token to reset password.",
+      { token: resetToken },
+    );
+  } catch (error) {
+    console.error("Error in staffVerifyForgotPasswordOtp:", error);
+    return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
+  }
+};
+
+const staffResendForgotPasswordOtp = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    const user = await User.findOne({ email, isDeleted: false, roleId: roleId.STAFF });
+    if (!user) {
+      return apiErrorRes(
+        HTTP_STATUS.NOT_FOUND,
+        res,
+        "Staff account not found",
+      );
+    }
+
+    if (user.isDisable) {
+      return apiErrorRes(
+        HTTP_STATUS.FORBIDDEN,
+        res,
+        constantsMessage.ACCOUNT_DISABLED,
+      );
+    }
+
+    const otp = process.env.NODE_ENV === "development" ? "12345" : generateOTP();
+
+    await setKeyWithTime(`staff_forgot_otp:${email}`, otp, 10);
+
+    return apiSuccessRes(
+      HTTP_STATUS.OK,
+      res,
+      constantsMessage.OTP_RESENT_SUCCESS,
+      { otp },
+    );
+  } catch (error) {
+    console.error("Error in staffResendForgotPasswordOtp:", error);
+    return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
+  }
+};
+
+const staffResetPassword = async (req, res) => {
+  try {
+    const { newPassword } = req.body;
+    const token = req.body.resetToken || req.headers.authorization?.split(" ")[1];
+
+    if (!token) {
+      return apiErrorRes(
+        HTTP_STATUS.UNAUTHORIZED,
+        res,
+        "Reset token required.",
+      );
+    }
+
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET_KEY);
+    } catch (err) {
+      return apiErrorRes(
+        HTTP_STATUS.UNAUTHORIZED,
+        res,
+        "Invalid or expired reset token.",
+      );
+    }
+
+    if (decoded.scope !== "staff_reset_password" || !decoded.email) {
+      return apiErrorRes(HTTP_STATUS.UNAUTHORIZED, res, constantsMessage.INVALID_TOKEN_SCOPE);
+    }
+
+    const user = await User.findOne({ email: decoded.email, isDeleted: false, roleId: roleId.STAFF });
+    if (!user) {
+      return apiErrorRes(
+        HTTP_STATUS.NOT_FOUND,
+        res,
+        "Staff account not found",
+      );
+    }
+
+    user.password = newPassword;
+    await user.save();
+
+    return apiSuccessRes(
+      HTTP_STATUS.OK,
+      res,
+      constantsMessage.UPDATE_PASSWORD_SUCCESS,
+    );
+  } catch (error) {
+    console.error("Error in staffResetPassword:", error);
+    return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
+  }
+};
+
 const addStaff = async (req, res) => {
   try {
     const { fullname, email, password, profilePhoto } = req.body;
@@ -2147,13 +2304,20 @@ const listStaff = async (req, res) => {
       createdBy: organizerId,
       roleId: roleId.STAFF,
       isDeleted: false,
-    }).sort({ createdAt: -1 });
+    })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const formattedStaffList = staffList.map((staff) => ({
+      ...staff,
+      profileImage: staff.profileImage ? formatResponseUrl(staff.profileImage) : null,
+    }));
 
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
       "Staff list retrieved successfully",
-      { staff: staffList },
+      { staff: formattedStaffList },
     );
   } catch (error) {
     console.error("Error in listStaff:", error);
@@ -2419,6 +2583,34 @@ router.get(
   perApiLimiter(),
   checkRole([roleId.STAFF]),
   getStaffScanHistory,
+);
+
+router.post(
+  "/staff/forgot-password/init",
+  perApiLimiter(),
+  validateRequest(forgotPasswordInitSchema),
+  staffForgotPasswordInit,
+);
+
+router.post(
+  "/staff/forgot-password/verify",
+  perApiLimiter(),
+  validateRequest(otpVerificationSchema),
+  staffVerifyForgotPasswordOtp,
+);
+
+router.post(
+  "/staff/forgot-password/resend",
+  perApiLimiter(),
+  validateRequest(forgotPasswordInitSchema), // reused since it just needs email
+  staffResendForgotPasswordOtp,
+);
+
+router.post(
+  "/staff/reset-password",
+  perApiLimiter(),
+  validateRequest(resetPasswordSchema),
+  staffResetPassword,
 );
 
 const addOrganizerInfo = async (req, res) => {

@@ -247,7 +247,7 @@ Authorization: Bearer {{authToken}}
 GET {{baseUrl}}/course/booking-cutoffs
 
 
-#=========================================================ANALYTICS========================================================================
+#===========================ANALYTICS========================================================================
 
 ### 19. Organizer Courses Analytics Summary
 # Retrieves analytics summary for all courses created by the organizer.
@@ -274,8 +274,21 @@ Content-Type: application/json
   "reason": "Cancelled due to unforeseen circumstances."
 }
 
+### 21b. Cancel a Specific Batch of a Course
+# Organizer or Admin cancels a specific batch of a course (by providing batchId).
+POST {{baseUrl}}/booking/cancel-course
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
 
-#=========================================================COURSE DETAILS===================================================================
+{
+  "courseId": "{{courseId}}",
+  "batchId": "6a216d3aaf039f44dc5d6ef9",
+  "reason": "Cancelled this specific batch due to low enrollment."
+}
+
+
+
+#=====================================COURSE DETAILS===================================================
 
 ### 22. Get Course Details
 # Retrieves the details of a single course by its ID.
@@ -297,6 +310,6 @@ Authorization: Bearer {{authToken}}
 
 ### 23c. Get Course Enrolled Users — Paginated, Search by Name or bookingId (single field)
 # Retrieves the list of users who enroller this course filtered by name or booking ID in a single search parameter and paginated.
-GET {{baseUrl}}/booking/course/{{courseId}}/attendees?page=1&limit=5&search=BNDY-256211
+GET {{baseUrl}}/booking/course/{{courseId}}/attendees?page=1&limit=5&search=&batchId=6a216d3aaf039f44dc5d6ef9
 Authorization: Bearer {{authToken}}
 

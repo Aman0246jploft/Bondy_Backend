@@ -169,4 +169,44 @@ POST {{baseUrl}}/user/organizer/staff/remove/{{staffId}}
 Authorization: Bearer {{organizerToken}}
 
 
+### 19. Staff Forgot Password - Init
+# Initiates the forgot password flow for a staff account and sends an OTP
+POST {{baseUrl}}/user/staff/forgot-password/init
+Content-Type: application/json
 
+{
+  "email": "john.staff@example.com"
+}
+
+
+### 20. Staff Forgot Password - Verify OTP
+# Verifies the OTP sent to the staff email
+POST {{baseUrl}}/user/staff/forgot-password/verify
+Content-Type: application/json
+
+{
+  "email": "john.staff@example.com",
+  "otp": "12345"
+}
+
+
+### 21. Staff Forgot Password - Resend OTP
+# Resends the forgot password OTP
+POST {{baseUrl}}/user/staff/forgot-password/resend
+Content-Type: application/json
+
+{
+  "email": "john.staff@example.com"
+}
+
+
+### 22. Staff Reset Password
+# Resets the staff password using the reset token obtained from verifying the OTP
+POST {{baseUrl}}/user/staff/reset-password
+Content-Type: application/json
+
+{
+  "resetToken": "INSERT_TOKEN_FROM_VERIFY_STEP_HERE",
+  "newPassword": "newpassword456",
+  "confirmPassword": "newpassword456"
+}
