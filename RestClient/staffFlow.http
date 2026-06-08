@@ -64,7 +64,7 @@ Content-Type: application/json
 
 
 ### 7. Setup Staff Token Variable
-@staffToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2N2ZhN2U5YWI5MjFlZjU1OTEwMmMwMTkiLCJyb2xlSWQiOjUsImlhdCI6MTc4MDI5MjU3MCwiZXhwIjoyNjQ0MjkyNTcwfQ.abc_staff_signature
+@staffToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTIxMmFmZmU1MDJiZDMzMGQ5MzlhN2IiLCJyb2xlSWQiOjUsImlhdCI6MTc4MDg5OTYyOSwiZXhwIjoyNjQ0ODk5NjI5fQ.uoXyltBI3ZdiKfbsX8WbB6Ez-isXKJ_m27ya4hwKdn0
 
 ### 8. Staff Views Assigned Events and Courses
 # Retrieve the list of all active non-draft events and courses assigned to the logged-in staff.
@@ -141,11 +141,11 @@ Content-Type: application/json
 ### 16. Staff Scans Transaction QR Code Directly (Booking scan-qr)
 # Staff scans a transaction QR code directly.
 POST {{baseUrl}}/booking/scan-qr
-Authorization: Bearer {{staffToken}}
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTIxMmFmZmU1MDJiZDMzMGQ5MzlhN2IiLCJyb2xlSWQiOjUsImlhdCI6MTc4MDg5OTYyOSwiZXhwIjoyNjQ0ODk5NjI5fQ.uoXyltBI3ZdiKfbsX8WbB6Ez-isXKJ_m27ya4hwKdn0
 Content-Type: application/json
 
 {
-  "qrCodeData": "TICKET-{{transactionId}}-someUserId-timestamp"
+  "qrCodeData": "TICKET-6a266d2bc07b811d5367c2f3-6a1e80665979beee41cf5f4b-1780903218349"
 }
 
 

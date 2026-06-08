@@ -1332,7 +1332,6 @@ const scanQRCode = async (req, res) => {
       .populate("eventId")
       .populate("courseId")
       .populate("userId");
-
     if (!transaction) {
       return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.QR_SCANNED, {
         status: "INVALID",
@@ -1358,6 +1357,7 @@ const scanQRCode = async (req, res) => {
     }
 
     const item = transaction.eventId || transaction.courseId;
+
     if (!item) {
       return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.QR_SCANNED, {
         status: "INVALID",
@@ -1649,7 +1649,7 @@ const getCourseAttendeesList = async (req, res) => {
     }
 
     let filter = { courseId: course._id, status: "PAID", bookingType: "COURSE" };
-    
+
     if (status === "checked-in") {
       filter.checkedInQty = { $gt: 0 };
     } else if (status === "not-checked-in") {
@@ -1757,11 +1757,11 @@ const getCourseAttendeesList = async (req, res) => {
           checkedInAt: transaction.checkedInAt,
           checkedInBy: checkedInByUser
             ? {
-                _id: checkedInByUser._id,
-                firstName: checkedInByUser.firstName,
-                lastName: checkedInByUser.lastName,
-                email: checkedInByUser.email,
-              }
+              _id: checkedInByUser._id,
+              firstName: checkedInByUser.firstName,
+              lastName: checkedInByUser.lastName,
+              email: checkedInByUser.email,
+            }
             : null,
         },
         bookingDate: transaction.createdAt,

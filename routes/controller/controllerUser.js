@@ -2381,16 +2381,30 @@ const getStaffAssignedList = async (req, res) => {
       .populate("createdBy", "firstName lastName email")
       .lean();
 
+    const formattedEvents = events.map((event) => ({
+      ...event,
+      posterImage: (event.posterImage || []).map(formatResponseUrl),
+      mediaLinks: (event.mediaLinks || []).map(formatResponseUrl),
+      shortTeaserVideo: (event.shortTeaserVideo || []).map(formatResponseUrl),
+    }));
+
     const courses = await Course.find({ assignedStaff: staffId, isDraft: false })
       .populate("courseCategory", "name")
       .populate("createdBy", "firstName lastName email")
       .lean();
 
+    const formattedCourses = courses.map((course) => ({
+      ...course,
+      posterImage: (course.posterImage || []).map(formatResponseUrl),
+      mediaLinks: (course.mediaLinks || []).map(formatResponseUrl),
+      shortTeaserVideo: (course.shortTeaserVideo || []).map(formatResponseUrl),
+    }));
+
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
       "Assigned list retrieved successfully",
-      { events, courses },
+      { events: formattedEvents, courses: formattedCourses },
     );
   } catch (error) {
     console.error("Error in getStaffAssignedList:", error);
