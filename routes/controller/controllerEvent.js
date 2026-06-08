@@ -1914,10 +1914,13 @@ const getAllEventAttendees = async (req, res) => {
   try {
     const { eventId } = req.params;
     const { search } = req.query;
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
 
     const event = await Event.findById(eventId)
       .populate("createdBy", "firstName lastName profileImage isVerified")
-      .select("createdBy eventTitle")
+      .populate("eventCategory", "name")
       .lean();
 
     if (!event) {
@@ -1928,92 +1931,146 @@ const getAllEventAttendees = async (req, res) => {
       );
     }
 
-    // Format host image
+    // Format host and event images
     if (event.createdBy && event.createdBy.profileImage) {
       event.createdBy.profileImage = formatResponseUrl(
         event.createdBy.profileImage,
       );
     }
+    if (Array.isArray(event.posterImage)) {
+      event.posterImage = event.posterImage.map(formatResponseUrl);
+    }
 
-    // Fetch all PAID transactions for this event
-    const transactions = await Transaction.find({
-      eventId: eventId,
-      status: "PAID",
-      bookingType: "EVENT",
-    })
-      .populate("userId", "firstName lastName profileImage isVerified roleId")
-      .sort({ createdAt: -1 })
-      .lean();
+    // Build aggregation pipeline to find unique users who purchased tickets
+    const pipeline = [
+      {
+        $match: {
+          eventId: new mongoose.Types.ObjectId(eventId),
+          status: "PAID",
+          bookingType: "EVENT",
+        },
+      },
+      {
+        $lookup: {
+          from: "users",
+          localField: "userId",
+          foreignField: "_id",
+          as: "user",
+        },
+      },
+      { $unwind: "$user" },
+    ];
+
+    // Search filter on user name or email
+    if (search) {
+      pipeline.push({
+        $match: {
+          $or: [
+            { "user.firstName": { $regex: search, $options: "i" } },
+            { "user.lastName": { $regex: search, $options: "i" } },
+            { "user.email": { $regex: search, $options: "i" } },
+          ],
+        },
+      });
+    }
+
+    // Group by userId to deduplicate, keeping the first user details and pushing all transactions
+    pipeline.push({
+      $group: {
+        _id: "$userId",
+        user: { $first: "$user" },
+        transactions: { $push: "$$ROOT" },
+      },
+    });
+
+    // Sort by firstName
+    pipeline.push({ $sort: { "user.firstName": 1 } });
+
+    // Facet for pagination
+    pipeline.push({
+      $facet: {
+        metadata: [{ $count: "total" }],
+        data: [
+          { $skip: skip },
+          { $limit: limit },
+        ],
+      },
+    });
+
+    const result = await Transaction.aggregate(pipeline);
+    const total = result[0]?.metadata[0]?.total || 0;
+    const paginatedData = result[0]?.data || [];
 
     const roundToTwo = (num) => Math.round((num + Number.EPSILON) * 100) / 100;
 
-    // Deduplicate users
     const uniqueUsers = [];
-    const seenUserIds = new Set();
+    for (const item of paginatedData) {
+      const user = item.user;
+      const userTransactions = item.transactions;
 
-    for (const t of transactions) {
-      if (t.userId && !seenUserIds.has(t.userId._id.toString())) {
-        const user = t.userId;
-        // Filter by search if provided
-        if (search) {
-          const fullName = `${user.firstName} ${user.lastName}`.toLowerCase();
-          if (!fullName.includes(search.toLowerCase())) continue;
-        }
+      const ticketGroups = {};
+      const txnDetails = [];
 
-        // Find all paid event transactions for this user
-        const userTransactions = transactions.filter(
-          (tr) => tr.userId && tr.userId._id.toString() === user._id.toString()
-        );
-
-        const ticketGroups = {};
-        for (const tr of userTransactions) {
-          const ticketItems = (tr.tickets && tr.tickets.length > 0)
-            ? tr.tickets
-            : [
-              {
-                ticketId: tr.ticketId,
-                ticketName: tr.ticketName,
-                qty: tr.qty,
-                basePrice: tr.basePrice,
-              },
-            ];
-
-          for (const item of ticketItems) {
-            const key = item.ticketId || item.ticketName;
-            if (!ticketGroups[key]) {
-              ticketGroups[key] = {
-                ticketId: item.ticketId,
-                ticketName: item.ticketName,
-                qty: 0,
-                totalPrice: 0,
-              };
-            }
-            ticketGroups[key].qty += item.qty;
-            ticketGroups[key].totalPrice += item.basePrice;
-          }
-        }
-
-        const tickets = Object.values(ticketGroups).map((tg) => ({
-          ticketId: tg.ticketId,
-          ticketName: tg.ticketName,
-          qty: tg.qty,
-          price: tg.qty ? roundToTwo(tg.totalPrice / tg.qty) : 0,
-          totalPrice: tg.totalPrice,
-        }));
-
-        const totalTicketsBought = tickets.reduce((sum, tk) => sum + tk.qty, 0);
-
-        uniqueUsers.push({
-          _id: user._id,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          profileImage: formatResponseUrl(user.profileImage),
-          ticketsBought: totalTicketsBought,
-          userRole: userRole[user.roleId] || "GUEST",
-          tickets: tickets,
+      for (const tr of userTransactions) {
+        // Collect transaction details
+        txnDetails.push({
+          _id: tr._id,
+          bookingId: tr.bookingId,
+          qty: tr.qty,
+          totalAmount: tr.totalAmount,
+          status: tr.status,
+          createdAt: tr.createdAt,
+          ticketId: tr.ticketId,
+          ticketName: tr.ticketName,
+          tickets: tr.tickets || [],
         });
-        seenUserIds.add(user._id.toString());
+
+        const ticketItems = (tr.tickets && tr.tickets.length > 0)
+          ? tr.tickets
+          : [
+            {
+              ticketId: tr.ticketId,
+              ticketName: tr.ticketName,
+              qty: tr.qty,
+              basePrice: tr.basePrice,
+            },
+          ];
+
+        for (const ticketItem of ticketItems) {
+          const key = ticketItem.ticketId || ticketItem.ticketName;
+          if (!ticketGroups[key]) {
+            ticketGroups[key] = {
+              ticketId: ticketItem.ticketId,
+              ticketName: ticketItem.ticketName,
+              qty: 0,
+              totalPrice: 0,
+            };
+          }
+          ticketGroups[key].qty += ticketItem.qty;
+          ticketGroups[key].totalPrice += ticketItem.basePrice;
+        }
       }
+
+      const tickets = Object.values(ticketGroups).map((tg) => ({
+        ticketId: tg.ticketId,
+        ticketName: tg.ticketName,
+        qty: tg.qty,
+        price: tg.qty ? roundToTwo(tg.totalPrice / tg.qty) : 0,
+        totalPrice: tg.totalPrice,
+      }));
+
+      const totalTicketsBought = tickets.reduce((sum, tk) => sum + tk.qty, 0);
+
+      uniqueUsers.push({
+        _id: user._id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        profileImage: user.profileImage ? formatResponseUrl(user.profileImage) : null,
+        ticketsBought: totalTicketsBought,
+        userRole: userRole[user.roleId] || "GUEST",
+        tickets: tickets,
+        transactions: txnDetails,
+      });
     }
 
     return apiSuccessRes(
@@ -2022,8 +2079,14 @@ const getAllEventAttendees = async (req, res) => {
       constantsMessage.EVENT_ATTENDEES_FETCHED,
       {
         host: event.createdBy,
-        eventTitle: event.eventTitle,
+        event: event,
         attendees: uniqueUsers,
+        pagination: {
+          total,
+          page,
+          limit,
+          totalPages: Math.ceil(total / limit),
+        },
       },
     );
   } catch (error) {
@@ -2031,6 +2094,7 @@ const getAllEventAttendees = async (req, res) => {
     return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
   }
 };
+
 
 // Update/Edit Event
 const updateEvent = async (req, res) => {

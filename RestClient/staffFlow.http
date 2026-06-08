@@ -146,7 +146,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTIxM
 Content-Type: application/json
 
 {
-  "qrCodeData": "TICKET-6a266d2bc07b811d5367c2f3-6a1e80665979beee41cf5f4b-1780903218349"
+  "qrCodeData": "TICKET-6a2690b57b649d94b8899e65-6a1e80665979beee41cf5f4b-1780912311388"
 }
 
 
@@ -211,3 +211,16 @@ Content-Type: application/json
   "newPassword": "newpassword456",
   "confirmPassword": "newpassword456"
 }
+
+
+### 23. Staff/Organizer Fetches Event Attendees List
+# Fetch attendees enrolled in a specific event (also accepts page, limit, search, and checkedIn filters).
+GET {{baseUrl}}/attendee/event/{{eventId}}?page=1&limit=10&search=&checkedIn=
+Authorization: Bearer {{staffToken}}
+
+
+### 24. Staff/Organizer Fetches Course Attendees List
+# Fetch attendees enrolled in a specific course (using the same /attendee/event/:id endpoint).
+GET {{baseUrl}}/attendee/event/{{courseId}}?page=1&limit=10&search=&checkedIn=
+Authorization: Bearer {{staffToken}}
+

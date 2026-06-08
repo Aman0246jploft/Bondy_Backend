@@ -231,9 +231,10 @@ Content-Type: application/json
 }
 
 
-### 16. Get Unique Event Attendees List (With Aggregated Ticket Details)
-GET {{baseUrl}}/event/attendees/{{eventId}}
+### 16. Get Unique Event Attendees List (With Aggregated Ticket details, transaction details & pagination)
+GET {{baseUrl}}/event/attendees/{{eventId}}?page=1&limit=5&search=
 Authorization: Bearer {{authToken}}
+
 
 
 ### 17. Get Event Attendees List (Transaction level)

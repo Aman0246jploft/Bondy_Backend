@@ -120,9 +120,10 @@ Authorization: Bearer {{authToken}}
 GET {{baseUrl}}/booking/event/{{eventId}}/stats
 Authorization: Bearer {{authToken}}
 
-### 14b. Get Unique Event Attendees List (With Aggregated Ticket Details)
-GET {{baseUrl}}/event/attendees/{{eventId}}?search=New
+### 14b. Get Unique Event Attendees List (With Aggregated Ticket details, transaction details & pagination)
+GET {{baseUrl}}/event/attendees/{{eventId}}?page=1&limit=5&search=
 Authorization: Bearer {{authToken}}
+
 
 
 ### 15. Scan QR Code (Gate Keeper Check-in)
