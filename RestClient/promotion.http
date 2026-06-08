@@ -1,0 +1,119 @@
+### Environment Variables
+@baseUrl = http://localhost:8080/api/v1
+@adminToken = YOUR_ADMIN_JWT_TOKEN
+@organizerToken = YOUR_ORGANIZER_JWT_TOKEN
+
+@packageId = 647f1234567890abcdef1234
+@eventId = 647f1234567890abcdef5678
+@courseId = 647f1234567890abcdef9012
+
+
+### =========================================================================
+### 1. PROMOTION PACKAGES (ADMIN ACTIONS)
+### =========================================================================
+
+### Create EVENT Promotion Package
+POST {{baseUrl}}/promotion-package/create
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "name": "Homepage Sticky Boost",
+  "durationInDays": 7,
+  "packageType": "EVENT",
+  "placements": ["Home Page", "Discover Feed"],
+  "price": 50000,
+  "isActive": true
+}
+
+### Create COURSE Promotion Package
+POST {{baseUrl}}/promotion-package/create
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "name": "Gold Course Promotion",
+  "durationInDays": 14,
+  "packageType": "COURSE",
+  "placements": ["Course Discover", "Weekly Email Newsletter"],
+  "price": 120000,
+  "isActive": true
+}
+
+### Update Promotion Package
+POST {{baseUrl}}/promotion-package/update
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "id": "{{packageId}}",
+  "name": "Updated Package Name",
+  "price": 60000,
+  "isActive": true
+}
+
+### Get All Promotion Packages (with filters)
+POST {{baseUrl}}/promotion-package/list?pageNo=1&size=10&isActive=true
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{}
+
+### Get Promotion Package Details by ID
+POST {{baseUrl}}/promotion-package/getById
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "id": "{{packageId}}"
+}
+
+### Delete Promotion Package
+POST {{baseUrl}}/promotion-package/delete
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "id": "{{packageId}}"
+}
+
+
+### =========================================================================
+### 2. EVENT PROMOTIONS (ORGANIZER ACTIONS)
+### =========================================================================
+
+### Get Active Event Promotion Packages
+GET {{baseUrl}}/event-promotion/packages
+Authorization: Bearer {{organizerToken}}
+Content-Type: application/json
+
+### Checkout/Purchase Event Promotion
+POST {{baseUrl}}/event-promotion/checkout
+Authorization: Bearer {{organizerToken}}
+Content-Type: application/json
+
+{
+  "eventId": "{{eventId}}",
+  "packageId": "{{packageId}}"
+}
+
+
+### =========================================================================
+### 3. COURSE PROMOTIONS (ORGANIZER ACTIONS)
+### =========================================================================
+
+### Get Active Course Promotion Packages
+GET {{baseUrl}}/course-promotion/packages
+Authorization: Bearer {{organizerToken}}
+Content-Type: application/json
+
+### Checkout/Purchase Course Promotion
+POST {{baseUrl}}/course-promotion/checkout
+Authorization: Bearer {{organizerToken}}
+Content-Type: application/json
+
+{
+  
+  "courseId": "{{courseId}}",
+  "packageId": "{{packageId}}"
+}

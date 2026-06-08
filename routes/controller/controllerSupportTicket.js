@@ -15,6 +15,7 @@ const { roleId } = require("../../utils/Role");
 const {
   createTicketSchema,
   updateTicketStatusSchema,
+  userUpdateTicketStatusSchema,
   getTicketsSchema,
 } = require("../services/validations/supportValidation");
 const { notifySupportTicketUpdate } = require("../services/serviceNotification");
@@ -240,6 +241,46 @@ const getTicketDetails = async (req, res) => {
   }
 };
 
+// User/Organizer: Reopen or Close their own ticket
+const userUpdateTicketStatus = async (req, res) => {
+  try {
+    const { ticketId } = req.params;
+    const { status } = req.body;
+    const userId = req.user.userId;
+
+    const ticket = await SupportTicket.findOne({ ticketId });
+    if (!ticket) {
+      return apiErrorRes(
+        HTTP_STATUS.NOT_FOUND,
+        res,
+        constantsMessage.SUPPORT_TICKET_NOT_FOUND,
+      );
+    }
+
+    // Verify ownership
+    if (ticket.user.toString() !== userId.toString()) {
+      return apiErrorRes(
+        HTTP_STATUS.UNAUTHORIZED,
+        res,
+        constantsMessage.UNAUTHORIZED_ACCESS,
+      );
+    }
+
+    ticket.status = status;
+    await ticket.save();
+
+    return apiSuccessRes(
+      HTTP_STATUS.OK,
+      res,
+      constantsMessage.SUPPORT_TICKET_STATUS_UPDATED,
+      { ticket },
+    );
+  } catch (error) {
+    console.error("Error user-updating ticket status:", error);
+    return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
+  }
+};
+
 // Routes
 router.post(
   "/create",
@@ -254,6 +295,14 @@ router.get(
   perApiLimiter(),
   checkRole([roleId.CUSTOMER, roleId.ORGANIZER]),
   getMyTickets,
+);
+
+router.post(
+  "/update/:ticketId",
+  perApiLimiter(),
+  checkRole([roleId.CUSTOMER, roleId.ORGANIZER]),
+  validateRequest(userUpdateTicketStatusSchema),
+  userUpdateTicketStatus,
 );
 
 router.get(

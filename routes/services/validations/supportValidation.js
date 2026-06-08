@@ -9,14 +9,20 @@ const createTicketSchema = Joi.object({
 
 const updateTicketStatusSchema = Joi.object({
     status: Joi.string()
-        .valid("Pending", "Open", "Resolved", "Cancelled", "Reopen")
+        .valid("Pending", "Open", "Resolved", "Cancelled", "Reopen", "closed")
         .required(),
     adminComment: Joi.string().optional().allow(""),
 });
 
+const userUpdateTicketStatusSchema = Joi.object({
+    status: Joi.string()
+        .valid("Reopen", "closed")
+        .required(),
+});
+
 const getTicketsSchema = Joi.object({
     status: Joi.string()
-        .valid("Pending", "Open", "Resolved", "Cancelled", "Reopen")
+        .valid("Pending", "Open", "Resolved", "Cancelled", "Reopen", "closed")
         .optional(),
     category: Joi.string().optional(),
     ticketId: Joi.string().optional(),
@@ -31,5 +37,6 @@ const getTicketsSchema = Joi.object({
 module.exports = {
     createTicketSchema,
     updateTicketStatusSchema,
+    userUpdateTicketStatusSchema,
     getTicketsSchema,
 };

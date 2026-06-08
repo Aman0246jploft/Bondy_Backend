@@ -1,0 +1,73 @@
+### Environment Variables
+@baseUrl = http://localhost:8080/api/v1
+@adminToken = YOUR_ADMIN_JWT_TOKEN
+@userToken = YOUR_USER_OR_ORGANIZER_JWT_TOKEN
+
+@ticketId = TKT-XXXXXX-XXX
+
+
+### =========================================================================
+### 1. USER & ORGANIZER ACTIONS
+### =========================================================================
+
+### Create Support Ticket
+POST {{baseUrl}}/support/create
+Authorization: Bearer {{userToken}}
+Content-Type: application/json
+
+{
+  "category": "Billing",
+  "subject": "Double charged for Event Booking",
+  "description": "I checked my bank statement and noticed that my account was debited twice for the last booking.",
+  "images": [
+    "https://example.com/receipt1.jpg"
+  ]
+}
+
+### Get My Tickets (with optional pagination & filter)
+GET {{baseUrl}}/support/my-tickets?page=1&limit=10&status=Pending
+Authorization: Bearer {{userToken}}
+Content-Type: application/json
+
+### Get Support Ticket Details
+GET {{baseUrl}}/support/{{ticketId}}
+Authorization: Bearer {{userToken}}
+Content-Type: application/json
+
+### Reopen Support Ticket (User Side)
+POST {{baseUrl}}/support/update/{{ticketId}}
+Authorization: Bearer {{userToken}}
+Content-Type: application/json
+
+{
+  "status": "Reopen"
+}
+
+### Close Support Ticket (User Side)
+POST {{baseUrl}}/support/update/{{ticketId}}
+Authorization: Bearer {{userToken}}
+Content-Type: application/json
+
+{
+  "status": "closed"
+}
+
+
+### =========================================================================
+### 2. ADMIN ACTIONS
+### =========================================================================
+
+### Admin: Get All Tickets (with filters)
+GET {{baseUrl}}/support/admin/list?page=1&limit=10&status=Pending
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+### Admin: Update Ticket Status & Add Comment
+PUT {{baseUrl}}/support/admin/update/{{ticketId}}
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "status": "Resolved",
+  "adminComment": "We have processed the refund. Please allow 3-5 business days for it to reflect."
+}
