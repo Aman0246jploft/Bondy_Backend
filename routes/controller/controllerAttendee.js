@@ -515,6 +515,30 @@ const checkInAttendee = async (req, res) => {
       );
     }
 
+    // Update parent transaction check-in status and counts
+    const transaction = await Transaction.findById(attendee.transactionId);
+    if (!transaction) {
+      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Transaction not found");
+    }
+
+    // Expiration check
+    const now = new Date();
+    let isExpired = false;
+    if (transaction.bookingType === "COURSE" && transaction.passExpiryDate) {
+      isExpired = now > new Date(transaction.passExpiryDate);
+    } else {
+      const endDate = attendee.eventId ? attendee.eventId.endDate : (attendee.courseId.endDate || attendee.courseId.createdAt);
+      isExpired = now > new Date(endDate);
+    }
+
+    if (isExpired) {
+      return apiErrorRes(
+        HTTP_STATUS.BAD_REQUEST,
+        res,
+        `${transaction.bookingType === "COURSE" ? "Pass" : "Event"} has expired - Check-in not allowed`,
+      );
+    }
+
     // Check if already checked in
     if (attendee.isCheckedIn) {
       return apiErrorRes(
@@ -526,22 +550,19 @@ const checkInAttendee = async (req, res) => {
 
     // Update check-in status
     attendee.isCheckedIn = true;
-    attendee.checkedInAt = new Date();
+    attendee.checkedInAt = now;
     attendee.checkedInBy = userId;
     await attendee.save();
 
-    // Update parent transaction check-in status and counts
-    const transaction = await Transaction.findById(attendee.transactionId);
-    if (transaction) {
-      const checkedInCount = await Attendee.countDocuments({
-        transactionId: transaction._id,
-        isCheckedIn: true,
-      });
-      transaction.checkedInQty = checkedInCount;
-      transaction.isCheckedIn = checkedInCount >= transaction.qty;
-      if (checkedInCount === 1) transaction.checkedInAt = new Date();
-      transaction.checkedInBy = userId;
-      await transaction.save();
+    const checkedInCount = await Attendee.countDocuments({
+      transactionId: transaction._id,
+      isCheckedIn: true,
+    });
+    transaction.checkedInQty = checkedInCount;
+    transaction.isCheckedIn = checkedInCount >= transaction.qty;
+    if (checkedInCount === 1) transaction.checkedInAt = now;
+    transaction.checkedInBy = userId;
+    await transaction.save();
 
       // Update totalAttendees count (present list)
       if (transaction.bookingType === "EVENT" && attendee.eventId) {
@@ -549,11 +570,10 @@ const checkInAttendee = async (req, res) => {
           $inc: { totalAttendees: 1 },
         });
       }
-    }
 
-    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.CHECK_IN_SUCCESS, {
-      attendee,
-    });
+      return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.CHECK_IN_SUCCESS, {
+        attendee,
+      });
   } catch (error) {
     console.error("Error in checkInAttendee:", error);
     return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
@@ -795,16 +815,23 @@ const scanQRAndCheckIn = async (req, res) => {
     }
 
     const now = new Date();
-    // Check if event has expired
-    if (now > new Date(endDate)) {
+    // Check if event/pass has expired
+    let actualEndDate = endDate;
+    let isExpired = now > new Date(endDate);
+    if (transaction && transaction.bookingType === "COURSE" && transaction.passExpiryDate) {
+      actualEndDate = transaction.passExpiryDate;
+      isExpired = now > new Date(transaction.passExpiryDate);
+    }
+
+    if (isExpired) {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        `${transaction.bookingType || "Event"} has expired - Check-in not allowed`,
+        `${transaction.bookingType === "COURSE" ? "Pass" : (transaction.bookingType || "Event")} has expired - Check-in not allowed`,
         {
           item: {
             title: title,
-            endDate: endDate,
+            endDate: actualEndDate,
             status: "Expired",
           },
           validationStatus: "EXPIRED",
@@ -1174,7 +1201,12 @@ const verifyTicket = async (req, res) => {
       endDate = event.endDate || event.createdAt;
     }
     const now = new Date();
-    const isExpired = now > new Date(endDate);
+    let actualEndDate = endDate;
+    let isExpired = now > new Date(endDate);
+    if (transaction && transaction.bookingType === "COURSE" && transaction.passExpiryDate) {
+      actualEndDate = transaction.passExpiryDate;
+      isExpired = now > new Date(transaction.passExpiryDate);
+    }
 
     // Determine check-in status
     let isAlreadyCheckedIn = false;
@@ -1199,7 +1231,7 @@ const verifyTicket = async (req, res) => {
         title,
         venueName: event.venueName || "Online",
         startDate: event.startDate,
-        endDate,
+        endDate: actualEndDate,
       },
       attendee: attendee ? {
         _id: attendee._id,

@@ -21,11 +21,10 @@ const transactionSchema = new mongoose.Schema(
                 return this.bookingType === "COURSE";
             },
         },
-        // For Course bookings: references the batch _id in Course.batches[]
         batchId: {
             type: String,
             required: function () {
-                return this.bookingType === "COURSE";
+                return this.bookingType === "COURSE" && !this.passType;
             },
         },
         // For Ongoing courses: the specific day of the week selected (e.g. "Mon", "Tue")
@@ -40,6 +39,15 @@ const transactionSchema = new mongoose.Schema(
                 selectedDay: { type: String, required: true },
             }
         ],
+        passType: {
+            type: String,
+            enum: ["1_month", "3_month"],
+            default: null,
+        },
+        passExpiryDate: {
+            type: Date,
+            default: null,
+        },
         // For Event bookings: references the ticket _id in Event.tickets[]
         ticketId: {
             type: String,

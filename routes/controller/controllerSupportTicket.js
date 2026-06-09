@@ -126,7 +126,9 @@ const getAllTickets = async (req, res) => {
     if (startDate || endDate) {
       query.createdAt = {};
       if (startDate) query.createdAt.$gte = new Date(startDate);
-      if (endDate) query.createdAt.$lte = new Date(endDate);
+      if (endDate) query.createdAt.$lte = new Date(endDate); q
+      gt
+
     }
 
     const tickets = await SupportTicket.find(query)
@@ -187,8 +189,7 @@ const updateTicketStatus = async (req, res) => {
       ticket.ticketId,
       status
     ).catch((e) => console.error("[Notification] notifySupportTicketUpdate error:", e));
-    // ────────────────────────────────────────────────────────────────────────
-
+    // ─────────────────────────────────────────────────────────────────
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,

@@ -28,7 +28,11 @@ const initiateBookingSchema = Joi.object({
     then: Joi.when("ongoingSlots", {
       is: Joi.exist(),
       then: Joi.optional(),
-      otherwise: Joi.required(),
+      otherwise: Joi.when("passType", {
+        is: Joi.exist(),
+        then: Joi.optional(),
+        otherwise: Joi.required(),
+      }),
     }),
     otherwise: Joi.optional(),
   }).messages({
@@ -40,6 +44,7 @@ const initiateBookingSchema = Joi.object({
     selectedDay: Joi.string().required(),
   })).optional(),
   discountCode: Joi.string().allow(null, "").optional(),
+  passType: Joi.string().valid("1_month", "3_month").optional(),
   bookingType: Joi.string().valid("EVENT", "COURSE").optional(),
 }).or("eventId", "courseId");
 

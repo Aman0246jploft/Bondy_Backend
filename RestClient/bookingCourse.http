@@ -31,6 +31,22 @@ Content-Type: application/json
   // ]
 }
 
+### 1a. Calculate Course Booking with 1 Month or 3 Month Pass (Ongoing Course only)
+# passType can be "1_month" or "3_month"
+POST {{baseUrl}}/booking/calculate
+Authorization: Bearer {{customerToken}}
+Content-Type: application/json
+
+{
+  "courseId": "{{courseId}}",
+  "qty": 1,
+  "discountCode": "",
+  "ongoingSlots": [
+    { "batchId": "{{batchId}}", "selectedDay": "Mon" }
+  ],
+  "passType": "1_month"
+}
+
 ### 2. Calculate Course Booking WITH Promo Code
 POST {{baseUrl}}/booking/calculate
 Authorization: Bearer {{customerToken}}
@@ -59,6 +75,22 @@ Content-Type: application/json
   // "ongoingSlots": [
   //   { "batchId": "{{batchId}}", "selectedDay": "Mon" }
   // ]
+}
+
+### 3a. Initiate Course Booking with 1 Month or 3 Month Pass (Ongoing Course only)
+# passType can be "1_month" or "3_month"
+POST {{baseUrl}}/booking/initiate
+Authorization: Bearer {{customerToken}}
+Content-Type: application/json
+
+{
+  "courseId": "{{courseId}}",
+  "qty": 1,
+  "discountCode": "",
+  "ongoingSlots": [
+    { "batchId": "{{batchId}}", "selectedDay": "Mon" }
+  ],
+  "passType": "1_month"
 }
 
 ### 4. Confirm Payment (Mock — transitions PENDING → PAID)

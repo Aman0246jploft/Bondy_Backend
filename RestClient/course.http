@@ -1,7 +1,7 @@
 ### Environment Variables
 @baseUrl = http://localhost:8080/api/v1
 @authToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTFlODA2NjU5NzliZWVlNDFjZjVmNGIiLCJyb2xlSWQiOjIsImlhdCI6MTc4MDQ5NzgwNiwiZXhwIjoyNjQ0NDk3ODA2fQ.XSvrEpbwY_Jt6VjNaYIHmfnsHVQtPTXjSEsVy6H6XzE
-@courseId = 6a217896b21ef78d93079542
+@courseId = 6a27a4e58db41086df1e5bfa
 
 ### 1. Create a Draft Course (Allows missing fields for draft mode)
 POST {{baseUrl}}/course/create
@@ -69,6 +69,10 @@ Content-Type: application/json
     }
   ],
   "price": 299.99,
+  "oneMonthPassPrice": 120.00,
+  "oneMonthPassEnabled": true,
+  "threeMonthPassPrice": 320.00,
+  "threeMonthPassEnabled": true,
   "refundPolicy": "7 Days Before",
   "enrollmentType": "Ongoing",
   "bookingCutOff": "2h"
@@ -86,6 +90,10 @@ Content-Type: application/json
 {
   "courseTitle": "Mastering Advanced Node.js 2026 (Updated)",
   "shortdesc": "Updated summary of backend development master class.",
+  "oneMonthPassPrice": 150.00,
+  "oneMonthPassEnabled": true,
+  "threeMonthPassPrice": 400.00,
+  "threeMonthPassEnabled": true,
   "batches": [
     {
       "_id": "6a216d3aaf039f44dc5d6ef8",
@@ -142,6 +150,10 @@ Content-Type: application/json
     }
   ],
   "price": 499.00,
+  "oneMonthPassPrice": 120.00,
+  "oneMonthPassEnabled": true,
+  "threeMonthPassPrice": 320.00,
+  "threeMonthPassEnabled": true,
   "enrollmentType": "Ongoing"
 }
 

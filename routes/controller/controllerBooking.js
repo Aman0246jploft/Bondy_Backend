@@ -326,7 +326,8 @@ const isBookingCutOffReached = (course, batch, selectedDay) => {
 
   if (course.enrollmentType === "Ongoing" && selectedDay && batch?.startTime) {
     const daysMap = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
-    const targetDay = daysMap[selectedDay];
+    const cleanDay = String(selectedDay).substring(0, 3);
+    const targetDay = daysMap[cleanDay];
     if (targetDay !== undefined) {
       sessionStart = new Date();
       const currentDay = now.getDay();
@@ -364,7 +365,7 @@ const isBookingCutOffReached = (course, batch, selectedDay) => {
 
 const calculateBooking = async (req, res) => {
   try {
-    const { eventId, courseId, batchId, ticketId, qty, tickets, discountCode, ongoingSlots, selectedDay } = req.body;
+    const { eventId, courseId, batchId, ticketId, qty, tickets, discountCode, ongoingSlots, selectedDay, passType } = req.body;
 
     let basePrice = 0;
     let ticketName = null;
@@ -433,27 +434,29 @@ const calculateBooking = async (req, res) => {
           ? ongoingSlots
           : (batchId ? [{ batchId, selectedDay }] : []);
 
-        if (slotsToValidate.length === 0) {
+        if (!passType && slotsToValidate.length === 0) {
           return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "At least one ongoing slot is required");
         }
 
-        for (const slot of slotsToValidate) {
-          const batch = course.batches.id(slot.batchId);
-          if (!batch) return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, `Batch not found: ${slot.batchId}`);
-          if (batch.status === "Cancelled") return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, `Batch inactive: ${batch.batchName || slot.batchId}`);
+        if (slotsToValidate.length > 0) {
+          for (const slot of slotsToValidate) {
+            const batch = course.batches.id(slot.batchId);
+            if (!batch) return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, `Batch not found: ${slot.batchId}`);
+            if (batch.status === "Cancelled") return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, `Batch inactive: ${batch.batchName || slot.batchId}`);
 
-          if (isBookingCutOffReached(course, batch, slot.selectedDay || selectedDay)) {
-            return apiErrorRes(
-              HTTP_STATUS.BAD_REQUEST,
-              res,
-              `Booking is closed for slot: ${batch.batchName || slot.batchId} (cut-off time reached)`
-            );
-          }
+            if (isBookingCutOffReached(course, batch, slot.selectedDay || selectedDay)) {
+              return apiErrorRes(
+                HTTP_STATUS.BAD_REQUEST,
+                res,
+                `Booking is closed for slot: ${batch.batchName || slot.batchId} (cut-off time reached)`
+              );
+            }
 
-          const bookedCount = await getCourseBatchBookedCount(course._id, slot.batchId);
-          const available = batch.seats - (batch.ReservedExternally || 0) - bookedCount;
-          if (available < qty) {
-            return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, `Batch full: ${batch.batchName || slot.batchId}`);
+            const bookedCount = await getCourseBatchBookedCount(course._id, slot.batchId);
+            const available = batch.seats - (batch.ReservedExternally || 0) - bookedCount;
+            if (available < qty) {
+              return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, `Batch full: ${batch.batchName || slot.batchId}`);
+            }
           }
         }
       } else {
@@ -476,7 +479,27 @@ const calculateBooking = async (req, res) => {
         }
       }
 
-      basePrice = roundToTwo(course.price * qty);
+      if (course.enrollmentType === "Ongoing") {
+        if (passType === "1_month") {
+          if (!course.oneMonthPassEnabled) {
+            return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "1 Month Pass is not enabled for this class");
+          }
+          basePrice = roundToTwo(course.oneMonthPassPrice * qty);
+          ticketName = "1 Month Pass";
+        } else if (passType === "3_month") {
+          if (!course.threeMonthPassEnabled) {
+            return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "3 Month Pass is not enabled for this class");
+          }
+          basePrice = roundToTwo(course.threeMonthPassPrice * qty);
+          ticketName = "3 Month Pass";
+        } else {
+          basePrice = roundToTwo(course.price * qty);
+          ticketName = "Single Session";
+        }
+      } else {
+        basePrice = roundToTwo(course.price * qty);
+        ticketName = "Course Enrollment";
+      }
     } else {
       return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.EVENT_OR_COURSE_ID_REQUIRED);
     }
@@ -517,11 +540,12 @@ const calculateBooking = async (req, res) => {
 
 const initiateBooking = async (req, res) => {
   try {
-    const { eventId, courseId, batchId, ticketId, qty, tickets, discountCode, ongoingSlots, selectedDay } = req.body;
+    const { eventId, courseId, batchId, ticketId, qty, tickets, discountCode, ongoingSlots, selectedDay, passType } = req.body;
     const userId = req.user.userId;
 
     let bookingType;
     let totalBasePrice = 0;
+    let ticketName = null;
     const ticketItems = [];
 
     // ── EVENT BOOKING ──
@@ -599,27 +623,29 @@ const initiateBooking = async (req, res) => {
       if (course.status === "Cancelled") return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.COURSE_NOT_ACTIVE);
 
       if (course.enrollmentType === "Ongoing") {
-        if (!ongoingSlots || ongoingSlots.length === 0) {
+        if (!passType && (!ongoingSlots || ongoingSlots.length === 0)) {
           return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "At least one ongoing slot selection is required");
         }
 
-        for (const slot of ongoingSlots) {
-          const batch = course.batches.id(slot.batchId);
-          if (!batch) return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, `Batch not found: ${slot.batchId}`);
-          if (batch.status === "Cancelled") return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, `Batch inactive: ${batch.batchName || slot.batchId}`);
+        if (ongoingSlots && ongoingSlots.length > 0) {
+          for (const slot of ongoingSlots) {
+            const batch = course.batches.id(slot.batchId);
+            if (!batch) return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, `Batch not found: ${slot.batchId}`);
+            if (batch.status === "Cancelled") return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, `Batch inactive: ${batch.batchName || slot.batchId}`);
 
-          if (isBookingCutOffReached(course, batch, slot.selectedDay || selectedDay)) {
-            return apiErrorRes(
-              HTTP_STATUS.BAD_REQUEST,
-              res,
-              `Booking is closed for slot: ${batch.batchName || slot.batchId} (cut-off time reached)`
-            );
-          }
+            if (isBookingCutOffReached(course, batch, slot.selectedDay || selectedDay)) {
+              return apiErrorRes(
+                HTTP_STATUS.BAD_REQUEST,
+                res,
+                `Booking is closed for slot: ${batch.batchName || slot.batchId} (cut-off time reached)`
+              );
+            }
 
-          const bookedCount = await getCourseBatchBookedCount(course._id, slot.batchId);
-          const available = batch.seats - (batch.ReservedExternally || 0) - bookedCount;
-          if (available < qty) {
-            return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, `Batch full: ${batch.batchName || slot.batchId}`);
+            const bookedCount = await getCourseBatchBookedCount(course._id, slot.batchId);
+            const available = batch.seats - (batch.ReservedExternally || 0) - bookedCount;
+            if (available < qty) {
+              return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, `Batch full: ${batch.batchName || slot.batchId}`);
+            }
           }
         }
       } else {
@@ -642,7 +668,27 @@ const initiateBooking = async (req, res) => {
         }
       }
 
-      totalBasePrice = roundToTwo(course.price * qty);
+      if (course.enrollmentType === "Ongoing") {
+        if (passType === "1_month") {
+          if (!course.oneMonthPassEnabled) {
+            return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "1 Month Pass is not enabled for this class");
+          }
+          totalBasePrice = roundToTwo(course.oneMonthPassPrice * qty);
+          ticketName = "1 Month Pass";
+        } else if (passType === "3_month") {
+          if (!course.threeMonthPassEnabled) {
+            return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "3 Month Pass is not enabled for this class");
+          }
+          totalBasePrice = roundToTwo(course.threeMonthPassPrice * qty);
+          ticketName = "3 Month Pass";
+        } else {
+          totalBasePrice = roundToTwo(course.price * qty);
+          ticketName = "Single Session";
+        }
+      } else {
+        totalBasePrice = roundToTwo(course.price * qty);
+        ticketName = "Course Enrollment";
+      }
       bookingType = "COURSE";
     } else {
       return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.EVENT_OR_COURSE_ID_REQUIRED);
@@ -726,6 +772,8 @@ const initiateBooking = async (req, res) => {
         batchId: isOngoing ? ongoingSlots[0].batchId : batchId,
         selectedDay: isOngoing ? ongoingSlots[0].selectedDay : (selectedDay || null),
         ongoingSlots: isOngoing ? ongoingSlots : [],
+        ticketName: ticketName || null,
+        passType: passType || null,
       };
 
       const transaction = new Transaction(transactionData);
@@ -798,22 +846,24 @@ const confirmPayment = async (req, res) => {
       const course = transaction.courseId;
       if (!course) return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.COURSE_NOT_FOUND);
 
-      const slotsToCheck = transaction.ongoingSlots && transaction.ongoingSlots.length > 0
-        ? transaction.ongoingSlots
-        : [{ batchId: transaction.batchId }];
+      if (!transaction.passType) {
+        const slotsToCheck = transaction.ongoingSlots && transaction.ongoingSlots.length > 0
+          ? transaction.ongoingSlots
+          : [{ batchId: transaction.batchId }];
 
-      for (const slot of slotsToCheck) {
-        const batch = course.batches.id(slot.batchId);
-        if (!batch) return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.BATCH_NOT_FOUND);
+        for (const slot of slotsToCheck) {
+          const batch = course.batches.id(slot.batchId);
+          if (!batch) return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.BATCH_NOT_FOUND);
 
-        const bookedCount = await getCourseBatchBookedCount(course._id, slot.batchId);
-        const available = batch.seats - (batch.ReservedExternally || 0) - bookedCount;
-        if (available < transaction.qty) {
-          transaction.status = "REFUND_INITIATED";
-          await transaction.save();
-          return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.REFUND_INITIATED_SEATS, {
-            transaction: transaction.toObject(),
-          });
+          const bookedCount = await getCourseBatchBookedCount(course._id, slot.batchId);
+          const available = batch.seats - (batch.ReservedExternally || 0) - bookedCount;
+          if (available < transaction.qty) {
+            transaction.status = "REFUND_INITIATED";
+            await transaction.save();
+            return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.REFUND_INITIATED_SEATS, {
+              transaction: transaction.toObject(),
+            });
+          }
         }
       }
     }
@@ -827,6 +877,16 @@ const confirmPayment = async (req, res) => {
     transaction.qrCodeData = generateQRData(transaction._id, userId);
     transaction.commissionAmount = commissionAmount;
     transaction.organizerEarning = organizerEarning;
+
+    if (transaction.bookingType === "COURSE" && transaction.passType) {
+      const days = transaction.passType === "1_month" ? 30 : transaction.passType === "3_month" ? 90 : null;
+      if (days) {
+        const expiry = new Date();
+        expiry.setDate(expiry.getDate() + days);
+        transaction.passExpiryDate = expiry;
+      }
+    }
+
     await transaction.save();
 
     // ── Credit Organizer ──
@@ -1232,6 +1292,13 @@ const getTicketList = async (req, res) => {
     const filtered = transactions.filter((t) => {
       const item = t.eventId || t.courseId;
       if (!item) return false;
+
+      if (t.bookingType === "COURSE" && t.passExpiryDate) {
+        const expiry = new Date(t.passExpiryDate);
+        if (type === "upcoming") return expiry >= now;
+        if (type === "past") return expiry < now;
+        return true;
+      }
 
       const endDate = item.endDate;
 

@@ -1060,12 +1060,14 @@ const getCourses = async (req, res) => {
             }
           }
         }
-        for (const day of Object.keys(scheduleByDay)) {
-          scheduleByDay[day].sort((a, b) => (a.startTime || "").localeCompare(b.startTime || ""));
-        }
         weeklySchedule = {};
         for (const day of dayOrder) {
-          if (scheduleByDay[day]) weeklySchedule[day] = scheduleByDay[day];
+          if (scheduleByDay[day]) {
+            scheduleByDay[day].sort((a, b) => (a.startTime || "").localeCompare(b.startTime || ""));
+            const dateStr = getUpcomingDateString(day);
+            const keyWithDate = dateStr ? `${day} (${dateStr})` : day;
+            weeklySchedule[keyWithDate] = scheduleByDay[day];
+          }
         }
       }
 
@@ -1560,6 +1562,31 @@ router.post(
 );
 
 // ---------------------------------------------------------
+// Helper: Get Nearest Upcoming Date for Weekday (e.g. Mon -> Jun 15)
+// ---------------------------------------------------------
+const getUpcomingDateString = (dayName) => {
+  const dayMap = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+  const targetDay = dayMap[dayName];
+  if (targetDay === undefined) return { dateStr: "", fullDate: null };
+
+  const now = new Date();
+  const currentDay = now.getDay();
+  let daysToAdd = targetDay - currentDay;
+  if (daysToAdd < 0) {
+    daysToAdd += 7;
+  }
+
+  const targetDate = new Date(now);
+  targetDate.setDate(now.getDate() + daysToAdd);
+  targetDate.setHours(0, 0, 0, 0);
+
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const m = months[targetDate.getMonth()];
+  const d = targetDate.getDate();
+  return { dateStr: `${m} ${d}`, fullDate: targetDate };
+};
+
+// ---------------------------------------------------------
 // Get Course Details
 // ---------------------------------------------------------
 const getCourseDetails = async (req, res) => {
@@ -1793,15 +1820,23 @@ const getCourseDetails = async (req, res) => {
         }
       }
 
-      // Sort slots within each day by startTime, and order days correctly
-      for (const day of Object.keys(scheduleByDay)) {
-        scheduleByDay[day].sort((a, b) => (a.startTime || "").localeCompare(b.startTime || ""));
-      }
-
       // Build ordered result (only days that have slots)
       weeklySchedule = {};
       for (const day of dayOrder) {
-        if (scheduleByDay[day]) weeklySchedule[day] = scheduleByDay[day];
+        if (scheduleByDay[day]) {
+          scheduleByDay[day].sort((a, b) => (a.startTime || "").localeCompare(b.startTime || ""));
+          const { dateStr, fullDate } = getUpcomingDateString(day);
+          
+          const slotsWithDate = scheduleByDay[day].map(slot => ({
+            date: fullDate ? fullDate.toISOString() : null,
+            ...slot
+          }));
+
+          weeklySchedule[day] = {
+            date: dateStr,
+            slots: slotsWithDate
+          };
+        }
       }
     }
 
@@ -1819,6 +1854,10 @@ const getCourseDetails = async (req, res) => {
       leftSeats: Math.max(0, courseTotalSeats - totalAcquiredSeats - totalReservedExternally),
       isBooked,
       isWishlisted,
+      oneMonthPassEnabled: course.oneMonthPassEnabled || false,
+      oneMonthPassPrice: course.oneMonthPassPrice || 0,
+      threeMonthPassEnabled: course.threeMonthPassEnabled || false,
+      threeMonthPassPrice: course.threeMonthPassPrice || 0,
     };
 
     return apiSuccessRes(

@@ -122,6 +122,24 @@ const courseSchema = new mongoose.Schema(
       type: String,
       enum: Object.values(refundPolicy),
     },
+    oneMonthPassPrice: {
+      type: Number,
+      min: 0,
+      default: 0,
+    },
+    oneMonthPassEnabled: {
+      type: Boolean,
+      default: false,
+    },
+    threeMonthPassPrice: {
+      type: Number,
+      min: 0,
+      default: 0,
+    },
+    threeMonthPassEnabled: {
+      type: Boolean,
+      default: false,
+    },
     enrollmentType: {
       type: String,
       enum: ["Ongoing", "fixedStart"],
