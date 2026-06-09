@@ -104,6 +104,19 @@ Content-Type: application/json
   "reason": "Not enough enrollment for this batch"
 }
 
+### 7b. Cancel a Specific Slot/Date of a Batch
+# Organizer cancels only a specific date for an ongoing batch
+POST {{baseUrl}}/booking/cancel-course
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "courseId": "{{courseId}}",
+  "batchId": "{{batchId}}",
+  "date": "2026-06-15",
+  "reason": "Instructor unavailable for this day."
+}
+
 #==========================================================
 # EDGE CASES & ERROR SCENARIOS
 #==========================================================

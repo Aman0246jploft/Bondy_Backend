@@ -1126,7 +1126,7 @@ const cancelEvent = async (req, res) => {
 
 const cancelCourse = async (req, res) => {
   try {
-    const { courseId, batchId, reason } = req.body;
+    const { courseId, batchId, date, reason } = req.body;
     const userId = req.user.userId;
 
     const course = await Course.findById(courseId);
@@ -1144,45 +1144,85 @@ const cancelCourse = async (req, res) => {
     let cancelMessage;
 
     if (batchId) {
-      // Cancel specific batch
+      // Cancel specific batch or a specific date of the batch
       const batch = course.batches.id(batchId);
       if (!batch) return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.BATCH_NOT_FOUND);
 
-      batch.status = "Cancelled";
-      await course.save();
+      if (date) {
+        // Cancel a specific date only
+        if (!batch.cancelledDates) batch.cancelledDates = [];
+        const alreadyCancelled = batch.cancelledDates.some((cd) => cd.date === date);
+        if (alreadyCancelled) {
+          return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "This specific date is already cancelled for this batch");
+        }
+        batch.cancelledDates.push({ date, reason: reason || "Slot cancelled by organizer" });
+        await course.save();
 
-      // Cancel PENDING transactions for this batch
-      await Transaction.updateMany(
-        {
-          courseId: course._id,
-          status: "PENDING",
-          bookingType: "COURSE",
+        // Cancel PENDING transactions for this specific date
+        await Transaction.updateMany(
+          {
+            courseId: course._id,
+            status: "PENDING",
+            bookingType: "COURSE",
+
+            "ongoingSlots": { $elemMatch: { batchId: String(batchId), selectedDay: date } }
+          },
+          {
+            $set: {
+              status: "CANCELLED",
+              cancelledAt: new Date(),
+              cancelledBy: userId,
+              refundReason: reason || `Slot on ${date} cancelled by organizer`
+            }
+          }
+        );
+
+        // Delete attendee records for this specific date (if any)
+        await Attendee.deleteMany({ courseId: course._id, batchId: String(batchId), selectedDay: date });
+
+        filter = {
+          ...filter,
+          "ongoingSlots": { $elemMatch: { batchId: String(batchId), selectedDay: date } }
+        };
+        cancelMessage = `Batch slot on ${date} cancelled successfully`;
+      } else {
+        // Cancel entire batch
+        batch.status = "Cancelled";
+        await course.save();
+
+        // Cancel PENDING transactions for this batch
+        await Transaction.updateMany(
+          {
+            courseId: course._id,
+            status: "PENDING",
+            bookingType: "COURSE",
+            $or: [
+              { batchId: String(batchId) },
+              { "ongoingSlots.batchId": String(batchId) }
+            ]
+          },
+          {
+            $set: {
+              status: "CANCELLED",
+              cancelledAt: new Date(),
+              cancelledBy: userId,
+              refundReason: reason || "Batch cancelled by organizer"
+            }
+          }
+        );
+
+        // Delete attendee records for this batch
+        await Attendee.deleteMany({ courseId: course._id, batchId: String(batchId) });
+
+        filter = {
+          ...filter,
           $or: [
             { batchId: String(batchId) },
             { "ongoingSlots.batchId": String(batchId) }
           ]
-        },
-        {
-          $set: {
-            status: "CANCELLED",
-            cancelledAt: new Date(),
-            cancelledBy: userId,
-            refundReason: reason || "Batch cancelled by organizer"
-          }
-        }
-      );
-
-      // Delete attendee records for this batch
-      await Attendee.deleteMany({ courseId: course._id, batchId: String(batchId) });
-
-      filter = {
-        ...filter,
-        $or: [
-          { batchId: String(batchId) },
-          { "ongoingSlots.batchId": String(batchId) }
-        ]
-      };
-      cancelMessage = constantsMessage.BATCH_CANCELLED;
+        };
+        cancelMessage = constantsMessage.BATCH_CANCELLED;
+      }
     } else {
       // Cancel entire course
       course.status = "Cancelled";
@@ -1226,7 +1266,7 @@ const cancelCourse = async (req, res) => {
 
       txn.status = "REFUNDED";
       txn.refundAmount = refundAmount;
-      txn.refundReason = reason || (batchId ? "Batch cancelled by organizer" : "Course cancelled by organizer");
+      txn.refundReason = reason || (date ? `Slot on ${date} cancelled` : batchId ? "Batch cancelled by organizer" : "Course cancelled by organizer");
       txn.cancelledAt = new Date();
       txn.cancelledBy = userId;
       txn.refundedAt = new Date();
@@ -1237,7 +1277,7 @@ const cancelCourse = async (req, res) => {
           organizerId,
           txn.organizerEarning,
           txn,
-          `${batchId ? "Batch" : "Course"} cancelled: ${course.courseTitle}`,
+          `${date ? "Slot" : batchId ? "Batch" : "Course"} cancelled: ${course.courseTitle}`,
         );
       }
 
@@ -1535,6 +1575,7 @@ const getEventAttendeesList = async (req, res) => {
       return {
         transactionId: transaction._id,
         bookingId: transaction.bookingId,
+        totalAmount: transaction.totalAmount || 0,
         ticketName: transaction.ticketName,
         user: {
           _id: user?._id,
@@ -1675,6 +1716,119 @@ const getCourseAttendeesList = async (req, res) => {
     const limitNum = parseInt(limit, 10) || 10;
     const skip = (pageNum - 1) * limitNum;
 
+    // ── When NO batchId filter: deduplicate by userId (one entry per unique student) ──
+    if (!batchId) {
+      // Get distinct userIds that match the filter
+      const allMatchingTxns = await Transaction.find(filter)
+        .populate("userId", "firstName lastName email profileImage contactNumber countryCode roleId")
+        .sort({ createdAt: -1 });
+
+      // Group transactions by userId
+      const userMap = new Map();
+      for (const txn of allMatchingTxns) {
+        const uid = txn.userId?._id?.toString();
+        if (!uid) continue;
+
+        if (!userMap.has(uid)) {
+          userMap.set(uid, { txn, allTxns: [txn] });
+        } else {
+          userMap.get(uid).allTxns.push(txn);
+        }
+      }
+
+      const uniqueUsers = Array.from(userMap.values());
+      const totalUnique = uniqueUsers.length;
+      const paginated = uniqueUsers.slice(skip, skip + limitNum);
+
+      const attendees = paginated.map(({ txn, allTxns }) => {
+        const user = txn.userId;
+
+        // Collect all batches this user is enrolled in across all their transactions
+        const enrolledBatches = [];
+        let totalCheckedIn = 0;
+        let totalQty = 0;
+
+        for (const t of allTxns) {
+          totalQty += t.qty || 0;
+          totalCheckedIn += t.checkedInQty || 0;
+
+          if (t.batchId && course.batches && Array.isArray(course.batches)) {
+            const found = course.batches.find((b) => b._id.toString() === t.batchId.toString());
+            if (found) {
+              enrolledBatches.push({
+                batchId: found._id,
+                batchName: found.batchName,
+                startTime: found.startTime,
+                endTime: found.endTime,
+                days: found.days,
+                bookingId: t.bookingId,
+              });
+            }
+          }
+
+          if (t.ongoingSlots && Array.isArray(t.ongoingSlots) && course.batches && Array.isArray(course.batches)) {
+            for (const slot of t.ongoingSlots) {
+              const found = course.batches.find((b) => b._id.toString() === slot.batchId.toString());
+              if (found && !enrolledBatches.find((eb) => eb.batchId.toString() === found._id.toString())) {
+                enrolledBatches.push({
+                  batchId: found._id,
+                  batchName: found.batchName,
+                  startTime: found.startTime,
+                  endTime: found.endTime,
+                  days: found.days,
+                  bookingId: t.bookingId,
+                });
+              }
+            }
+          }
+        }
+
+        return {
+          transactionId: txn._id,
+          bookingId: txn.bookingId,
+          totalAmount: txn.totalAmount || 0,
+          enrolledBatches,
+          user: {
+            _id: user?._id,
+            firstName: user?.firstName,
+            lastName: user?.lastName,
+            email: user?.email,
+            profileImage: user?.profileImage ? formatResponseUrl(user.profileImage) : null,
+            contactNumber: user?.contactNumber,
+            countryCode: user?.countryCode,
+            userRole: user?.roleId ? userRole[user.roleId] : null,
+          },
+          qty: totalQty,
+          checkedInQty: totalCheckedIn,
+          remainingQty: totalQty - totalCheckedIn,
+          isFullyCheckedIn: totalCheckedIn >= totalQty,
+          bookingDate: txn.createdAt,
+        };
+      });
+
+      return apiSuccessRes(
+        HTTP_STATUS.OK,
+        res,
+        constantsMessage.ATTENDEE_LIST_FETCHED || "Attendees list fetched successfully",
+        {
+          course: {
+            _id: course._id,
+            courseTitle: course.courseTitle,
+            startDate: course.startDate,
+            endDate: course.endDate,
+            posterImage: Array.isArray(course.posterImage) ? course.posterImage.map(formatResponseUrl) : [],
+          },
+          totalAttendees: totalUnique,
+          totalCheckedInTickets: attendees.reduce((sum, a) => sum + a.checkedInQty, 0),
+          totalPages: Math.ceil(totalUnique / limitNum),
+          currentPage: pageNum,
+          limit: limitNum,
+          attendees,
+        },
+      );
+    }
+
+    // ── When batchId IS passed: keep original per-transaction behavior ──
     const totalCount = await Transaction.countDocuments(filter);
 
     const transactions = await Transaction.find(filter)
@@ -1718,6 +1872,7 @@ const getCourseAttendeesList = async (req, res) => {
       return {
         transactionId: transaction._id,
         bookingId: transaction.bookingId,
+        totalAmount: transaction.totalAmount || 0,
         batchDetails,
         ongoingSlots: slotsWithDetails,
         selectedDay: transaction.selectedDay,
@@ -1760,6 +1915,7 @@ const getCourseAttendeesList = async (req, res) => {
           courseTitle: course.courseTitle,
           startDate: course.startDate,
           endDate: course.endDate,
+          posterImage: Array.isArray(course.posterImage) ? course.posterImage.map(formatResponseUrl) : [],
         },
         totalAttendees: totalCount,
         totalCheckedInTickets: attendees.reduce((sum, a) => sum + a.checkedInQty, 0),
@@ -1774,6 +1930,7 @@ const getCourseAttendeesList = async (req, res) => {
     return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
   }
 };
+
 
 
 

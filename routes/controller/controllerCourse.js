@@ -1056,6 +1056,7 @@ const getCourses = async (req, res) => {
                 availableSeats: batch.availableSeats,
                 isFull: batch.isFull,
                 isBooked: batch.isBooked,
+                cancelledDates: batch.cancelledDates || [],
               });
             }
           }
@@ -1064,9 +1065,22 @@ const getCourses = async (req, res) => {
         for (const day of dayOrder) {
           if (scheduleByDay[day]) {
             scheduleByDay[day].sort((a, b) => (a.startTime || "").localeCompare(b.startTime || ""));
-            const dateStr = getUpcomingDateString(day);
+            const { dateStr, fullDate } = getUpcomingDateString(day);
             const keyWithDate = dateStr ? `${day} (${dateStr})` : day;
-            weeklySchedule[keyWithDate] = scheduleByDay[day];
+
+            const slotsWithCancelStatus = scheduleByDay[day].map(slot => {
+              const ymd = fullDate ? `${fullDate.getFullYear()}-${String(fullDate.getMonth() + 1).padStart(2, '0')}-${String(fullDate.getDate()).padStart(2, '0')}` : null;
+              const cancelRecord = ymd && slot.cancelledDates ? slot.cancelledDates.find(cd => cd.date === ymd) : null;
+              return {
+                date: ymd,
+                ...slot,
+                isCancelled: !!cancelRecord,
+                cancelReason: cancelRecord ? cancelRecord.reason : null,
+                cancelledDates: undefined // hide from output
+              };
+            });
+
+            weeklySchedule[keyWithDate] = slotsWithCancelStatus;
           }
         }
       }
@@ -1815,6 +1829,7 @@ const getCourseDetails = async (req, res) => {
               availableSeats: batch.availableSeats,
               isFull: batch.isFull,
               isBooked: batch.isBooked,
+              cancelledDates: batch.cancelledDates || [],
             });
           }
         }
@@ -1826,11 +1841,18 @@ const getCourseDetails = async (req, res) => {
         if (scheduleByDay[day]) {
           scheduleByDay[day].sort((a, b) => (a.startTime || "").localeCompare(b.startTime || ""));
           const { dateStr, fullDate } = getUpcomingDateString(day);
-          
-          const slotsWithDate = scheduleByDay[day].map(slot => ({
-            date: fullDate ? fullDate.toISOString() : null,
-            ...slot
-          }));
+
+          const slotsWithDate = scheduleByDay[day].map(slot => {
+            const ymd = fullDate ? `${fullDate.getFullYear()}-${String(fullDate.getMonth() + 1).padStart(2, '0')}-${String(fullDate.getDate()).padStart(2, '0')}` : null;
+            const cancelRecord = ymd && slot.cancelledDates ? slot.cancelledDates.find(cd => cd.date === ymd) : null;
+            return {
+              date: ymd,
+              ...slot,
+              isCancelled: !!cancelRecord,
+              cancelReason: cancelRecord ? cancelRecord.reason : null,
+              cancelledDates: undefined // hide from output
+            };
+          });
 
           weeklySchedule[day] = {
             date: dateStr,

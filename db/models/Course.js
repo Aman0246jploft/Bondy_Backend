@@ -56,6 +56,13 @@ const batchSchema = new mongoose.Schema(
       enum: ["Active", "Cancelled"],
       default: "Active",
     },
+    cancelledDates: [
+      {
+        date: { type: String, required: true }, // Format: YYYY-MM-DD
+        reason: { type: String, default: "" },
+        cancelledAt: { type: Date, default: Date.now },
+      }
+    ],
   }
 );
 

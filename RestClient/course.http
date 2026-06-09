@@ -298,6 +298,19 @@ Content-Type: application/json
   "reason": "Cancelled this specific batch due to low enrollment."
 }
 
+### 21c. Cancel a Specific Slot/Date of a Batch
+# Organizer cancels only a specific date for an ongoing batch
+POST {{baseUrl}}/booking/cancel-course
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "courseId": "{{courseId}}",
+  "batchId": "6a27a6008db41086df1e5e06",
+  "date": "2026-06-15",
+  "reason": "Instructor unavailable for this day."
+}
+
 
 
 #=====================================COURSE DETAILS===================================================

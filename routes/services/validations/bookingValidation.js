@@ -77,6 +77,7 @@ const cancelCourseSchema = Joi.object({
     "any.required": "Course ID is required",
   }),
   batchId: Joi.string().allow(null, "").optional(),
+  date: Joi.string().allow(null, "").optional(),
   reason: Joi.string().allow(null, "").optional(),
 });
 
