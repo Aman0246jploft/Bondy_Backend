@@ -1398,7 +1398,7 @@ const getEventDetails = async (req, res) => {
     event.durationTranslation = durationTranslation;
 
     // 3. Parallel Fetch for Related Data
-    const [reviews, comments, totalAttendeesAgg, recentTransactions, ticketSalesAgg] =
+    const [reviews, comments, totalAttendeesAgg, recentTransactions, ticketSalesAgg, rawSimilarEvents] =
       await Promise.all([
         // Top 5 Reviews
         Review.find({ entityId: eventId, entityModel: "Event" })
@@ -1464,7 +1464,20 @@ const getEventDetails = async (req, res) => {
               }
             }
           }
-        ])
+        ]),
+
+        // 4 Similar Events in the same category
+        event.eventCategory
+          ? Event.find({
+              eventCategory: event.eventCategory._id || event.eventCategory,
+              _id: { $ne: eventId },
+              isDraft: false,
+            })
+              .populate("eventCategory")
+              .populate("createdBy", "firstName lastName profileImage isVerified")
+              .limit(4)
+              .lean()
+          : Promise.resolve([])
       ]);
 
     const totalAttendees =
@@ -1583,6 +1596,8 @@ const getEventDetails = async (req, res) => {
         : null,
     }));
 
+    const similarEvents = (rawSimilarEvents || []).map(e => formatEvent(e));
+
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
@@ -1596,6 +1611,7 @@ const getEventDetails = async (req, res) => {
           total: totalAttendees,
           recent: uniqueUsers,
         },
+        similarEvents,
       },
     );
   } catch (error) {

@@ -71,7 +71,7 @@ Content-Type: application/json
 
 
 ### 3. Update an Event (Draft or Published)
-@eventId = 6a26645c39fedefe738551a3
+@eventId = 6a2904739f3feca6e22f4f62
 POST {{baseUrl}}/event/edit/{{eventId}}
 Authorization: Bearer {{authToken}}
 Content-Type: application/json
