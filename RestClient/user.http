@@ -95,7 +95,7 @@ POST {{baseUrl}}/user/login/init
 Content-Type: application/json
 
 {
-  "email": "joy@gmail.com",
+  "email": "mohit@example.com",
   "password": "Test@123",
   "type": "ORGANIZER"
 }
@@ -107,7 +107,7 @@ POST {{baseUrl}}/user/verify-otp
 Content-Type: application/json
 
 {
-  "email": "joy@gmail.com",
+  "email": "mohit@example.com",
   "otp": "12345",
   "type": "LOGIN"
 }

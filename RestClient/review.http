@@ -1,0 +1,51 @@
+### Environment Variables
+@baseUrl = http://localhost:8080/api/v1
+@authToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTFkMWIxYmQ3ZTI2ODRjOTNjYmFkNmIiLCJyb2xlSWQiOjIsImlhdCI6MTc4MDI5MjU3MCwiZXhwIjoyNjQ0MjkyNTcwfQ.jj_rppLYsCL8Wg51zbVo6c-OiszjSpntFmui5jkVjgI
+@customerToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTFkMWIxYmQ3ZTI2ODRjOTNjYmFkNmIiLCJyb2xlSWQiOjMsImlhdCI6MTc4MDI5MjU3MCwiZXhwIjoyNjQ0MjkyNTcwfQ.REPLACE_WITH_CUSTOMER_TOKEN
+
+### ─── Replace these with actual IDs ───
+@entityId = REPLACE_WITH_EVENT_OR_COURSE_ID
+@organizerId = REPLACE_WITH_ORGANIZER_ID
+@reviewId = REPLACE_WITH_REVIEW_ID
+
+#==========================================================
+# RATING & REVIEWS APIS
+#==========================================================
+
+### 1. Add a Review / Rating (Customer)
+POST {{baseUrl}}/review/add
+Authorization: Bearer {{customerToken}}
+Content-Type: application/json
+
+{
+  "entityId": "{{entityId}}",
+  "entityModel": "Event",
+  "rating": 5,
+  "review": "Truly a spectacular event! High-quality organization and great atmosphere."
+}
+
+### 2. Get Reviews list for an Event / Course
+GET {{baseUrl}}/review/list?entityId={{entityId}}&entityModel=Event&page=1&limit=10
+Authorization: Bearer {{customerToken}}
+
+### 3. Update an existing Review (Customer)
+POST {{baseUrl}}/review/update/{{reviewId}}
+Authorization: Bearer {{customerToken}}
+Content-Type: application/json
+
+{
+  "rating": 4,
+  "review": "It was great, but updating rating slightly to 4 stars."
+}
+
+### 4. Get Organizer's reviews list
+GET {{baseUrl}}/review/organizer-list?organizerId={{organizerId}}&page=1&limit=10
+Authorization: Bearer {{customerToken}}
+
+### 5. Get My Submitted Reviews list (Customer)
+GET {{baseUrl}}/review/user-list?page=1&limit=10
+Authorization: Bearer {{customerToken}}
+
+### 6. Delete a Review (Customer/Admin)
+POST {{baseUrl}}/review/delete/{{reviewId}}
+Authorization: Bearer {{customerToken}}

@@ -905,7 +905,7 @@ const getEvents = async (req, res) => {
         },
         {
           $lookup: {
-            from: "users",
+            from: "User",
             localField: "createdBy",
             foreignField: "_id",
             pipeline: [
@@ -1009,7 +1009,7 @@ const getEvents = async (req, res) => {
           },
           {
             $lookup: {
-              from: "users",
+              from: "User",
               localField: "createdBy",
               foreignField: "_id",
               pipeline: [
@@ -1108,7 +1108,7 @@ const getEvents = async (req, res) => {
           },
           {
             $lookup: {
-              from: "users",
+              from: "User",
               localField: "createdBy",
               foreignField: "_id",
               pipeline: [
@@ -1999,7 +1999,7 @@ const getAllEventAttendees = async (req, res) => {
       },
       {
         $lookup: {
-          from: "users",
+          from: "User",
           localField: "userId",
           foreignField: "_id",
           as: "user",

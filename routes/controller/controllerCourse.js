@@ -650,7 +650,7 @@ const getCourses = async (req, res) => {
         },
         {
           $lookup: {
-            from: "users",
+            from: "User",
             localField: "createdBy",
             foreignField: "_id",
             pipeline: [
@@ -753,7 +753,7 @@ const getCourses = async (req, res) => {
           },
           {
             $lookup: {
-              from: "users",
+              from: "User",
               localField: "createdBy",
               foreignField: "_id",
               pipeline: [
@@ -851,7 +851,7 @@ const getCourses = async (req, res) => {
           },
           {
             $lookup: {
-              from: "users",
+              from: "User",
               localField: "createdBy",
               foreignField: "_id",
               pipeline: [
