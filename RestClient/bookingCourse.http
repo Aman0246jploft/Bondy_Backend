@@ -103,16 +103,16 @@ Content-Type: application/json
   "transactionId": "{{transactionId}}"
 }
 
-### 5. Get My Course Tickets (Upcoming)
-GET {{baseUrl}}/booking/list?bookingType=COURSE&type=upcoming
+### 5. Get My Course Tickets (Upcoming) — Paginated
+GET {{baseUrl}}/booking/list?bookingType=COURSE&type=upcoming&page=1&limit=5
 Authorization: Bearer {{customerToken}}
 
-### 6. Get My Course Tickets (Past)
-GET {{baseUrl}}/booking/list?bookingType=COURSE&type=past
+### 6. Get My Course Tickets (Past) — Paginated
+GET {{baseUrl}}/booking/list?bookingType=COURSE&type=past&page=1&limit=5
 Authorization: Bearer {{customerToken}}
 
-### 7. Get All My Course Tickets
-GET {{baseUrl}}/booking/list?bookingType=COURSE
+### 7. Get All My Course Tickets — Paginated
+GET {{baseUrl}}/booking/list?bookingType=COURSE&page=1&limit=5
 Authorization: Bearer {{customerToken}}
 
 ### 8. Get Ticket Detail

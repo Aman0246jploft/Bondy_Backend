@@ -1306,7 +1306,7 @@ const cancelCourse = async (req, res) => {
 const getTicketList = async (req, res) => {
   try {
     const userId = req.user.userId;
-    const { type, bookingType } = req.query;
+    const { type, bookingType, page = 1, limit = 10 } = req.query;
 
     const filter = { userId, status: { $in: ["PAID", "CANCELLED", "REFUNDED"] } };
     if (bookingType) filter.bookingType = bookingType;
@@ -1358,7 +1358,21 @@ const getTicketList = async (req, res) => {
       return tObj;
     });
 
-    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.TICKET_LIST_FETCHED, { tickets });
+    const pageNum = parseInt(page, 10) || 1;
+    const limitNum = parseInt(limit, 10) || 10;
+    const startIndex = (pageNum - 1) * limitNum;
+    const endIndex = pageNum * limitNum;
+    const paginatedTickets = tickets.slice(startIndex, endIndex);
+
+    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.TICKET_LIST_FETCHED, {
+      tickets: paginatedTickets,
+      pagination: {
+        total: tickets.length,
+        page: pageNum,
+        limit: limitNum,
+        totalPages: Math.ceil(tickets.length / limitNum),
+      },
+    });
   } catch (error) {
     console.error("Error in getTicketList:", error);
     return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);

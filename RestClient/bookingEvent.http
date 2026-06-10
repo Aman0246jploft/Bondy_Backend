@@ -23,14 +23,13 @@ Authorization: Bearer {{customerToken}}
 Content-Type: application/json
 
 {
+  "bookingType":"EVENT",
   "eventId": "{{eventId}}",
-  "ticketId": "{{ticketId}}",
   "qty": 2,
-  "discountCode": ""
-  // Or for Multi-Ticket selections:
-  // "tickets": [
-  //   { "ticketId": "{{ticketId}}", "qty": 2 }
-  // ]
+  "discountCode": "",
+"tickets": [
+  { "ticketId": "{{ticketId}}", "qty": 2 }
+]
 }
 
 ### 2. Calculate Event Booking WITH Promo Code
@@ -54,13 +53,10 @@ Content-Type: application/json
 
 {
   "eventId": "{{eventId}}",
-  "ticketId": "{{ticketId}}",
-  "qty": 2,
-  "discountCode": ""
-  // Or for Multi-Ticket selections:
-  // "tickets": [
-  //   { "ticketId": "{{ticketId}}", "qty": 2 }
-  // ]
+  "discountCode": "",
+ "tickets": [
+   { "ticketId": "{{ticketId}}", "qty": 2 }
+  ]
 }
 
 ### 4. Confirm Payment (Mock — transitions PENDING → PAID)
@@ -73,16 +69,16 @@ Content-Type: application/json
   "transactionId": "{{transactionId}}"
 }
 
-### 5. Get My Event Tickets (Upcoming)
-GET {{baseUrl}}/booking/list?bookingType=EVENT&type=upcoming
+### 5. Get My Event Tickets (Upcoming) — Paginated
+GET {{baseUrl}}/booking/list?bookingType=EVENT&type=upcoming&page=1&limit=5
 Authorization: Bearer {{customerToken}}
 
-### 6. Get My Event Tickets (Past)
-GET {{baseUrl}}/booking/list?bookingType=EVENT&type=past
+### 6. Get My Event Tickets (Past) — Paginated
+GET {{baseUrl}}/booking/list?bookingType=EVENT&type=past&page=1&limit=5
 Authorization: Bearer {{customerToken}}
 
-### 7. Get All My Event Tickets
-GET {{baseUrl}}/booking/list?bookingType=EVENT
+### 7. Get All My Event Tickets — Paginated
+GET {{baseUrl}}/booking/list?bookingType=EVENT&page=1&limit=5
 Authorization: Bearer {{customerToken}}
 
 ### 8. Get Ticket Detail
