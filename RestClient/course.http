@@ -178,7 +178,7 @@ Content-Type: application/json
 }
 
 
-#=========================================================FILTER==========================================================================
+#==================================== FILTER ====================================
 
 ### 7. List Courses - Standard Retrieve (Active/Upcoming Courses)
 GET {{baseUrl}}/course/list
@@ -259,7 +259,7 @@ Authorization: Bearer {{authToken}}
 GET {{baseUrl}}/course/booking-cutoffs
 
 
-#===========================ANALYTICS========================================================================
+#===========================ANALYTICS==============================================================
 
 ### 19. Organizer Courses Analytics Summary
 # Retrieves analytics summary for all courses created by the organizer.
@@ -273,7 +273,7 @@ GET {{baseUrl}}/course/analytics/{{courseId}}?filter=30d
 Authorization: Bearer {{authToken}}
 
 
-#=========================================================CANCELLATION=====================================================================
+#=================================== CANCELLATION ===================================================
 
 ### 21. Cancel a Course
 # Organizer or Admin cancels an entire course (with optional batchId and reason).
@@ -321,7 +321,7 @@ GET {{baseUrl}}/course/details/{{courseId}}
 Authorization: Bearer {{authToken}}
 
 
-#=========================================================ENROLLED USERS===================================================================
+#==================================== ENROLLED USERS ==============================
 
 ### 23. Get Course Enrolled Users List (Attendees)
 # Retrieves the list of users who enroller this course.
