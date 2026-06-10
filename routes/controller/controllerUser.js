@@ -537,25 +537,7 @@ const loginInit = async (req, res) => {
       );
     }
 
-    // Check Organizer Status
-    if (
-      user.roleId === roleId.ORGANIZER &&
-      user.organizerVerificationStatus !== "approved" &&
-      !user.hasBeenApproved
-    ) {
-      return apiErrorRes(
-        HTTP_STATUS.FORBIDDEN,
-        res,
-        `${constantsMessage.ACCOUNT_STATUS_PREFIX}${user.organizerVerificationStatus}${constantsMessage.WAIT_FOR_ADMIN_APPROVAL}`,
-        {
-          organizerVerificationStatus: user.organizerVerificationStatus,
-          businessName: user.businessName || null,
-          businessCategory: user.businessCategory || null,
-          shortDesc: user.shortDesc || null,
-          socialMediaLink: user.socialMediaLink || null,
-        },
-      );
-    }
+    // Check Organizer Status (Bypassed to allow onboarding verification screen redirect)
 
     // Generate OTP
     const otp =
@@ -727,25 +709,7 @@ const resendLoginOtp = async (req, res) => {
       );
     }
 
-    // Check Organizer Status
-    if (
-      user.roleId === roleId.ORGANIZER &&
-      user.organizerVerificationStatus !== "approved" &&
-      !user.hasBeenApproved
-    ) {
-      return apiErrorRes(
-        HTTP_STATUS.FORBIDDEN,
-        res,
-        `${constantsMessage.ACCOUNT_STATUS_PREFIX}${user.organizerVerificationStatus}${constantsMessage.WAIT_FOR_ADMIN_APPROVAL}`,
-        {
-          organizerVerificationStatus: user.organizerVerificationStatus,
-          businessName: user.businessName || null,
-          businessCategory: user.businessCategory || null,
-          shortDesc: user.shortDesc || null,
-          socialMediaLink: user.socialMediaLink || null,
-        },
-      );
-    }
+    // Check Organizer Status (Bypassed)
 
     // Generate OTP
     const otp =

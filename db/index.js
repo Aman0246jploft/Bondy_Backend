@@ -96,6 +96,23 @@ mongoose
         );
       }
       console.log("✅ Mongolian banks seeded successfully");
+
+      // Seed default cancellation reasons
+      const CancellationReasonModel = require("./models/CancellationReason");
+      const defaultReasons = [
+        "Cannot attend due to personal reasons",
+        "Schedule conflict",
+        "Health issues",
+        "Travel restrictions"
+      ];
+      for (const reason of defaultReasons) {
+        await CancellationReasonModel.findOneAndUpdate(
+          { reason },
+          { $setOnInsert: { reason, isActive: true } },
+          { upsert: true, new: true }
+        );
+      }
+      console.log("✅ Default cancellation reasons seeded");
     } catch (seedErr) {
       console.error("Seed error:", seedErr.message);
     }
@@ -135,4 +152,5 @@ module.exports = {
   StayUpdated: require("./models/StayUpdated"),
   EventView: require("./models/EventView"),
   CourseView: require("./models/CourseView"),
+  CancellationReason: require("./models/CancellationReason"),
 };

@@ -126,6 +126,10 @@ Authorization: Bearer {{customerToken}}
 ### 10. Get Public Ticket Detail (No auth required)
 GET {{baseUrl}}/booking/public/detail/{{transactionId}}
 
+### 10b. Refund Preview (Check policy & refund amount before cancelling)
+GET {{baseUrl}}/booking/refund-preview/{{transactionId}}
+Authorization: Bearer {{customerToken}}
+
 ### 11. Cancel My Course Booking (User cancellation)
 POST {{baseUrl}}/booking/cancel
 Authorization: Bearer {{customerToken}}

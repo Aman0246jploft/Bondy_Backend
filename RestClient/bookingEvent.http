@@ -131,6 +131,10 @@ Content-Type: application/json
   "qrCodeData": "TICKET-REPLACE_TXN_ID-REPLACE_USER_ID-1234567890"
 }
 
+### 15b. Refund Preview (Check policy & refund amount before cancelling)
+GET {{baseUrl}}/booking/refund-preview/{{transactionId}}
+Authorization: Bearer {{customerToken}}
+
 ### 16. Cancel My Event Booking (User cancellation)
 POST {{baseUrl}}/booking/cancel
 Authorization: Bearer {{customerToken}}

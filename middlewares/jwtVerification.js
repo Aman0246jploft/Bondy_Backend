@@ -22,10 +22,12 @@ const publicRoutes = [
   "/api/v1/course/list",
   "/api/v1/course/booking-cutoffs",
 
+
+
   "/api/v1/faq/list",
   "/api/v1/globalsetting/all",
   "/api/v1/globalsetting/",
-
+  "/api/v1/booking/cancellation-reasons",
   "/api/v1/user/social-login",
 
   "/api/v1/user/guest-login",
@@ -34,8 +36,8 @@ const publicRoutes = [
   "/api/v1/category/list",
   "/api/v1/event/details/",
   "/api/v1/course/details/",
-    "/api/v1/category/stats",
-  
+  "/api/v1/category/stats",
+
 
   "/api/v1/user/verify-otp",
   "/api/v1/user/resendOtp",

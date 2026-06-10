@@ -12,6 +12,7 @@ const {
   Attendee,
   WalletHistory,
   Wishlist,
+  CancellationReason,
 } = require("../../db");
 const HTTP_STATUS = require("../../utils/statusCode");
 const {
@@ -934,13 +935,88 @@ const confirmPayment = async (req, res) => {
 
 
 // ════════════════════════════════════════════════════════════════════════════
-// 4. CANCEL BOOKING (User cancels their own booking)
+// 4. REFUND PREVIEW (Preview refund policy and amount before cancellation)
+// ════════════════════════════════════════════════════════════════════════════
+
+const previewRefund = async (req, res) => {
+  try {
+    const { transactionId } = req.params;
+    const userId = req.user.userId;
+
+    const transaction = await Transaction.findOne({ _id: transactionId, userId })
+      .populate("eventId")
+      .populate("courseId");
+
+    if (!transaction) {
+      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.TRANSACTION_NOT_FOUND);
+    }
+    if (["CANCELLED", "REFUND_INITIATED", "REFUNDED"].includes(transaction.status)) {
+      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.ALREADY_CANCELLED);
+    }
+    if (transaction.status !== "PAID") {
+      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.INVALID_TRANSACTION_STATE);
+    }
+    if (transaction.isCheckedIn || transaction.checkedInQty > 0) {
+      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.CANNOT_CANCEL_CHECKED_IN);
+    }
+
+    const { item, organizerId, itemTitle } = resolveBookingItem(transaction);
+    if (!item) {
+      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.EVENT_NOT_FOUND);
+    }
+
+    const now = new Date();
+    let startDate, endDate;
+    if (transaction.bookingType === "EVENT") {
+      startDate = item.startDate;
+      endDate = item.endDate;
+    } else {
+      startDate = item.startDate;
+      endDate = item.endDate;
+    }
+
+    if (endDate && new Date(endDate) < now) {
+      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.CANNOT_CANCEL_PAST);
+    }
+
+    const policyValue = item.refundPolicy || refundPolicyEnum.NO_REFUND;
+    const { eligible, refundPercentage } = checkRefundEligibility(policyValue, startDate);
+
+    const refundAmount = eligible
+      ? roundToTwo(transaction.totalAmount * (refundPercentage / 100))
+      : 0;
+
+    return apiSuccessRes(HTTP_STATUS.OK, res, "Refund preview calculated successfully", {
+      transactionId: transaction._id,
+      bookingId: transaction.bookingId,
+      totalAmount: transaction.totalAmount,
+      refundPolicy: policyValue,
+      eligible,
+      refundPercentage,
+      estimatedRefundAmount: refundAmount,
+    });
+  } catch (error) {
+    console.error("Error in previewRefund:", error);
+    return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
+  }
+};
+
+
+// ════════════════════════════════════════════════════════════════════════════
+// 5. CANCEL BOOKING (User cancels their own booking)
 // ════════════════════════════════════════════════════════════════════════════
 
 const cancelBooking = async (req, res) => {
   try {
     const { transactionId, reason } = req.body;
     const userId = req.user.userId;
+
+    if (reason) {
+      const validReason = await CancellationReason.findOne({ reason, isActive: true });
+      if (!validReason) {
+        return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.INVALID_CANCELLATION_REASON);
+      }
+    }
 
     const transaction = await Transaction.findOne({ _id: transactionId, userId })
       .populate("eventId")
@@ -1019,6 +1095,26 @@ const cancelBooking = async (req, res) => {
     });
   } catch (error) {
     console.error("Error in cancelBooking:", error);
+    return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
+  }
+};
+
+
+const getCancellationReasons = async (req, res) => {
+  try {
+    const reasons = await CancellationReason.find({ isActive: true });
+    const formattedReasons = reasons.map((item) => ({
+      id: item._id,
+      reason: item.reason,
+    }));
+    return apiSuccessRes(
+      HTTP_STATUS.OK,
+      res,
+      constantsMessage.CANCELLATION_REASONS_FETCHED,
+      formattedReasons
+    );
+  } catch (error) {
+    console.error("Error in getCancellationReasons:", error);
     return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
   }
 };
@@ -2289,6 +2385,8 @@ router.get("/list", perApiLimiter(), getTicketList);
 router.get("/detail/:transactionId", perApiLimiter(), getTicketDetail);
 
 // Cancellation & Refund
+router.get("/cancellation-reasons", perApiLimiter(), getCancellationReasons);
+router.get("/refund-preview/:transactionId", perApiLimiter(), previewRefund);
 router.post("/cancel", perApiLimiter(), validateRequest(cancelBookingSchema), cancelBooking);
 router.post(
   "/cancel-event",

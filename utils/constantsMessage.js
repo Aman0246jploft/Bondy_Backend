@@ -315,4 +315,6 @@ module.exports = Object.freeze({
   COURSE_NOT_ACTIVE: "This course is not available for booking",
   CANCEL_EVENT_UNAUTHORIZED: "You are not authorized to cancel this event",
   CANCEL_COURSE_UNAUTHORIZED: "You are not authorized to cancel this course",
+  CANCELLATION_REASONS_FETCHED: "Cancellation reasons fetched successfully",
+  INVALID_CANCELLATION_REASON: "Invalid cancellation reason",
 });

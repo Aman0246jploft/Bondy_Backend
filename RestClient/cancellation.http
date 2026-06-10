@@ -165,3 +165,22 @@ Authorization: Bearer {{authToken}}
 ### 13. Get Recent Bookings — Filter by REFUNDED status (Organizer)
 GET {{baseUrl}}/booking/recent?status=REFUNDED&limit=10&page=1
 Authorization: Bearer {{authToken}}
+
+
+#==========================================================
+# STRUCTURED CANCELLATION REASONS
+#==========================================================
+
+### 14. Get List of Cancellation Reasons (Customer)
+GET {{baseUrl}}/booking/cancellation-reasons
+Authorization: Bearer {{customerToken}}
+
+### 15. Try to cancel with an invalid cancellation reason (should fail with 400)
+POST {{baseUrl}}/booking/cancel
+Authorization: Bearer {{customerToken}}
+Content-Type: application/json
+
+{
+  "transactionId": "{{transactionId}}",
+  "reason": "Not an actual predefined reason"
+}
