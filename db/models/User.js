@@ -47,6 +47,10 @@ const UserSchema = new Schema(
       type: String,
       default: null,
     },
+    backgroundImage: {
+      type: String,
+      default: null,
+    },
     gender: {
       type: String,
       default: null,

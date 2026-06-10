@@ -75,6 +75,7 @@ const updateUserSchema = Joi.object({
   firstName: Joi.string().trim().optional(),
   lastName: Joi.string().trim().optional(),
   profileImage: Joi.string().optional().allow(null, ""),
+  backgroundImage: Joi.string().optional().allow(null, ""),
   gender: Joi.string().optional(),
   email: Joi.string().email().optional(),
   countryCode: Joi.string().optional().allow(null, ""),

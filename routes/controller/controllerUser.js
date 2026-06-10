@@ -1046,6 +1046,9 @@ const updateUserProfile = async (req, res) => {
     if (populatedUser.profileImage) {
       populatedUser.profileImage = formatResponseUrl(populatedUser.profileImage);
     }
+    if (populatedUser.backgroundImage) {
+      populatedUser.backgroundImage = formatResponseUrl(populatedUser.backgroundImage);
+    }
 
     return apiSuccessRes(
       HTTP_STATUS.OK,
@@ -1126,6 +1129,9 @@ const getUserProfileById = async (req, res) => {
     const profileImage = user.profileImage
       ? formatResponseUrl(user.profileImage)
       : null;
+    const backgroundImage = user.backgroundImage
+      ? formatResponseUrl(user.backgroundImage)
+      : null;
 
     // Check if viewer follows this user
     let isFollowed = false;
@@ -1191,6 +1197,7 @@ const getUserProfileById = async (req, res) => {
       contactNumber: user.contactNumber,
       dob: user.dob,
       profileImage: profileImage,
+      backgroundImage: backgroundImage,
       bio: user.bio,
       role: role,
       userRole: role,
@@ -1382,37 +1389,29 @@ const getUserProfileById = async (req, res) => {
         .lean();
 
       // -- COURSES --
-      // For courses, "next" means any schedule has endDate >= now
-      // "past" means all schedules have endDate < now
-      // Querying based on schedules array is complex for exact limits in one query without aggregation.
-      // To ensure we get 4 of each, we might need a more complex query or aggregation.
-      // BUT for simplicity and since courses might be fewer, or to match the "event" logic which is strictly date based:
-      // Course structure has `schedules` array.
-      // Let's use aggregation to filter and limit.
-
+      // Match the new Course schema using startDate, endDate, and enrollmentType
       const nextCoursesQuery = Course.find({
         createdBy: userId,
-        "schedules.endDate": { $gte: now },
+        isDraft: false,
+        $or: [
+          { enrollmentType: "Ongoing" },
+          { endDate: { $gte: now } },
+          { endDate: null }
+        ]
       })
         .populate("courseCategory", "name")
-        .sort({ "schedules.startDate": 1 })
+        .sort({ startDate: 1 })
         .limit(4)
         .lean();
 
-      // Past courses: NONE of the schedules should be in the future
-      // So every schedule.endDate < now
       const pastCoursesQuery = Course.find({
         createdBy: userId,
-        "schedules.endDate": { $lt: now },
-        // Ensure no schedule is future
-        // This logic 'schedules.endDate': { $not: { $gte: now } }
-        // or simpler: NOT (schedules.endDate >= now)
-        schedules: {
-          $not: { $elemMatch: { endDate: { $gte: now } } },
-        },
+        isDraft: false,
+        enrollmentType: "fixedStart",
+        endDate: { $lt: now }
       })
         .populate("courseCategory", "name")
-        .sort({ "schedules.endDate": -1 })
+        .sort({ endDate: -1 })
         .limit(4)
         .lean();
 

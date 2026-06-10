@@ -191,3 +191,14 @@ Content-Type: application/json
 GET {{baseUrl}}/user/selfProfile
 Authorization: Bearer {{organizerToken}}
 Content-Type: application/json
+
+
+
+https://bondy-api.tasksplan.com/api/v1/user/profile/6a1e80665979beee41cf5f4b
+
+
+
+### 13. Get My Profile
+GET {{baseUrl}}/user/profile/6a1e80665979beee41cf5f4b
+Authorization: Bearer {{organizerToken}}
+Content-Type: application/json

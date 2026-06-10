@@ -31,7 +31,7 @@ const updateProfileImages = async () => {
     for (let i = 0; i < users.length; i++) {
       const user = users[i];
       const selectedImage = PROFILE_IMAGES[i % PROFILE_IMAGES.length];
-      
+
       // Update the user's profile image
       user.profileImage = selectedImage;
       await user.save();
