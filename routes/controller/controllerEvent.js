@@ -2120,6 +2120,26 @@ const getAllEventAttendees = async (req, res) => {
       });
     }
 
+    let isEnrolled = false;
+    let isEventHost = false;
+
+    if (req.user && req.user.userId) {
+      const viewerId = req.user.userId;
+      const enrollmentTx = await Transaction.findOne({
+        userId: viewerId,
+        eventId: eventId,
+        status: "PAID",
+        bookingType: "EVENT",
+      });
+      if (enrollmentTx) {
+        isEnrolled = true;
+      }
+
+      if (event.createdBy && event.createdBy._id) {
+        isEventHost = event.createdBy._id.toString() === viewerId.toString();
+      }
+    }
+
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
@@ -2127,6 +2147,8 @@ const getAllEventAttendees = async (req, res) => {
       {
         host: event.createdBy,
         event: event,
+        isEnrolled: isEnrolled,
+        eventHost: isEventHost,
         attendees: uniqueUsers,
         pagination: {
           total,
