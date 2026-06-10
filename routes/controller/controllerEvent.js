@@ -1431,14 +1431,14 @@ const getEventDetails = async (req, res) => {
           },
         ]),
 
-        // Recent Bookers (Transactions)
+        // Recent Bookers (Transactions) - fetch enough to get 5 unique users
         Transaction.find({
           eventId: eventId,
           status: "PAID",
           bookingType: "EVENT",
         })
           .sort({ createdAt: -1 })
-          .limit(10) // Limit to 10 to get some unique users
+          .limit(50) // Fetch more to ensure we get 5 unique users with full ticket data
           .populate("userId", "firstName lastName profileImage isVerified")
           .lean(),
 
@@ -1516,21 +1516,51 @@ const getEventDetails = async (req, res) => {
 
     // Sync event.totalAttendees with calculated totalAttendees
     event.totalAttendees = totalAttendees;
-    // Deduplicate users for recent bookers
-    const uniqueUsers = [];
-    const seenUserIds = new Set();
+    // Aggregate per-user ticket data from all recent transactions
+    const userTransactionMap = {};
     for (const t of recentTransactions) {
-      if (t.userId && !seenUserIds.has(t.userId._id.toString())) {
-        uniqueUsers.push({
-          _id: t.userId._id,
-          firstName: t.userId.firstName,
-          lastName: t.userId.lastName,
-          profileImage: formatResponseUrl(t.userId.profileImage),
-        });
-        seenUserIds.add(t.userId._id.toString());
+      if (!t.userId) continue;
+      const uid = t.userId._id.toString();
+      if (!userTransactionMap[uid]) {
+        userTransactionMap[uid] = {
+          user: t.userId,
+          totalTicketsBought: 0,
+          ticketMap: {}, // ticketId -> { ticketName, qty }
+        };
       }
-      if (uniqueUsers.length >= 5) break;
+      const entry = userTransactionMap[uid];
+      // Sum total qty bought by this user
+      entry.totalTicketsBought += t.qty || 0;
+      // Break down by ticket type
+      if (Array.isArray(t.tickets) && t.tickets.length > 0) {
+        for (const tk of t.tickets) {
+          const tkId = tk.ticketId ? tk.ticketId.toString() : "unknown";
+          if (!entry.ticketMap[tkId]) {
+            entry.ticketMap[tkId] = { ticketName: tk.ticketName || tk.name || "Ticket", qty: 0 };
+          }
+          entry.ticketMap[tkId].qty += tk.qty || 0;
+        }
+      } else {
+        // Single-ticket transaction (no tickets array)
+        const tkId = t.ticketId ? t.ticketId.toString() : "general";
+        if (!entry.ticketMap[tkId]) {
+          entry.ticketMap[tkId] = { ticketName: t.ticketName || t.ticketType || "General", qty: 0 };
+        }
+        entry.ticketMap[tkId].qty += t.qty || 0;
+      }
     }
+
+    // Build uniqueUsers list (up to 5)
+    const uniqueUsers = Object.values(userTransactionMap)
+      .slice(0, 5)
+      .map(({ user, totalTicketsBought, ticketMap }) => ({
+        _id: user._id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        profileImage: formatResponseUrl(user.profileImage),
+        totalTicketsBought,
+        tickets: Object.values(ticketMap),
+      }));
 
     // Format Related Data
     const formattedReviews = reviews.map((r) => ({
@@ -1559,6 +1589,7 @@ const getEventDetails = async (req, res) => {
       constantsMessage.Event_DETAILS_FETCHED || "Event details fetched",
       {
         event,
+        refundPolicy: event.refundPolicy || null,
         reviews: formattedReviews,
         comments: formattedComments,
         attendees: {
