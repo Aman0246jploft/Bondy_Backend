@@ -329,11 +329,7 @@ UserSchema.pre("save", function (next) {
       const isIdApproved = (this.verifications?.idVerification?.nationalId?.isVerified || false) ||
         (this.verifications?.idVerification?.drivingLicence?.isVerified || false);
 
-      if (this.isVerified || isIdApproved) {
-        this.isVerified = true;
-      } else {
-        this.isVerified = false;
-      }
+      this.isVerified = isIdApproved;
 
       // isAllVerified is true ONLY if Phone, Email, at least one ID, and Bank are all verified
       const isPhoneVerified = this.verifications?.phone?.isVerified || false;
@@ -347,26 +343,26 @@ UserSchema.pre("save", function (next) {
       const drivingLicenceStatus = this.verifications?.idVerification?.drivingLicence?.status || "unverified";
       const bankStatus = this.verifications?.bankVerification?.status || "unverified";
 
-      // if (
-      //   (nationalIdStatus === "approved" || drivingLicenceStatus === "approved") &&
-      //   bankStatus === "approved"
-      // ) {
-      //   this.organizerVerificationStatus = "approved";
-      // } else if (
-      //   nationalIdStatus === "pending" ||
-      //   drivingLicenceStatus === "pending" ||
-      //   bankStatus === "pending"
-      // ) {
-      //   this.organizerVerificationStatus = "pending";
-      // } else if (
-      //   nationalIdStatus === "rejected" ||
-      //   drivingLicenceStatus === "rejected" ||
-      //   bankStatus === "rejected"
-      // ) {
-      //   this.organizerVerificationStatus = "rejected";
-      // } else {
-      //   this.organizerVerificationStatus = "unverified";
-      // }
+      if (
+        (nationalIdStatus === "approved" || drivingLicenceStatus === "approved") &&
+        bankStatus === "approved"
+      ) {
+        this.organizerVerificationStatus = "approved";
+      } else if (
+        nationalIdStatus === "pending" ||
+        drivingLicenceStatus === "pending" ||
+        bankStatus === "pending"
+      ) {
+        this.organizerVerificationStatus = "pending";
+      } else if (
+        nationalIdStatus === "rejected" ||
+        drivingLicenceStatus === "rejected" ||
+        bankStatus === "rejected"
+      ) {
+        this.organizerVerificationStatus = "rejected";
+      } else {
+        this.organizerVerificationStatus = "unverified";
+      }
     }
   }
 

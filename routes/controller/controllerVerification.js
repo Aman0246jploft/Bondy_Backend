@@ -475,6 +475,7 @@ const verifyOrganizer = async (req, res) => {
       });
     }
 
+    user.markModified("verifications");
     await user.save(); // save updates verification status and isVerified
 
     // --- Referral: credit reward when organizer gets verified ---

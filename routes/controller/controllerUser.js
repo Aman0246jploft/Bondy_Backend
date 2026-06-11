@@ -1176,6 +1176,11 @@ const getUserProfileById = async (req, res) => {
       isAllVerified: user.isAllVerified,
       allVerifiedAt: allVerifiedAt,
       isMyProfile: isMyProfile,
+      businessName: user.businessName,
+      businessCategory: user.businessCategory,
+      shortDesc: user.shortDesc,
+      socialMediaLink: user.socialMediaLink,
+      businessVerificationStatus: user.businessVerificationStatus,
       createdAt: user.createdAt,
       verifications: {
         email: user.verifications?.email,
