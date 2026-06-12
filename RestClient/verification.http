@@ -3,7 +3,7 @@
 
 ### User Setup
 # Replace with actual JWT tokens after logging in / signing up
-@userToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTFlNzE2NzkzNTBmYzFmMDU4NDNlNjMiLCJyb2xlSWQiOjIsImlhdCI6MTc4MDM4MzA2NCwiZXhwIjoyNjQ0MzgzMDY0fQ.2kg91m7YZrpyEexQwmVCNJXWOvrZK6dbyOpQsBZ0dcM
+@userToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTJiOTdjNGY1ZDA4YTUzNjEyMTJkMzMiLCJyb2xlSWQiOjIsImlhdCI6MTc4MTI0MzQzMywiZXhwIjoyNjQ1MjQzNDMzfQ.Pv0bjELrwsV_5Wy_rLWSjADEIpDx5eEl1yOg-iDjHZc
 @adminToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2OTZmMmEwMGE0ODU5NGFlZjg5NjRhZjMiLCJyb2xlSWQiOjEsImlhdCI6MTc4MDM4MDM2OCwiZXhwIjoyNjQ0MzgwMzY4fQ.UVpy8eXWG5kNMIfvujmVBTPIHdvuAdFXizcpfE28_hc
 @organizerUserId = 6a1e80665979beee41cf5f4b
 
@@ -188,7 +188,7 @@ Content-Type: application/json
   "reason": "The uploaded images are blurred and unreadable.",
   "reasonTitle": "Blurry Document Images"
 }
-
+# businessVerification
 ### Step 5.4: Admin Approves Bank Account Verification
 # Note: Approving bank details automatically synchronizes them to the legacy bankDetails schema for compatibility.
 POST {{baseUrl}}/verification/audit
@@ -197,7 +197,7 @@ Content-Type: application/json
 
 {
   "userId": "{{organizerUserId}}",
-  "type": "bankVerification",
+  "type": "businessVerification",
   "action": "approve"
 }
 

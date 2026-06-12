@@ -367,7 +367,7 @@ UserSchema.pre("save", function (next) {
   }
 
   // If organizerVerificationStatus is approved, make sure hasBeenApproved is true
-  if (this.organizerVerificationStatus === "approved") {
+  if (this.businessVerificationStatus === "approved") {
     this.hasBeenApproved = true;
   }
 
