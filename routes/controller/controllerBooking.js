@@ -19,15 +19,16 @@ const {
   apiErrorRes,
   apiSuccessRes,
   formatResponseUrl,
-} = require("../../utils/globalFunction");
-const {
+} = require("../../utils/globalFunction"); const {
   initiateBookingSchema,
   confirmPaymentSchema,
   cancelBookingSchema,
   cancelEventSchema,
   cancelCourseSchema,
   scanQRCodeSchema,
+  adjustCourseReservedSeatsSchema,
 } = require("../services/validations/bookingValidation");
+
 const validateRequest = require("../../middlewares/validateRequest");
 const perApiLimiter = require("../../middlewares/rateLimiter");
 const checkRole = require("../../middlewares/checkRole");
@@ -107,18 +108,24 @@ const getEventTicketBookedCount = async (eventId, ticketId) => {
 /**
  * Count PAID seats for a given course batchId
  */
-const getCourseBatchBookedCount = async (courseId, batchId) => {
+const getCourseBatchBookedCount = async (courseId, batchId, selectedDay = null) => {
+  const match = {
+    courseId: courseId,
+    status: "PAID",
+  };
+  if (selectedDay) {
+    match.$or = [
+      { batchId: String(batchId), selectedDay: selectedDay },
+      { "ongoingSlots": { $elemMatch: { batchId: String(batchId), selectedDay: selectedDay } } }
+    ];
+  } else {
+    match.$or = [
+      { batchId: String(batchId) },
+      { "ongoingSlots.batchId": String(batchId) }
+    ];
+  }
   const result = await Transaction.aggregate([
-    {
-      $match: {
-        courseId: courseId,
-        status: "PAID",
-        $or: [
-          { batchId: String(batchId) },
-          { "ongoingSlots.batchId": String(batchId) }
-        ]
-      },
-    },
+    { $match: match },
     { $group: { _id: null, total: { $sum: "$qty" } } },
   ]);
   return result.length > 0 ? result[0].total : 0;
@@ -445,7 +452,8 @@ const calculateBooking = async (req, res) => {
             if (!batch) return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, `Batch not found: ${slot.batchId}`);
             if (batch.status === "Cancelled") return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, `Batch inactive: ${batch.batchName || slot.batchId}`);
 
-            if (isBookingCutOffReached(course, batch, slot.selectedDay || selectedDay)) {
+            const dateStr = slot.selectedDay || selectedDay;
+            if (isBookingCutOffReached(course, batch, dateStr)) {
               return apiErrorRes(
                 HTTP_STATUS.BAD_REQUEST,
                 res,
@@ -453,8 +461,14 @@ const calculateBooking = async (req, res) => {
               );
             }
 
-            const bookedCount = await getCourseBatchBookedCount(course._id, slot.batchId);
-            const available = batch.seats - (batch.ReservedExternally || 0) - bookedCount;
+            let reservedVal = batch.ReservedExternally || 0;
+            if (dateStr && batch.reservedDates) {
+              const resRec = batch.reservedDates.find((r) => r.date === dateStr);
+              if (resRec) reservedVal = resRec.seats;
+            }
+
+            const bookedCount = await getCourseBatchBookedCount(course._id, slot.batchId, dateStr);
+            const available = batch.seats - reservedVal - bookedCount;
             if (available < qty) {
               return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, `Batch full: ${batch.batchName || slot.batchId}`);
             }
@@ -851,13 +865,19 @@ const confirmPayment = async (req, res) => {
         const slotsToCheck = transaction.ongoingSlots && transaction.ongoingSlots.length > 0
           ? transaction.ongoingSlots
           : [{ batchId: transaction.batchId }];
-
         for (const slot of slotsToCheck) {
           const batch = course.batches.id(slot.batchId);
           if (!batch) return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.BATCH_NOT_FOUND);
 
-          const bookedCount = await getCourseBatchBookedCount(course._id, slot.batchId);
-          const available = batch.seats - (batch.ReservedExternally || 0) - bookedCount;
+          const dateStr = slot.selectedDay || transaction.selectedDay;
+          let reservedVal = batch.ReservedExternally || 0;
+          if (dateStr && batch.reservedDates) {
+            const resRec = batch.reservedDates.find((r) => r.date === dateStr);
+            if (resRec) reservedVal = resRec.seats;
+          }
+
+          const bookedCount = await getCourseBatchBookedCount(course._id, slot.batchId, dateStr);
+          const available = batch.seats - reservedVal - bookedCount;
           if (available < transaction.qty) {
             transaction.status = "REFUND_INITIATED";
             await transaction.save();
@@ -1390,6 +1410,63 @@ const cancelCourse = async (req, res) => {
     });
   } catch (error) {
     console.error("Error in cancelCourse:", error);
+    return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
+  }
+};
+
+const adjustCourseReservedSeats = async (req, res) => {
+  try {
+    const { courseId, batchId, date, ReservedExternally } = req.body;
+    const userId = req.user.userId;
+
+    const course = await Course.findById(courseId);
+    if (!course) return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.COURSE_NOT_FOUND || "Course not found");
+
+    // Authorization check
+    if (
+      course.createdBy.toString() !== userId.toString() &&
+      req.user.roleId !== roleId.SUPER_ADMIN
+    ) {
+      return apiErrorRes(HTTP_STATUS.FORBIDDEN, res, "You are not authorized to edit this course");
+    }
+
+    const batch = course.batches.id(batchId);
+    if (!batch) return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.BATCH_NOT_FOUND || "Batch not found");
+
+    if (batch.status === "Cancelled") {
+      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Cannot adjust reserved seats for a cancelled batch");
+    }
+    // Check availability limit
+    const enrolledCount = await getCourseBatchBookedCount(courseId, batchId, date || null);
+    if (batch.seats < enrolledCount + ReservedExternally) {
+      return apiErrorRes(
+        HTTP_STATUS.BAD_REQUEST,
+        res,
+        `Seats limit (${batch.seats}) cannot be less than enrolled count (${enrolledCount}) + externally reserved seats (${ReservedExternally})`
+      );
+    }
+
+    if (date) {
+      if (!batch.reservedDates) batch.reservedDates = [];
+      const index = batch.reservedDates.findIndex((r) => r.date === date);
+      if (index > -1) {
+        batch.reservedDates[index].seats = ReservedExternally;
+      } else {
+        batch.reservedDates.push({ date, seats: ReservedExternally });
+      }
+    } else {
+      batch.ReservedExternally = ReservedExternally;
+    }
+
+    await course.save();
+    return apiSuccessRes(HTTP_STATUS.OK, res, "Reserved seats updated successfully", {
+      courseId: course._id,
+      batchId: batch._id,
+      date,
+      ReservedExternally,
+    });
+  } catch (error) {
+    console.error("Error in adjustCourseReservedSeats:", error);
     return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
   }
 };
@@ -2395,12 +2472,21 @@ router.post(
   validateRequest(cancelEventSchema),
   cancelEvent,
 );
+
 router.post(
   "/cancel-course",
   perApiLimiter(),
   checkRole([roleId.ORGANIZER, roleId.SUPER_ADMIN]),
   validateRequest(cancelCourseSchema),
   cancelCourse,
+);
+
+router.post(
+  "/adjust-course-reserved-seats",
+  perApiLimiter(),
+  checkRole([roleId.ORGANIZER, roleId.SUPER_ADMIN]),
+  validateRequest(adjustCourseReservedSeatsSchema),
+  adjustCourseReservedSeats,
 );
 
 // Recent Bookings (Organizer/Admin)

@@ -338,3 +338,20 @@ Authorization: Bearer {{authToken}}
 GET {{baseUrl}}/booking/course/{{courseId}}/attendees?page=1&limit=5&search=&batchId=6a216d3aaf039f44dc5d6ef9
 Authorization: Bearer {{authToken}}
 
+
+#==================================== RESERVATIONS ================================
+
+### 24. Adjust Course Reserved Seats (Date-specific external reservations)
+# Organizer adjusts ReservedExternally seats for a specific date slot of a batch.
+POST {{baseUrl}}/booking/adjust-course-reserved-seats
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "courseId": "{{courseId}}",
+  "batchId": "6a27a6008db41086df1e5e06",
+  "date": "2026-06-15",
+  "ReservedExternally": 10
+}
+
+

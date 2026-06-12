@@ -28,6 +28,7 @@ Content-Type: application/json
   "posterImage": [
     "https://example.com/poster1.jpg"
   ],
+  "shortTeaserVideo": [],
   "venueName": "Central Park Arena",
   "venueAddress": {
     "latitude": 40.785091,
@@ -176,7 +177,7 @@ GET {{baseUrl}}/event/list?north=40.800000&south=40.700000&east=-73.900000&west=
 Authorization: Bearer {{authToken}}
 
 
-### 14. List Events - Organizer Events (Latest Created First)
+### 14. List Events - Organizer Events (Sorted by Event Start Date - Soonest First by Default)
 GET {{baseUrl}}/event/list?filter=organizer
 Authorization: Bearer {{authToken}}
 
@@ -207,7 +208,7 @@ Authorization: Bearer {{authToken}}
 
 
 ### 14.f. List Events - Organizer Events (Live & Upcoming)
-GET {{baseUrl}}/event/list?page=1&limit=3&filter=organizer&status=Live,Upcoming
+GET {{baseUrl}}/event/list?page=1&limit=3&filter=organizer,excludemyevents&status=Live,Upcoming
 Authorization: Bearer {{authToken}}
 
 #======================================== FILTER ==========================================

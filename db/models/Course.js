@@ -63,6 +63,13 @@ const batchSchema = new mongoose.Schema(
         cancelledAt: { type: Date, default: Date.now },
       }
     ],
+    reservedDates: [
+      {
+        date: { type: String, required: true }, // Format: YYYY-MM-DD
+        seats: { type: Number, required: true, min: 0 },
+        reservedAt: { type: Date, default: Date.now },
+      }
+    ],
   }
 );
 

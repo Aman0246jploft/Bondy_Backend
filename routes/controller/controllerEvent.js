@@ -877,18 +877,20 @@ const getEvents = async (req, res) => {
           },
         },
         {
-          $sort: (isOrganizerList || filters.includes("latest") || filters.includes("newest"))
+          $sort: (filters.includes("latest") || filters.includes("newest"))
             ? { createdAt: -1 }
-            : {
-              cityMatch: -1,
-              countryMatch: -1,
-              isPromoMatch: -1,
-              fetcherEvent: -1,
-              isFeatured: -1,
-              startDate: 1,
-              endDate: 1,
-              distance: 1,
-            },
+            : isOrganizerList
+              ? { startDate: 1, endDate: 1 }
+              : {
+                cityMatch: -1,
+                countryMatch: -1,
+                isPromoMatch: -1,
+                fetcherEvent: -1,
+                isFeatured: -1,
+                startDate: 1,
+                endDate: 1,
+                distance: 1,
+              },
         },
         { $skip: parseInt(skip) },
         { $limit: parseInt(limit) },
@@ -980,16 +982,18 @@ const getEvents = async (req, res) => {
             },
           },
           {
-            $sort: (isOrganizerList || filters.includes("latest") || filters.includes("newest"))
+            $sort: (filters.includes("latest") || filters.includes("newest"))
               ? { createdAt: -1 }
-              : {
-                isPromoMatch: -1,
-                fetcherEvent: -1,
-                isFeatured: -1,
-                startDate: 1,
-                endDate: 1,
-                distance: 1,
-              },
+              : isOrganizerList
+                ? { startDate: 1, endDate: 1 }
+                : {
+                  isPromoMatch: -1,
+                  fetcherEvent: -1,
+                  isFeatured: -1,
+                  startDate: 1,
+                  endDate: 1,
+                  distance: 1,
+                },
           },
           { $skip: parseInt(skip) },
           { $limit: parseInt(limit) },
@@ -1081,13 +1085,15 @@ const getEvents = async (req, res) => {
             $sort: {
               isPromoMatch: -1,
               fetcherEvent: -1,
-              ...((isOrganizerList || filters.includes("latest") || filters.includes("newest"))
+              ...((filters.includes("latest") || filters.includes("newest"))
                 ? { createdAt: -1 }
                 : filters.includes("past")
                   ? { endDate: -1, startDate: -1 }
                   : filters.includes("draft")
                     ? { updatedAt: -1 }
-                    : { isFeatured: -1, startDate: 1, endDate: 1 }),
+                    : isOrganizerList
+                      ? { startDate: 1, endDate: 1 }
+                      : { isFeatured: -1, startDate: 1, endDate: 1 }),
             },
           },
           { $skip: parseInt(skip) },
@@ -1128,13 +1134,15 @@ const getEvents = async (req, res) => {
         ]);
         totalCount = await Event.countDocuments(query);
       } else {
-        const sortOrder = (isOrganizerList || filters.includes("latest") || filters.includes("newest"))
+        const sortOrder = (filters.includes("latest") || filters.includes("newest"))
           ? { createdAt: -1 }
           : filters.includes("past")
             ? { fetcherEvent: -1, endDate: -1, startDate: -1 }
             : filters.includes("draft")
               ? { updatedAt: -1 }
-              : { fetcherEvent: -1, isFeatured: -1, startDate: 1, endDate: 1 };
+              : isOrganizerList
+                ? { startDate: 1, endDate: 1 }
+                : { fetcherEvent: -1, isFeatured: -1, startDate: 1, endDate: 1 };
         events = await Event.find(query)
           .populate("eventCategory")
           .populate("createdBy", "firstName lastName profileImage isVerified")

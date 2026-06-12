@@ -942,6 +942,49 @@ const getCourses = async (req, res) => {
       courseRevenueMap[courseId] = (courseRevenueMap[courseId] || 0) + (b.revenue || 0);
     });
 
+    const slotBookings = await Transaction.aggregate([
+      {
+        $match: {
+          courseId: { $in: courseIds },
+          status: "PAID",
+          bookingType: "COURSE"
+        }
+      },
+      {
+        $project: {
+          courseId: 1,
+          qty: 1,
+          slots: {
+            $cond: {
+              if: {
+                $and: [
+                  { $isArray: "$ongoingSlots" },
+                  { $gt: [{ $size: "$ongoingSlots" }, 0] }
+                ]
+              },
+              then: "$ongoingSlots",
+              else: [{ batchId: "$batchId", selectedDay: "$selectedDay" }]
+            }
+          }
+        }
+      },
+      { $unwind: "$slots" },
+      {
+        $group: {
+          _id: { courseId: "$courseId", batchId: "$slots.batchId", date: "$slots.selectedDay" },
+          count: { $sum: "$qty" }
+        }
+      }
+    ]);
+
+    const slotBookingMap = {};
+    slotBookings.forEach(sb => {
+      if (sb._id && sb._id.batchId) {
+        const key = `${sb._id.courseId.toString()}_${sb._id.batchId.toString()}_${sb._id.date || ""}`;
+        slotBookingMap[key] = sb.count;
+      }
+    });
+
     const bookedCourseIds = new Set();
     const bookedBatchMap = {};
     if (viewerId) {
@@ -1053,10 +1096,10 @@ const getCourses = async (req, res) => {
                 startTime: batch.startTime,
                 endTime: batch.endTime,
                 seats: batch.seats,
-                availableSeats: batch.availableSeats,
-                isFull: batch.isFull,
                 isBooked: batch.isBooked,
                 cancelledDates: batch.cancelledDates || [],
+                reservedDates: batch.reservedDates || [],
+                defaultReservedExternally: batch.ReservedExternally || 0,
               });
             }
           }
@@ -1071,12 +1114,28 @@ const getCourses = async (req, res) => {
             const slotsWithCancelStatus = scheduleByDay[day].map(slot => {
               const ymd = fullDate ? `${fullDate.getFullYear()}-${String(fullDate.getMonth() + 1).padStart(2, '0')}-${String(fullDate.getDate()).padStart(2, '0')}` : null;
               const cancelRecord = ymd && slot.cancelledDates ? slot.cancelledDates.find(cd => cd.date === ymd) : null;
+              
+              let reserved = slot.defaultReservedExternally || 0;
+              if (ymd && slot.reservedDates) {
+                const resRec = slot.reservedDates.find(r => r.date === ymd);
+                if (resRec) reserved = resRec.seats;
+              }
+
+              const key = `${course._id.toString()}_${slot.batchId.toString()}_${ymd}`;
+              const booked = slotBookingMap[key] || 0;
+              const availableSeats = Math.max(0, slot.seats - booked - reserved);
+
               return {
                 date: ymd,
                 ...slot,
+                ReservedExternally: reserved,
+                availableSeats,
+                isFull: availableSeats <= 0,
                 isCancelled: !!cancelRecord,
                 cancelReason: cancelRecord ? cancelRecord.reason : null,
-                cancelledDates: undefined // hide from output
+                cancelledDates: undefined,
+                reservedDates: undefined,
+                defaultReservedExternally: undefined
               };
             });
 
@@ -1682,7 +1741,6 @@ const getCourseDetails = async (req, res) => {
         },
       },
     ]);
-
     const bookingMap = {};
     let totalAcquiredSeats = 0;
     bookings.forEach((b) => {
@@ -1692,6 +1750,47 @@ const getCourseDetails = async (req, res) => {
       totalAcquiredSeats += b.count;
     });
 
+    const slotBookings = await Transaction.aggregate([
+      {
+        $match: {
+          courseId: course._id,
+          status: "PAID",
+          bookingType: "COURSE"
+        }
+      },
+      {
+        $project: {
+          qty: 1,
+          slots: {
+            $cond: {
+              if: {
+                $and: [
+                  { $isArray: "$ongoingSlots" },
+                  { $gt: [{ $size: "$ongoingSlots" }, 0] }
+                ]
+              },
+              then: "$ongoingSlots",
+              else: [{ batchId: "$batchId", selectedDay: "$selectedDay" }]
+            }
+          }
+        }
+      },
+      { $unwind: "$slots" },
+      {
+        $group: {
+          _id: { batchId: "$slots.batchId", date: "$slots.selectedDay" },
+          count: { $sum: "$qty" }
+        }
+      }
+    ]);
+
+    const slotBookingMap = {};
+    slotBookings.forEach(sb => {
+      if (sb._id && sb._id.batchId) {
+        const key = `${sb._id.batchId.toString()}_${sb._id.date || ""}`;
+        slotBookingMap[key] = sb.count;
+      }
+    });
     // 3. Check if Viewer (User) has booked
     let viewerId = null;
     const authHeader = req.headers.authorization;
@@ -1826,10 +1925,10 @@ const getCourseDetails = async (req, res) => {
               startTime: batch.startTime,
               endTime: batch.endTime,
               seats: batch.seats,
-              availableSeats: batch.availableSeats,
-              isFull: batch.isFull,
               isBooked: batch.isBooked,
               cancelledDates: batch.cancelledDates || [],
+              reservedDates: batch.reservedDates || [],
+              defaultReservedExternally: batch.ReservedExternally || 0,
             });
           }
         }
@@ -1845,12 +1944,28 @@ const getCourseDetails = async (req, res) => {
           const slotsWithDate = scheduleByDay[day].map(slot => {
             const ymd = fullDate ? `${fullDate.getFullYear()}-${String(fullDate.getMonth() + 1).padStart(2, '0')}-${String(fullDate.getDate()).padStart(2, '0')}` : null;
             const cancelRecord = ymd && slot.cancelledDates ? slot.cancelledDates.find(cd => cd.date === ymd) : null;
+            
+            let reserved = slot.defaultReservedExternally || 0;
+            if (ymd && slot.reservedDates) {
+              const resRec = slot.reservedDates.find(r => r.date === ymd);
+              if (resRec) reserved = resRec.seats;
+            }
+
+            const key = `${slot.batchId.toString()}_${ymd}`;
+            const booked = slotBookingMap[key] || 0;
+            const availableSeats = Math.max(0, slot.seats - booked - reserved);
+
             return {
               date: ymd,
               ...slot,
+              ReservedExternally: reserved,
+              availableSeats,
+              isFull: availableSeats <= 0,
               isCancelled: !!cancelRecord,
               cancelReason: cancelRecord ? cancelRecord.reason : null,
-              cancelledDates: undefined // hide from output
+              cancelledDates: undefined,
+              reservedDates: undefined,
+              defaultReservedExternally: undefined
             };
           });
 

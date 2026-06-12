@@ -88,6 +88,23 @@ const scanQRCodeSchema = Joi.object({
   }),
 });
 
+const adjustCourseReservedSeatsSchema = Joi.object({
+  courseId: Joi.string().required().messages({
+    "string.empty": "Course ID is required",
+    "any.required": "Course ID is required",
+  }),
+  batchId: Joi.string().required().messages({
+    "string.empty": "Batch ID is required",
+    "any.required": "Batch ID is required",
+  }),
+  date: Joi.string().allow(null, "").optional(),
+  ReservedExternally: Joi.number().integer().min(0).required().messages({
+    "number.base": "Reserved seats must be a number",
+    "number.min": "Reserved seats cannot be negative",
+    "any.required": "Reserved seats is required",
+  }),
+});
+
 module.exports = {
   initiateBookingSchema,
   confirmPaymentSchema,
@@ -95,4 +112,5 @@ module.exports = {
   cancelEventSchema,
   cancelCourseSchema,
   scanQRCodeSchema,
+  adjustCourseReservedSeatsSchema,
 };
