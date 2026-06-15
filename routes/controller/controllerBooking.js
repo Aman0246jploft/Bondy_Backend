@@ -438,8 +438,11 @@ const calculateBooking = async (req, res) => {
       if (course.status === "Cancelled") return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.COURSE_NOT_ACTIVE);
 
       if (course.enrollmentType === "Ongoing") {
-        const slotsToValidate = ongoingSlots && ongoingSlots.length > 0
-          ? ongoingSlots
+        const cleanOngoingSlots = Array.isArray(ongoingSlots)
+          ? ongoingSlots.filter((s) => s && s.batchId && s.selectedDay)
+          : [];
+        const slotsToValidate = cleanOngoingSlots.length > 0
+          ? cleanOngoingSlots
           : (batchId ? [{ batchId, selectedDay }] : []);
 
         if (!passType && slotsToValidate.length === 0) {
@@ -640,12 +643,15 @@ const initiateBooking = async (req, res) => {
       if (course.status === "Cancelled") return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.COURSE_NOT_ACTIVE);
 
       if (course.enrollmentType === "Ongoing") {
-        if (!passType && (!ongoingSlots || ongoingSlots.length === 0)) {
+        const cleanOngoingSlots = Array.isArray(ongoingSlots)
+          ? ongoingSlots.filter((s) => s && s.batchId && s.selectedDay)
+          : [];
+        if (!passType && cleanOngoingSlots.length === 0) {
           return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "At least one ongoing slot selection is required");
         }
 
-        if (ongoingSlots && ongoingSlots.length > 0) {
-          for (const slot of ongoingSlots) {
+        if (cleanOngoingSlots.length > 0) {
+          for (const slot of cleanOngoingSlots) {
             const batch = course.batches.id(slot.batchId);
             if (!batch) return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, `Batch not found: ${slot.batchId}`);
             if (batch.status === "Cancelled") return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, `Batch inactive: ${batch.batchName || slot.batchId}`);
@@ -822,7 +828,10 @@ const initiateBooking = async (req, res) => {
         },
       });
     } else {
-      const isOngoing = ongoingSlots && ongoingSlots.length > 0;
+      const cleanOngoingSlots = Array.isArray(ongoingSlots)
+        ? ongoingSlots.filter((s) => s && s.batchId && s.selectedDay)
+        : [];
+      const isOngoing = cleanOngoingSlots.length > 0;
       const transactionData = {
         userId,
         bookingId: generateBookingId(),
@@ -836,9 +845,9 @@ const initiateBooking = async (req, res) => {
         status: "PENDING",
         bookingType,
         courseId,
-        batchId: isOngoing ? ongoingSlots[0].batchId : batchId,
-        selectedDay: isOngoing ? ongoingSlots[0].selectedDay : (selectedDay || null),
-        ongoingSlots: isOngoing ? ongoingSlots : [],
+        batchId: isOngoing ? cleanOngoingSlots[0].batchId : batchId,
+        selectedDay: isOngoing ? cleanOngoingSlots[0].selectedDay : (selectedDay || null),
+        ongoingSlots: isOngoing ? cleanOngoingSlots : [],
         ticketName: ticketName || null,
         passType: passType || null,
       };

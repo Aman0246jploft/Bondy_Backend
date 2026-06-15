@@ -40,8 +40,8 @@ const initiateBookingSchema = Joi.object({
   }),
   selectedDay: Joi.string().allow(null, "").optional(),
   ongoingSlots: Joi.array().items(Joi.object({
-    batchId: Joi.string().required(),
-    selectedDay: Joi.string().required(),
+    batchId: Joi.string().allow(null, "").optional(),
+    selectedDay: Joi.string().allow(null, "").optional(),
   })).optional(),
   discountCode: Joi.string().allow(null, "").optional(),
   passType: Joi.string().valid("1_month", "3_month").allow(null, "").optional(),
