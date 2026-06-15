@@ -562,10 +562,12 @@ const initiateBooking = async (req, res) => {
     let totalBasePrice = 0;
     let ticketName = null;
     const ticketItems = [];
+    let event = null;
+    let course = null;
 
     // ── EVENT BOOKING ──
     if (eventId) {
-      const event = await Event.findById(eventId);
+      event = await Event.findById(eventId);
       if (!event) return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.EVENT_NOT_FOUND);
       if (event.status === "Cancelled") return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.EVENT_NOT_ACTIVE);
 
@@ -633,7 +635,7 @@ const initiateBooking = async (req, res) => {
     }
     // ── COURSE BOOKING ──
     else if (courseId) {
-      const course = await Course.findById(courseId);
+      course = await Course.findById(courseId);
       if (!course) return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.COURSE_NOT_FOUND);
       if (course.status === "Cancelled") return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.COURSE_NOT_ACTIVE);
 
@@ -803,6 +805,8 @@ const initiateBooking = async (req, res) => {
         formatItemMedia(transactionObj, bookingType);
 
         return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.BOOKING_CONFIRMED, {
+          transactionId: transaction._id,
+          bookingId: transaction.bookingId,
           transaction: transactionObj,
         });
       }
@@ -895,6 +899,8 @@ const initiateBooking = async (req, res) => {
         formatItemMedia(transactionObj, bookingType);
 
         return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.BOOKING_CONFIRMED, {
+          transactionId: transaction._id,
+          bookingId: transaction.bookingId,
           transaction: transactionObj,
         });
       }
@@ -1009,8 +1015,8 @@ const confirmPayment = async (req, res) => {
 
     // ── Update Transaction to PAID ──
     transaction.status = "PAID";
-    transaction.paymentId = transaction.totalAmount === 0 
-      ? `FREE_BOOKING_${Date.now()}` 
+    transaction.paymentId = transaction.totalAmount === 0
+      ? `FREE_BOOKING_${Date.now()}`
       : `MOCK_PAY_${Date.now()}`;
     transaction.qrCodeData = generateQRData(transaction._id, userId);
     transaction.commissionAmount = commissionAmount;
