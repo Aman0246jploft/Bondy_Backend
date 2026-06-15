@@ -44,7 +44,7 @@ const initiateBookingSchema = Joi.object({
     selectedDay: Joi.string().required(),
   })).optional(),
   discountCode: Joi.string().allow(null, "").optional(),
-  passType: Joi.string().valid("1_month", "3_month").optional(),
+  passType: Joi.string().valid("1_month", "3_month").allow(null, "").optional(),
   bookingType: Joi.string().valid("EVENT", "COURSE").optional(),
 }).or("eventId", "courseId");
 
