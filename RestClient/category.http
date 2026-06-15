@@ -1,7 +1,9 @@
 ### Environment Variables
 @baseUrl = http://localhost:8080/api/v1
-@authToken = YOUR_BEARER_TOKEN_HERE
-@categoryId = 647f1234567890abcdef1234
+@authToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2OTZmMmEwMGE0ODU5NGFlZjg5NjRhZjMiLCJyb2xlSWQiOjEsImlhdCI6MTc4MTE3MzIxMiwiZXhwIjoyNjQ1MTczMjEyfQ.pQsPdZGqMLfbo1SkzGZcV_gicml6pEi6TmF82CZmXrs
+@categoryId = 69b3df23d6628ab854c0843f
+
+# toggle-featured/
 
 ### 1. Create a Category (requires Admin AuthToken)
 POST {{baseUrl}}/category/create

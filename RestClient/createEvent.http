@@ -67,7 +67,8 @@ Content-Type: application/json
   "ageRestriction": "18+",
   "showAttendees": true,
   "dressCode": "Casual Summer",
-  "fetcherEvent": false
+  "fetcherEvent": false,
+  "notes":"asdasdasdasd"
 }
 
 

@@ -1,0 +1,45 @@
+### Environment Variables
+@baseUrl = http://localhost:8080/api/v1
+@authToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2OTZmMmEwMGE0ODU5NGFlZjg5NjRhZjMiLCJyb2xlSWQiOjEsImlhdCI6MTc4MTE3MzIxMiwiZXhwIjoyNjQ1MTczMjEyfQ.pQsPdZGqMLfbo1SkzGZcV_gicml6pEi6TmF82CZmXrs
+@bannerId = 6a2cef1d29f09d30b60f941d
+
+### 1. Create a Banner (requires Admin AuthToken)
+POST {{baseUrl}}/banner/create
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "image": "uploads/banners/summer_sale.gif",
+  "linkUrl": "https://example.com/summer-sale",
+  "isActive": true
+}
+
+### 2. Get Banners - Admin List (requires Admin AuthToken)
+GET {{baseUrl}}/banner/admin/list?page=1&limit=10
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+### 3. Get Active Banners (Public - no token required)
+GET {{baseUrl}}/banner/list
+Content-Type: application/json
+
+### 4. Update Banner (requires Admin AuthToken)
+POST {{baseUrl}}/banner/update/{{bannerId}}
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "image": "uploads/banners/summer_sale_updated.gif",
+  "linkUrl": "https://example.com/summer-sale-new",
+  "isActive": true
+}
+
+### 5. Toggle Banner Active Status (requires Admin AuthToken)
+POST {{baseUrl}}/banner/toggle-active/{{bannerId}}
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+### 6. Delete Banner (requires Admin AuthToken)
+DELETE {{baseUrl}}/banner/delete/{{bannerId}}
+Authorization: Bearer {{authToken}}
+Content-Type: application/json

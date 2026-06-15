@@ -29,9 +29,11 @@ const canSetFeatured = async (excludeCategoryId = null) => {
 
   if (excludeCategoryId) {
     query._id = { $ne: excludeCategoryId };
+    query.type = "event";
   }
 
   const featuredCount = await Category.countDocuments(query);
+  console.log("featuredCount", featuredCount);
   return featuredCount < MAX_FEATURED_CATEGORIES;
 };
 
@@ -223,7 +225,7 @@ const toggleCategoryFeatured = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const category = await Category.findOne({ _id: id, isDeleted: false });
+    const category = await Category.findOne({ _id: id, isDeleted: false, type: "event" });
     if (!category) {
       return apiErrorRes(
         HTTP_STATUS.NOT_FOUND,
@@ -235,6 +237,7 @@ const toggleCategoryFeatured = async (req, res) => {
     const nextFeatured = !category.featured;
     if (nextFeatured) {
       const canFeature = await canSetFeatured(category._id);
+      console.log("canFeature", canFeature);
       if (!canFeature) {
         return apiErrorRes(
           HTTP_STATUS.BAD_REQUEST,

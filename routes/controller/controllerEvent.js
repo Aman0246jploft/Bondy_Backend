@@ -1477,14 +1477,14 @@ const getEventDetails = async (req, res) => {
         // 4 Similar Events in the same category
         event.eventCategory
           ? Event.find({
-              eventCategory: event.eventCategory._id || event.eventCategory,
-              _id: { $ne: eventId },
-              isDraft: false,
-            })
-              .populate("eventCategory")
-              .populate("createdBy", "firstName lastName profileImage isVerified")
-              .limit(4)
-              .lean()
+            eventCategory: event.eventCategory._id || event.eventCategory,
+            _id: { $ne: eventId },
+            isDraft: false,
+          })
+            .populate("eventCategory")
+            .populate("createdBy", "firstName lastName profileImage isVerified")
+            .limit(4)
+            .lean()
           : Promise.resolve([])
       ]);
 

@@ -123,6 +123,7 @@ const getCourses = async (req, res) => {
       toDate,
       isDraft,
       excludeMyCourses,
+      excludeMyEvents,
       timeOfDay,
       city,
       country,
@@ -196,7 +197,9 @@ const getCourses = async (req, res) => {
     const filters = filter.split(",").map((f) => f.trim().toLowerCase());
     const shouldExcludeMyCourses =
       String(excludeMyCourses).toLowerCase() === "true" ||
+      String(excludeMyEvents).toLowerCase() === "true" ||
       filters.includes("excludemycourses") ||
+      filters.includes("excludemyevents") ||
       filters.includes("notmycreated");
 
     // 1. Build Base Query
@@ -256,10 +259,17 @@ const getCourses = async (req, res) => {
         } else {
           // Default time constraints (active courses) - unless "past" filter is specifically requested
           if (!filters.includes("past")) {
-            query.endDate = { $not: { $lt: now } };
+            query.$or = [
+              { enrollmentType: "fixedStart", endDate: { $gte: now } },
+              { enrollmentType: "Ongoing" },
+              { enrollmentType: { $exists: false } }
+            ];
             query.status = { $ne: eventStatus.PAST };
           } else {
-            query.endDate = { $lt: now };
+            query.$or = [
+              { enrollmentType: "fixedStart", endDate: { $lt: now } },
+              { enrollmentType: "Ongoing", status: eventStatus.PAST }
+            ];
           }
         }
       }
@@ -631,7 +641,7 @@ const getCourses = async (req, res) => {
               isPromoMatch: -1,
               isFeatured: -1,
               startDate: 1,
-              endDate: 1,
+              createdAt: -1,
               distance: 1,
             },
         },
@@ -731,7 +741,7 @@ const getCourses = async (req, res) => {
                 isPromoMatch: -1,
                 isFeatured: -1,
                 startDate: 1,
-                endDate: 1,
+                createdAt: -1,
                 distance: 1,
               },
           },
@@ -830,7 +840,7 @@ const getCourses = async (req, res) => {
                   ? { endDate: -1, startDate: -1 }
                   : filters.includes("draft")
                     ? { updatedAt: -1 }
-                    : { isFeatured: -1, startDate: 1, endDate: 1 }),
+                    : { isFeatured: -1, startDate: 1, createdAt: -1 }),
             },
           },
           { $skip: parseInt(skip) },
@@ -877,7 +887,7 @@ const getCourses = async (req, res) => {
             ? { endDate: -1, startDate: -1 }
             : filters.includes("draft")
               ? { updatedAt: -1 }
-              : { isFeatured: -1, startDate: 1, endDate: 1 };
+              : { isFeatured: -1, startDate: 1, createdAt: -1 };
         courses = await Course.find(query)
           .populate("courseCategory")
           .populate("createdBy", "firstName lastName profileImage isVerified")
@@ -1114,7 +1124,7 @@ const getCourses = async (req, res) => {
             const slotsWithCancelStatus = scheduleByDay[day].map(slot => {
               const ymd = fullDate ? `${fullDate.getFullYear()}-${String(fullDate.getMonth() + 1).padStart(2, '0')}-${String(fullDate.getDate()).padStart(2, '0')}` : null;
               const cancelRecord = ymd && slot.cancelledDates ? slot.cancelledDates.find(cd => cd.date === ymd) : null;
-              
+
               let reserved = slot.defaultReservedExternally || 0;
               if (ymd && slot.reservedDates) {
                 const resRec = slot.reservedDates.find(r => r.date === ymd);
@@ -1944,7 +1954,7 @@ const getCourseDetails = async (req, res) => {
           const slotsWithDate = scheduleByDay[day].map(slot => {
             const ymd = fullDate ? `${fullDate.getFullYear()}-${String(fullDate.getMonth() + 1).padStart(2, '0')}-${String(fullDate.getDate()).padStart(2, '0')}` : null;
             const cancelRecord = ymd && slot.cancelledDates ? slot.cancelledDates.find(cd => cd.date === ymd) : null;
-            
+
             let reserved = slot.defaultReservedExternally || 0;
             if (ymd && slot.reservedDates) {
               const resRec = slot.reservedDates.find(r => r.date === ymd);
