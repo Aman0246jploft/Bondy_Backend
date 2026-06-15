@@ -1748,63 +1748,102 @@ const getTicketDetail = async (req, res) => {
       transactionObj.userId.profileImage = formatResponseUrl(transactionObj.userId.profileImage);
     }
 
-    const isOngoingCourse = transaction.bookingType === "COURSE" && transaction.courseId?.enrollmentType === "Ongoing";
-    const isSingleSession = isOngoingCourse && !transaction.passType;
-
-    if (isSingleSession) {
-      const slots = transaction.ongoingSlots && transaction.ongoingSlots.length > 0
-        ? transaction.ongoingSlots
-        : (transaction.batchId ? [{ batchId: transaction.batchId, selectedDay: transaction.selectedDay }] : []);
-
+    if (transaction.bookingType === "COURSE" && transaction.courseId) {
+      const course = transaction.courseId;
       const upcoming = [];
       const past = [];
       const now = new Date();
 
-      const getOngoingSessionDate = (createdAt, selectedDay) => {
-        const daysMap = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
-        const targetDay = daysMap[selectedDay.substring(0, 3)];
-        if (targetDay === undefined) return null;
-        const start = new Date(createdAt);
-        const currentDay = start.getDay();
-        let daysToAdd = targetDay - currentDay;
-        if (daysToAdd < 0) daysToAdd += 7;
-        const sessionDate = new Date(start);
-        sessionDate.setDate(start.getDate() + daysToAdd);
-        return sessionDate;
-      };
+      if (course.enrollmentType === "fixedStart" && transaction.batchId) {
+        const batch = course.batches.find(b => b._id.toString() === transaction.batchId.toString());
+        if (batch && batch.days && batch.days.length > 0) {
+          const daysMap = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+          const targetDays = batch.days.map(d => daysMap[d.substring(0, 3)]).filter(d => d !== undefined);
+          
+          let current = new Date(course.startDate);
+          const end = new Date(course.endDate);
+          const timing = `${batch.startTime} - ${batch.endTime}`;
 
-      for (const slot of slots) {
-        if (!slot.selectedDay) continue;
-        const sessionDate = getOngoingSessionDate(transaction.createdAt, slot.selectedDay);
-        if (!sessionDate) continue;
+          let count = 0;
+          while (current <= end && count < 1000) {
+            if (targetDays.includes(current.getDay())) {
+              const sessionDate = new Date(current);
+              const formattedDate = sessionDate.toISOString().split("T")[0];
+              const sessionInfo = {
+                batchId: transaction.batchId,
+                selectedDay: Object.keys(daysMap).find(key => daysMap[key] === sessionDate.getDay()),
+                date: formattedDate,
+                timing,
+                venueAddress: course.venueAddress || null,
+              };
 
-        const batch = transaction.courseId.batches.find(b => b._id.toString() === slot.batchId.toString());
-        const timing = batch ? `${batch.startTime} - ${batch.endTime}` : "";
-        const formattedDate = sessionDate.toISOString().split("T")[0];
+              const compareDate = new Date(sessionDate);
+              if (batch.startTime) {
+                const [h, m] = batch.startTime.split(":").map(Number);
+                compareDate.setHours(h, m, 0, 0);
+              }
 
-        const sessionInfo = {
-          batchId: slot.batchId,
-          selectedDay: slot.selectedDay,
-          date: formattedDate,
-          timing,
-          venueAddress: transaction.courseId.venueAddress || null,
+              if (compareDate >= now) {
+                upcoming.push(sessionInfo);
+              } else {
+                past.push(sessionInfo);
+              }
+            }
+            current.setDate(current.getDate() + 1);
+            count++;
+          }
+        }
+      } else if (course.enrollmentType === "Ongoing" && !transaction.passType) {
+        const slots = transaction.ongoingSlots && transaction.ongoingSlots.length > 0
+          ? transaction.ongoingSlots
+          : (transaction.batchId ? [{ batchId: transaction.batchId, selectedDay: transaction.selectedDay }] : []);
+
+        const getOngoingSessionDate = (createdAt, selectedDay) => {
+          const daysMap = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+          const targetDay = daysMap[selectedDay.substring(0, 3)];
+          if (targetDay === undefined) return null;
+          const start = new Date(createdAt);
+          const currentDay = start.getDay();
+          let daysToAdd = targetDay - currentDay;
+          if (daysToAdd < 0) daysToAdd += 7;
+          const sessionDate = new Date(start);
+          sessionDate.setDate(start.getDate() + daysToAdd);
+          return sessionDate;
         };
 
-        const startOfToday = new Date(now);
-        startOfToday.setHours(0, 0, 0, 0);
+        for (const slot of slots) {
+          if (!slot.selectedDay) continue;
+          const sessionDate = getOngoingSessionDate(transaction.createdAt, slot.selectedDay);
+          if (!sessionDate) continue;
 
-        const oneWeekAhead = new Date(startOfToday);
-        oneWeekAhead.setDate(oneWeekAhead.getDate() + 7);
-        oneWeekAhead.setHours(23, 59, 59, 999);
+          const batch = course.batches.find(b => b._id.toString() === slot.batchId.toString());
+          const timing = batch ? `${batch.startTime} - ${batch.endTime}` : "";
+          const formattedDate = sessionDate.toISOString().split("T")[0];
 
-        const oneWeekAgo = new Date(startOfToday);
-        oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-        oneWeekAgo.setHours(0, 0, 0, 0);
+          const sessionInfo = {
+            batchId: slot.batchId,
+            selectedDay: slot.selectedDay,
+            date: formattedDate,
+            timing,
+            venueAddress: course.venueAddress || null,
+          };
 
-        if (sessionDate >= startOfToday && sessionDate <= oneWeekAhead) {
-          upcoming.push(sessionInfo);
-        } else if (sessionDate < startOfToday && sessionDate >= oneWeekAgo) {
-          past.push(sessionInfo);
+          const startOfToday = new Date(now);
+          startOfToday.setHours(0, 0, 0, 0);
+
+          const oneWeekAhead = new Date(startOfToday);
+          oneWeekAhead.setDate(oneWeekAhead.getDate() + 7);
+          oneWeekAhead.setHours(23, 59, 59, 999);
+
+          const oneWeekAgo = new Date(startOfToday);
+          oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+          oneWeekAgo.setHours(0, 0, 0, 0);
+
+          if (sessionDate >= startOfToday && sessionDate <= oneWeekAhead) {
+            upcoming.push(sessionInfo);
+          } else if (sessionDate < startOfToday && sessionDate >= oneWeekAgo) {
+            past.push(sessionInfo);
+          }
         }
       }
 

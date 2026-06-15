@@ -1,7 +1,7 @@
 ### Environment Variables
 @baseUrl = http://localhost:8080/api/v1
 @authToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTFkMWIxYmQ3ZTI2ODRjOTNjYmFkNmIiLCJyb2xlSWQiOjIsImlhdCI6MTc4MDI5MjU3MCwiZXhwIjoyNjQ0MjkyNTcwfQ.jj_rppLYsCL8Wg51zbVo6c-OiszjSpntFmui5jkVjgI
-@customerToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTFlODA2NjU5NzliZWVlNDFjZjVmNGIiLCJyb2xlSWQiOjIsImlhdCI6MTc4MTUwOTMwMSwiZXhwIjoyNjQ1NTA5MzAxfQ.ue0erSH-EI_LQispI_VVYh9QZlu4xsvIS6F0A8s8xOc
+@customerToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTFmYjYxNzRiZTJjOWNjMGNmOGZiMTEiLCJyb2xlSWQiOjMsImlhdCI6MTc4MTUyMzE2MywiZXhwIjoyNjQ1NTIzMTYzfQ.UWgb7iF-30wBLIQ7YC00s8d_1HiDEth5mtKm0kV1iRQ
 
 ### ─── Replace these with actual IDs after creating a course ───
 @courseId = REPLACE_WITH_COURSE_ID
@@ -116,7 +116,7 @@ GET {{baseUrl}}/booking/list?bookingType=COURSE&page=1&limit=5
 Authorization: Bearer {{customerToken}}
 
 ### 8. Get Ticket Detail
-GET {{baseUrl}}/booking/detail/{{transactionId}}
+GET {{baseUrl}}/booking/detail/6a2fe444d20f352cedc19607
 Authorization: Bearer {{customerToken}}
 
 ### 9. Generate Share & Download URLs
