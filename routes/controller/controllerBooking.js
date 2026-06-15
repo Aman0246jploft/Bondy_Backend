@@ -1647,6 +1647,27 @@ const getTicketList = async (req, res) => {
         return true;
       }
 
+      if (t.bookingType === "COURSE" && t.courseId?.enrollmentType === "Ongoing" && !t.passType) {
+        const selectedDayName = t.selectedDay || (t.ongoingSlots && t.ongoingSlots[0] && t.ongoingSlots[0].selectedDay);
+        if (selectedDayName) {
+          const daysMap = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+          const targetDay = daysMap[selectedDayName.substring(0, 3)];
+          if (targetDay !== undefined) {
+            const start = new Date(t.createdAt);
+            const currentDay = start.getDay();
+            let daysToAdd = targetDay - currentDay;
+            if (daysToAdd < 0) daysToAdd += 7;
+            const sessionDate = new Date(start);
+            sessionDate.setDate(start.getDate() + daysToAdd);
+            sessionDate.setHours(23, 59, 59, 999);
+            
+            if (type === "upcoming") return sessionDate >= now;
+            if (type === "past") return sessionDate < now;
+            return true;
+          }
+        }
+      }
+
       const endDate = item.endDate;
 
       if (type === "upcoming") return endDate && new Date(endDate) >= now;
@@ -1725,6 +1746,70 @@ const getTicketDetail = async (req, res) => {
 
     if (transactionObj.userId?.profileImage) {
       transactionObj.userId.profileImage = formatResponseUrl(transactionObj.userId.profileImage);
+    }
+
+    const isOngoingCourse = transaction.bookingType === "COURSE" && transaction.courseId?.enrollmentType === "Ongoing";
+    const isSingleSession = isOngoingCourse && !transaction.passType;
+
+    if (isSingleSession) {
+      const slots = transaction.ongoingSlots && transaction.ongoingSlots.length > 0
+        ? transaction.ongoingSlots
+        : (transaction.batchId ? [{ batchId: transaction.batchId, selectedDay: transaction.selectedDay }] : []);
+
+      const upcoming = [];
+      const past = [];
+      const now = new Date();
+
+      const getOngoingSessionDate = (createdAt, selectedDay) => {
+        const daysMap = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+        const targetDay = daysMap[selectedDay.substring(0, 3)];
+        if (targetDay === undefined) return null;
+        const start = new Date(createdAt);
+        const currentDay = start.getDay();
+        let daysToAdd = targetDay - currentDay;
+        if (daysToAdd < 0) daysToAdd += 7;
+        const sessionDate = new Date(start);
+        sessionDate.setDate(start.getDate() + daysToAdd);
+        return sessionDate;
+      };
+
+      for (const slot of slots) {
+        if (!slot.selectedDay) continue;
+        const sessionDate = getOngoingSessionDate(transaction.createdAt, slot.selectedDay);
+        if (!sessionDate) continue;
+
+        const batch = transaction.courseId.batches.find(b => b._id.toString() === slot.batchId.toString());
+        const timing = batch ? `${batch.startTime} - ${batch.endTime}` : "";
+        const formattedDate = sessionDate.toISOString().split("T")[0];
+
+        const sessionInfo = {
+          batchId: slot.batchId,
+          selectedDay: slot.selectedDay,
+          date: formattedDate,
+          timing,
+          venueAddress: transaction.courseId.venueAddress || null,
+        };
+
+        const startOfToday = new Date(now);
+        startOfToday.setHours(0, 0, 0, 0);
+
+        const oneWeekAhead = new Date(startOfToday);
+        oneWeekAhead.setDate(oneWeekAhead.getDate() + 7);
+        oneWeekAhead.setHours(23, 59, 59, 999);
+
+        const oneWeekAgo = new Date(startOfToday);
+        oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+        oneWeekAgo.setHours(0, 0, 0, 0);
+
+        if (sessionDate >= startOfToday && sessionDate <= oneWeekAhead) {
+          upcoming.push(sessionInfo);
+        } else if (sessionDate < startOfToday && sessionDate >= oneWeekAgo) {
+          past.push(sessionInfo);
+        }
+      }
+
+      transactionObj.upcoming = upcoming;
+      transactionObj.past = past;
     }
 
     return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.TICKET_DETAIL_FETCHED, {
