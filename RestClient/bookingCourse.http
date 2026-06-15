@@ -164,3 +164,29 @@ Content-Type: application/json
 {
   "qrCodeData": "TICKET-REPLACE_TXN_ID-REPLACE_USER_ID-1234567890"
 }
+
+#==========================================================
+# FREE COURSE BOOKING FLOW (Price 0)
+#==========================================================
+
+### 16. Calculate Free Course Booking (Preview)
+POST {{baseUrl}}/booking/calculate
+Authorization: Bearer {{customerToken}}
+Content-Type: application/json
+
+{
+  "courseId": "{{courseId}}",
+  "batchId": "{{batchId}}",
+  "qty": 1
+}
+
+### 17. Initiate Free Course Booking (Auto-confirms to PAID)
+POST {{baseUrl}}/booking/initiate
+Authorization: Bearer {{customerToken}}
+Content-Type: application/json
+
+{
+  "courseId": "{{courseId}}",
+  "batchId": "{{batchId}}",
+  "qty": 1
+}

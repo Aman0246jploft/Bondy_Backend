@@ -757,7 +757,55 @@ const initiateBooking = async (req, res) => {
       };
 
       const transaction = new Transaction(transactionData);
+
+      if (totalFinalAmount === 0) {
+        transaction.status = "PAID";
+        transaction.paymentId = `FREE_BOOKING_${Date.now()}`;
+        transaction.qrCodeData = generateQRData(transaction._id, userId);
+        transaction.commissionAmount = 0;
+        transaction.organizerEarning = 0;
+      }
+
       await transaction.save();
+
+      if (totalFinalAmount === 0) {
+        const item = event;
+        const organizerId = item.createdBy?._id || item.createdBy;
+        const itemTitle = item.eventTitle || "Event";
+
+        notifyBookingConfirmed(
+          userId,
+          bookingType,
+          itemTitle,
+          String(transaction._id),
+        ).catch((e) => console.error("[Notification] notifyBookingConfirmed:", e));
+
+        User.findById(userId).select("firstName lastName")
+          .then((buyer) => {
+            const buyerName = buyer ? `${buyer.firstName} ${buyer.lastName}` : "A customer";
+            notifyOrganizerNewBooking(
+              String(organizerId),
+              buyerName,
+              bookingType,
+              itemTitle,
+              String(item._id),
+            ).catch((e) => console.error("[Notification] notifyOrganizerNewBooking:", e));
+          });
+
+        if (discountCode) {
+          PromoCode.updateOne(
+            { code: discountCode },
+            { $inc: { usedCount: 1 } },
+          ).catch((e) => console.error("[Promo] increment usage failed:", e));
+        }
+
+        const transactionObj = transaction.toObject();
+        formatItemMedia(transactionObj, bookingType);
+
+        return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.BOOKING_CONFIRMED, {
+          transaction: transactionObj,
+        });
+      }
 
       return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.BOOKING_INITIATED, {
         transactionId: transaction._id,
@@ -792,7 +840,64 @@ const initiateBooking = async (req, res) => {
       };
 
       const transaction = new Transaction(transactionData);
+
+      if (totalFinalAmount === 0) {
+        transaction.status = "PAID";
+        transaction.paymentId = `FREE_BOOKING_${Date.now()}`;
+        transaction.qrCodeData = generateQRData(transaction._id, userId);
+        transaction.commissionAmount = 0;
+        transaction.organizerEarning = 0;
+
+        if (passType) {
+          const days = passType === "1_month" ? 30 : passType === "3_month" ? 90 : null;
+          if (days) {
+            const expiry = new Date();
+            expiry.setDate(expiry.getDate() + days);
+            transaction.passExpiryDate = expiry;
+          }
+        }
+      }
+
       await transaction.save();
+
+      if (totalFinalAmount === 0) {
+        const item = course;
+        const organizerId = item.createdBy?._id || item.createdBy;
+        const itemTitle = item.courseTitle || "Course";
+
+        notifyBookingConfirmed(
+          userId,
+          bookingType,
+          itemTitle,
+          String(transaction._id),
+        ).catch((e) => console.error("[Notification] notifyBookingConfirmed:", e));
+
+        User.findById(userId).select("firstName lastName")
+          .then((buyer) => {
+            const buyerName = buyer ? `${buyer.firstName} ${buyer.lastName}` : "A customer";
+            notifyOrganizerNewBooking(
+              String(organizerId),
+              buyerName,
+              bookingType,
+              itemTitle,
+              String(item._id),
+            ).catch((e) => console.error("[Notification] notifyOrganizerNewBooking:", e));
+          });
+
+        if (discountCode) {
+          PromoCode.updateOne(
+            { code: discountCode },
+            { $inc: { usedCount: 1 } },
+          ).catch((e) => console.error("[Promo] increment usage failed:", e));
+        }
+
+        const transactionObj = transaction.toObject();
+        formatItemMedia(transactionObj, bookingType);
+
+        return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.BOOKING_CONFIRMED, {
+          transaction: transactionObj,
+        });
+      }
 
       return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.BOOKING_INITIATED, {
         transactionId: transaction._id,
@@ -829,7 +934,11 @@ const confirmPayment = async (req, res) => {
       return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.TRANSACTION_NOT_FOUND);
     }
     if (transaction.status === "PAID") {
-      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.TRANSACTION_ALREADY_PAID);
+      const transactionObj = transaction.toObject();
+      formatItemMedia(transactionObj, transaction.bookingType);
+      return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.BOOKING_CONFIRMED, {
+        transaction: transactionObj,
+      });
     }
     if (["CANCELLED", "FAILED", "REFUNDED"].includes(transaction.status)) {
       return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.INVALID_TRANSACTION_STATE);
@@ -890,11 +999,19 @@ const confirmPayment = async (req, res) => {
     }
 
     // ── Commission & Earnings ──
-    const { commissionAmount, organizerEarning } = await calculateCommission(transaction);
+    let commissionAmount = 0;
+    let organizerEarning = 0;
+    if (transaction.totalAmount > 0) {
+      const commissionResult = await calculateCommission(transaction);
+      commissionAmount = commissionResult.commissionAmount;
+      organizerEarning = commissionResult.organizerEarning;
+    }
 
     // ── Update Transaction to PAID ──
     transaction.status = "PAID";
-    transaction.paymentId = `MOCK_PAY_${Date.now()}`;
+    transaction.paymentId = transaction.totalAmount === 0 
+      ? `FREE_BOOKING_${Date.now()}` 
+      : `MOCK_PAY_${Date.now()}`;
     transaction.qrCodeData = generateQRData(transaction._id, userId);
     transaction.commissionAmount = commissionAmount;
     transaction.organizerEarning = organizerEarning;
@@ -912,7 +1029,9 @@ const confirmPayment = async (req, res) => {
 
     // ── Credit Organizer ──
     const { item, organizerId, itemTitle } = resolveBookingItem(transaction);
-    await creditOrganizerWallet(organizerId, organizerEarning, transaction, itemTitle);
+    if (organizerEarning > 0) {
+      await creditOrganizerWallet(organizerId, organizerEarning, transaction, itemTitle);
+    }
 
     // ── Notifications (non-blocking) ──
     notifyBookingConfirmed(

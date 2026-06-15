@@ -190,4 +190,33 @@ Authorization: Bearer {{authToken}}
 GET {{baseUrl}}/booking/course/{{courseId}}/attendees?page=1&limit=5&search=New
 Authorization: Bearer {{authToken}}
 
+#==========================================================
+# FREE EVENT BOOKING FLOW (Price 0)
+#==========================================================
+
+### 21. Calculate Free Event Booking (Preview)
+POST {{baseUrl}}/booking/calculate
+Authorization: Bearer {{customerToken}}
+Content-Type: application/json
+
+{
+  "bookingType": "EVENT",
+  "eventId": "{{eventId}}",
+  "tickets": [
+    { "ticketId": "{{ticketId}}", "qty": 1 }
+  ]
+}
+
+### 22. Initiate Free Event Booking (Auto-confirms to PAID)
+POST {{baseUrl}}/booking/initiate
+Authorization: Bearer {{customerToken}}
+Content-Type: application/json
+
+{
+  "eventId": "{{eventId}}",
+  "tickets": [
+    { "ticketId": "{{ticketId}}", "qty": 1 }
+  ]
+}
+
 
