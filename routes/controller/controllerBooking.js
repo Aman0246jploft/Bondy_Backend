@@ -2162,7 +2162,7 @@ const getEventAttendeesList = async (req, res) => {
 const getCourseAttendeesList = async (req, res) => {
   try {
     const { courseId } = req.params;
-    const { status, batchId, search, page = 1, limit = 10 } = req.query;
+    const { status, batchId, search, date, page = 1, limit = 10 } = req.query;
     const userId = req.user.userId;
 
     const course = await Course.findById(courseId);
@@ -2204,6 +2204,17 @@ const getCourseAttendeesList = async (req, res) => {
         $or: [
           { batchId: batchId },
           { "ongoingSlots.batchId": batchId }
+        ]
+      });
+    }
+
+    if (date) {
+      filter.$and = filter.$and || [];
+      filter.$and.push({
+        $or: [
+          { selectedDay: date },
+          { "ongoingSlots.selectedDay": date },
+          { "ongoingSlots.selectedDate": date }
         ]
       });
     }
