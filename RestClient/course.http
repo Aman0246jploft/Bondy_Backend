@@ -1,7 +1,7 @@
 ### Environment Variables
 @baseUrl = http://localhost:8080/api/v1
 @authToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTFlODA2NjU5NzliZWVlNDFjZjVmNGIiLCJyb2xlSWQiOjIsImlhdCI6MTc4MDQ5NzgwNiwiZXhwIjoyNjQ0NDk3ODA2fQ.XSvrEpbwY_Jt6VjNaYIHmfnsHVQtPTXjSEsVy6H6XzE
-@courseId = 6a30da7e51595a97343397a4
+@courseId = 6a2904769f3feca6e22f5916
 
 ### 1. Create a Draft Course (Allows missing fields for draft mode)
 POST {{baseUrl}}/course/create
@@ -96,11 +96,11 @@ Content-Type: application/json
   "threeMonthPassEnabled": true,
   "batches": [
     {
-      "_id": "6a216d3aaf039f44dc5d6ef8",
+      "_id": "6a2904769f3feca6e22f5917",
       "ReservedExternally": 10
     },
     {
-      "_id": "6a216d3aaf039f44dc5d6ef9", 
+      "_id": "6a2904769f3feca6e22f5918", 
       "ReservedExternally": 2
     }
   ]
@@ -358,3 +358,31 @@ Content-Type: application/json
   "date": "2026-06-22",
   "ReservedExternally": 3
 }
+
+
+#==================================== CANCELLATION ==================================
+
+### 25. Cancel a Specific Batch (Only bookings in this batch get refunded)
+# This sets batch.status → "Cancelled" but keeps the course active.
+# Only transactions with this batchId are refunded.
+POST {{baseUrl}}/booking/cancel-course
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "courseId": "{{courseId}}",
+  "batchId": "6a2904769f3feca6e22f5917",
+  "reason": "Not enough enrollment for this batch"
+}
+
+### 26. Cancel Entire Course (Organizer — all bookings get full refund)
+# This sets course.status → "Cancelled", cancels all batches, and refunds ALL bookings.
+POST {{baseUrl}}/booking/cancel-course
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "courseId": "{{courseId}}",
+  "reason": "Instructor unavailable"
+}
+

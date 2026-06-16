@@ -1268,6 +1268,8 @@ const getEventDetails = async (req, res) => {
   try {
     const { eventId } = req.params;
 
+    const loggedInUserId = req.user?.userId || null;
+
     // 1. Fetch Event with populated fields
     const event = await Event.findById(eventId)
       .populate("eventCategory")
@@ -1285,22 +1287,12 @@ const getEventDetails = async (req, res) => {
     // Record view in a non-blocking asynchronous way
     (async () => {
       try {
-        let viewUserId = null;
-        const authHeader = req.headers.authorization;
-        if (authHeader && authHeader.startsWith("Bearer ")) {
-          try {
-            const token = authHeader.split(" ")[1];
-            const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY);
-            viewUserId = decoded.userId;
-          } catch (err) { }
-        }
-
         const ipAddress = req.headers["x-forwarded-for"] || req.socket.remoteAddress || null;
 
-        if (viewUserId) {
-          const existingView = await EventView.findOne({ eventId, userId: viewUserId });
+        if (loggedInUserId) {
+          const existingView = await EventView.findOne({ eventId, userId: loggedInUserId });
           if (!existingView) {
-            await EventView.create({ eventId, userId: viewUserId, ipAddress });
+            await EventView.create({ eventId, userId: loggedInUserId, ipAddress });
           }
         } else if (ipAddress) {
           const existingView = await EventView.findOne({ eventId, ipAddress, userId: null });
@@ -1326,16 +1318,11 @@ const getEventDetails = async (req, res) => {
 
     // Check Booking Status (if logged in)
     let isBooked = false;
-    const authHeader = req.headers.authorization;
-    if (authHeader && authHeader.startsWith("Bearer ")) {
+    if (loggedInUserId) {
       try {
-        const token = authHeader.split(" ")[1];
-        const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY);
-        const userId = decoded.userId;
-
         // Check Transaction for confirmed booking
         const booking = await Transaction.findOne({
-          userId: userId,
+          userId: loggedInUserId,
           eventId: eventId,
           status: "PAID",
         });
@@ -1347,13 +1334,10 @@ const getEventDetails = async (req, res) => {
     // Check Wishlist Status
     let isWishlisted = false;
 
-    if (authHeader && authHeader.startsWith("Bearer ")) {
+    if (loggedInUserId) {
       try {
-        const token = authHeader.split(" ")[1];
-        const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY);
-        const userId = decoded.userId;
         const wishlistItem = await Wishlist.findOne({
-          userId: toObjectId(userId),
+          userId: toObjectId(loggedInUserId),
           entityId: toObjectId(eventId),
           entityModel: "Event",
         });
@@ -1480,6 +1464,7 @@ const getEventDetails = async (req, res) => {
             eventCategory: event.eventCategory._id || event.eventCategory,
             _id: { $ne: eventId },
             isDraft: false,
+            ...(loggedInUserId ? { createdBy: { $ne: loggedInUserId } } : {}),
           })
             .populate("eventCategory")
             .populate("createdBy", "firstName lastName profileImage isVerified")

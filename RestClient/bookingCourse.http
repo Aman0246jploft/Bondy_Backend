@@ -51,11 +51,6 @@ Content-Type: application/json
 
 
 
-
-
-
-
-
 ### 2. Calculate Course Booking WITH Promo Code
 POST {{baseUrl}}/booking/calculate
 Authorization: Bearer {{customerToken}}
