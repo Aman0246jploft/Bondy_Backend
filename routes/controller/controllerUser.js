@@ -1156,6 +1156,7 @@ const getUserProfileById = async (req, res) => {
       firstName: user.firstName,
       lastName: user.lastName,
       isVerified: user.isVerified,
+      hasBeenApproved: user.hasBeenApproved,
       email: user.email,
       countryCode: user.countryCode,
       contactNumber: user.contactNumber,

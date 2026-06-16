@@ -320,6 +320,7 @@ UserSchema.pre("save", function (next) {
   if (this.roleId === roleId.CUSTOMER) {
     this.organizerVerificationStatus = "approved";
     this.isVerified = true;
+    this.hasBeenApproved = true;
   }
   else if (this.roleId === roleId.ORGANIZER) {
     const verificationsModified = this.isModified("verifications");

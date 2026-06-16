@@ -181,7 +181,7 @@ Content-Type: application/json
 #==================================== FILTER ====================================
 
 ### 7. List Courses - Standard Retrieve (Active/Upcoming Courses)
-GET {{baseUrl}}/course/list?search=Ongoingcreate
+GET {{baseUrl}}/course/list?userId=6a1e80665979beee41cf5f4b&filter=organizer
 Authorization: Bearer {{authToken}}
 
 
@@ -354,7 +354,7 @@ Content-Type: application/json
 
 {
   "courseId": "{{courseId}}",
-  "batchId": "6a27a6008db41086df1e5e06",
-  "date": "2026-06-15",
-  "ReservedExternally": 10
+  "batchId": "6a30da7e51595a97343397a6",
+  "date": "2026-06-22",
+  "ReservedExternally": 3
 }
