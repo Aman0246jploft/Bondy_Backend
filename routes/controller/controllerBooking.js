@@ -2260,6 +2260,90 @@ const getCourseAttendeesList = async (req, res) => {
     const limitNum = parseInt(limit, 10) || 10;
     const skip = (pageNum - 1) * limitNum;
 
+    const mongoose = require("mongoose");
+    let external = 0;
+    let booked = 0;
+    let available = 0;
+
+    const aggMatch = {
+      courseId: new mongoose.Types.ObjectId(courseId),
+      status: "PAID",
+      bookingType: "COURSE"
+    };
+
+    if (batchId) {
+      const batchObjId = batchId.toString();
+      if (date) {
+        aggMatch.$or = [
+          { batchId: batchObjId, selectedDay: date },
+          {
+            ongoingSlots: {
+              $elemMatch: {
+                batchId: batchObjId,
+                $or: [
+                  { selectedDay: date },
+                  { selectedDate: date }
+                ]
+              }
+            }
+          }
+        ];
+      } else {
+        aggMatch.$or = [
+          { batchId: batchObjId },
+          { "ongoingSlots.batchId": batchObjId }
+        ];
+      }
+    } else if (date) {
+      aggMatch.$or = [
+        { selectedDay: date },
+        { "ongoingSlots.selectedDay": date },
+        { "ongoingSlots.selectedDate": date }
+      ];
+    }
+
+    if (batchId) {
+      const batch = course.batches.find((b) => b._id.toString() === batchId.toString());
+      if (batch) {
+        if (date) {
+          const reservedDateEntry = batch.reservedDates?.find((rd) => rd.date === date);
+          external = reservedDateEntry ? reservedDateEntry.seats : (batch.ReservedExternally || 0);
+        } else {
+          external = batch.ReservedExternally || 0;
+        }
+
+        const bookedAgg = await Transaction.aggregate([
+          { $match: aggMatch },
+          { $group: { _id: null, totalQty: { $sum: "$qty" } } },
+        ]);
+        booked = bookedAgg.length > 0 ? bookedAgg[0].totalQty : 0;
+
+        const totalSeats = batch.seats || 0;
+        available = Math.max(0, totalSeats - booked - external);
+      }
+    } else {
+      let totalSeats = 0;
+      for (const batch of (course.batches || [])) {
+        if (batch.status === "Active") {
+          totalSeats += batch.seats || 0;
+          if (date) {
+            const reservedDateEntry = batch.reservedDates?.find((rd) => rd.date === date);
+            external += reservedDateEntry ? reservedDateEntry.seats : (batch.ReservedExternally || 0);
+          } else {
+            external += batch.ReservedExternally || 0;
+          }
+        }
+      }
+
+      const bookedAgg = await Transaction.aggregate([
+        { $match: aggMatch },
+        { $group: { _id: null, totalQty: { $sum: "$qty" } } },
+      ]);
+      booked = bookedAgg.length > 0 ? bookedAgg[0].totalQty : 0;
+
+      available = Math.max(0, totalSeats - booked - external);
+    }
+
     // ── When NO batchId filter: deduplicate by userId (one entry per unique student) ──
     if (!batchId) {
       // Get distinct userIds that match the filter
@@ -2362,6 +2446,9 @@ const getCourseAttendeesList = async (req, res) => {
             endDate: course.endDate,
             posterImage: Array.isArray(course.posterImage) ? course.posterImage.map(formatResponseUrl) : [],
           },
+          ReservedExternally: external,
+          availableSeats: available,
+          acquiredSeats: booked + external,
           totalAttendees: totalUnique,
           totalCheckedInTickets: attendees.reduce((sum, a) => sum + a.checkedInQty, 0),
           totalPages: Math.ceil(totalUnique / limitNum),
@@ -2461,6 +2548,9 @@ const getCourseAttendeesList = async (req, res) => {
           endDate: course.endDate,
           posterImage: Array.isArray(course.posterImage) ? course.posterImage.map(formatResponseUrl) : [],
         },
+        ReservedExternally: external,
+        availableSeats: available,
+        acquiredSeats: booked + external,
         totalAttendees: totalCount,
         totalCheckedInTickets: attendees.reduce((sum, a) => sum + a.checkedInQty, 0),
         totalPages: Math.ceil(totalCount / limitNum),

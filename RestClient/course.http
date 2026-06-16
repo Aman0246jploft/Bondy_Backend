@@ -1,7 +1,7 @@
 ### Environment Variables
 @baseUrl = http://localhost:8080/api/v1
 @authToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTFlODA2NjU5NzliZWVlNDFjZjVmNGIiLCJyb2xlSWQiOjIsImlhdCI6MTc4MDQ5NzgwNiwiZXhwIjoyNjQ0NDk3ODA2fQ.XSvrEpbwY_Jt6VjNaYIHmfnsHVQtPTXjSEsVy6H6XzE
-@courseId = 6a27a4e58db41086df1e5bfa
+@courseId = 6a30da7e51595a97343397a4
 
 ### 1. Create a Draft Course (Allows missing fields for draft mode)
 POST {{baseUrl}}/course/create
@@ -335,7 +335,7 @@ Authorization: Bearer {{authToken}}
 
 ### 23c. Get Course Enrolled Users — Paginated, Search by Name or bookingId (single field)
 # Retrieves the list of users who enroller this course filtered by name or booking ID in a single search parameter and paginated.
-GET {{baseUrl}}/booking/course/{{courseId}}/attendees?page=1&limit=5&search=&batchId=6a216d3aaf039f44dc5d6ef9&date=2026-06-15
+GET {{baseUrl}}/booking/course/{{courseId}}/attendees?page=1&limit=5&search=&batchId=6a30da7e51595a97343397a6&date=2026-06-22
 Authorization: Bearer {{authToken}}
 
 ### 23d. Get Course Enrolled Users — Filtered by Date (Ongoing Classes)
