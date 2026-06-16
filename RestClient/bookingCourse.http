@@ -1,7 +1,7 @@
 ### Environment Variables
 @baseUrl = http://localhost:8080/api/v1
 @authToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTFkMWIxYmQ3ZTI2ODRjOTNjYmFkNmIiLCJyb2xlSWQiOjIsImlhdCI6MTc4MDI5MjU3MCwiZXhwIjoyNjQ0MjkyNTcwfQ.jj_rppLYsCL8Wg51zbVo6c-OiszjSpntFmui5jkVjgI
-@customerToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTFmYjYxNzRiZTJjOWNjMGNmOGZiMTEiLCJyb2xlSWQiOjMsImlhdCI6MTc4MTUyMzE2MywiZXhwIjoyNjQ1NTIzMTYzfQ.UWgb7iF-30wBLIQ7YC00s8d_1HiDEth5mtKm0kV1iRQ
+@customerToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTFlODA2NjU5NzliZWVlNDFjZjVmNGIiLCJyb2xlSWQiOjIsImlhdCI6MTc4MTI1NTY3NiwiZXhwIjoyNjQ1MjU1Njc2fQ.cZuZxY_adipJ0NnRgTjNxl7K1ckuS480FwbOFgO20kY
 
 ### ─── Replace these with actual IDs after creating a course ───
 @courseId = REPLACE_WITH_COURSE_ID
@@ -31,21 +31,30 @@ Content-Type: application/json
   // ]
 }
 
-### 1a. Calculate Course Booking with 1 Month or 3 Month Pass (Ongoing Course only)
-# passType can be "1_month" or "3_month"
+### 1a. Calculate Course Booking with 1 Month Pass AND Multiple Slots (Ongoing Course only)
+# passType can be "1_month" or "3_month". ongoingSlots contains multiple selected days.
 POST {{baseUrl}}/booking/calculate
 Authorization: Bearer {{customerToken}}
 Content-Type: application/json
 
 {
-  "courseId": "{{courseId}}",
+  "courseId": "6a30da7e51595a97343397a4",
   "qty": 1,
   "discountCode": "",
   "ongoingSlots": [
-    { "batchId": "{{batchId}}", "selectedDay": "Mon" }
+    { "batchId": "6a30da7e51595a97343397a7", "selectedDay": "Mon", "selectedDate": "2026-06-15" },
+    { "batchId": "6a30da7e51595a97343397a6", "selectedDay": "Tue", "selectedDate": "2026-06-16" }
   ],
   "passType": "1_month"
 }
+
+
+
+
+
+
+
+
 
 ### 2. Calculate Course Booking WITH Promo Code
 POST {{baseUrl}}/booking/calculate
@@ -73,12 +82,12 @@ Content-Type: application/json
   "discountCode": ""
   // Or for Ongoing courses:
   // "ongoingSlots": [
-  //   { "batchId": "{{batchId}}", "selectedDay": "Mon" }
+  //   { "batchId": "{{batchId}}", "selectedDay": "Mon", "selectedDate": "2026-06-15" }
   // ]
 }
 
-### 3a. Initiate Course Booking with 1 Month or 3 Month Pass (Ongoing Course only)
-# passType can be "1_month" or "3_month"
+### 3a. Initiate Course Booking with 1 Month Pass AND Multiple Slots (Ongoing Course only)
+# passType can be "1_month" or "3_month". ongoingSlots contains multiple selected days.
 POST {{baseUrl}}/booking/initiate
 Authorization: Bearer {{customerToken}}
 Content-Type: application/json
@@ -88,7 +97,8 @@ Content-Type: application/json
   "qty": 1,
   "discountCode": "",
   "ongoingSlots": [
-    { "batchId": "{{batchId}}", "selectedDay": "Mon" }
+    { "batchId": "{{batchId}}", "selectedDay": "Mon", "selectedDate": "2026-06-15" },
+    { "batchId": "{{batchId}}", "selectedDay": "Tue", "selectedDate": "2026-06-16" }
   ],
   "passType": "1_month"
 }
@@ -116,7 +126,7 @@ GET {{baseUrl}}/booking/list?bookingType=COURSE&page=1&limit=5
 Authorization: Bearer {{customerToken}}
 
 ### 8. Get Ticket Detail
-GET {{baseUrl}}/booking/detail/6a2fe444d20f352cedc19607
+GET {{baseUrl}}/booking/detail/6a30dc0051595a9734339a8d
 Authorization: Bearer {{customerToken}}
 
 ### 9. Generate Share & Download URLs

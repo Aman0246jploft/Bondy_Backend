@@ -37,6 +37,7 @@ const transactionSchema = new mongoose.Schema(
             {
                 batchId: { type: String, required: true },
                 selectedDay: { type: String, required: true },
+                selectedDate: { type: String, default: null },
             }
         ],
         passType: {

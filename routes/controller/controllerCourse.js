@@ -1780,7 +1780,7 @@ const getCourseDetails = async (req, res) => {
                 ]
               },
               then: "$ongoingSlots",
-              else: [{ batchId: "$batchId", selectedDay: "$selectedDay" }]
+              else: [{ batchId: "$batchId", selectedDay: "$selectedDay", selectedDate: "$selectedDate" }]
             }
           }
         }
@@ -1788,7 +1788,10 @@ const getCourseDetails = async (req, res) => {
       { $unwind: "$slots" },
       {
         $group: {
-          _id: { batchId: "$slots.batchId", date: "$slots.selectedDay" },
+          _id: {
+            batchId: "$slots.batchId",
+            date: { $ifNull: ["$slots.selectedDate", "$slots.selectedDay"] }
+          },
           count: { $sum: "$qty" }
         }
       }
