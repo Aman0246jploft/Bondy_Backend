@@ -126,7 +126,7 @@ GET {{baseUrl}}/booking/list?bookingType=COURSE&page=1&limit=5
 Authorization: Bearer {{customerToken}}
 
 ### 8. Get Ticket Detail
-GET {{baseUrl}}/booking/detail/6a30dc0051595a9734339a8d
+GET {{baseUrl}}/booking/detail/6a30e0888a41f8097cf87e9a
 Authorization: Bearer {{customerToken}}
 
 ### 9. Generate Share & Download URLs

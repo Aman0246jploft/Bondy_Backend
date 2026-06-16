@@ -1725,7 +1725,7 @@ const getTicketList = async (req, res) => {
             const sessionDate = new Date(start);
             sessionDate.setDate(start.getDate() + daysToAdd);
             sessionDate.setHours(23, 59, 59, 999);
-            
+
             if (type === "upcoming") return sessionDate >= now;
             if (type === "past") return sessionDate < now;
             return true;
@@ -1824,7 +1824,7 @@ const getTicketDetail = async (req, res) => {
         if (batch && batch.days && batch.days.length > 0) {
           const daysMap = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
           const targetDays = batch.days.map(d => daysMap[d.substring(0, 3)]).filter(d => d !== undefined);
-          
+
           let current = new Date(course.startDate);
           const end = new Date(course.endDate);
           const timing = `${batch.startTime} - ${batch.endTime}`;
