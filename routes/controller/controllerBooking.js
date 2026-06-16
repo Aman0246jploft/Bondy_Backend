@@ -2198,25 +2198,44 @@ const getCourseAttendeesList = async (req, res) => {
       filter.$expr = { $lt: [{ $ifNull: ["$checkedInQty", 0] }, "$qty"] };
     }
 
-    if (batchId) {
+    if (batchId && date) {
       filter.$and = filter.$and || [];
       filter.$and.push({
         $or: [
-          { batchId: batchId },
-          { "ongoingSlots.batchId": batchId }
+          { batchId: batchId, selectedDay: date },
+          {
+            ongoingSlots: {
+              $elemMatch: {
+                batchId: batchId,
+                $or: [
+                  { selectedDay: date },
+                  { selectedDate: date }
+                ]
+              }
+            }
+          }
         ]
       });
-    }
-
-    if (date) {
-      filter.$and = filter.$and || [];
-      filter.$and.push({
-        $or: [
-          { selectedDay: date },
-          { "ongoingSlots.selectedDay": date },
-          { "ongoingSlots.selectedDate": date }
-        ]
-      });
+    } else {
+      if (batchId) {
+        filter.$and = filter.$and || [];
+        filter.$and.push({
+          $or: [
+            { batchId: batchId },
+            { "ongoingSlots.batchId": batchId }
+          ]
+        });
+      }
+      if (date) {
+        filter.$and = filter.$and || [];
+        filter.$and.push({
+          $or: [
+            { selectedDay: date },
+            { "ongoingSlots.selectedDay": date },
+            { "ongoingSlots.selectedDate": date }
+          ]
+        });
+      }
     }
 
     if (search) {
