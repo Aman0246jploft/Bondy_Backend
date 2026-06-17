@@ -1182,6 +1182,8 @@ const getUserProfileById = async (req, res) => {
       shortDesc: user.shortDesc,
       socialMediaLink: user.socialMediaLink,
       businessVerificationStatus: user.businessVerificationStatus,
+      businessRejectionReason: user.businessRejectionReason,
+      businessRejectionReasonTitle: user.businessRejectionReasonTitle,
       createdAt: user.createdAt,
       verifications: {
         email: user.verifications?.email,

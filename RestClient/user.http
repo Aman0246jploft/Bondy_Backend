@@ -107,7 +107,7 @@ POST {{baseUrl}}/user/verify-otp
 Content-Type: application/json
 
 {
-  "email": "rebok@gmail.com",
+  "email": "new@gmail.com",
   "otp": "12345",
   "type": "LOGIN"
 }
