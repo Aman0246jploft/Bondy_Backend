@@ -1122,6 +1122,7 @@ const getUserProfileById = async (req, res) => {
     if (user.roleId === roleId.SUPER_ADMIN) role = "SUPER_ADMIN";
     else if (user.roleId === roleId.ORGANIZER) role = "ORGANIZER";
     else if (user.roleId === roleId.GUEST) role = "GUEST";
+    else if (user.roleId === roleId.STAFF) role = "STAFF";
 
     // Get interested category names
     const interestedCategories = (user.categories || []).map((cat) => cat.name);
@@ -1167,6 +1168,7 @@ const getUserProfileById = async (req, res) => {
       bio: user.bio,
       role: role,
       userRole: role,
+      roleId: user.roleId,
       averageRating: user.averageRating,
       reviewCount: user.reviewCount,
       location: user.location || null,

@@ -76,6 +76,15 @@ const attendeeSchema = new mongoose.Schema(
             ref: "User",
             default: null,
         },
+        checkInHistory: [
+            {
+                checkedInAt: { type: Date, required: true },
+                checkedInBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+                sessionIndex: { type: Number },
+                sessionDate: { type: String }, // Format YYYY-MM-DD
+                batchId: { type: String }
+            }
+        ],
     },
     {
         timestamps: true,

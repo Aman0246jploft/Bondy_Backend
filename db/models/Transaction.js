@@ -38,6 +38,9 @@ const transactionSchema = new mongoose.Schema(
                 batchId: { type: String, required: true },
                 selectedDay: { type: String, required: true },
                 selectedDate: { type: String, default: null },
+                isCheckedIn: { type: Boolean, default: false },
+                checkedInAt: { type: Date, default: null },
+                checkedInBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null }
             }
         ],
         passType: {

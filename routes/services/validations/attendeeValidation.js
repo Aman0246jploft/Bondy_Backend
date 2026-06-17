@@ -18,12 +18,16 @@ const createAttendeesSchema = Joi.object({
 const checkInSchema = Joi.object({
     ticketNumber: Joi.string().required(),
     entityId: Joi.string().optional(),
+    selectedDate: Joi.string().optional(),
+    batchId: Joi.string().optional(),
 });
 
 const scanQRSchema = Joi.object({
     qrCodeData: Joi.string().required(),
     eventId: Joi.string().optional(),
     courseId: Joi.string().optional(),
+    selectedDate: Joi.string().optional(),
+    batchId: Joi.string().optional(),
 });
 
 const verifySchema = Joi.object({

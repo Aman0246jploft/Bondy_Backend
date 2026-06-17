@@ -1,6 +1,6 @@
 ### Environment Variables
 @baseUrl = http://localhost:8080/api/v1
-@organizerToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTFkMWIxYmQ3ZTI2ODRjOTNjYmFkNmIiLCJyb2xlSWQiOjIsImlhdCI6MTc4MDI5MjU3MCwiZXhwIjoyNjQ0MjkyNTcwfQ.jj_rppLYsCL8Wg51zbVo6c-OiszjSpntFmui5jkVjgI
+@organizerToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTIxMmFmZmU1MDJiZDMzMGQ5MzlhN2IiLCJyb2xlSWQiOjUsImlhdCI6MTc4MTY5MjczOSwiZXhwIjoyNjQ1NjkyNzM5fQ.uaA4KqnygZ9whBX8mVZ3WEF9tndFcM1iDSkNqr4wJ4E
 @transactionId=
 
 ### 1. Organizer Adds a Staff Member
@@ -59,12 +59,12 @@ Content-Type: application/json
 
 {
   "email": "staff1@gmail.com",
-  "password": "password123"
+  "password": "staff1@gmail.com"
 }
 
 
 ### 7. Setup Staff Token Variable
-@staffToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTIxMmFmZmU1MDJiZDMzMGQ5MzlhN2IiLCJyb2xlSWQiOjUsImlhdCI6MTc4MDg5OTYyOSwiZXhwIjoyNjQ0ODk5NjI5fQ.uoXyltBI3ZdiKfbsX8WbB6Ez-isXKJ_m27ya4hwKdn0
+@staffToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTIxMmFmZmU1MDJiZDMzMGQ5MzlhN2IiLCJyb2xlSWQiOjUsImlhdCI6MTc4MTY5MjczOSwiZXhwIjoyNjQ1NjkyNzM5fQ.uaA4KqnygZ9whBX8mVZ3WEF9tndFcM1iDSkNqr4wJ4E
 
 ### 8. Staff Views Assigned Events and Courses
 # Retrieve the list of all active non-draft events and courses assigned to the logged-in staff.
@@ -142,11 +142,11 @@ Content-Type: application/json
 ### 16. Staff Verifies Transaction QR Code (Booking scan-qr - Verification Only)
 # Staff verifies a transaction QR code directly without check-in.
 POST {{baseUrl}}/booking/scan-qr
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTIxMmFmZmU1MDJiZDMzMGQ5MzlhN2IiLCJyb2xlSWQiOjUsImlhdCI6MTc4MDg5OTYyOSwiZXhwIjoyNjQ0ODk5NjI5fQ.uoXyltBI3ZdiKfbsX8WbB6Ez-isXKJ_m27ya4hwKdn0
+Authorization: Bearer {{staffToken}}
 Content-Type: application/json
 
 {
-  "qrCodeData": "TICKET-6a2690b57b649d94b8899e65-6a1e80665979beee41cf5f4b-1780912311388"
+  "qrCodeData": "TICKET-6a327893b9c6793eb3917571-6a1e80665979beee41cf5f4b-1781692585323"
 }
 
 
@@ -224,3 +224,87 @@ Authorization: Bearer {{staffToken}}
 GET {{baseUrl}}/attendee/event/{{courseId}}?page=1&limit=10&search=&checkedIn=
 Authorization: Bearer {{staffToken}}
 
+
+### 25. Course Fixed Start - Verify Ticket / Scan
+POST {{baseUrl}}/attendee/verify
+Authorization: Bearer {{staffToken}}
+Content-Type: application/json
+
+{
+  "code": "TKT-XXXX-YYYYYY-1",
+  "entityId": "{{courseId}}"
+}
+
+
+### 26. Course Fixed Start - Check-In Session
+POST {{baseUrl}}/attendee/check-in
+Authorization: Bearer {{staffToken}}
+Content-Type: application/json
+
+{
+  "ticketNumber": "TKT-XXXX-YYYYYY-1",
+  "entityId": "{{courseId}}"
+}
+
+
+### 27. Course Ongoing Pass-based - Verify Pass / Scan
+POST {{baseUrl}}/attendee/verify
+Authorization: Bearer {{staffToken}}
+Content-Type: application/json
+
+{
+  "code": "TKT-XXXX-ZZZZZZ-1",
+  "entityId": "{{courseId}}"
+}
+
+
+### 28. Course Ongoing Pass-based - Check-In Daily Pass
+POST {{baseUrl}}/attendee/check-in
+Authorization: Bearer {{staffToken}}
+Content-Type: application/json
+
+{
+  "ticketNumber": "TKT-XXXX-ZZZZZZ-1",
+  "entityId": "{{courseId}}"
+}
+
+
+
+
+
+
+
+
+///////////////////////////SCANNER FLOw///////////////
+### 16. Staff Verifies Transaction QR Code (Booking scan-qr - Verification Only)
+# Staff verifies a transaction QR code directly without check-in.
+POST {{baseUrl}}/booking/scan-qr
+Authorization: Bearer {{staffToken}}
+Content-Type: application/json
+
+{
+  "qrCodeData": "TICKET-6a327893b9c6793eb3917571-6a1e80665979beee41cf5f4b-1781692585323"
+}
+
+### 30. Course Ongoing Session-based - Check-In Slot
+POST {{baseUrl}}/attendee/check-in
+Authorization: Bearer {{staffToken}}
+Content-Type: application/json
+
+{
+  "ticketNumber": "TICKET-6a327893b9c6793eb3917571-6a1e80665979beee41cf5f4b-1781692585323",
+  "entityId": "6a2904759f3feca6e22f574b",
+  "selectedDate": "2026-06-18",
+  "batchId": "6a2904759f3feca6e22f574d"
+}
+
+
+//////////////////////////////Manuul type code //////////
+###
+POST {{baseUrl}}/attendee/verify
+Authorization: Bearer {{staffToken}}
+Content-Type: application/json
+
+{
+  "code": "BNDY-346546"
+}
