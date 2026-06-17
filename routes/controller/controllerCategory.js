@@ -33,7 +33,6 @@ const canSetFeatured = async (excludeCategoryId = null) => {
   }
 
   const featuredCount = await Category.countDocuments(query);
-  console.log("featuredCount", featuredCount);
   return featuredCount < MAX_FEATURED_CATEGORIES;
 };
 

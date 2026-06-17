@@ -18,8 +18,9 @@ Content-Type: application/json
   "name_thi": "ดนตรีสด"
 }
 
-### 2. Get Category List (with optional search, pagination, and type filters)
-GET {{baseUrl}}/category/list?page=1&limit=10&type=event&search=music
+
+### 2. Get Category List (with optional search, pagination, and type (course,event) filters)
+GET {{baseUrl}}/category/list?page=1&limit=10&type=event&search=
 Content-Type: application/json
 
 ### 3. Get Single Category Details
