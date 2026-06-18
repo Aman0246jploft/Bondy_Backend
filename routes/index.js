@@ -32,6 +32,7 @@ module.exports = {
   bug: require("./controller/controllerBug"),
   stayUpdated: require("./controller/controllerStayUpdated"),
   banner: require("./controller/controllerBanner"),
+  explore: require("./controller/controllerExplore"),
 };
 
 

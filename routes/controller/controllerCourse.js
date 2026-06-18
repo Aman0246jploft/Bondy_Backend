@@ -2543,3 +2543,4 @@ router.get(
 );
 
 module.exports = router;
+module.exports.getCourses = getCourses;

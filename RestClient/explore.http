@@ -1,0 +1,21 @@
+@baseUrl = http://localhost:8080/api/v1
+@authToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTIyNzY2M2EyMDIzYzg2YjViMjNjNjUiLCJyb2xlSWQiOjIsImlhdCI6MTc4MTA5NzU0NiwiZXhwIjoyNjQ1MDk3NTQ2fQ.ss1jdTYZPtsNG07E8TRAHfqDoqIUrGS1EzIFvCO1vd0
+
+### 1. List Explore Feed - Geospatial Distance Search (Radius of 100km from Lat/Lng coordinates)
+GET {{baseUrl}}/explore/list?latitude=37.774929&longitude=-122.419416&radius=100
+Authorization: Bearer {{authToken}}
+
+
+### 2. List Explore Feed - Viewport Bounding Box Map Filter
+GET {{baseUrl}}/explore/list?north=40.800000&south=40.700000&east=-73.900000&west=-74.000000
+Authorization: Bearer {{authToken}}
+
+
+### 3. List Explore Feed - Latest/Newest sorting (no location)
+GET {{baseUrl}}/explore/list?filter=latest
+Authorization: Bearer {{authToken}}
+
+
+### 4. List Explore Feed - Specific Category ID
+GET {{baseUrl}}/explore/list?categoryId=65eb1a4b89f89b001234abcd
+Authorization: Bearer {{authToken}}
