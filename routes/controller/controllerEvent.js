@@ -1491,16 +1491,18 @@ const getEventDetails = async (req, res) => {
 
     // Process tickets with sales info
     if (Array.isArray(event.tickets)) {
-      event.tickets = event.tickets.map(t => {
-        const ticketIdStr = t._id ? t._id.toString() : "";
-        const soldQty = ticketSalesMap[ticketIdStr] || 0;
-        const availableQty = Math.max(0, (t.qty || 0) - soldQty);
-        return {
-          ...t,
-          soldQty,
-          availableQty,
-        };
-      });
+      event.tickets = event.tickets
+        .map(t => {
+          const ticketIdStr = t._id ? t._id.toString() : "";
+          const soldQty = ticketSalesMap[ticketIdStr] || 0;
+          const availableQty = Math.max(0, (t.qty || 0) - soldQty);
+          return {
+            ...t,
+            soldQty,
+            availableQty,
+          };
+        })
+        .sort((a, b) => (a.price || 0) - (b.price || 0));
     }
 
     // Calculate overall ticket capacity and statistics
