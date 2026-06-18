@@ -7,7 +7,7 @@ Authorization: Bearer {{authToken}}
 
 
 ### 2. List Explore Feed - Viewport Bounding Box Map Filter
-GET {{baseUrl}}/explore/list?north=40.800000&south=40.700000&east=-73.900000&west=-74.000000
+GET {{baseUrl}}/explore/list?limit=1000&north=40.800000&south=40.700000&east=-73.900000&west=-74.000000
 Authorization: Bearer {{authToken}}
 
 

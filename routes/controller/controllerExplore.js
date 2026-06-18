@@ -39,6 +39,7 @@ const getExploreList = async (req, res) => {
       ...req.query,
       page: 1,
       limit: fetchLimit,
+      status: "Upcoming,Live",
     };
 
     let eventsData = null;
@@ -92,16 +93,16 @@ const getExploreList = async (req, res) => {
     // 2. Fallback to createdAt or startDate based on filters
     const isPast = req.query.filter && req.query.filter.toLowerCase().includes("past");
     const isNewest = req.query.filter && (req.query.filter.toLowerCase().includes("latest") || req.query.filter.toLowerCase().includes("newest"));
-    
+
     mixedList.sort((a, b) => {
       if (a.distance !== undefined && b.distance !== undefined) {
         return a.distance - b.distance;
       }
-      
+
       if (isNewest) {
         return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
       }
-      
+
       if (isPast) {
         return new Date(b.endDate || b.startDate || 0) - new Date(a.endDate || a.startDate || 0);
       }
@@ -132,7 +133,7 @@ const getExploreList = async (req, res) => {
 const getShareUrl = async (req, res) => {
   try {
     const { id, type } = req.query;
-    
+
     if (!id || !type) {
       return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "id and type (event/course) are required");
     }
