@@ -129,6 +129,36 @@ const getExploreList = async (req, res) => {
   }
 };
 
+const getShareUrl = async (req, res) => {
+  try {
+    const { id, type } = req.query;
+    
+    if (!id || !type) {
+      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "id and type (event/course) are required");
+    }
+
+    const frontendUrl = process.env.FRONTEND_URL || "https://bondy-user.tasksplan.com";
+    let shareUrl = "";
+
+    if (type.toLowerCase() === "event") {
+      shareUrl = `${frontendUrl}/eventDetails?id=${id}`;
+    } else if (type.toLowerCase() === "course") {
+      shareUrl = `${frontendUrl}/programDetails?id=${id}`;
+    } else {
+      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Invalid type. Must be 'event' or 'course'");
+    }
+
+    return apiSuccessRes(HTTP_STATUS.OK, res, "Share URL generated successfully", {
+      shareUrl,
+      type
+    });
+  } catch (error) {
+    console.error("Error in getShareUrl:", error);
+    return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
+  }
+};
+
 router.get("/list", getExploreList);
+router.get("/share-url", getShareUrl);
 
 module.exports = router;

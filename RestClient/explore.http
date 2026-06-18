@@ -19,3 +19,13 @@ Authorization: Bearer {{authToken}}
 ### 4. List Explore Feed - Specific Category ID
 GET {{baseUrl}}/explore/list?categoryId=65eb1a4b89f89b001234abcd
 Authorization: Bearer {{authToken}}
+
+
+### 5. Get Share URL for an Event
+GET {{baseUrl}}/explore/share-url?id=6a2904739f3feca6e22f4f98&type=event
+Authorization: Bearer {{authToken}}
+
+
+### 6. Get Share URL for a Course
+GET {{baseUrl}}/explore/share-url?id=6a2904769f3feca6e22f5928&type=course
+Authorization: Bearer {{authToken}}
