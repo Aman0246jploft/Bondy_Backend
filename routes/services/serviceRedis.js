@@ -110,7 +110,7 @@ const setKeyWithTime = async (key, value, time = 5) => {
     // console.log(error);
     return resultDb(CONSTANTS.SERVER_ERROR, CONSTANTS.DATA_NULL);
   }
-}; 
+};
 const removeKey = async (key) => {
   try {
     const value = await client.del(key.toString());
