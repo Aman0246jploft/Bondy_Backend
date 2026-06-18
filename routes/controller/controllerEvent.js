@@ -35,6 +35,10 @@ const checkRole = require("../../middlewares/checkRole");
 const { roleId, userRole, eventStatus } = require("../../utils/Role");
 const { notifyEventChange } = require("../services/serviceNotification");
 const jwt = require("jsonwebtoken");
+const crypto = require("crypto");
+const { getKey, setKeyWithTime } = require("../services/serviceRedis");
+const CONSTANTS = require("../../utils/constants");
+
 
 // Create Event
 const createEvent = async (req, res) => {
@@ -285,6 +289,30 @@ const formatEvent = (event, bookedEventIds = new Set(), bookedQty = 0, pendingQt
 
 const getEvents = async (req, res) => {
   try {
+    let loginUser = null;
+    if (req.user) {
+      loginUser = req.user.userId;
+    } else {
+      const authHeader = req.headers.authorization;
+      if (authHeader && authHeader.startsWith("Bearer ")) {
+        try {
+          const token = authHeader.split(" ")[1];
+          const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY);
+          loginUser = decoded.userId;
+        } catch (err) { }
+      }
+    }
+
+    // Redis Cache Check
+    const cacheKeyData = JSON.stringify(req.query) + (loginUser || "anonymous");
+    const cacheKeyHash = crypto.createHash("md5").update(cacheKeyData).digest("hex");
+    const cacheKey = `events:list:${cacheKeyHash}`;
+
+    const cachedData = await getKey(cacheKey);
+    if (cachedData && cachedData.statusCode === CONSTANTS.SUCCESS && cachedData.data) {
+      return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.EVENTS_FETCHED, JSON.parse(cachedData.data));
+    }
+
     const {
       filter = "all",
       latitude,
@@ -384,20 +412,10 @@ const getEvents = async (req, res) => {
         .lean();
       const totalCount = await Event.countDocuments(simpleQuery);
 
-      let viewerId = null;
-      const authHeader = req.headers.authorization;
-      if (authHeader && authHeader.startsWith("Bearer ")) {
-        try {
-          const token = authHeader.split(" ")[1];
-          const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY);
-          viewerId = decoded.userId;
-        } catch (err) { }
-      }
-
       const bookedEventIds = new Set();
-      if (viewerId && events.length > 0) {
+      if (loginUser && events.length > 0) {
         const bookings = await Transaction.find({
-          userId: viewerId,
+          userId: loginUser,
           eventId: { $in: events.map((e) => e._id) },
           status: "PAID",
         }).select("eventId");
@@ -427,35 +445,26 @@ const getEvents = async (req, res) => {
         return formatEvent(event, bookedEventIds, bookedQty, pendingQty);
       });
 
+      const responseData = {
+        events: formattedEvents,
+        total: totalCount,
+        totalPages: Math.ceil(totalCount / simpleLimit),
+        page: 1,
+        limit: simpleLimit,
+      };
+
+      await setKeyWithTime(cacheKey, JSON.stringify(responseData), 5);
+
       return apiSuccessRes(
         HTTP_STATUS.OK,
         res,
         constantsMessage.EVENTS_FETCHED,
-        {
-          events: formattedEvents,
-          total: totalCount,
-          totalPages: Math.ceil(totalCount / simpleLimit),
-          page: 1,
-          limit: simpleLimit,
-        },
+        responseData,
       );
     }
 
     const targetCategory = categoryId || category;
 
-    let loginUser = null;
-    if (req.user) {
-      loginUser = req.user.userId;
-    } else {
-      const authHeader = req.headers.authorization;
-      if (authHeader && authHeader.startsWith("Bearer ")) {
-        try {
-          const token = authHeader.split(" ")[1];
-          const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY);
-          loginUser = decoded.userId;
-        } catch (err) { }
-      }
-    }
     const now = new Date();
     const skip = (page - 1) * limit;
 
@@ -1154,20 +1163,10 @@ const getEvents = async (req, res) => {
       }
     }
 
-    let viewerId = null;
-    const authHeader = req.headers.authorization;
-    if (authHeader && authHeader.startsWith("Bearer ")) {
-      try {
-        const token = authHeader.split(" ")[1];
-        const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY);
-        viewerId = decoded.userId;
-      } catch (err) { }
-    }
-
     const bookedEventIds = new Set();
-    if (viewerId) {
+    if (loginUser) {
       const bookings = await Transaction.find({
-        userId: viewerId,
+        userId: loginUser,
         eventId: { $in: events.map((e) => e._id) },
         status: "PAID",
       }).select("eventId");
@@ -1197,13 +1196,17 @@ const getEvents = async (req, res) => {
       return formatEvent(event, bookedEventIds, bookedQty, pendingQty);
     });
 
-    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.EVENTS_FETCHED, {
+    const responseData = {
       events: formattedEvents,
       total: totalCount,
       totalPages: Math.ceil(totalCount / limit),
       page: parseInt(page),
       limit: parseInt(limit),
-    });
+    };
+
+    await setKeyWithTime(cacheKey, JSON.stringify(responseData), 5);
+
+    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.EVENTS_FETCHED, responseData);
   } catch (error) {
     console.error("Error in getEvents:", error);
     return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);

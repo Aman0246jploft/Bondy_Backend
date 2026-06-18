@@ -22,6 +22,9 @@ const checkRole = require("../../middlewares/checkRole");
 const { roleId, eventStatus, daysOfWeek } = require("../../utils/Role");
 const { notifyCourseChange } = require("../services/serviceNotification");
 const { default: mongoose } = require("mongoose");
+const crypto = require("crypto");
+const { getKey, setKeyWithTime } = require("../services/serviceRedis");
+const CONSTANTS = require("../../utils/constants");
 
 // Create Course
 const createCourse = async (req, res) => {
@@ -191,6 +194,17 @@ const getCourses = async (req, res) => {
         } catch (err) { }
       }
     }
+
+    // Redis Cache Check
+    const cacheKeyData = JSON.stringify(req.query) + (loginUser || "anonymous");
+    const cacheKeyHash = crypto.createHash("md5").update(cacheKeyData).digest("hex");
+    const cacheKey = `courses:list:${cacheKeyHash}`;
+
+    const cachedData = await getKey(cacheKey);
+    if (cachedData && cachedData.statusCode === CONSTANTS.SUCCESS && cachedData.data) {
+      return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.SUCCESS, JSON.parse(cachedData.data));
+    }
+
     const now = new Date();
     const skip = (page - 1) * limit;
 
@@ -1176,14 +1190,19 @@ const getCourses = async (req, res) => {
       0,
     );
 
-    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.SUCCESS, {
+    const responseData = {
       courses: formattedCourses,
       totalCourses: totalCount,
       totalPages: Math.ceil(totalCount / limit),
       currentPage: parseInt(page),
       coursesPerPage: parseInt(limit),
       grandTotalRevenue,
-    });
+    };
+
+    // Store in Redis cache for 5 minutes
+    await setKeyWithTime(cacheKey, JSON.stringify(responseData), 5);
+
+    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.SUCCESS, responseData);
   } catch (error) {
     console.error("Error in getCourses:", error);
     return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
