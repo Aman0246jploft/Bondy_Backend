@@ -39,7 +39,7 @@ const getExploreList = async (req, res) => {
       ...req.query,
       page: 1,
       limit: fetchLimit,
-      status: "Upcoming,Live",
+      status: req.query.status || "Upcoming,Live",
     };
 
     let eventsData = null;

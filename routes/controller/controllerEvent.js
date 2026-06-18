@@ -538,7 +538,14 @@ const getEvents = async (req, res) => {
 
       // Status query parameter for organizer
       if (status) {
-        const statusValues = status.split(",").map((s) => s.trim());
+        const statusValues = (Array.isArray(status) ? status : status.split(","))
+          .map((s) => {
+            const trimmed = s.trim();
+            const matched = Object.values(eventStatus).find(
+              (val) => val.toLowerCase() === trimmed.toLowerCase()
+            );
+            return matched || trimmed;
+          });
         if (statusValues.length > 1) {
           query.status = { $in: statusValues };
         } else {
@@ -563,7 +570,14 @@ const getEvents = async (req, res) => {
 
         // Status query parameter or default time constraints
         if (status) {
-          const statusValues = status.split(",").map((s) => s.trim());
+          const statusValues = (Array.isArray(status) ? status : status.split(","))
+            .map((s) => {
+              const trimmed = s.trim();
+              const matched = Object.values(eventStatus).find(
+                (val) => val.toLowerCase() === trimmed.toLowerCase()
+              );
+              return matched || trimmed;
+            });
           if (statusValues.length > 1) {
             query.status = { $in: statusValues };
           } else {
