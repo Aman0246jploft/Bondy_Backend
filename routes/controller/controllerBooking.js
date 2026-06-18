@@ -387,7 +387,8 @@ const isBookingCutOffReached = (course, batch, selectedDay) => {
 
 const calculateBooking = async (req, res) => {
   try {
-    const { eventId, courseId, batchId, ticketId, qty, tickets, discountCode, ongoingSlots, selectedDay, passType } = req.body;
+    let { eventId, courseId, batchId, ticketId, qty: qtyInput, tickets, discountCode, ongoingSlots, selectedDay, passType } = req.body;
+    const qty = Number(qtyInput) || 1;
 
     let basePrice = 0;
     let ticketName = null;
@@ -477,7 +478,6 @@ const calculateBooking = async (req, res) => {
                 `Booking is closed for slot: ${batch.batchName || slot.batchId} (cut-off time reached)`
               );
             }
-
             let reservedVal = batch.ReservedExternally || 0;
             if (dateStr && batch.reservedDates) {
               const resRec = batch.reservedDates.find((r) => r.date === dateStr);
@@ -596,7 +596,8 @@ const calculateBooking = async (req, res) => {
 
 const initiateBooking = async (req, res) => {
   try {
-    const { eventId, courseId, batchId, ticketId, qty, tickets, discountCode, ongoingSlots, selectedDay, passType } = req.body;
+    let { eventId, courseId, batchId, ticketId, qty: qtyInput, tickets, discountCode, ongoingSlots, selectedDay, passType } = req.body;
+    const qty = Number(qtyInput) || 1;
     const userId = req.user.userId;
 
     let bookingType;
@@ -2902,6 +2903,7 @@ const generateTicketUrls = async (req, res) => {
 // Booking Flow
 router.post("/calculate", validateRequest(initiateBookingSchema), calculateBooking);
 router.post("/initiate", perApiLimiter(), validateRequest(initiateBookingSchema), initiateBooking);
+router.post("/direct-enroll", perApiLimiter(), validateRequest(initiateBookingSchema), initiateBooking);
 router.post("/confirm-payment", perApiLimiter(), validateRequest(confirmPaymentSchema), confirmPayment);
 
 // Ticket Management

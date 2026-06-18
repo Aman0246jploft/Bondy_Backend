@@ -47,27 +47,15 @@ const eventSchema = new mongoose.Schema(
       {
         ticketName: {
           type: String,
-          required: function () {
-            const parent = this.parent ? this.parent() : this;
-            return parent && !parent.isDraft;
-          },
         },
         ticketShortDesc: { type: String },
         price: {
           type: Number,
           min: 0,
-          required: function () {
-            const parent = this.parent ? this.parent() : this;
-            return parent && !parent.isDraft;
-          },
         },
         qty: {
           type: Number,
           min: 1,
-          required: function () {
-            const parent = this.parent ? this.parent() : this;
-            return parent && !parent.isDraft;
-          },
         },
         salesStart: { type: Date },
         salesEnd: { type: Date },

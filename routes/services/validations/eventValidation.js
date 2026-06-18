@@ -60,25 +60,13 @@ const createEventSchema = Joi.object({
     startTime: Joi.string().optional().allow(null, ""),
     endTime: Joi.string().optional().allow(null, ""),
     tickets: Joi.array().items(Joi.object({
-        ticketName: Joi.string().when(Joi.object({ isDraft: true, id: Joi.not().exist() }).unknown(), {
-            then: Joi.optional(),
-            otherwise: Joi.required(),
-        }),
+        ticketName: Joi.string().optional().allow(null, ""),
         ticketShortDesc: Joi.string().optional().allow(null, ""),
-        price: Joi.number().min(0).when(Joi.object({ isDraft: true, id: Joi.not().exist() }).unknown(), {
-            then: Joi.optional(),
-            otherwise: Joi.required(),
-        }),
-        qty: Joi.number().integer().min(1).when(Joi.object({ isDraft: true, id: Joi.not().exist() }).unknown(), {
-            then: Joi.optional(),
-            otherwise: Joi.required(),
-        }),
+        price: Joi.number().min(0).optional(),
+        qty: Joi.number().integer().min(1).optional(),
         salesStart: Joi.date().optional(),
         salesEnd: Joi.date().optional(),
-    })).when(Joi.object({ isDraft: true, id: Joi.not().exist() }).unknown(), {
-        then: Joi.optional(),
-        otherwise: Joi.required(),
-    }),
+    })).optional(),
     refundPolicy: Joi.string().valid(...Object.values(refundPolicy)).allow('', null).optional(),
     addOns: Joi.string().allow('', null).optional(),
     mediaLinks: Joi.array().items(Joi.string().allow('', null)).optional(),
@@ -156,10 +144,10 @@ const updateEventSchema = Joi.object({
     startTime: Joi.string().optional().allow(null, ""),
     endTime: Joi.string().optional().allow(null, ""),
     tickets: Joi.array().items(Joi.object({
-        ticketName: Joi.string().required(),
+        ticketName: Joi.string().optional().allow(null, ""),
         ticketShortDesc: Joi.string().optional().allow(null, ""),
-        price: Joi.number().min(0).required(),
-        qty: Joi.number().integer().min(1).required(),
+        price: Joi.number().min(0).optional(),
+        qty: Joi.number().integer().min(1).optional(),
         salesStart: Joi.date().optional(),
         salesEnd: Joi.date().optional(),
     })).optional(),

@@ -23,13 +23,15 @@ Authorization: Bearer {{customerToken}}
 Content-Type: application/json
 
 {
-  "bookingType":"EVENT",
-  "eventId": "{{eventId}}",
-  "qty": 2,
-  "discountCode": "",
-"tickets": [
-  { "ticketId": "{{ticketId}}", "qty": 2 }
-]
+    "tickets": [
+        {
+            "ticketId": "6a2904739f3feca6e22f4f99",
+            "qty": 2
+        }
+    ],
+    "discountCode": "",
+    "bookingType": "EVENT",
+    "eventId": "6a2904739f3feca6e22f4f98"
 }
 
 ### 2. Calculate Event Booking WITH Promo Code
@@ -217,6 +219,28 @@ Content-Type: application/json
   "tickets": [
     { "ticketId": "{{ticketId}}", "qty": 1 }
   ]
+}
+
+
+### 23. Calculate Ticketless Free Entry Booking (Omit ticket details entirely)
+POST {{baseUrl}}/booking/calculate
+Authorization: Bearer {{customerToken}}
+Content-Type: application/json
+
+{
+  "bookingType": "EVENT",
+  "eventId": "6a33ef293858cc62aa600c07"
+}
+
+
+### 24. Direct Enrollment for Ticketless Free Entry Event (Auto-confirms to PAID)
+POST {{baseUrl}}/booking/direct-enroll
+Authorization: Bearer {{customerToken}}
+Content-Type: application/json
+
+{
+  "bookingType": "EVENT",
+  "eventId": "6a33ef293858cc62aa600c07"
 }
 
 

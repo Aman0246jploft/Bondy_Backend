@@ -72,6 +72,47 @@ Content-Type: application/json
 }
 
 
+### 2b. Create a Fully Published Free Entry Event (No tickets array passed - auto default Free Entry)
+POST {{baseUrl}}/event/create
+Authorization: Bearer {{authToken}}
+Content-Type: application/json  
+
+{
+  "isDraft": false,
+  "eventTitle": "Free Entry Music Night",
+  "ReservedExternally": 0,
+  "eventCategory": "647f1234567890abcdef1234",
+  "shortdesc": "A free outdoor music gathering.",
+  "longdesc": "Join us for local acoustic performances. Free admission for everyone!",
+  "posterImage": [
+    "https://example.com/free_poster.jpg"
+  ],
+  "shortTeaserVideo": [],
+  "venueName": "Community Park Plaza",
+  "venueAddress": {
+    "latitude": 40.785091,
+    "longitude": -73.968285,
+    "address": "Park Ave",
+    "city": "New York",
+    "state": "NY",
+    "country": "USA",
+    "zipcode": "10024"
+  },
+  "startDate": "2026-07-20T18:00:00.000Z",
+  "endDate": "2026-07-20T22:00:00.000Z",
+  "startTime": "18:00",
+  "endTime": "22:00",
+  "timeZone": "EST",
+  "refundPolicy": "No Refund",
+  "visibility": "PUBLIC",
+  "ageRestriction": "ALL",
+  "showAttendees": true,
+  "dressCode": "Casual",
+  "fetcherEvent": false,
+  "notes": "Free entry test event"
+}
+
+
 ### 3. Update an Event (Draft or Published)
 @eventId = 6a2904739f3feca6e22f4fe0
 POST {{baseUrl}}/event/edit/{{eventId}}
