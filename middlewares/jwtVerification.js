@@ -35,6 +35,8 @@ const publicRoutes = [
 
 
   "/api/v1/category/list",
+  "/api/v1/explore/search",
+  "/api/v1/explore/trending-searches",
   "/api/v1/event/details/",
   "/api/v1/course/details/",
   "/api/v1/category/stats",

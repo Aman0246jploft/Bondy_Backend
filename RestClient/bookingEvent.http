@@ -72,7 +72,7 @@ Content-Type: application/json
 }
 
 ### 5. Get My Event Tickets (Upcoming) — Paginated
-GET {{baseUrl}}/booking/list?bookingType=EVENT&type=upcoming&page=1&limit=5
+GET {{baseUrl}}/booking/list?bookingType=COURSE&type=upcoming&page=1&limit=5
 Authorization: Bearer {{customerToken}}
 
 ### 6. Get My Event Tickets (Past) — Paginated

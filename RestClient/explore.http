@@ -29,3 +29,61 @@ Authorization: Bearer {{authToken}}
 ### 6. Get Share URL for a Course
 GET {{baseUrl}}/explore/share-url?id=6a2904769f3feca6e22f5928&type=course
 Authorization: Bearer {{authToken}}
+
+
+### 7. Search events & courses (Public)
+GET {{baseUrl}}/explore/search?q=test
+Authorization: Bearer {{authToken}}
+
+
+### 11. Save a search query to history (Authenticated)
+POST {{baseUrl}}/explore/recent-searches
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "query": "tennis lessonsdsss"
+}
+
+
+### 8. Fetch recent 6 searches (Authenticated)
+GET {{baseUrl}}/explore/recent-searches
+Authorization: Bearer {{authToken}}
+
+
+### 9. Delete a specific recent search query
+DELETE {{baseUrl}}/explore/recent-searches?query=test
+Authorization: Bearer {{authToken}}
+
+
+### 10. Clear all recent searches
+DELETE {{baseUrl}}/explore/recent-searches
+Authorization: Bearer {{authToken}}
+
+
+### 12. Fetch trending searches (Public)
+GET {{baseUrl}}/explore/trending-searches
+Authorization: Bearer {{authToken}}
+
+
+### 13. Search filtering by type events (returns active events sorted by startDate ascending)
+GET {{baseUrl}}/explore/search?type=events
+Authorization: Bearer {{authToken}}
+
+
+### 14. Search filtering by type courses (returns active courses sorted by startDate ascending)
+GET {{baseUrl}}/explore/search?type=courses
+Authorization: Bearer {{authToken}}
+
+
+### 15. Search filtering by categoryId
+GET {{baseUrl}}/explore/search?categoryId=65eb1a4b89f89b001234abcd
+Authorization: Bearer {{authToken}}
+
+
+### 16. Search filtering by categoryId AND search term
+GET {{baseUrl}}/explore/search?q=test&categoryId=65eb1a4b89f89b001234abcd
+Authorization: Bearer {{authToken}}
+
+
+

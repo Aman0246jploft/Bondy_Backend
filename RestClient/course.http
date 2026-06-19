@@ -186,7 +186,7 @@ Authorization: Bearer {{authToken}}
 
 
 ### 8. List Courses - Filter by Status (Explicitly show Past courses)
-GET {{baseUrl}}/course/list?status=Past
+GET {{baseUrl}}/course/list
 Authorization: Bearer {{authToken}}
 
 
@@ -354,11 +354,14 @@ Content-Type: application/json
 
 {
   "courseId": "{{courseId}}",
-  "batchId": "6a30da7e51595a97343397a6",
+  "batchId": "6a2904769f3feca6e22f5917",
   "date": "2026-06-22",
   "ReservedExternally": 3
 }
 
+###
+GET {{baseUrl}}/course/details/{{courseId}}
+Authorization: Bearer {{authToken}}
 
 #==================================== CANCELLATION ==================================
 

@@ -1196,6 +1196,7 @@ const getCourses = async (req, res) => {
         isBooked: bookedCourseIds.has(course._id.toString()),
         totalRevenue,
         totalEnrollments: acquiredTotal,
+        capacitypersession: course.batches && course.batches.length > 0 ? (course.batches[0].seats || 0) : 0,
       };
     });
 
@@ -1319,6 +1320,7 @@ const getCoursesAdmin = async (req, res) => {
       course.totalSeats = totalSeats;
       course.acquiredSeats = acquiredSeats;
       course.leftSeats = Math.max(0, totalSeats - acquiredSeats);
+      course.capacitypersession = course.batches && course.batches.length > 0 ? (course.batches[0].seats || 0) : 0;
 
       return course;
     });
@@ -2041,6 +2043,7 @@ const getCourseDetails = async (req, res) => {
       oneMonthPassPrice: course.oneMonthPassPrice || 0,
       threeMonthPassEnabled: course.threeMonthPassEnabled || false,
       threeMonthPassPrice: course.threeMonthPassPrice || 0,
+      capacitypersession: course.batches && course.batches.length > 0 ? (course.batches[0].seats || 0) : 0,
     };
 
     return apiSuccessRes(
@@ -2054,11 +2057,6 @@ const getCourseDetails = async (req, res) => {
     return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
   }
 };
-
-
-
-
-
 
 
 const assignStaffToCourse = async (req, res) => {
@@ -2486,6 +2484,7 @@ const getOrganizerCourses = async (req, res) => {
         durationTranslation,
         totalRevenue: courseStats.revenue,
         totalEnrollments: courseStats.enrollments,
+        capacitypersession: course.batches && course.batches.length > 0 ? (course.batches[0].seats || 0) : 0,
       };
     });
 

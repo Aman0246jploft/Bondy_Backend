@@ -154,4 +154,5 @@ module.exports = {
   CourseView: require("./models/CourseView"),
   CancellationReason: require("./models/CancellationReason"),
   Banner: require("./models/Banner"),
+  SearchHistory: require("./models/SearchHistory"),
 };
