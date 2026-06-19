@@ -1068,7 +1068,7 @@ const getCourses = async (req, res) => {
           const userBookedBatches = bookedBatchMap[course._id.toString()];
           return {
             ...batch,
-            acquiredSeats: acquired + reserved,
+            acquiredSeats: acquired,
             availableSeats: available,
             isFull: available <= 0,
             isBooked: userBookedBatches ? userBookedBatches.has(batchId) : false,
@@ -1916,7 +1916,7 @@ const getCourseDetails = async (req, res) => {
 
         return {
           ...batch,
-          acquiredSeats: acquired + reserved,
+          acquiredSeats: acquired,
           availableSeats: available,
           isFull: available <= 0,
           isBooked: bookedBatchIds.has(batchId),
@@ -2431,7 +2431,7 @@ const getOrganizerCourses = async (req, res) => {
           const available = Math.max(0, seats - acquired - reserved);
           return {
             ...batch,
-            acquiredSeats: acquired + reserved,
+            acquiredSeats: acquired,
             availableSeats: available,
             isFull: available <= 0,
           };
