@@ -1263,6 +1263,15 @@ const getUserProfileById = async (req, res) => {
       });
       profileData.totalUpcomingEvents = totalUpcomingEvents;
 
+      // 1b. Total Upcoming Courses
+      const totalUpcomingCourses = await Course.countDocuments({
+        createdBy: userId,
+        startDate: { $gte: new Date() },
+        status: "Upcoming",
+        isDraft: false,
+      });
+      profileData.totalUpcomingCourses = totalUpcomingCourses;
+
       // 2. Total Tickets Sold
       const ticketsSoldResult = await Transaction.aggregate([
         {
