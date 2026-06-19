@@ -1236,13 +1236,6 @@ const getUserProfileById = async (req, res) => {
         file: doc.file ? formatResponseUrl(doc.file) : null,
       }));
 
-      // Calculate totalEventsHosted  
-      const totalEventsHosted = await Event.countDocuments({
-        createdBy: userId,
-        isDraft: false,
-      });
-      profileData.totalEventsHosted = totalEventsHosted;
-
       // Calculate totalCourses count (added)
       const totalCourses = await Course.countDocuments({
         createdBy: userId,
@@ -1250,18 +1243,16 @@ const getUserProfileById = async (req, res) => {
       });
       profileData.totalCoursesAdded = totalCourses; // "total course he added"
 
+      // Calculate totalEventsHosted  
+      const totalEventsHosted = await Event.countDocuments({
+        createdBy: userId,
+        isDraft: false,
+      });
+      profileData.totalEventsHosted = totalEventsHosted + totalCourses;
+
       const organizerObjectId = new mongoose.Types.ObjectId(userId);
       const roundToTwo = (num) =>
         Math.round((num + Number.EPSILON) * 100) / 100;
-
-      // 1. Total Upcoming Events
-      const totalUpcomingEvents = await Event.countDocuments({
-        createdBy: userId,
-        startDate: { $gte: new Date() },
-        status: "Upcoming",
-        isDraft: false,
-      });
-      profileData.totalUpcomingEvents = totalUpcomingEvents;
 
       // 1b. Total Upcoming Courses
       const totalUpcomingCourses = await Course.countDocuments({
@@ -1271,6 +1262,15 @@ const getUserProfileById = async (req, res) => {
         isDraft: false,
       });
       profileData.totalUpcomingCourses = totalUpcomingCourses;
+
+      // 1. Total Upcoming Events
+      const totalUpcomingEvents = await Event.countDocuments({
+        createdBy: userId,
+        startDate: { $gte: new Date() },
+        status: "Upcoming",
+        isDraft: false,
+      });
+      profileData.totalUpcomingEvents = totalUpcomingEvents + totalUpcomingCourses;
 
       // 2. Total Tickets Sold
       const ticketsSoldResult = await Transaction.aggregate([
