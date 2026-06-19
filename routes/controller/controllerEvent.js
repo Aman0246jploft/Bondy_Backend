@@ -2347,8 +2347,15 @@ const updateEvent = async (req, res) => {
       }
     }
 
+    const dateOrTimeModified = 
+      updateData.startDate !== undefined ||
+      updateData.endDate !== undefined ||
+      updateData.startTime !== undefined ||
+      updateData.endTime !== undefined ||
+      updateData.timeZone !== undefined;
+
     // Ensure startDate is in the future for upcoming events
-    if (!isLive && !targetIsDraft) {
+    if (dateOrTimeModified && !isLive && !targetIsDraft) {
       const newStart = updateData.startDate ? new Date(updateData.startDate) : new Date(existingEvent.startDate);
       if (newStart < now) {
         return apiErrorRes(
@@ -2360,7 +2367,7 @@ const updateEvent = async (req, res) => {
     }
 
     // Ensure endDate is in the future
-    if (!targetIsDraft) {
+    if (dateOrTimeModified && !targetIsDraft) {
       const newEnd = updateData.endDate ? new Date(updateData.endDate) : new Date(existingEvent.endDate);
       if (newEnd < now) {
         return apiErrorRes(
@@ -2371,14 +2378,16 @@ const updateEvent = async (req, res) => {
       }
     }
 
-    const newStart = updateData.startDate ? new Date(updateData.startDate) : (existingEvent.startDate ? new Date(existingEvent.startDate) : null);
-    const newEnd = updateData.endDate ? new Date(updateData.endDate) : (existingEvent.endDate ? new Date(existingEvent.endDate) : null);
-    if (newStart && !isNaN(newStart.getTime()) && newEnd && !isNaN(newEnd.getTime()) && newStart >= newEnd) {
-      return apiErrorRes(
-        HTTP_STATUS.BAD_REQUEST,
-        res,
-        "Start date must be before end date"
-      );
+    if (dateOrTimeModified) {
+      const newStart = updateData.startDate ? new Date(updateData.startDate) : (existingEvent.startDate ? new Date(existingEvent.startDate) : null);
+      const newEnd = updateData.endDate ? new Date(updateData.endDate) : (existingEvent.endDate ? new Date(existingEvent.endDate) : null);
+      if (!targetIsDraft && newStart && !isNaN(newStart.getTime()) && newEnd && !isNaN(newEnd.getTime()) && newStart >= newEnd) {
+        return apiErrorRes(
+          HTTP_STATUS.BAD_REQUEST,
+          res,
+          "Start date must be before end date"
+        );
+      }
     }
 
     // 7. Validate age restriction if provided

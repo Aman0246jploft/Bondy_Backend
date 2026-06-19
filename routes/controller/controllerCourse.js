@@ -1512,8 +1512,14 @@ const updateCourse = async (req, res) => {
       }
     }
 
+    const dateOrTimeModified = 
+      updateData.startDate !== undefined ||
+      updateData.endDate !== undefined ||
+      updateData.timeZone !== undefined ||
+      updateData.batches !== undefined;
+
     // Ensure startDate is in the future for upcoming courses
-    if (!isLive && !targetIsDraft) {
+    if (dateOrTimeModified && !isLive && !targetIsDraft) {
       const newStart = updateData.startDate ? new Date(updateData.startDate) : new Date(existingCourse.startDate);
       if (newStart < now) {
         return apiErrorRes(
@@ -1527,7 +1533,7 @@ const updateCourse = async (req, res) => {
     const targetEnrollmentType = updateData.enrollmentType !== undefined ? updateData.enrollmentType : existingCourse.enrollmentType;
 
     // Ensure endDate is in the future for fixedStart courses
-    if (!targetIsDraft && targetEnrollmentType === "fixedStart") {
+    if (dateOrTimeModified && !targetIsDraft && targetEnrollmentType === "fixedStart") {
       const newEnd = updateData.endDate ? new Date(updateData.endDate) : new Date(existingCourse.endDate);
       if (!newEnd || isNaN(newEnd.getTime()) || newEnd < now) {
         return apiErrorRes(
@@ -1538,16 +1544,18 @@ const updateCourse = async (req, res) => {
       }
     }
 
-    const newStart = updateData.startDate ? new Date(updateData.startDate) : (existingCourse.startDate ? new Date(existingCourse.startDate) : null);
-    const newEnd = (updateData.endDate !== undefined)
-      ? (updateData.endDate ? new Date(updateData.endDate) : null)
-      : (existingCourse.endDate ? new Date(existingCourse.endDate) : null);
-    if (newStart && !isNaN(newStart.getTime()) && newEnd && !isNaN(newEnd.getTime()) && newStart >= newEnd) {
-      return apiErrorRes(
-        HTTP_STATUS.BAD_REQUEST,
-        res,
-        "Start date must be before end date"
-      );
+    if (dateOrTimeModified) {
+      const newStart = updateData.startDate ? new Date(updateData.startDate) : (existingCourse.startDate ? new Date(existingCourse.startDate) : null);
+      const newEnd = (updateData.endDate !== undefined)
+        ? (updateData.endDate ? new Date(updateData.endDate) : null)
+        : (existingCourse.endDate ? new Date(existingCourse.endDate) : null);
+      if (!targetIsDraft && newStart && !isNaN(newStart.getTime()) && newEnd && !isNaN(newEnd.getTime()) && newStart >= newEnd) {
+        return apiErrorRes(
+          HTTP_STATUS.BAD_REQUEST,
+          res,
+          "Start date must be before end date"
+        );
+      }
     }
 
     // Handle batch-specific seats limit check vs existing transactions (prevent reducing seats below paid count + reserved externally count)
