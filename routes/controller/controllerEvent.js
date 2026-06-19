@@ -1566,7 +1566,8 @@ const getEventDetails = async (req, res) => {
       : event.totalTickets || 0;
 
     const reservedExternally = event.ReservedExternally || 0;
-    const availableSeats = Math.max(0, totalTicketCount - totalAttendees - reservedExternally);
+    // const availableSeats = Math.max(0, totalTicketCount - totalAttendees - reservedExternally);
+    const availableSeats = Math.max(0, totalTicketCount - totalAttendees);
 
     event.totalTickets = totalTicketCount;
     event.totalSeats = totalTicketCount;
@@ -2247,9 +2248,9 @@ const updateEvent = async (req, res) => {
       );
     }
 
-    // 3. Prevent editing past events
+    // 3. Prevent editing past events (unless it is a draft)
     const now = new Date();
-    if (existingEvent.status === eventStatus.PAST || existingEvent.endDate < now) {
+    if (!existingEvent.isDraft && (existingEvent.status === eventStatus.PAST || existingEvent.endDate < now)) {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,

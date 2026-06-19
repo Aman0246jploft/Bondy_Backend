@@ -1399,9 +1399,9 @@ const updateCourse = async (req, res) => {
       );
     }
 
-    // 3. Prevent editing past courses
+    // 3. Prevent editing past courses (unless it is a draft)
     const now = new Date();
-    if (existingCourse.status === eventStatus.PAST || existingCourse.endDate < now) {
+    if (!existingCourse.isDraft && (existingCourse.status === eventStatus.PAST || existingCourse.endDate < now)) {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
