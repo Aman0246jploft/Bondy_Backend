@@ -47,7 +47,7 @@ const createEvent = async (req, res) => {
     const userId = req.user.userId;
 
     let event;
-    let isDraftValue = isDraftBody === true;
+    let isDraftValue = isDraftBody === true || isDraftBody === "true";
 
     // Transform venueAddress to GeoJSON Point safely
     let location = undefined;
@@ -344,15 +344,15 @@ const getEvents = async (req, res) => {
       }
     }
 
-    // Redis Cache Check
-    const cacheKeyData = JSON.stringify(req.query) + (loginUser || "anonymous");
-    const cacheKeyHash = crypto.createHash("md5").update(cacheKeyData).digest("hex");
-    const cacheKey = `events:list:${cacheKeyHash}`;
-
-    const cachedData = await getKey(cacheKey);
-    if (cachedData && cachedData.statusCode === CONSTANTS.SUCCESS && cachedData.data) {
-      return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.EVENTS_FETCHED, JSON.parse(cachedData.data));
-    }
+    // // Redis Cache Check
+    // const cacheKeyData = JSON.stringify(req.query) + (loginUser || "anonymous");
+    // const cacheKeyHash = crypto.createHash("md5").update(cacheKeyData).digest("hex");
+    // const cacheKey = `events:list:${cacheKeyHash}`;
+    // 
+    // const cachedData = await getKey(cacheKey);
+    // if (cachedData && cachedData.statusCode === CONSTANTS.SUCCESS && cachedData.data) {
+    //   return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.EVENTS_FETCHED, JSON.parse(cachedData.data));
+    // }
 
     const {
       filter = "all",
@@ -494,7 +494,7 @@ const getEvents = async (req, res) => {
         limit: simpleLimit,
       };
 
-      await setKeyWithTime(cacheKey, JSON.stringify(responseData), 5);
+      // await setKeyWithTime(cacheKey, JSON.stringify(responseData), 5);
 
       return apiSuccessRes(
         HTTP_STATUS.OK,
@@ -1259,7 +1259,7 @@ const getEvents = async (req, res) => {
       limit: parseInt(limit),
     };
 
-    await setKeyWithTime(cacheKey, JSON.stringify(responseData), 5);
+    // await setKeyWithTime(cacheKey, JSON.stringify(responseData), 5);
 
     return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.EVENTS_FETCHED, responseData);
   } catch (error) {
@@ -2265,7 +2265,7 @@ const updateEvent = async (req, res) => {
       );
     }
 
-    const targetIsDraft = updateData.isDraft !== undefined ? updateData.isDraft : existingEvent.isDraft;
+    const targetIsDraft = updateData.isDraft === true || updateData.isDraft === "true" || (updateData.isDraft === undefined && existingEvent.isDraft);
 
     // 5. If published (or transitioning to published), enforce required fields
     if (!targetIsDraft) {
@@ -2368,9 +2368,9 @@ const updateEvent = async (req, res) => {
       }
     }
 
-    const newStart = updateData.startDate ? new Date(updateData.startDate) : new Date(existingEvent.startDate);
-    const newEnd = updateData.endDate ? new Date(updateData.endDate) : new Date(existingEvent.endDate);
-    if (newStart && newEnd && newStart >= newEnd) {
+    const newStart = updateData.startDate ? new Date(updateData.startDate) : (existingEvent.startDate ? new Date(existingEvent.startDate) : null);
+    const newEnd = updateData.endDate ? new Date(updateData.endDate) : (existingEvent.endDate ? new Date(existingEvent.endDate) : null);
+    if (newStart && !isNaN(newStart.getTime()) && newEnd && !isNaN(newEnd.getTime()) && newStart >= newEnd) {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,

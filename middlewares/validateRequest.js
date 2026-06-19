@@ -15,6 +15,12 @@ const validateRequest = (schema) => (req, res, next) => {
   // }
   // next();
   const data = req.method === "GET" ? req.query : (req.body || {});
+
+  // Bypass validation if saving/updating as draft
+  if (req.method !== "GET" && (data.isDraft === true || data.isDraft === "true")) {
+    return next();
+  }
+
   const { error } = schema.validate(data, { abortEarly: true, allowUnknown: true });
 
   if (error) {

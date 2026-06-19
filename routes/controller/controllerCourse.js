@@ -32,7 +32,7 @@ const createCourse = async (req, res) => {
     const { venueAddress, isDraft: isDraftBody, ...courseData } = req.body;
     const userId = req.user.userId;
 
-    let isDraftValue = isDraftBody === true;
+    let isDraftValue = isDraftBody === true || isDraftBody === "true";
 
     // Transform venueAddress to GeoJSON Point safely
     let location = undefined;
@@ -195,15 +195,15 @@ const getCourses = async (req, res) => {
       }
     }
 
-    // Redis Cache Check
-    const cacheKeyData = JSON.stringify(req.query) + (loginUser || "anonymous");
-    const cacheKeyHash = crypto.createHash("md5").update(cacheKeyData).digest("hex");
-    const cacheKey = `courses:list:${cacheKeyHash}`;
-
-    const cachedData = await getKey(cacheKey);
-    if (cachedData && cachedData.statusCode === CONSTANTS.SUCCESS && cachedData.data) {
-      return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.SUCCESS, JSON.parse(cachedData.data));
-    }
+    // // Redis Cache Check
+    // const cacheKeyData = JSON.stringify(req.query) + (loginUser || "anonymous");
+    // const cacheKeyHash = crypto.createHash("md5").update(cacheKeyData).digest("hex");
+    // const cacheKey = `courses:list:${cacheKeyHash}`;
+    // 
+    // const cachedData = await getKey(cacheKey);
+    // if (cachedData && cachedData.statusCode === CONSTANTS.SUCCESS && cachedData.data) {
+    //   return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.SUCCESS, JSON.parse(cachedData.data));
+    // }
 
     const now = new Date();
     const skip = (page - 1) * limit;
@@ -431,7 +431,7 @@ const getCourses = async (req, res) => {
           startOfNextWeek.setDate(startOfNextWeek.getDate() + diffNW + 7);
           startOfNextWeek.setHours(0, 0, 0, 0);
           const endOfNextWeek = new Date(startOfNextWeek);
-          endOfNextWeek.setDate(endOfNextWeek.getDate() + 6);
+          endOfNextWeek.setDate(startOfNextWeek.getDate() + 6);
           endOfNextWeek.setHours(23, 59, 59, 999);
           startDateConditions.push({
             $gte: startOfNextWeek,
@@ -1213,8 +1213,8 @@ const getCourses = async (req, res) => {
       grandTotalRevenue,
     };
 
-    // Store in Redis cache for 5 minutes
-    await setKeyWithTime(cacheKey, JSON.stringify(responseData), 5);
+    // // Store in Redis cache for 5 minutes
+    // await setKeyWithTime(cacheKey, JSON.stringify(responseData), 5);
 
     return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.SUCCESS, responseData);
   } catch (error) {
@@ -1403,7 +1403,7 @@ const updateCourse = async (req, res) => {
       );
     }
 
-    const targetIsDraft = updateData.isDraft !== undefined ? updateData.isDraft : existingCourse.isDraft;
+    const targetIsDraft = updateData.isDraft === true || updateData.isDraft === "true" || (updateData.isDraft === undefined && existingCourse.isDraft);
 
     // 5. If published (or transitioning to published), enforce required fields
     if (!targetIsDraft) {
@@ -1522,11 +1522,11 @@ const updateCourse = async (req, res) => {
       }
     }
 
-    const newStart = updateData.startDate ? new Date(updateData.startDate) : new Date(existingCourse.startDate);
+    const newStart = updateData.startDate ? new Date(updateData.startDate) : (existingCourse.startDate ? new Date(existingCourse.startDate) : null);
     const newEnd = (updateData.endDate !== undefined)
       ? (updateData.endDate ? new Date(updateData.endDate) : null)
       : (existingCourse.endDate ? new Date(existingCourse.endDate) : null);
-    if (newStart && newEnd && newStart >= newEnd) {
+    if (newStart && !isNaN(newStart.getTime()) && newEnd && !isNaN(newEnd.getTime()) && newStart >= newEnd) {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
