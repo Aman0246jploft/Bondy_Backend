@@ -1257,8 +1257,7 @@ const getUserProfileById = async (req, res) => {
       // 1b. Total Upcoming Courses
       const totalUpcomingCourses = await Course.countDocuments({
         createdBy: userId,
-        startDate: { $gte: new Date() },
-        status: "Upcoming",
+        status: { $in: ["Upcoming", "Live"] },
         isDraft: false,
       });
       profileData.totalUpcomingCourses = totalUpcomingCourses;
@@ -1266,8 +1265,7 @@ const getUserProfileById = async (req, res) => {
       // 1. Total Upcoming Events
       const totalUpcomingEvents = await Event.countDocuments({
         createdBy: userId,
-        startDate: { $gte: new Date() },
-        status: "Upcoming",
+        status: { $in: ["Upcoming", "Live"] },
         isDraft: false,
       });
       profileData.totalUpcomingEvents = totalUpcomingEvents + totalUpcomingCourses;
