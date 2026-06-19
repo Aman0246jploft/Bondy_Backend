@@ -1076,9 +1076,9 @@ const getCourses = async (req, res) => {
         });
       }
 
-      const acquiredTotal = (courseBookingMap[course._id.toString()] || 0) + totalReservedExternally;
+      const actualBooked = (courseBookingMap[course._id.toString()] || 0);
       const totalRevenue = courseRevenueMap[course._id.toString()] || 0;
-      const leftSeats = Math.max(0, courseTotalSeats - acquiredTotal);
+      const leftSeats = Math.max(0, courseTotalSeats - actualBooked - totalReservedExternally);
 
       let earliestStartTime = "00:00";
       let latestEndTime = "23:59";
@@ -1185,7 +1185,7 @@ const getCourses = async (req, res) => {
       return {
         ...course,
         totalSeats: courseTotalSeats,
-        acquiredSeats: acquiredTotal,
+        acquiredSeats: actualBooked,
         leftSeats,
         currentSchedule,
         weeklySchedule,
@@ -1195,7 +1195,7 @@ const getCourses = async (req, res) => {
         durationTranslation,
         isBooked: bookedCourseIds.has(course._id.toString()),
         totalRevenue,
-        totalEnrollments: acquiredTotal,
+        totalEnrollments: actualBooked,
         capacitypersession: course.batches && course.batches.length > 0 ? (course.batches[0].seats || 0) : 0,
       };
     });
@@ -1315,11 +1315,12 @@ const getCoursesAdmin = async (req, res) => {
       const totalReserved = course.batches && Array.isArray(course.batches)
         ? course.batches.reduce((sum, b) => sum + (b.ReservedExternally || 0), 0)
         : 0;
-      const acquiredSeats = (bookingMap[course._id.toString()] || 0) + totalReserved;
+      const actualBooked = bookingMap[course._id.toString()] || 0;
+      const acquiredSeats = actualBooked;
 
       course.totalSeats = totalSeats;
       course.acquiredSeats = acquiredSeats;
-      course.leftSeats = Math.max(0, totalSeats - acquiredSeats);
+      course.leftSeats = Math.max(0, totalSeats - actualBooked - totalReserved);
       course.capacitypersession = course.batches && course.batches.length > 0 ? (course.batches[0].seats || 0) : 0;
 
       return course;
@@ -2437,8 +2438,8 @@ const getOrganizerCourses = async (req, res) => {
         });
       }
 
-      const acquiredTotal = (courseBookingMap[course._id.toString()] || 0) + totalReservedExternally;
-      const leftSeats = Math.max(0, courseTotalSeats - acquiredTotal);
+      const actualBooked = (courseBookingMap[course._id.toString()] || 0);
+      const leftSeats = Math.max(0, courseTotalSeats - actualBooked - totalReservedExternally);
 
       // Calculate schedule boundaries
       let earliestStartTime = "00:00";
@@ -2489,7 +2490,7 @@ const getOrganizerCourses = async (req, res) => {
       return {
         ...course,
         totalSeats: courseTotalSeats,
-        acquiredSeats: acquiredTotal,
+        acquiredSeats: actualBooked,
         leftSeats,
         currentSchedule,
         sessionStatus,
