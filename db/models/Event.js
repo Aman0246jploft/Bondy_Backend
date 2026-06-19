@@ -173,8 +173,8 @@ eventSchema.pre("save", function (next) {
 
   const now = new Date();
 
-  // ❌ Block creating past events (only on creation or if endDate is changed to past)
-  if ((this.isNew || this.isModified("endDate")) && this.endDate < now) {
+  // ❌ Block creating past events (only on creation or if endDate is changed to past, and only if not a draft)
+  if (!this.isDraft && (this.isNew || this.isModified("endDate")) && this.endDate < now) {
     return next(new Error("You cannot create an event in the past"));
   }
 

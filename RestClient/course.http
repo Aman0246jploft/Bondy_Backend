@@ -88,24 +88,28 @@ Authorization: Bearer {{authToken}}
 Content-Type: application/json
 
 {
-  "courseTitle": "Mastering Advanced Node.js 2026 (Updated)",
-  "shortdesc": "Updated summary of backend development master class.",
-  "oneMonthPassPrice": 150.00,
-  "oneMonthPassEnabled": true,
-  "threeMonthPassPrice": 400.00,
-  "threeMonthPassEnabled": true,
+  # "courseTitle": "Mastering Advanced Node.js 2026 (Updated)",
+  # "shortdesc": "Updated summary of backend development master class.",
+  # "oneMonthPassPrice": 150.00,
+  # "oneMonthPassEnabled": true,
+  # "threeMonthPassPrice": 400.00,
+  # "threeMonthPassEnabled": true,
   "batches": [
     {
       "_id": "6a2904769f3feca6e22f5917",
-      "ReservedExternally": 10
-    },
-    {
-      "_id": "6a2904769f3feca6e22f5918", 
-      "ReservedExternally": 2
+      "ReservedExternally": 1
     }
+    # {
+    #   "_id": "6a2904769f3feca6e22f5918", 
+    #   "ReservedExternally": 2
+    # }
   ]
 }
 
+
+###
+GET {{baseUrl}}/course/details/{{courseId}}
+Authorization: Bearer {{authToken}}
 
 ### 4. Publish a Draft Course (Transition from Draft to Published)
 POST {{baseUrl}}/course/edit/{{courseId}}

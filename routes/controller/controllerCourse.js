@@ -1357,6 +1357,19 @@ const updateCourse = async (req, res) => {
 
     // Merge existing batch details for partial batch update payloads
     if (updateData.batches && Array.isArray(updateData.batches)) {
+      for (const b of updateData.batches) {
+        if (b._id && existingCourse.batches) {
+          const existingBatch = existingCourse.batches.id(b._id);
+          if (!existingBatch) {
+            return apiErrorRes(
+              HTTP_STATUS.BAD_REQUEST,
+              res,
+              `Batch with ID ${b._id} not found for this course`
+            );
+          }
+        }
+      }
+
       updateData.batches = updateData.batches.map((b) => {
         if (b._id && existingCourse.batches) {
           const existingBatch = existingCourse.batches.id(b._id);
