@@ -1069,6 +1069,7 @@ const getCourses = async (req, res) => {
           return {
             ...batch,
             acquiredSeats: acquired,
+            totalacquirewithreserver: acquired + reserved,
             availableSeats: available,
             isFull: available <= 0,
             isBooked: userBookedBatches ? userBookedBatches.has(batchId) : false,
@@ -1077,6 +1078,7 @@ const getCourses = async (req, res) => {
       }
 
       const actualBooked = (courseBookingMap[course._id.toString()] || 0);
+      const totalacquirewithreserver = actualBooked + totalReservedExternally;
       const totalRevenue = courseRevenueMap[course._id.toString()] || 0;
       const leftSeats = Math.max(0, courseTotalSeats - actualBooked - totalReservedExternally);
 
@@ -1186,6 +1188,7 @@ const getCourses = async (req, res) => {
         ...course,
         totalSeats: courseTotalSeats,
         acquiredSeats: actualBooked,
+        totalacquirewithreserver,
         leftSeats,
         currentSchedule,
         weeklySchedule,
@@ -1317,9 +1320,11 @@ const getCoursesAdmin = async (req, res) => {
         : 0;
       const actualBooked = bookingMap[course._id.toString()] || 0;
       const acquiredSeats = actualBooked;
+      const totalacquirewithreserver = actualBooked + totalReserved;
 
       course.totalSeats = totalSeats;
       course.acquiredSeats = acquiredSeats;
+      course.totalacquirewithreserver = totalacquirewithreserver;
       course.leftSeats = Math.max(0, totalSeats - actualBooked - totalReserved);
       course.capacitypersession = course.batches && course.batches.length > 0 ? (course.batches[0].seats || 0) : 0;
 
@@ -1512,7 +1517,7 @@ const updateCourse = async (req, res) => {
       }
     }
 
-    const dateOrTimeModified = 
+    const dateOrTimeModified =
       updateData.startDate !== undefined ||
       updateData.endDate !== undefined ||
       updateData.timeZone !== undefined ||
@@ -1925,6 +1930,7 @@ const getCourseDetails = async (req, res) => {
         return {
           ...batch,
           acquiredSeats: acquired,
+          totalacquirewithreserver: acquired + reserved,
           availableSeats: available,
           isFull: available <= 0,
           isBooked: bookedBatchIds.has(batchId),
@@ -2059,6 +2065,7 @@ const getCourseDetails = async (req, res) => {
       durationTranslation,
       // acquiredSeats: totalAcquiredSeats + totalReservedExternally,
       acquiredSeats: totalAcquiredSeats,
+      totalacquirewithreserver: totalAcquiredSeats + totalReservedExternally,
       leftSeats: Math.max(0, courseTotalSeats - totalAcquiredSeats - totalReservedExternally),
       isBooked,
       isWishlisted,
@@ -2440,6 +2447,7 @@ const getOrganizerCourses = async (req, res) => {
           return {
             ...batch,
             acquiredSeats: acquired,
+            totalacquirewithreserver: acquired + reserved,
             availableSeats: available,
             isFull: available <= 0,
           };
@@ -2447,6 +2455,7 @@ const getOrganizerCourses = async (req, res) => {
       }
 
       const actualBooked = (courseBookingMap[course._id.toString()] || 0);
+      const totalacquirewithreserver = actualBooked + totalReservedExternally;
       const leftSeats = Math.max(0, courseTotalSeats - actualBooked - totalReservedExternally);
 
       // Calculate schedule boundaries
@@ -2499,6 +2508,7 @@ const getOrganizerCourses = async (req, res) => {
         ...course,
         totalSeats: courseTotalSeats,
         acquiredSeats: actualBooked,
+        totalacquirewithreserver,
         leftSeats,
         currentSchedule,
         sessionStatus,

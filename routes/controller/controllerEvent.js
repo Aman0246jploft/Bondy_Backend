@@ -310,7 +310,8 @@ const formatEvent = (event, bookedEventIds = new Set(), bookedQty = 0, pendingQt
 
   event.totalTickets = totalTickets;
   event.totalSeats = totalTickets;
-  event.totalBooked = bookedQty + (event.ReservedExternally || 0);
+  event.totalBooked = bookedQty;
+  event.totalacquirewithreserver = bookedQty + (event.ReservedExternally || 0);
   event.totalPendingTicket = pendingQty;
 
   const leftSeats = Math.max(0, totalTickets - bookedQty - (event.ReservedExternally || 0));
@@ -1573,6 +1574,7 @@ const getEventDetails = async (req, res) => {
     event.totalSeats = totalTicketCount;
     // event.totalBooked = totalAttendees + reservedExternally;
     event.totalBooked = totalAttendees;
+    event.totalacquirewithreserver = totalAttendees + reservedExternally;
 
     event.leftSeats = availableSeats;
     event.ticketQtyAvailable = availableSeats;
@@ -2347,7 +2349,7 @@ const updateEvent = async (req, res) => {
       }
     }
 
-    const dateOrTimeModified = 
+    const dateOrTimeModified =
       updateData.startDate !== undefined ||
       updateData.endDate !== undefined ||
       updateData.startTime !== undefined ||
