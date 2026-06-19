@@ -101,11 +101,11 @@ const createEvent = async (req, res) => {
       if (!isDraftValue) {
         const reservedVal = req.body.ReservedExternally !== undefined ? req.body.ReservedExternally : (event.ReservedExternally || 0);
         let ticketsVal = req.body.tickets;
-        
+
         if (Array.isArray(ticketsVal)) {
           ticketsVal = ticketsVal.filter(t => t && Object.keys(t).length > 0 && t.ticketName && t.qty !== undefined);
         }
-        
+
         if (ticketsVal !== undefined && ticketsVal.length === 0) {
           ticketsVal = [{
             ticketName: "Free Entry",
@@ -185,11 +185,11 @@ const createEvent = async (req, res) => {
       if (!isDraftValue) {
         const reservedVal = req.body.ReservedExternally || 0;
         let ticketsVal = req.body.tickets || [];
-        
+
         if (Array.isArray(ticketsVal)) {
           ticketsVal = ticketsVal.filter(t => t && Object.keys(t).length > 0 && t.ticketName && t.qty !== undefined);
         }
-        
+
         if (ticketsVal.length === 0) {
           ticketsVal = [{
             ticketName: "Free Entry",
@@ -1570,7 +1570,9 @@ const getEventDetails = async (req, res) => {
 
     event.totalTickets = totalTicketCount;
     event.totalSeats = totalTicketCount;
-    event.totalBooked = totalAttendees + reservedExternally;
+    // event.totalBooked = totalAttendees + reservedExternally;
+    event.totalBooked = totalAttendees;
+
     event.leftSeats = availableSeats;
     event.ticketQtyAvailable = availableSeats;
     event.acquiredSeats = totalAttendees;

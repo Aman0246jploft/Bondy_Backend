@@ -253,8 +253,7 @@ Authorization: Bearer {{authToken}}
 GET {{baseUrl}}/event/list?page=1&limit=3&filter=organizer,excludemyevents&status=Live,Upcoming
 Authorization: Bearer {{authToken}}
 
-#======================================== FILTER ==========================================
-
+#============= FILTER ==============
 
 ### 14. Get Event Details
 GET {{baseUrl}}/event/details/{{eventId}}

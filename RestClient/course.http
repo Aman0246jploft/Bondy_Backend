@@ -100,7 +100,7 @@ Content-Type: application/json
       "ReservedExternally": 1
     }
     # {
-    #   "_id": "6a2904769f3feca6e22f5918", 
+    #   "_id": "6a2904769f3feca6e22f5917", 
     #   "ReservedExternally": 2
     # }
   ]
@@ -146,12 +146,12 @@ Content-Type: application/json
   },
   "batches": [
     {
-      "batchName": "Morning Intensive",
-      "startTime": "09:00",
-      "endTime": "13:00",
-      "days": ["Mon", "Tue", "Wed", "Thu", "Fri"],
-      "seats": 15
-    }
+     "batchName": "Morning Intensive",
+     "startTime": "09:00",
+     "endTime": "13:00",
+     "days": ["Mon", "Tue", "Wed", "Thu", "Fri"],
+     "seats": 15
+   }
   ],
   "price": 499.00,
   "oneMonthPassPrice": 120.00,
