@@ -79,7 +79,7 @@ POST {{baseUrl}}/user/verify-otp
 Content-Type: application/json
 
 {
-  "email": "testOrganizer6@example.com",
+  "email": "testorg90@yopmail.com",
   "otp": "12345",
   "type": "ORGANIZER"
 }
@@ -95,7 +95,7 @@ POST {{baseUrl}}/user/login/init
 Content-Type: application/json
 
 {
-  "email": "rebok@gmail.com",
+  "email": "testorg90@yopmail.com",
   "password": "Test@123",
   "type": "ORGANIZER"
 }
@@ -107,7 +107,7 @@ POST {{baseUrl}}/user/verify-otp
 Content-Type: application/json
 
 {
-  "email": "new@gmail.com",
+  "email": "testorg90@yopmail.com",
   "otp": "12345",
   "type": "LOGIN"
 }
@@ -147,7 +147,7 @@ Content-Type: application/json
 ### 11. Organizer Update Business Info
 # Authenticated organizer submits/updates business name, category, short desc, and social media link.
 # Note: This will set the account review status to "pending" for admin review/approval.
-@organizerToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTFlODA2NjU5NzliZWVlNDFjZjVmNGIiLCJyb2xlSWQiOjIsImlhdCI6MTc4MTE1NDgzNSwiZXhwIjoyNjQ1MTU0ODM1fQ.LjTLTJzM5sT-_Hb12gXenh_5A0JNtR1gjlyiQP5B8_0
+@organizerToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTMyOTFmNDZhOTAwMDQyMWVjNzYyMjIiLCJyb2xlSWQiOjIsImlhdCI6MTc4MTg3NDEzOCwiZXhwIjoyNjQ1ODc0MTM4fQ.bdHXpekE-IfKeF5GTfuvBrM5IuBzsD4gXp8zhP-1mhk
 @categoryId = 647f1234567890abcdef1234
 POST {{baseUrl}}/user/organizer/info
 Authorization: Bearer {{organizerToken}}

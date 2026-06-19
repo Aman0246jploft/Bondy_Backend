@@ -1239,12 +1239,14 @@ const getUserProfileById = async (req, res) => {
       // Calculate totalEventsHosted  
       const totalEventsHosted = await Event.countDocuments({
         createdBy: userId,
+        isDraft: false,
       });
       profileData.totalEventsHosted = totalEventsHosted;
 
       // Calculate totalCourses count (added)
       const totalCourses = await Course.countDocuments({
         createdBy: userId,
+        isDraft: false,
       });
       profileData.totalCoursesAdded = totalCourses; // "total course he added"
 
@@ -1257,6 +1259,7 @@ const getUserProfileById = async (req, res) => {
         createdBy: userId,
         startDate: { $gte: new Date() },
         status: "Upcoming",
+        isDraft: false,
       });
       profileData.totalUpcomingEvents = totalUpcomingEvents;
 
