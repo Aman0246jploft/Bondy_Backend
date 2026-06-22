@@ -91,8 +91,29 @@ router.get("/rewards", perApiLimiter(), async (req, res) => {
       userId: userId,
     }).sort({ createdAt: -1 });
 
+    const totalCoupons = rewards.length;
+    const now = new Date();
+    
+    const activeCoupons = rewards.filter((r) => {
+      const isExpired = r.validUntil && now > new Date(r.validUntil);
+      const isUsed = r.usedCount >= (r.maxUsage || 1);
+      return r.active && !isUsed && !isExpired;
+    }).length;
+
+    const usedCoupons = rewards.filter((r) => r.usedCount >= (r.maxUsage || 1)).length;
+
+    const expiredCoupons = rewards.filter((r) => {
+      const isExpired = r.validUntil && now > new Date(r.validUntil);
+      const isUsed = r.usedCount >= (r.maxUsage || 1);
+      return isExpired && !isUsed;
+    }).length;
+
     return apiSuccessRes(HTTP_STATUS.OK, res, "Referral rewards fetched", {
       rewards,
+      totalCoupons,
+      activeCoupons,
+      usedCoupons,
+      expiredCoupons,
     });
   } catch (error) {
     console.error("Get referral rewards error:", error);
