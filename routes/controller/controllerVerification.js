@@ -478,47 +478,7 @@ const verifyOrganizer = async (req, res) => {
     user.markModified("verifications");
     await user.save(); // save updates verification status and isVerified
 
-    // --- Referral: credit reward when organizer gets verified ---
-    if (isApprove && user.isVerified === true) {
-      try {
-        const referral = await Referral.findOne({
-          referee: user._id,
-          status: "SIGNED_UP",
-        });
-
-        if (referral) {
-          const referrer = await User.findById(referral.referrer);
-          if (referrer) {
-            const rewardSetting = await GlobalSetting.findOne({ key: "REFERRAL_REWARD_AMOUNT" });
-            const rewardAmount = rewardSetting ? Number(rewardSetting.value) : 0;
-
-            referral.status = "COMPLETED";
-            referral.rewardedAt = new Date();
-            await referral.save();
-
-            referrer.payoutBalance = (referrer.payoutBalance || 0) + rewardAmount;
-            await referrer.save();
-
-            await WalletHistory.create({
-              userId: referrer._id,
-              amount: rewardAmount,
-              type: "REFERRAL",
-              balanceAfter: referrer.payoutBalance,
-              description: `Referral reward — ${user.firstName} ${user.lastName} (${user.email}) got verified on Bondy.`,
-            });
-
-            notifyReferralReward(
-              String(referrer._id),
-              rewardAmount,
-              `${user.email}`,
-              String(referral._id)
-            ).catch((e) => console.error("[Notification] notifyReferralReward:", e));
-          }
-        }
-      } catch (refErr) {
-        console.error("[REFERRAL] Credit error:", refErr.message);
-      }
-    }
+    // Note: Referral validation and rewards are now handled by cronReferralValidation and serviceReward.
 
     // Notify the organizer about their verification result (non-blocking)
     notifyVerificationResult(String(userId), action, reason)

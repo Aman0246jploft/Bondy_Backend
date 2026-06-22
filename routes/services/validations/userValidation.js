@@ -7,6 +7,7 @@ const customerSignupSchema = Joi.object({
   password: Joi.string().min(6).required(),
   confirmPassword: Joi.string().valid(Joi.ref("password")).required().strict(),
   fmcToken: Joi.string().optional().allow(null, ""),
+  referralCode: Joi.string().optional().allow(null, ""),
 });
 
 const organizerSignupSchema = Joi.object({

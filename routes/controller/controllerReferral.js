@@ -1,20 +1,12 @@
 const express = require("express");
 const router = express.Router();
 const crypto = require("crypto");
-const { Referral, User, WalletHistory, GlobalSetting } = require("../../db");
+const { Referral, User, WalletHistory, GlobalSetting, PromoCode } = require("../../db");
 const HTTP_STATUS = require("../../utils/statusCode");
 const { apiErrorRes, apiSuccessRes } = require("../../utils/globalFunction");
 const constantsMessage = require("../../utils/constantsMessage");
 const perApiLimiter = require("../../middlewares/rateLimiter");
 const { roleId } = require("../../utils/Role");
-const { notifyReferralReward } = require("../services/serviceNotification");
-
-// ─── Helper: get reward amount from DB (admin-configurable) ───────────────────
-const DEFAULT_REWARD = 0;
-const getRewardAmount = async () => {
-  const setting = await GlobalSetting.findOne({ key: "REFERRAL_REWARD_AMOUNT" });
-  return setting ? Number(setting.value) : DEFAULT_REWARD;
-};
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -40,8 +32,7 @@ router.get("/my-code", perApiLimiter(), async (req, res) => {
         referrer: userId,
         refereeEmail: "__self__",
         referralCode: code,
-        status: "PENDING",
-
+        status: "PENDING_REFERRAL",
       });
     }
 
@@ -58,7 +49,7 @@ router.get("/my-code", perApiLimiter(), async (req, res) => {
   }
 });
 
-// ─── GET /stats — Get referral stats + history for current organizer ──────────
+// ─── GET /stats — Get referral stats + history for current user ──────────────
 router.get("/stats", perApiLimiter(), async (req, res) => {
   try {
     const userId = req.user.userId;
@@ -69,25 +60,42 @@ router.get("/stats", perApiLimiter(), async (req, res) => {
       refereeEmail: { $ne: "__self__" },
     })
       .populate("referee", "firstName lastName email profileImage")
+      .populate("qualifyingOrderId")
       .sort({ createdAt: -1 })
       .lean();
 
     const totalReferrals = referrals.length;
-    const signedUp = referrals.filter((r) => ["SIGNED_UP", "COMPLETED"].includes(r.status)).length;
-    const completed = referrals.filter((r) => r.status === "COMPLETED").length;
-    const totalRewardEarned = referrals
-      .filter((r) => r.status === "COMPLETED")
-      .reduce((sum, r) => sum + (r.rewardAmount || 0), 0);
+    const pendingReferrals = referrals.filter((r) => r.status === "PENDING_REFERRAL").length;
+    const pendingValidation = referrals.filter((r) => r.status === "PENDING_VALIDATION").length;
+    const successfulReferrals = referrals.filter((r) => r.status === "SUCCESSFUL_REFERRAL").length;
 
     return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.REFERRAL_STATS_FETCHED, {
       totalReferrals,
-      signedUp,
-      completed,
-      totalRewardEarned,
+      pendingReferrals,
+      pendingValidation,
+      successfulReferrals,
       history: referrals,
     });
   } catch (error) {
     console.error("Get referral stats error:", error);
+    return apiErrorRes(HTTP_STATUS.INTERNAL_SERVER_ERROR, res, error.message);
+  }
+});
+
+// ─── GET /rewards — Get earned rewards for current user ──────────────────────
+router.get("/rewards", perApiLimiter(), async (req, res) => {
+  try {
+    const userId = req.user.userId;
+
+    const rewards = await PromoCode.find({
+      userId: userId,
+    }).sort({ createdAt: -1 });
+
+    return apiSuccessRes(HTTP_STATUS.OK, res, "Referral rewards fetched", {
+      rewards,
+    });
+  } catch (error) {
+    console.error("Get referral rewards error:", error);
     return apiErrorRes(HTTP_STATUS.INTERNAL_SERVER_ERROR, res, error.message);
   }
 });
@@ -110,7 +118,7 @@ router.post("/invite", perApiLimiter(), async (req, res) => {
         referrer: userId,
         refereeEmail: "__self__",
         referralCode: code,
-        status: "PENDING",
+        status: "PENDING_REFERRAL",
       });
     }
 
@@ -131,13 +139,11 @@ router.post("/invite", perApiLimiter(), async (req, res) => {
 
     // Create individual referral for this email
     const inviteCode = generateReferralCode(userId + email);
-    const rewardAmount = await getRewardAmount();
     const newReferral = await Referral.create({
       referrer: userId,
       refereeEmail: email.toLowerCase().trim(),
       referralCode: inviteCode,
-      status: "PENDING",
-      rewardAmount,
+      status: "PENDING_REFERRAL",
     });
 
     // In a real system, send an email here via nodemailer/sendgrid
@@ -152,64 +158,6 @@ router.post("/invite", perApiLimiter(), async (req, res) => {
     });
   } catch (error) {
     console.error("Invite error:", error);
-    return apiErrorRes(HTTP_STATUS.INTERNAL_SERVER_ERROR, res, error.message);
-  }
-});
-
-// ─── POST /complete — Called internally when a referred organizer completes verification ──
-// This would be triggered from the admin verification flow or webhook
-router.post("/complete", perApiLimiter(), async (req, res) => {
-  try {
-    const { referralCode, refereeUserId } = req.body;
-
-    if (!referralCode || !refereeUserId) {
-      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.REFERRAL_REQUIRED_FIELDS);
-    }
-
-    const referral = await Referral.findOne({ referralCode, status: { $in: ["PENDING", "SIGNED_UP"] } });
-    if (!referral) {
-      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.REFERRAL_NOT_FOUND_OR_COMPLETED);
-    }
-
-    const referrer = await User.findById(referral.referrer);
-    if (!referrer) {
-      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.REFERRER_NOT_FOUND);
-    }
-
-    // Update referral
-    referral.referee = refereeUserId;
-    referral.status = "COMPLETED";
-    referral.rewardedAt = new Date();
-    await referral.save();
-
-    // Credit reward to referrer wallet
-    const rewardAmount = await getRewardAmount();
-    referrer.payoutBalance = (referrer.payoutBalance || 0) + rewardAmount;
-    await referrer.save();
-
-    // Log wallet history
-    await WalletHistory.create({
-      userId: referrer._id,
-      amount: rewardAmount,
-      type: "REFERRAL",
-      balanceAfter: referrer.payoutBalance,
-      description: `Referral reward for inviting a new organizer (code: ${referralCode})`,
-    });
-
-    // Notify referrer (non-blocking via queue)
-    notifyReferralReward(
-      String(referrer._id),
-      rewardAmount,
-      `referral code ${referralCode}`,
-      String(referral._id)
-    ).catch((e) => console.error("[Notification] notifyReferralReward (complete):", e));
-
-    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.REFERRAL_COMPLETED, {
-      rewardAmount,
-      newBalance: referrer.payoutBalance,
-    });
-  } catch (error) {
-    console.error("Complete referral error:", error);
     return apiErrorRes(HTTP_STATUS.INTERNAL_SERVER_ERROR, res, error.message);
   }
 });

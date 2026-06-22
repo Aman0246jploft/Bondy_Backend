@@ -13,6 +13,7 @@ const {
   WalletHistory,
   Wishlist,
   CancellationReason,
+  Referral,
 } = require("../../db");
 const HTTP_STATUS = require("../../utils/statusCode");
 const {
@@ -159,8 +160,21 @@ const applyPromoCode = async (discountCode, basePrice) => {
     return { discountAmount: 0, promoApplied: false, promoMessage: constantsMessage.INVALID_OR_EXPIRED_PROMO };
   }
 
+  // Check minimum order amount constraint
+  if (code.minOrderAmount && basePrice < code.minOrderAmount) {
+    return {
+      discountAmount: 0,
+      promoApplied: false,
+      promoMessage: `Minimum order amount of ${code.minOrderAmount} is required to use this promo code.`,
+    };
+  }
+
   if (code.discountType === "percentage") {
     discountAmount = roundToTwo((basePrice * code.discountValue) / 100);
+    // Check maximum discount amount constraint
+    if (code.maxDiscountAmount !== null && code.maxDiscountAmount !== undefined && discountAmount > code.maxDiscountAmount) {
+      discountAmount = roundToTwo(code.maxDiscountAmount);
+    }
   } else {
     discountAmount = roundToTwo(code.discountValue);
   }
@@ -1140,6 +1154,37 @@ const confirmPayment = async (req, res) => {
       );
     }
 
+    // ── Referral validation ──
+    try {
+      const pendingReferral = await Referral.findOne({ referee: userId, status: "PENDING_REFERRAL" });
+      if (pendingReferral && transaction.bookingType === "EVENT" && transaction.totalAmount > 0) {
+        pendingReferral.status = "PENDING_VALIDATION";
+        pendingReferral.qualifyingOrderId = transaction._id;
+        pendingReferral.orderDate = new Date();
+        
+        // Calculate refund window end date (e.g., event end date + 2 days)
+        const eventItem = transaction.eventId || item;
+        if (eventItem && eventItem.endDate) {
+          const refundEnd = new Date(eventItem.endDate);
+          refundEnd.setDate(refundEnd.getDate() + 2); // 2 days post-event fallback/window
+          pendingReferral.refundWindowEndDate = refundEnd;
+        } else {
+           const refundEnd = new Date();
+           refundEnd.setDate(refundEnd.getDate() + 30); // Fallback
+           pendingReferral.refundWindowEndDate = refundEnd;
+        }
+        
+        await pendingReferral.save();
+        
+        // Notify referrer
+        const { notifyReferralPendingValidation } = require("../services/serviceNotification");
+        notifyReferralPendingValidation(pendingReferral.referrer, buyerName)
+          .catch((e) => console.error("[Notification] notifyReferralPendingValidation:", e));
+      }
+    } catch (refErr) {
+      console.error("[REFERRAL] Error validating referral during booking:", refErr);
+    }
+
     // ── Format response ──
     const transactionObj = transaction.toObject();
     formatItemMedia(transactionObj, transaction.bookingType);
@@ -1303,6 +1348,23 @@ const cancelBooking = async (req, res) => {
         transaction,
         `User cancelled booking for ${itemTitle}`,
       );
+    }
+
+    // ── Referral rollback ──
+    try {
+      const referral = await Referral.findOne({ 
+        qualifyingOrderId: transaction._id, 
+        status: "PENDING_VALIDATION" 
+      });
+      if (referral) {
+        referral.status = "PENDING_REFERRAL";
+        referral.qualifyingOrderId = null;
+        referral.orderDate = null;
+        referral.refundWindowEndDate = null;
+        await referral.save();
+      }
+    } catch (refErr) {
+      console.error("[REFERRAL] Error rolling back referral on cancel:", refErr);
     }
 
     return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.BOOKING_CANCELLED, {

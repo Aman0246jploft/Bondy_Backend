@@ -46,12 +46,27 @@ const discountCodeSchema = new mongoose.Schema(
     // applicableCategories: [
     //   {
     //     type: mongoose.Schema.Types.ObjectId,
-    //     ref: "Category", // optional: which categories
+    // optional: which categories
     //   },
     // ],
     active: {
       type: Boolean,
       default: true,
+    },
+    // User-specific assignment
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+    // Constraints for the coupon
+    minOrderAmount: {
+      type: Number,
+      default: 0,
+    },
+    maxDiscountAmount: {
+      type: Number,
+      default: null,
     },
   },
   {

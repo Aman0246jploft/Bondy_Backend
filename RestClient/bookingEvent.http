@@ -202,11 +202,19 @@ Authorization: Bearer {{customerToken}}
 Content-Type: application/json
 
 {
-  "bookingType": "EVENT",
-  "eventId": "{{eventId}}",
-  "tickets": [
-    { "ticketId": "{{ticketId}}", "qty": 1 }
-  ]
+    "tickets": [
+        {
+            "ticketId": "6a353153c1d17af49fd534ee",
+            "qty": 1
+        },
+        {
+            "ticketId": "6a353153c1d17af49fd534ed",
+            "qty": 1
+        }
+    ],
+    "discountCode": "REF2D7FF8CD",
+    "bookingType": "EVENT",
+    "eventId": "6a32a0c4e2bd24361039fb72"
 }
 
 ### 22. Initiate Free Event Booking (Auto-confirms to PAID)

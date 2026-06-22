@@ -305,9 +305,20 @@ const UserSchema = new Schema(
       type: Number,
       default: 0,
     },
+    referralCode: {
+      type: String,
+      unique: true,
+      sparse: true,
+      trim: true,
+    },
+    successfulReferralCount: {
+      type: Number,
+      default: 0,
+    },
   },
   {
     timestamps: true,
+
   },
 );
 

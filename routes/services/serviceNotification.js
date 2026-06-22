@@ -272,17 +272,44 @@ const notifyPayoutResult = (organizerId, status, amount, payoutId, adminNote) =>
 };
 
 /**
+ * Referral Registered
+ */
+const notifyReferralRegistered = (referrerId, referreeName) => {
+  return queueNotification({
+    recipient: referrerId,
+    type: "SYSTEM",
+    title: "New Referral Registered!",
+    message: `${referreeName} has registered using your referral link.`,
+    deepLink: "/referrals",
+    webLink: "/referrals",
+  });
+};
+
+/**
+ * Referral Pending Validation
+ */
+const notifyReferralPendingValidation = (referrerId, referreeName) => {
+  return queueNotification({
+    recipient: referrerId,
+    type: "SYSTEM",
+    title: "Referral Pending Validation",
+    message: `${referreeName} made a qualifying purchase! It is now pending validation.`,
+    deepLink: "/referrals",
+    webLink: "/referrals",
+  });
+};
+
+/**
  * Referral Reward
  */
-const notifyReferralReward = (referrerId, rewardAmount, referreeName, referralId) => {
+const notifyReferralReward = (referrerId, rewardName, reasonText) => {
   return queueNotification({
     recipient: referrerId,
     type: "SYSTEM",
     title: "Referral Reward Credited! 🎉",
-    message: `You earned ₮${rewardAmount?.toLocaleString()} because your referral ${referreeName} was successfully verified!`,
-    relatedId: referralId,
-    deepLink: "/earnings",
-    webLink: "/earnings",
+    message: `You earned a ${rewardName} for ${reasonText}!`,
+    deepLink: "/referrals/rewards",
+    webLink: "/referrals/rewards",
   });
 };
 
@@ -552,6 +579,8 @@ module.exports = {
   notifyVerificationResult,
   notifyPayoutResult,
   notifyReferralReward,
+  notifyReferralRegistered,
+  notifyReferralPendingValidation,
   notifyPromotion,
   notifyPromotionExpiry,
   notifyNewReview,

@@ -249,3 +249,28 @@ Content-Type: application/json
 # Replace bankId below with actual mongo ObjectId returned from Step 6.1
 DELETE {{baseUrl}}/verification/banks/admin/665efb5f1cd98a221f7c320d
 Authorization: Bearer {{adminToken}}
+
+
+### ----------------------------------------------------
+### 7. USER PROFILE PASSWORD UPDATE FLOW
+### ----------------------------------------------------
+
+### Step 7.1: Change Password
+POST {{baseUrl}}/user/change-password
+Authorization: Bearer {{userToken}}
+Content-Type: application/json
+
+{
+  "oldPassword": "password123",
+  "newPassword": "newpassword123",
+  "confirmPassword": "newpassword123"
+}
+
+
+### ----------------------------------------------------
+### 8. DELETE USER ACCOUNT FLOW
+### ----------------------------------------------------
+
+### Step 8.1: Delete My Account
+DELETE {{baseUrl}}/user/delete-account
+Authorization: Bearer {{userToken}}

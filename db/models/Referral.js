@@ -2,7 +2,7 @@ const mongoose = require("mongoose");
 
 const referralSchema = new mongoose.Schema(
     {
-        // The organizer who sent the invite
+        // The referrer who sent the invite
         referrer: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "User",
@@ -22,6 +22,12 @@ const referralSchema = new mongoose.Schema(
             ref: "User",
             default: null,
         },
+        // Customer or Organizer
+        registrationType: {
+            type: String,
+            enum: ["CUSTOMER", "ORGANIZER"],
+            default: "ORGANIZER",
+        },
         // Unique code embedded in the referral link
         referralCode: {
             type: String,
@@ -31,17 +37,24 @@ const referralSchema = new mongoose.Schema(
         },
         status: {
             type: String,
-            enum: ["PENDING", "SIGNED_UP", "COMPLETED", "EXPIRED"],
-            default: "PENDING",
+            enum: ["PENDING_REFERRAL", "PENDING_VALIDATION", "SUCCESSFUL_REFERRAL", "EXPIRED"],
+            default: "PENDING_REFERRAL",
             index: true,
         },
-        // Reward amount given to referrer on COMPLETED
-        rewardAmount: {
-            type: Number,
-            default: 0, // MNT
+        qualifyingOrderId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Transaction",
+            default: null,
         },
-        // When the reward was credited
-        rewardedAt: {
+        orderDate: {
+            type: Date,
+            default: null,
+        },
+        refundWindowEndDate: {
+            type: Date,
+            default: null,
+        },
+        successfulAt: {
             type: Date,
             default: null,
         },

@@ -1,0 +1,134 @@
+### FULL REFERRAL SYSTEM TESTING FLOW
+# Make sure your server is running, usually at http://localhost:8000
+
+@baseUrl = http://localhost:8080/api/v1
+# Replace these tokens with actual valid tokens generated from your environment
+@referrerToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTFlODA2NjU5NzliZWVlNDFjZjVmNGIiLCJyb2xlSWQiOjIsImlhdCI6MTc4MjEwNjg4OCwiZXhwIjoyNjQ2MTA2ODg4fQ.YQBwx72YvFPi4-Jt9vDfCInN_yd5Bzt5MXDbu-bObXs
+@refereeToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTM4Y2M2ZmQyODE2YTNhOTc2ZmYxOWEiLCJyb2xlSWQiOjMsImlhdCI6MTc4MjEwNzQ2MywiZXhwIjoyNjQ2MTA3NDYzfQ.YtQCo3_ztSdTdcRFCrKGi7xuZFcj1lZuPFnFsxbPFeU
+
+### 1. Referrer: Get Referral Code & Link
+# Gets the logged-in user's referral link or generates one if it doesn't exist.
+GET {{baseUrl}}/referral/my-code
+Authorization: Bearer {{referrerToken}}
+
+### OR 1b. Referrer: Send Email Invite
+# Sends an invite to a specific email and generates a unique code for them.
+POST {{baseUrl}}/referral/invite
+Authorization: Bearer {{referrerToken}}
+Content-Type: application/json
+
+{
+    "email": "referee_test@example.com"
+}
+
+
+### 2. Referee: Customer Signup Init (Using Referral Code)
+# The referee uses the referral code obtained from step 1
+POST {{baseUrl}}/user/customer/signup
+Content-Type: application/json
+
+{
+    "email": "referee_test1@example.com",
+    "countryCode": "+976",
+    "contactNumber": "9876543210",
+    "password": "Password123!",
+    "confirmPassword": "Password123!",
+    "fmcToken": "test-fmc-token",
+    "referralCode": "BE9A2B5472" 
+}
+
+### 3. Referee: Customer Signup Verify
+# Verify the OTP (development OTP is "12345"). This will create the PENDING_REFERRAL record.
+POST {{baseUrl}}/user/verify-otp
+Content-Type: application/json
+
+{
+    "email": "referee_test1@example.com",
+    "otp": "12345",
+    "type": "CUSTOMER"
+}
+
+
+###
+POST {{baseUrl}}/user/admin/login
+Content-Type: application/json
+
+{
+  "email": "referee_test1@example.com",
+  "password": "Password123!"
+}
+
+
+
+### 4. Referrer: Check Referral Stats (Should see PENDING_REFERRAL)
+GET {{baseUrl}}/referral/stats
+Authorization: Bearer {{referrerToken}}
+
+
+### 5. Referee: Initiate Event Booking
+# Referee books an event. Replace eventId and ticketId with valid ones.
+POST {{baseUrl}}/booking/initiate
+Authorization: Bearer {{refereeToken}}
+Content-Type: application/json
+
+{
+    "eventId": "6a32a0c4e2bd24361039fb72",
+    "qty": 1,
+    "tickets": [
+        {
+            "ticketId": "6a353153c1d17af49fd534ec",
+            "qty": 1
+        }
+    ]
+}
+
+### 6. Referee: Confirm Payment
+# Confirming the payment will transition the PENDING_REFERRAL to PENDING_VALIDATION
+POST {{baseUrl}}/booking/confirm-payment
+Authorization: Bearer {{refereeToken}}
+Content-Type: application/json
+
+{
+    "transactionId": "6a38cd82924e15247d4426a0"
+}
+
+
+### 7. Referrer: Check Referral Stats (Should see PENDING_VALIDATION)
+GET {{baseUrl}}/referral/stats
+Authorization: Bearer {{referrerToken}}
+
+
+### 8. Background Cron Execution (Trigger manually via scratch script or wait)
+# Once the event's refund window ends, cronReferralValidation.js runs.
+# It changes PENDING_VALIDATION to SUCCESSFUL_REFERRAL and increments successfulReferralCount.
+# If count reaches 1 or 5, it generates a PromoCode reward!
+
+
+### 9. Referrer: Check Referral Stats (Should see SUCCESSFUL_REFERRAL)
+GET {{baseUrl}}/referral/stats
+Authorization: Bearer {{referrerToken}}
+
+
+### 10. Referrer: View Earned Rewards (PromoCodes)
+# After the cron job grants a reward, the referrer can view their coupons.
+GET {{baseUrl}}/referral/rewards
+Authorization: Bearer {{referrerToken}}
+
+
+### 11. Referrer: Apply Earned PromoCode on new Booking
+# The referrer can use their earned code (e.g., REF1234ABCD) for a discount.
+POST {{baseUrl}}/booking/initiate
+Authorization: Bearer {{referrerToken}}
+Content-Type: application/json
+
+{
+    "eventId": "PLACE_EVENT_ID_HERE",
+    "qty": 1,
+    "discountCode": "PLACE_PROMO_CODE_HERE",
+    "tickets": [
+        {
+            "ticketId": "PLACE_TICKET_ID_HERE",
+            "qty": 1
+        }
+    ]
+}

@@ -14,6 +14,7 @@ mongoose
     require("../cron/bookingCleanup.cron");
     require("../cron/promotionExpiryCron");
     require("../cron/courseStatus.cron")
+    require("../cron/cronReferralValidation")();
 
     // Seed default global settings (only if not already set)
     try {
