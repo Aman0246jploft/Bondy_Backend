@@ -62,8 +62,26 @@ const notificationProcessor = async (job) => {
       });
     }
 
-    // 3. Send push notification (gated by pushNotification preference)
-    if (settings.pushNotification !== false) {
+    // 3. Send push notification (gated by pushNotification preference and sub-preferences)
+    let shouldSendPush = settings.pushNotification !== false;
+    if (shouldSendPush) {
+      if (type === "CHAT" && settings.messageNotification === false) {
+        shouldSendPush = false;
+      } else if (metadata?.isReminder === "true" && settings.reminderNotification === false) {
+        shouldSendPush = false;
+      } else if (metadata?.isOrganizerUpdate === "true" && settings.organizerUpdateNotification === false) {
+        shouldSendPush = false;
+      } else if (
+        (type === "EVENT" || type === "COURSE") &&
+        metadata?.isReminder !== "true" &&
+        metadata?.isOrganizerUpdate !== "true" &&
+        settings.bookingNotification === false
+      ) {
+        shouldSendPush = false;
+      }
+    }
+
+    if (shouldSendPush) {
       const user = await User.findById(recipient).select("fmcToken");
       if (user && user.fmcToken) {
         await sendFirebaseNotification({
@@ -182,6 +200,41 @@ const notifyBookingConfirmed = (recipient, bookingType, itemTitle, transactionId
     relatedId: transactionId,
     deepLink: `/tickets/${transactionId}`,
     webLink: `/bookings`,
+  });
+};
+
+/**
+ * Booking Created (Pending Payment)
+ */
+const notifyBookingCreated = (recipient, bookingType, itemTitle, transactionId) => {
+  return queueNotification({
+    recipient,
+    sender: null,
+    type: bookingType === "EVENT" ? "EVENT" : "COURSE",
+    title: "Booking Created 🎟️",
+    message: `Your booking for "${itemTitle}" has been created. Please complete the payment.`,
+    relatedId: transactionId,
+    deepLink: `/tickets/${transactionId}`,
+    webLink: `/bookings`,
+  });
+};
+
+/**
+ * Notify followers about Organizer Profile Update
+ */
+const notifyOrganizerUpdate = (followerId, organizerName, organizerId, changeDetail) => {
+  return queueNotification({
+    recipient: followerId,
+    type: "USER",
+    title: `Organizer Update 📣`,
+    message: `${organizerName} updated their profile: ${changeDetail}`,
+    relatedId: organizerId,
+    onModel: "User",
+    deepLink: `/profile/${organizerId}`,
+    webLink: `/profile/${organizerId}`,
+    metadata: {
+      isOrganizerUpdate: "true"
+    }
   });
 };
 
@@ -463,10 +516,26 @@ const emitUnreadCount = async (recipient) => {
 
 const getUserNotifications = async (payload) => {
   try {
-    const { recipient, page = 1, limit = 10, type, isRead } = payload;
+    const { recipient, page = 1, limit = 10, type, isRead, category } = payload;
     let query = { recipient, isDeleted: false };
     if (type) query.type = type;
     if (isRead !== undefined) query.isRead = isRead;
+
+    if (category) {
+      const lowerCategory = category.toLowerCase();
+      if (lowerCategory === "bookings") {
+        query.type = { $in: ["EVENT", "COURSE"] };
+        query.title = { $regex: /Booking/i };
+      } else if (lowerCategory === "payments") {
+        query.$or = [
+          { type: "PAYOUT" },
+          { title: { $regex: /Refund|Payout|Earning|Credit|Payment|Confirmed|Transaction/i } }
+        ];
+      } else if (lowerCategory === "eventupdates" || lowerCategory === "event_updates") {
+        query.type = { $in: ["EVENT", "COURSE"] };
+        query.title = { $regex: /Update|Change/i };
+      }
+    }
 
     const total = await Notification.countDocuments(query);
     const notifications = await Notification.find(query)
@@ -573,6 +642,8 @@ module.exports = {
   notifyChat,
   notifyFollow,
   notifyBookingConfirmed,
+  notifyBookingCreated,
+  notifyOrganizerUpdate,
   notifyOrganizerNewBooking,
   notifyCommentOnEntity,
   notifyReplyToComment,

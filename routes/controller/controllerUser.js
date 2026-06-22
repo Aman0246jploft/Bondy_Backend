@@ -170,6 +170,11 @@ const customerSignupVerify = async (req, res) => {
           isVerified: true,
           verifiedAt: new Date(),
         },
+        phone: {
+          isVerified: false,
+          verifiedAt: null,
+          isVerifiedOnce: false,
+        },
       };
       // Reset other fields if necessary
       await user.save();
@@ -186,6 +191,11 @@ const customerSignupVerify = async (req, res) => {
           email: {
             isVerified: true,
             verifiedAt: new Date(),
+          },
+          phone: {
+            isVerified: false,
+            verifiedAt: null,
+            isVerifiedOnce: false,
           },
         },
       });
@@ -359,6 +369,11 @@ const organizerSignupVerify = async (req, res) => {
           isVerified: true,
           verifiedAt: new Date(),
         },
+        phone: {
+          isVerified: false,
+          verifiedAt: null,
+          isVerifiedOnce: false,
+        },
       };
 
       await user.save();
@@ -379,6 +394,11 @@ const organizerSignupVerify = async (req, res) => {
           email: {
             isVerified: true,
             verifiedAt: new Date(),
+          },
+          phone: {
+            isVerified: false,
+            verifiedAt: null,
+            isVerifiedOnce: false,
           },
         },
       });
@@ -1060,6 +1080,35 @@ const updateUserProfile = async (req, res) => {
 
     await user.save();
 
+    // ── Notify followers of organizer profile updates (non-blocking) ──
+    if (user.roleId === roleId.ORGANIZER) {
+      const profileUpdated = req.body.profileImage !== undefined ||
+        req.body.backgroundImage !== undefined ||
+        businessName !== undefined ||
+        shortDesc !== undefined;
+
+      if (profileUpdated) {
+        (async () => {
+          try {
+            const followers = await Follow.find({ toUser: userId }).select("fromUser").lean();
+            const organizerName = `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.businessName || "An organizer";
+            const changeDetail = "Check out their new updates and details!";
+            const { notifyOrganizerUpdate } = require("../services/serviceNotification");
+            for (const follow of followers) {
+              notifyOrganizerUpdate(
+                String(follow.fromUser),
+                organizerName,
+                String(userId),
+                changeDetail
+              ).catch((e) => console.error("[Notification] notifyOrganizerUpdate error:", e));
+            }
+          } catch (err) {
+            console.error("[Notification] Error notifying followers of organizer update:", err);
+          }
+        })();
+      }
+    }
+
     // Populate categories to return format matching populate logic
     const populatedUser = await User.findById(userId)
       .populate("categories")
@@ -1237,6 +1286,7 @@ const getUserProfileById = async (req, res) => {
       isFollowed: isFollowed,
       isAllVerified: user.isAllVerified,
       allVerifiedAt: allVerifiedAt,
+      isVerifiedOnce: user.verifications?.phone?.isVerifiedOnce || false,
       isMyProfile: isMyProfile,
       businessName: user.businessName,
       businessCategory: user.businessCategory,
@@ -1248,7 +1298,11 @@ const getUserProfileById = async (req, res) => {
       createdAt: user.createdAt,
       verifications: {
         email: user.verifications?.email,
-        phone: user.verifications?.phone,
+        phone: user.verifications?.phone ? {
+          isVerified: user.verifications.phone.isVerified || false,
+          verifiedAt: user.verifications.phone.verifiedAt || null,
+          isVerifiedOnce: user.verifications.phone.isVerifiedOnce || false,
+        } : undefined,
         idVerification: user.verifications?.idVerification ? {
           nationalId: user.verifications.idVerification.nationalId ? {
             ...user.verifications.idVerification.nationalId,
@@ -2857,6 +2911,18 @@ const adminVerifyOrganizer = async (req, res) => {
     console.log(user.organizerVerificationStatus);
 
     await user.save();
+
+    // ── Notify organizer of verification status change ──
+    try {
+      const { notifyVerificationResult } = require("../services/serviceNotification");
+      notifyVerificationResult(
+        String(user._id),
+        action,
+        reason
+      ).catch((e) => console.error("[Notification] notifyVerificationResult error:", e));
+    } catch (notifyErr) {
+      console.error("[Notification] Error triggering notifyVerificationResult:", notifyErr);
+    }
 
     return apiSuccessRes(
       HTTP_STATUS.OK,

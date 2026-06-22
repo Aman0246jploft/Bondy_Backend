@@ -1,5 +1,5 @@
 const cron = require("node-cron");
-const { Referral, Transaction } = require("../db");
+const { Referral, Transaction, User } = require("../db");
 const { evaluateReferralRewards } = require("../routes/services/serviceReward");
 
 // Run every hour to check for referrals that have passed their refund window
@@ -58,14 +58,18 @@ const cronReferralValidation = () => {
 
           // Increment successful referral count
           if (referral.referrer) {
-            const oldCount = referral.referrer.successfulReferralCount || 0;
-            referral.referrer.successfulReferralCount = oldCount + 1;
-            console.log(`[CRON] Incrementing referrer ${referral.referrer._id} successful count: ${oldCount} -> ${referral.referrer.successfulReferralCount}`);
-            await referral.referrer.save();
+            // Re-fetch the User from DB to prevent concurrent overwrite bugs if processing multiple referrals in the same cron tick
+            const referrer = await User.findById(referral.referrer._id);
+            if (referrer) {
+              const oldCount = referrer.successfulReferralCount || 0;
+              referrer.successfulReferralCount = oldCount + 1;
+              console.log(`[CRON] Incrementing referrer ${referrer._id} successful count: ${oldCount} -> ${referrer.successfulReferralCount}`);
+              await referrer.save();
 
-            // Trigger reward evaluation
-            console.log(`[CRON] Triggering reward evaluation for referrer ID: ${referral.referrer._id} with new count: ${referral.referrer.successfulReferralCount}`);
-            await evaluateReferralRewards(referral.referrer, referral.referrer.successfulReferralCount);
+              // Trigger reward evaluation
+              console.log(`[CRON] Triggering reward evaluation for referrer ID: ${referrer._id} with new count: ${referrer.successfulReferralCount}`);
+              await evaluateReferralRewards(referrer, referrer.successfulReferralCount);
+            }
           } else {
             console.warn(`[CRON] Warning: Referral ${referral._id} has no populated referrer!`);
           }

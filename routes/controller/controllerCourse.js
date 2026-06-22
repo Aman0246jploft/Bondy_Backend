@@ -1674,6 +1674,64 @@ const updateCourse = async (req, res) => {
       updatedCourse.createdBy.profileImage = formatResponseUrl(updatedCourse.createdBy.profileImage);
     }
 
+    // ── Notify Attendees of Major Changes (non-blocking) ───────────────────
+    const majorChanges = [];
+    if (
+      updateData.startDate &&
+      String(updateData.startDate) !== String(existingCourse.startDate)
+    ) {
+      majorChanges.push("start date");
+    }
+    if (
+      updateData.venueName &&
+      updateData.venueName !== existingCourse.venueName
+    ) {
+      majorChanges.push("venue name");
+    }
+    if (
+      updateData.venueAddress &&
+      JSON.stringify(updateData.venueAddress) !==
+      JSON.stringify(existingCourse.venueAddress)
+    ) {
+      majorChanges.push("location");
+    }
+    if (
+      updateData.batches &&
+      JSON.stringify(updateData.batches) !==
+      JSON.stringify(existingCourse.batches)
+    ) {
+      majorChanges.push("schedule");
+    }
+
+    if (majorChanges.length > 0 && !existingCourse.isDraft) {
+      (async () => {
+        try {
+          const attendees = await Transaction.distinct("userId", {
+            courseId: courseId,
+            status: "PAID",
+            bookingType: "COURSE",
+          });
+
+          const changeDetail = `The course's ${majorChanges.join(", ")} has been updated. Please check the details.`;
+          for (const attendeeId of attendees) {
+            notifyCourseChange(
+              String(attendeeId),
+              updatedCourse.courseTitle,
+              courseId,
+              changeDetail,
+            ).catch((e) =>
+              console.error("[Notification] notifyCourseChange error:", e),
+            );
+          }
+        } catch (err) {
+          console.error(
+            "[Notification] Error fetching attendees for update:",
+            err,
+          );
+        }
+      })();
+    }
+
     const message = existingCourse.isDraft
       ? constantsMessage.DRAFT_UPDATED
       : constantsMessage.COURSE_UPDATED_SUCCESS;

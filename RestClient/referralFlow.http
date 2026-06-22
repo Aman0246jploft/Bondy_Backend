@@ -28,9 +28,9 @@ POST {{baseUrl}}/user/customer/signup
 Content-Type: application/json
 
 {
-    "email": "referee_test1@example.com",
+    "email": "referee_test5@example.com",
     "countryCode": "+976",
-    "contactNumber": "9876543210",
+    "contactNumber": "9876543215",
     "password": "Password123!",
     "confirmPassword": "Password123!",
     "fmcToken": "test-fmc-token",
@@ -43,7 +43,7 @@ POST {{baseUrl}}/user/verify-otp
 Content-Type: application/json
 
 {
-    "email": "referee_test1@example.com",
+    "email": "referee_test5@example.com",
     "otp": "12345",
     "type": "CUSTOMER"
 }

@@ -596,6 +596,7 @@ const verifyPhoneOTP = async (req, res) => {
 
     user.verifications.phone.isVerified = true;
     user.verifications.phone.verifiedAt = new Date();
+    user.verifications.phone.isVerifiedOnce = true;
 
     await user.save();
 

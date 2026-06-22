@@ -5,6 +5,7 @@ const getNotifications = Joi.object({
     limit: Joi.number().integer().min(1).optional(),
     type: Joi.string().valid("EVENT", "COURSE", "CHAT", "FOLLOW", "USER", "SYSTEM", "REVIEW", "PAYOUT").optional(),
     isRead: Joi.boolean().optional(),
+    category: Joi.string().valid("bookings", "payments", "eventupdates", "event_updates").optional(),
 });
 
 const markAsRead = Joi.object({

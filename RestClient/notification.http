@@ -1,0 +1,94 @@
+### Notifications REST Client Tests
+@baseUrl = http://localhost:8080/api/v1
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTMyOTFmNDZhOTAwMDQyMWVjNzYyMjIiLCJyb2xlSWQiOjIsImlhdCI6MTc4MTg3NDEzOCwiZXhwIjoyNjQ1ODc0MTM4fQ.bdHXpekE-IfKeF5GTfuvBrM5IuBzsD4gXp8zhP-1mhk
+@notificationId = 660f8c85c2c77d46c0d832d1
+
+# ==============================================================================
+# 1. FETCH NOTIFICATIONS (WITH FILTERS & PAGINATION)
+# ==============================================================================
+# Notes:
+# - recipient: Automatically determined on backend from user session (Bearer token).
+#
+# Pagination:
+# - page (integer): Current page number (default: 1)
+# - limit (integer): Number of notifications per page (default: 10)
+#
+# Filters:
+# - isRead (boolean, optional): Filter by read state (true/false)
+# - type (string, optional): Filter by notification type.
+#   Valid types: ["EVENT", "COURSE", "CHAT", "FOLLOW", "USER", "SYSTEM", "REVIEW", "PAYOUT"]
+# ==============================================================================
+
+### 1a. Fetch Filtered Notifications (e.g., Unread EVENT notifications)
+GET {{baseUrl}}/notification/my-notifications?page=1&limit=10&type=EVENT
+Authorization: Bearer {{token}}
+
+### 1b. Fetch All Notifications (Default Pagination, No Filters)
+GET {{baseUrl}}/notification/my-notifications?page=1&limit=10
+Authorization: Bearer {{token}}
+
+### 1c. Fetch Bookings Category Notifications
+GET {{baseUrl}}/notification/my-notifications?page=1&limit=10&category=bookings
+Authorization: Bearer {{token}}
+
+### 1d. Fetch Payments Category Notifications
+GET {{baseUrl}}/notification/my-notifications?page=1&limit=10&category=payments
+Authorization: Bearer {{token}}
+
+### 1e. Fetch Event Updates Category Notifications
+GET {{baseUrl}}/notification/my-notifications?page=1&limit=10&category=eventupdates
+Authorization: Bearer {{token}}
+
+
+# ==============================================================================
+# 2. MARK NOTIFICATIONS AS READ
+# ==============================================================================
+# Notes:
+# - /mark-read: Expects a specific notificationId in the JSON body.
+# - /mark-all-read: Marks all unread notifications of the logged-in user as read.
+# ==============================================================================
+
+### 2a. Mark Single Notification as Read
+POST {{baseUrl}}/notification/mark-read
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "notificationId": "{{notificationId}}"
+}
+
+### 2b. Mark All Notifications as Read
+POST {{baseUrl}}/notification/mark-all-read
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+
+# ==============================================================================
+# 3. DELETE NOTIFICATIONS (SOFT DELETE)
+# ==============================================================================
+# Notes:
+# - /delete: Soft deletes a single notification (sets isDeleted = true).
+# - /delete-multiple: Soft deletes multiple notifications matching the provided array.
+# ==============================================================================
+
+### 3a. Delete Single Notification
+POST {{baseUrl}}/notification/delete
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "notificationId": "{{notificationId}}"
+}
+
+### 3b. Delete Multiple Notifications
+POST {{baseUrl}}/notification/delete-multiple
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "notificationIds": [
+    "{{notificationId}}"
+  ]
+}

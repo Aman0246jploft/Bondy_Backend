@@ -1,6 +1,6 @@
 const admin = require("./createFirebaseUser");
 async function sendFirebaseNotification(data) {
-  let { token, title, body, imageUrl } = data;
+  let { token, title, body, imageUrl, data: payloadData } = data;
   try {
     const message = {
       token: token,
@@ -8,6 +8,27 @@ async function sendFirebaseNotification(data) {
         title: title,
         body: body,
         image: imageUrl || undefined,
+      },
+      data: payloadData || {},
+      android: {
+        priority: "high",
+        notification: {
+          sound: "default",
+          priority: "high",
+          channelId: "default_channel",
+        },
+      },
+      apns: {
+        payload: {
+          aps: {
+            sound: "default",
+            badge: 1,
+            "mutable-content": 1, // Enable rich media (images) on iOS
+          },
+        },
+        headers: {
+          "apns-priority": "10", // Deliver immediately
+        },
       },
     };
 

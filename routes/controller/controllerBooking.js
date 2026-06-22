@@ -37,6 +37,7 @@ const { roleId, userRole, refundPolicy: refundPolicyEnum } = require("../../util
 const constantsMessage = require("../../utils/constantsMessage");
 const {
   notifyBookingConfirmed,
+  notifyBookingCreated,
   notifyOrganizerNewBooking,
 } = require("../services/serviceNotification");
 
@@ -895,6 +896,13 @@ const initiateBooking = async (req, res) => {
         });
       }
 
+      notifyBookingCreated(
+        userId,
+        bookingType,
+        event.eventTitle || "Event",
+        String(transaction._id),
+      ).catch((e) => console.error("[Notification] notifyBookingCreated:", e));
+
       return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.BOOKING_INITIATED, {
         transactionId: transaction._id,
         bookingId: transaction.bookingId,
@@ -992,6 +1000,13 @@ const initiateBooking = async (req, res) => {
           transaction: transactionObj,
         });
       }
+
+      notifyBookingCreated(
+        userId,
+        bookingType,
+        course.courseTitle || "Course",
+        String(transaction._id),
+      ).catch((e) => console.error("[Notification] notifyBookingCreated:", e));
 
       return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.BOOKING_INITIATED, {
         transactionId: transaction._id,
@@ -1161,7 +1176,7 @@ const confirmPayment = async (req, res) => {
         pendingReferral.status = "PENDING_VALIDATION";
         pendingReferral.qualifyingOrderId = transaction._id;
         pendingReferral.orderDate = new Date();
-        
+
         // Calculate refund window end date (e.g., event end date + 2 days)
         const eventItem = transaction.eventId || item;
         if (eventItem && eventItem.endDate) {
@@ -1169,13 +1184,13 @@ const confirmPayment = async (req, res) => {
           refundEnd.setDate(refundEnd.getDate() + 2); // 2 days post-event fallback/window
           pendingReferral.refundWindowEndDate = refundEnd;
         } else {
-           const refundEnd = new Date();
-           refundEnd.setDate(refundEnd.getDate() + 30); // Fallback
-           pendingReferral.refundWindowEndDate = refundEnd;
+          const refundEnd = new Date();
+          refundEnd.setDate(refundEnd.getDate() + 30); // Fallback
+          pendingReferral.refundWindowEndDate = refundEnd;
         }
-        
+
         await pendingReferral.save();
-        
+
         // Notify referrer
         const { notifyReferralPendingValidation } = require("../services/serviceNotification");
         notifyReferralPendingValidation(pendingReferral.referrer, buyerName)
@@ -1352,9 +1367,9 @@ const cancelBooking = async (req, res) => {
 
     // ── Referral rollback ──
     try {
-      const referral = await Referral.findOne({ 
-        qualifyingOrderId: transaction._id, 
-        status: "PENDING_VALIDATION" 
+      const referral = await Referral.findOne({
+        qualifyingOrderId: transaction._id,
+        status: "PENDING_VALIDATION"
       });
       if (referral) {
         referral.status = "PENDING_REFERRAL";

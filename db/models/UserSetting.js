@@ -17,6 +17,22 @@ const UserSettingSchema = new Schema(
             type: Boolean,
             default: true,
         },
+        bookingNotification: {
+            type: Boolean,
+            default: true,
+        },
+        reminderNotification: {
+            type: Boolean,
+            default: true,
+        },
+        organizerUpdateNotification: {
+            type: Boolean,
+            default: true,
+        },
+        messageNotification: {
+            type: Boolean,
+            default: true,
+        },
         emailNotification: {
             type: Boolean,
             default: true,

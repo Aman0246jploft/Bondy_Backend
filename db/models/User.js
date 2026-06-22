@@ -108,6 +108,7 @@ const UserSchema = new Schema(
       phone: {
         isVerified: { type: Boolean, default: false },
         verifiedAt: { type: Date, default: null },
+        isVerifiedOnce: { type: Boolean, default: false },
       },
       email: {
         isVerified: { type: Boolean, default: false },

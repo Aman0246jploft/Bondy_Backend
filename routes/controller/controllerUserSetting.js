@@ -41,6 +41,10 @@ const updateUserSetting = async (req, res) => {
         const {
             inAppNotification,
             pushNotification,
+            bookingNotification,
+            reminderNotification,
+            organizerUpdateNotification,
+            messageNotification,
             emailNotification,
             whatsappNotification,
             smsNotification,
@@ -65,14 +69,66 @@ const updateUserSetting = async (req, res) => {
             );
         }
 
+        // Fetch current settings
+        let currentSetting = await UserSetting.findOne({ userId });
+        if (!currentSetting) {
+            currentSetting = await UserSetting.create({ userId });
+        }
+
         const payload = {};
         if (inAppNotification !== undefined) payload.inAppNotification = inAppNotification;
-        if (pushNotification !== undefined) payload.pushNotification = pushNotification;
         if (emailNotification !== undefined) payload.emailNotification = emailNotification;
         if (whatsappNotification !== undefined) payload.whatsappNotification = whatsappNotification;
         if (smsNotification !== undefined) payload.smsNotification = smsNotification;
         if (appTheme !== undefined) payload.appTheme = appTheme;
         if (language !== undefined) payload.language = language;
+
+        // Toggle logic:
+        if (pushNotification !== undefined) {
+            payload.pushNotification = pushNotification;
+
+            // "when main is toggle then all will toggle"
+            if (currentSetting.pushNotification !== pushNotification) {
+                payload.bookingNotification = pushNotification;
+                payload.reminderNotification = pushNotification;
+                payload.organizerUpdateNotification = pushNotification;
+                payload.messageNotification = pushNotification;
+            }
+        }
+
+        const isMainToggled = (pushNotification !== undefined && currentSetting.pushNotification !== pushNotification);
+
+        if (!isMainToggled) {
+            const activePush = pushNotification !== undefined ? pushNotification : currentSetting.pushNotification;
+
+            if (bookingNotification !== undefined) {
+                payload.bookingNotification = bookingNotification;
+            }
+            if (reminderNotification !== undefined) {
+                payload.reminderNotification = reminderNotification;
+            }
+            if (organizerUpdateNotification !== undefined) {
+                payload.organizerUpdateNotification = organizerUpdateNotification;
+            }
+            if (messageNotification !== undefined) {
+                payload.messageNotification = messageNotification;
+            }
+
+            const newBooking = bookingNotification !== undefined ? bookingNotification : currentSetting.bookingNotification;
+            const newReminder = reminderNotification !== undefined ? reminderNotification : currentSetting.reminderNotification;
+            const newOrganizer = organizerUpdateNotification !== undefined ? organizerUpdateNotification : currentSetting.organizerUpdateNotification;
+            const newMessage = messageNotification !== undefined ? messageNotification : currentSetting.messageNotification;
+
+            const hasAnyActiveSub = newBooking || newReminder || newOrganizer || newMessage;
+
+            if (hasAnyActiveSub && !activePush) {
+                // Auto-enable main push toggle if user turns on any sub-preference
+                payload.pushNotification = true;
+            } else if (!hasAnyActiveSub && activePush) {
+                // Auto-disable main push toggle if all sub-preferences are turned off
+                payload.pushNotification = false;
+            }
+        }
 
         const setting = await UserSetting.findOneAndUpdate(
             { userId },

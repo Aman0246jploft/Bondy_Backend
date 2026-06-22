@@ -10,30 +10,34 @@ const checkRole = require("../../middlewares/checkRole");
 const CONSTANTS = require("../../utils/constants");
 
 /**
- * Get notifications for the logged-in user
+ * Get notifications for the logged-in user (supports GET and POST)
  */
-router.post(
-  "/my-notifications",
-  validateRequest(notificationValidation.getNotifications),
-  async (req, res) => {
-    try {
-      const payload = {
-        ...req.body,
-        recipient: req.user.userId,
-      };
+const getNotificationsHandler = async (req, res) => {
+  try {
+    const inputData = req.method === "GET" ? req.query : req.body;
+    const payload = {
+      page: inputData.page ? parseInt(inputData.page) : 1,
+      limit: inputData.limit ? parseInt(inputData.limit) : 10,
+      type: inputData.type,
+      isRead: inputData.isRead !== undefined ? (inputData.isRead === "true" || inputData.isRead === true) : undefined,
+      category: inputData.category,
+      recipient: req.user.userId,
+    };
 
-      const result = await notificationService.getUserNotifications(payload);
-      return apiSuccessRes(
-        HTTP_STATUS.OK,
-        res,
-        constantsMessage.NOTIFICATIONS_FETCHED,
-        result.data,
-      );
-    } catch (error) {
-      return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
-    }
-  },
-);
+    const result = await notificationService.getUserNotifications(payload);
+    return apiSuccessRes(
+      HTTP_STATUS.OK,
+      res,
+      constantsMessage.NOTIFICATIONS_FETCHED,
+      result.data,
+    );
+  } catch (error) {
+    return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
+  }
+};
+
+router.get("/my-notifications", validateRequest(notificationValidation.getNotifications), getNotificationsHandler);
+router.post("/my-notifications", validateRequest(notificationValidation.getNotifications), getNotificationsHandler);
 
 /**
  * Mark a notification as read
