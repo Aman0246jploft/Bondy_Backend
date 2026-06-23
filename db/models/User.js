@@ -384,6 +384,16 @@ UserSchema.pre("save", function (next) {
     this.hasBeenApproved = true;
   }
 
+  // Handle phone verification one-time flag
+  if (this.verifications?.phone) {
+    if (this.verifications.phone.isVerified) {
+      this.verifications.phone.isVerifiedOnce = true;
+    }
+    if (this.verifications.phone.isVerifiedOnce) {
+      this.verifications.phone.isVerified = true;
+    }
+  }
+
   next();
 });
 

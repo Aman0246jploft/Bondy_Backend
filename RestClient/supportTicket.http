@@ -19,9 +19,7 @@ Content-Type: application/json
   "category": "Billing",
   "subject": "Double charged for Event Booking",
   "description": "I checked my bank statement and noticed that my account was debited twice for the last booking.",
-  "images": [
-    "https://example.com/receipt1.jpg"
-  ]
+  "images": [""]
 }
 
 ### Get My Tickets (with optional pagination & filter)
@@ -71,3 +69,4 @@ Content-Type: application/json
   "status": "Resolved",
   "adminComment": "We have processed the refund. Please allow 3-5 business days for it to reflect."
 }
+

@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const jwt = require("jsonwebtoken");
-const { Course, Transaction, User, Wishlist, GlobalSetting, CourseView } = require("../../db");
+const { Course, Transaction, User, Wishlist, GlobalSetting, CourseView, Event, EventView } = require("../../db");
 const constantsMessage = require("../../utils/constantsMessage");
 const HTTP_STATUS = require("../../utils/statusCode");
 const {
@@ -2311,6 +2311,7 @@ const getOrganizerCoursesAnalytics = async (req, res) => {
           totalBookings,
           totalTicketsSold,
           averageBookingRate,
+          bookingRate: averageBookingRate,
           totalGrossRevenue,
           totalOrganizerRevenue,
         },

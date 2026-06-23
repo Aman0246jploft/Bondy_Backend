@@ -11,6 +11,8 @@ const {
   Attendee,
   Wishlist,
   EventView,
+  Course,
+  CourseView,
 } = require("../../db");
 const constantsMessage = require("../../utils/constantsMessage");
 const HTTP_STATUS = require("../../utils/statusCode");
@@ -2845,14 +2847,43 @@ const getOrganizerEventsAnalytics = async (req, res) => {
   try {
     const userId = req.user.userId;
 
-    const events = await Event.find({ createdBy: userId }).select("_id eventTitle").lean();
-    const eventIds = events.map((e) => e._id);
+    const type = req.query.type || "all";
+    let events = [];
+    let courses = [];
 
-    if (eventIds.length === 0) {
+    if (type === "event") {
+      events = await Event.find({ createdBy: userId })
+        .populate("eventCategory", "name")
+        .select("_id eventTitle posterImage eventCategory")
+        .lean();
+    } else if (type === "course") {
+      courses = await Course.find({ createdBy: userId })
+        .populate("courseCategory", "name")
+        .select("_id courseTitle posterImage courseCategory")
+        .lean();
+    } else {
+      const [fetchedEvents, fetchedCourses] = await Promise.all([
+        Event.find({ createdBy: userId })
+          .populate("eventCategory", "name")
+          .select("_id eventTitle posterImage eventCategory")
+          .lean(),
+        Course.find({ createdBy: userId })
+          .populate("courseCategory", "name")
+          .select("_id courseTitle posterImage courseCategory")
+          .lean()
+      ]);
+      events = fetchedEvents;
+      courses = fetchedCourses;
+    }
+
+    const eventIds = events.map((e) => e._id);
+    const courseIds = courses.map((c) => c._id);
+
+    if (eventIds.length === 0 && courseIds.length === 0) {
       return apiSuccessRes(
         HTTP_STATUS.OK,
         res,
-        "Organizer has no events for analytics",
+        "Organizer has no listings for analytics",
         {
           summary: {
             totalViews: 0,
@@ -2863,70 +2894,169 @@ const getOrganizerEventsAnalytics = async (req, res) => {
             totalOrganizerRevenue: 0,
           },
           events: [],
+          listings: [],
         },
       );
     }
 
     const dateFilter = parseDateRange(req.query);
 
-    const analyticsList = await Promise.all(
-      events.map(async (event) => {
-        const viewCount = await EventView.countDocuments({ eventId: event._id, ...dateFilter });
-        const transactions = await Transaction.find({
-          eventId: event._id,
-          status: "PAID",
-          bookingType: "EVENT",
-          ...dateFilter,
-        });
-
-        const totalBookingsCount = transactions.length;
-        const totalTicketsSold = transactions.reduce((sum, t) => sum + (t.qty || 0), 0);
-        const grossRevenue = transactions.reduce((sum, t) => sum + (t.totalAmount || 0), 0);
-        const organizerRevenue = transactions.reduce((sum, t) => sum + (t.organizerEarning || 0), 0);
-
-        let bookingRate = 0;
-        if (viewCount > 0) {
-          bookingRate = Number(((totalBookingsCount / viewCount) * 100).toFixed(2));
+    const [eventViewsAgg, courseViewsAgg, eventTxAgg, courseTxAgg] = await Promise.all([
+      EventView.aggregate([
+        { $match: { eventId: { $in: eventIds }, ...dateFilter } },
+        { $group: { _id: "$eventId", count: { $sum: 1 } } }
+      ]),
+      CourseView.aggregate([
+        { $match: { courseId: { $in: courseIds }, ...dateFilter } },
+        { $group: { _id: "$courseId", count: { $sum: 1 } } }
+      ]),
+      Transaction.aggregate([
+        { $match: { eventId: { $in: eventIds }, status: "PAID", bookingType: "EVENT", ...dateFilter } },
+        {
+          $group: {
+            _id: "$eventId",
+            bookingsCount: { $sum: 1 },
+            ticketsSold: { $sum: "$qty" },
+            grossRevenue: { $sum: "$totalAmount" },
+            organizerRevenue: { $sum: "$organizerEarning" }
+          }
         }
+      ]),
+      Transaction.aggregate([
+        { $match: { courseId: { $in: courseIds }, status: "PAID", bookingType: "COURSE", ...dateFilter } },
+        {
+          $group: {
+            _id: "$courseId",
+            bookingsCount: { $sum: 1 },
+            ticketsSold: { $sum: "$qty" },
+            grossRevenue: { $sum: "$totalAmount" },
+            organizerRevenue: { $sum: "$organizerEarning" }
+          }
+        }
+      ]),
+    ]);
 
-        return {
-          eventId: event._id,
-          eventTitle: event.eventTitle,
-          viewCount,
-          totalBookings: totalBookingsCount,
-          totalTicketsSold,
-          bookingRate,
-          grossRevenue,
-          organizerRevenue,
-        };
-      })
-    );
+    const eventViewsMap = {};
+    eventViewsAgg.forEach(item => { eventViewsMap[item._id.toString()] = item.count; });
 
-    const totalViews = analyticsList.reduce((sum, item) => sum + item.viewCount, 0);
-    const totalBookings = analyticsList.reduce((sum, item) => sum + item.totalBookings, 0);
-    const totalTicketsSold = analyticsList.reduce((sum, item) => sum + item.totalTicketsSold, 0);
-    const totalGrossRevenue = analyticsList.reduce((sum, item) => sum + item.grossRevenue, 0);
-    const totalOrganizerRevenue = analyticsList.reduce((sum, item) => sum + item.organizerRevenue, 0);
+    const courseViewsMap = {};
+    courseViewsAgg.forEach(item => { courseViewsMap[item._id.toString()] = item.count; });
+
+    const eventTxMap = {};
+    eventTxAgg.forEach(item => { eventTxMap[item._id.toString()] = item; });
+
+    const courseTxMap = {};
+    courseTxAgg.forEach(item => { courseTxMap[item._id.toString()] = item; });
+
+    const listingsList = [];
+
+    events.forEach(event => {
+      const idStr = event._id.toString();
+      const views = eventViewsMap[idStr] || 0;
+      const txInfo = eventTxMap[idStr] || { bookingsCount: 0, ticketsSold: 0, grossRevenue: 0, organizerRevenue: 0 };
+      const bookingRate = views > 0 ? Number(((txInfo.bookingsCount / views) * 100).toFixed(2)) : 0;
+      const poster = Array.isArray(event.posterImage) && event.posterImage.length > 0 ? formatResponseUrl(event.posterImage[0]) : null;
+
+      let categoryName = "Event";
+      if (event.eventCategory && event.eventCategory.name) {
+        categoryName = event.eventCategory.name.charAt(0).toUpperCase() + event.eventCategory.name.slice(1);
+      }
+
+      listingsList.push({
+        eventId: event._id,
+        eventTitle: event.eventTitle,
+        id: event._id,
+        title: event.eventTitle,
+        type: "Event",
+        categoryName,
+        posterImage: poster,
+        viewCount: views,
+        views,
+        totalBookings: txInfo.bookingsCount,
+        bookings: txInfo.bookingsCount,
+        ticketsSold: txInfo.ticketsSold,
+        bookingRate,
+        grossRevenue: txInfo.grossRevenue,
+        revenue: txInfo.grossRevenue,
+        organizerRevenue: txInfo.organizerRevenue,
+      });
+    });
+
+    courses.forEach(course => {
+      const idStr = course._id.toString();
+      const views = courseViewsMap[idStr] || 0;
+      const txInfo = courseTxMap[idStr] || { bookingsCount: 0, ticketsSold: 0, grossRevenue: 0, organizerRevenue: 0 };
+      const bookingRate = views > 0 ? Number(((txInfo.bookingsCount / views) * 100).toFixed(2)) : 0;
+      const poster = Array.isArray(course.posterImage) && course.posterImage.length > 0 ? formatResponseUrl(course.posterImage[0]) : null;
+
+      let categoryName = "Course";
+      if (course.courseCategory && course.courseCategory.name) {
+        categoryName = course.courseCategory.name.charAt(0).toUpperCase() + course.courseCategory.name.slice(1);
+      }
+
+      listingsList.push({
+        eventId: course._id,
+        eventTitle: course.courseTitle,
+        id: course._id,
+        title: course.courseTitle,
+        type: "Course",
+        categoryName,
+        posterImage: poster,
+        viewCount: views,
+        views,
+        totalBookings: txInfo.bookingsCount,
+        bookings: txInfo.bookingsCount,
+        ticketsSold: txInfo.ticketsSold,
+        bookingRate,
+        grossRevenue: txInfo.grossRevenue,
+        revenue: txInfo.grossRevenue,
+        organizerRevenue: txInfo.organizerRevenue,
+      });
+    });
+
+    // Sort by revenue descending
+    listingsList.sort((a, b) => b.revenue - a.revenue || b.bookings - a.bookings || b.views - a.views);
+
+    const totalViews = listingsList.reduce((sum, item) => sum + item.views, 0);
+    const totalBookings = listingsList.reduce((sum, item) => sum + item.bookings, 0);
+    const totalTicketsSold = listingsList.reduce((sum, item) => sum + item.ticketsSold, 0);
+    const totalGrossRevenue = listingsList.reduce((sum, item) => sum + item.revenue, 0);
+    const totalOrganizerRevenue = listingsList.reduce((sum, item) => sum + item.organizerRevenue, 0);
 
     let averageBookingRate = 0;
     if (totalViews > 0) {
       averageBookingRate = Number(((totalBookings / totalViews) * 100).toFixed(2));
     }
 
+    // Pagination
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+    const paginatedList = listingsList.slice(skip, skip + limit);
+
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
-      "Organizer events analytics summary retrieved successfully",
+      "Organizer events and courses analytics summary retrieved successfully",
       {
         summary: {
           totalViews,
           totalBookings,
           totalTicketsSold,
           averageBookingRate,
+          bookingRate: averageBookingRate,
           totalGrossRevenue,
           totalOrganizerRevenue,
         },
-        events: analyticsList,
+        // events: paginatedList,
+        // courses: paginatedList,
+        listings: paginatedList,
+        pagination: {
+          total: listingsList.length,
+          page,
+          limit,
+          totalPages: Math.ceil(listingsList.length / limit),
+        },
       },
     );
   } catch (error) {

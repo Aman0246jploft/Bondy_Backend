@@ -136,7 +136,6 @@ const createAttendees = async (req, res) => {
         },
       );
     }
-
     // Check if attendees count matches ticket quantity
     if (attendees.length !== transaction.qty) {
       return apiErrorRes(
@@ -221,7 +220,6 @@ const createAttendees = async (req, res) => {
     return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
   }
 };
-
 // 2. Get Attendees for an Event or Course (Organizer and Assigned Staff Allowed)
 const getEventAttendees = async (req, res) => {
   try {

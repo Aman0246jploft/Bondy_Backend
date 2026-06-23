@@ -1,6 +1,6 @@
 ### Environment Variables
 @baseUrl = http://localhost:8080/api/v1
-@authToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTFlODA2NjU5NzliZWVlNDFjZjVmNGIiLCJyb2xlSWQiOjIsImlhdCI6MTc4MDQ5NzgwNiwiZXhwIjoyNjQ0NDk3ODA2fQ.XSvrEpbwY_Jt6VjNaYIHmfnsHVQtPTXjSEsVy6H6XzE
+@authToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTFlODA2NjU5NzliZWVlNDFjZjVmNGIiLCJyb2xlSWQiOjIsImlhdCI6MTc4MjE5NjM4NCwiZXhwIjoyNjQ2MTk2Mzg0fQ.So1y13dDz22i-_60knc1spmpe5jS4qg4O1Ivgys7hLM
 @courseId = 6a33e82326c0cd28d18ac315
 
 ### 1. Create a Draft Course (Allows missing fields for draft mode)
@@ -263,11 +263,11 @@ Authorization: Bearer {{authToken}}
 GET {{baseUrl}}/course/booking-cutoffs
 
 
-#===========================ANALYTICS==============================================================
+#======================  ANALYTICS  ========================
 
 ### 19. Organizer Courses Analytics Summary
 # Retrieves analytics summary for all courses created by the organizer.
-GET {{baseUrl}}/course/analytics/summary?filter=7d
+GET {{baseUrl}}/course/analytics/summary?page=1&limit=5&filter=thisMonth
 Authorization: Bearer {{authToken}}
 
 
@@ -393,3 +393,92 @@ Content-Type: application/json
   "reason": "Instructor unavailable"
 }
 
+
+# 1. Referral System Enhancement (Backend)
+# Database & Model Enhancements
+# Updated User Model to introduce successfulReferralCount for tracking validated referral conversions.
+# Enhanced Referral Model with comprehensive referral lifecycle tracking:
+# Added referral statuses:
+# PENDING_REFERRAL
+# PENDING_VALIDATION
+# SUCCESSFUL_REFERRAL
+# Added referral metadata:
+# Registration Type (Customer / Organizer)
+# Qualifying Order Reference
+# Order Date
+# Refund Window End Date
+# Successful Referral Timestamp
+# Extended PromoCode Model to support referral reward coupons with configurable discount rules and usage conditions.
+# Referral Validation & Reward Automation
+# Developed a scheduled cron job to automatically validate referrals after the refund window expires.
+# Implemented referral verification checks against order cancellations and refunds.
+# Built a rule-based referral reward engine to automatically issue milestone rewards upon successful referral validation.
+# Refactored referral reward processing to an asynchronous workflow, improving maintainability and reducing dependency on manual verification processes.
+# Referral Flow Integration
+# Integrated referral qualification checks into the booking workflow.
+# Automated referral status progression after eligible ticket purchases.
+# Added referral code processing during user registration.
+# Refactored referral APIs to support separate Customer and Organizer referral programs.
+# Added referral-related notification events:
+# Referral Registered
+# Referral Pending Validation
+# Referral Reward Credited
+# Testing & Validation
+# Created REST Client test collection for end-to-end referral flow validation.
+# Developed utility scripts for testing referral validation and cron job execution in development environments.
+
+# 2. Referral Dashboard Redesign (Frontend)
+# Role-Based Referral Experience
+# Developed a dedicated Customer Referral Dashboard with customer-focused referral sharing and reward tracking features.
+# Developed a dedicated Organizer Referral Dashboard tailored for organizer referral management and performance monitoring.
+# Removed the legacy unified referral page to eliminate routing conflicts and improve maintainability.
+# Navigation & API Integration
+# Updated Customer and Organizer sidebar navigation to support new referral dashboard routes.
+# Integrated frontend referral APIs with newly implemented backend referral endpoints.
+# Updated referral statistics and referral code management functionality.
+# Build & Stability Improvements
+# Resolved application routing and layout issues affecting production builds.
+# Fixed syntax and configuration issues to restore successful Next.js build generation.
+# 3. Notification System Integration & Enhancements
+# User Notification Preferences
+# Implemented preference-based notification delivery controls for:
+# In-App Notifications
+# Push Notifications
+# Email Notifications
+# SMS Notifications
+# WhatsApp Notifications
+# Added category-specific preference support:
+# Message Notifications
+# Reminder Notifications
+# Organizer Updates
+# Booking Notifications
+# Push Notification Improvements
+# Enhanced Firebase Cloud Messaging (FCM) implementation for Android and iOS platforms.
+# Added platform-specific payload support:
+# APNS (iOS)
+# Android Notification Configuration
+# Implemented deep linking support within push notifications for seamless in-app navigation.
+# Notification Event Triggers
+# Added notification generation for:
+# Booking Creation
+# Payment Confirmation
+# Course Updates
+# Organizer Profile Updates
+# Organizer Verification Status Updates
+# Automated Reminder System
+# Developed a scheduled reminder service executing every 15 minutes.
+# Automated reminders for upcoming events and course sessions within the next 24-hour window.
+# Implemented attendee-targeted notification delivery for paid participants.
+# Notification API Enhancements
+# Added category-based filtering support for notifications:
+# Bookings
+# Payments
+# Event Updates
+# Added GET API support for notification retrieval.
+# Implemented request validation and filtering capabilities for improved mobile application integration.
+# Testing & Verification
+# Created REST Client test suite covering:
+# Notification retrieval
+# Mark-as-read functionality
+# Soft delete operations
+# Validated notification workflows across supported delivery channels.
