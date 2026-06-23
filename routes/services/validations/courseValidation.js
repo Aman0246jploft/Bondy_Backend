@@ -23,7 +23,7 @@ const createCourseSchema = Joi.object({
     whatYouWillLearn: Joi.string().optional().allow(null, ""),
     courseCategory: Joi.string().hex().length(24).when('isDraft', {
         is: true,
-        then: Joi.optional(),
+        then: Joi.optional().allow(null, ""),
         otherwise: Joi.required(),
     }),
     posterImage: Joi.array().items(Joi.string().allow('', null)).optional(),
@@ -150,7 +150,7 @@ const updateCourseSchema = Joi.object({
     shortdesc: Joi.string().optional().allow(null, ""),
     longdesc: Joi.string().optional().allow(null, ""),
     whatYouWillLearn: Joi.string().optional().allow(null, ""),
-    courseCategory: Joi.string().hex().length(24).optional(),
+    courseCategory: Joi.string().hex().length(24).optional().allow(null, ""),
     posterImage: Joi.array().items(Joi.string().allow('', null)).optional(),
     mediaLinks: Joi.array().items(Joi.string().allow('', null)).optional(),
     shortTeaserVideo: Joi.array().items(Joi.string().allow('', null)).optional(),

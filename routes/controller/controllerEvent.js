@@ -48,6 +48,14 @@ const createEvent = async (req, res) => {
     const { id, venueAddress, isDraft: isDraftBody, ...eventData } = req.body;
     const userId = req.user.userId;
 
+    // Sanitize empty strings for optional fields to avoid Cast/Enum validation errors in Mongoose
+    if (eventData.eventCategory === "") {
+      eventData.eventCategory = null;
+    }
+    if (eventData.refundPolicy === "") {
+      eventData.refundPolicy = null;
+    }
+
     let event;
     let isDraftValue = isDraftBody === true || isDraftBody === "true";
 
@@ -351,7 +359,7 @@ const getEvents = async (req, res) => {
     // const cacheKeyData = JSON.stringify(req.query) + (loginUser || "anonymous");
     // const cacheKeyHash = crypto.createHash("md5").update(cacheKeyData).digest("hex");
     // const cacheKey = `events:list:${cacheKeyHash}`;
-    // 
+
     // const cachedData = await getKey(cacheKey);
     // if (cachedData && cachedData.statusCode === CONSTANTS.SUCCESS && cachedData.data) {
     //   return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.EVENTS_FETCHED, JSON.parse(cachedData.data));
@@ -1233,12 +1241,23 @@ const getEvents = async (req, res) => {
 
     const bookedMap = new Map();
     const pendingMap = new Map();
+    const revenueMap = new Map();
     if (events.length > 0) {
       const bookingsObj = await Transaction.aggregate([
         { $match: { eventId: { $in: events.map((e) => e._id) }, status: "PAID", bookingType: "EVENT" } },
-        { $group: { _id: "$eventId", bookedQty: { $sum: "$qty" } } },
+        {
+          $group: {
+            _id: "$eventId",
+            bookedQty: { $sum: "$qty" },
+            totalRevenue: { $sum: "$totalAmount" }
+          }
+        },
+
       ]);
-      bookingsObj.forEach((b) => bookedMap.set(b._id.toString(), b.bookedQty));
+      bookingsObj.forEach((b) => {
+        bookedMap.set(b._id.toString(), b.bookedQty);
+        revenueMap.set(b._id.toString(), b.totalRevenue || 0);
+      });
 
       const pendingObj = await Transaction.aggregate([
         { $match: { eventId: { $in: events.map((e) => e._id) }, status: "PENDING", bookingType: "EVENT" } },
@@ -1251,7 +1270,9 @@ const getEvents = async (req, res) => {
       const eventIdStr = event._id.toString();
       const bookedQty = bookedMap.get(eventIdStr) || 0;
       const pendingQty = pendingMap.get(eventIdStr) || 0;
-      return formatEvent(event, bookedEventIds, bookedQty, pendingQty);
+      const formatted = formatEvent(event, bookedEventIds, bookedQty, pendingQty);
+      formatted.totalRevenue = revenueMap.get(eventIdStr) || 0;
+      return formatted;
     });
 
     const responseData = {
@@ -1480,6 +1501,7 @@ const getEventDetails = async (req, res) => {
             $group: {
               _id: null,
               totalQty: { $sum: "$qty" },
+              totalRevenue: { $sum: "$totalAmount" },
             },
           },
         ]),
@@ -1536,6 +1558,9 @@ const getEventDetails = async (req, res) => {
 
     const totalAttendees =
       totalAttendeesAgg.length > 0 ? totalAttendeesAgg[0].totalQty : 0;
+    const totalRevenue =
+      totalAttendeesAgg.length > 0 ? (totalAttendeesAgg[0].totalRevenue || 0) : 0;
+    event.totalRevenue = totalRevenue;
 
     // Map ticket sales
     const ticketSalesMap = {};
@@ -2232,6 +2257,13 @@ const updateEvent = async (req, res) => {
     const userId = req.user.userId;
     const updateData = req.body;
 
+
+    if (updateData.eventCategory === "") {
+      updateData.eventCategory = null;
+    }
+    if (updateData.refundPolicy === "") {
+      updateData.refundPolicy = null;
+    }
     // 1. Check if event exists
     const existingEvent = await Event.findById(eventId);
     if (!existingEvent) {
@@ -2445,7 +2477,6 @@ const updateEvent = async (req, res) => {
         `Total event seats (${totalSeats}) cannot be less than booked count (${bookedQty}) + externally reserved seats (${reservedVal})`
       );
     }
-
     // 8. Update fields on the mongoose document
     const simpleFields = [
       "eventTitle",

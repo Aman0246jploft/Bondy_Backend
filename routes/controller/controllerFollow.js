@@ -141,8 +141,11 @@ const getFollowers = async (req, res) => {
         }
         f.fromUser.userRole = userRole[f.fromUser.roleId] || "GUEST";
         f.isFollowed = followedUserIds.has(f.fromUser._id.toString());
+        f.isSelf = loginUserId ? f.fromUser._id.toString() === loginUserId.toString() : false;
+        f.fromUser.isSelf = f.isSelf;
       } else {
         f.isFollowed = false;
+        f.isSelf = false;
       }
 
       if (f.toUser) {
@@ -225,8 +228,11 @@ const getFollowing = async (req, res) => {
         }
         f.toUser.userRole = userRole[f.toUser.roleId] || "GUEST";
         f.isFollowed = followedUserIds.has(f.toUser._id.toString());
+        f.isSelf = loginUserId ? f.toUser._id.toString() === loginUserId.toString() : false;
+        f.toUser.isSelf = f.isSelf;
       } else {
         f.isFollowed = false;
+        f.isSelf = false;
       }
     });
 

@@ -28,7 +28,7 @@ GET {{baseUrl}}/notification/my-notifications?page=1&limit=10
 Authorization: Bearer {{token}}
 
 ### 1c. Fetch Bookings Category Notifications
-GET {{baseUrl}}/notification/my-notifications?page=1&limit=10&category=bookings
+GET {{baseUrl}}/notification/my-notifications?page=1&limit=10&category=
 Authorization: Bearer {{token}}
 
 ### 1d. Fetch Payments Category Notifications

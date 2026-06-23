@@ -32,6 +32,14 @@ const createCourse = async (req, res) => {
     const { venueAddress, isDraft: isDraftBody, ...courseData } = req.body;
     const userId = req.user.userId;
 
+    // Sanitize empty strings for optional fields to avoid Cast/Enum validation errors in Mongoose
+    if (courseData.courseCategory === "") {
+      courseData.courseCategory = null;
+    }
+    if (courseData.refundPolicy === "") {
+      courseData.refundPolicy = null;
+    }
+
     let isDraftValue = isDraftBody === true || isDraftBody === "true";
 
     // Transform venueAddress to GeoJSON Point safely
@@ -1350,6 +1358,14 @@ const updateCourse = async (req, res) => {
     const { courseId } = req.params;
     const userId = req.user.userId;
     const updateData = req.body;
+
+    // Sanitize empty strings for optional fields to avoid Cast/Enum validation errors in Mongoose
+    if (updateData.courseCategory === "") {
+      updateData.courseCategory = null;
+    }
+    if (updateData.refundPolicy === "") {
+      updateData.refundPolicy = null;
+    }
 
     // 1. Check if course exists
     const existingCourse = await Course.findById(courseId);

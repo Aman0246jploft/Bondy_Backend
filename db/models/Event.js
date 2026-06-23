@@ -74,8 +74,7 @@ const eventSchema = new mongoose.Schema(
     },
 
     ageRestriction: {
-      type: String,
-      enum: Object.values(ageRestriction),
+      type: mongoose.Schema.Types.Mixed,
       default: ageRestriction.ALL,
     },
 

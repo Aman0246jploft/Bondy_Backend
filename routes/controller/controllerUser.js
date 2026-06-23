@@ -10,6 +10,7 @@ const {
   WalletHistory,
   Notification,
   GlobalSetting,
+  Block,
 } = require("../../db");
 const CONSTANTS = require("../../utils/constants");
 const constantsMessage = require("../../utils/constantsMessage");
@@ -1218,6 +1219,18 @@ const getUserProfileById = async (req, res) => {
       }
     }
 
+    // Check if viewer blocked this user
+    let isBlocked = false;
+    if (viewerId) {
+      const blockRecord = await Block.findOne({
+        fromUser: viewerId,
+        toUser: userId,
+      });
+      if (blockRecord) {
+        isBlocked = true;
+      }
+    }
+
     // Check if it is my profile
     let isMyProfile = false;
     if (viewerId === userId) {
@@ -1284,6 +1297,7 @@ const getUserProfileById = async (req, res) => {
       totalAttended: totalAttended,
       totalInterests: totalInterests,
       isFollowed: isFollowed,
+      isBlocked: isBlocked,
       isAllVerified: user.isAllVerified,
       allVerifiedAt: allVerifiedAt,
       isVerifiedOnce: user.verifications?.phone?.isVerifiedOnce || false,
