@@ -195,3 +195,11 @@ Content-Type: application/json
   "batchId": "{{batchId}}",
   "qty": 1
 }
+
+
+
+
+### 18. refund-policies
+GET {{baseUrl}}/event/refund-policies
+Authorization: Bearer {{customerToken}}
+Content-Type: application/json
