@@ -2109,9 +2109,11 @@ const getEventAttendeesList = async (req, res) => {
     const event = await Event.findById(eventId);
     if (!event) return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.EVENT_NOT_FOUND);
 
+    const isAssignedStaff = req.user.roleId === roleId.STAFF && event.assignedStaff && event.assignedStaff.some(id => id.toString() === userId.toString());
     if (
       event.createdBy.toString() !== userId.toString() &&
-      req.user.roleId !== roleId.SUPER_ADMIN
+      req.user.roleId !== roleId.SUPER_ADMIN &&
+      !isAssignedStaff
     ) {
       return apiErrorRes(HTTP_STATUS.FORBIDDEN, res, "You don't have permission to view this event's attendees");
     }
@@ -2252,9 +2254,11 @@ const getCourseAttendeesList = async (req, res) => {
       );
     }
 
+    const isAssignedStaff = req.user.roleId === roleId.STAFF && course.assignedStaff && course.assignedStaff.some(id => id.toString() === userId.toString());
     if (
       course.createdBy.toString() !== userId.toString() &&
-      req.user.roleId !== roleId.SUPER_ADMIN
+      req.user.roleId !== roleId.SUPER_ADMIN &&
+      !isAssignedStaff
     ) {
       return apiErrorRes(
         HTTP_STATUS.FORBIDDEN,
@@ -3036,17 +3040,17 @@ router.post(
   scanQRCode,
 );
 
-// Event Attendees (Organizer/Admin)
+// Event Attendees (Organizer/Admin/Staff)
 router.get(
   "/event/:eventId/attendees",
   perApiLimiter(),
-  checkRole([roleId.ORGANIZER, roleId.SUPER_ADMIN]),
+  checkRole([roleId.ORGANIZER, roleId.SUPER_ADMIN, roleId.STAFF]),
   getEventAttendeesList,
 );
 router.get(
   "/course/:courseId/attendees",
   perApiLimiter(),
-  checkRole([roleId.ORGANIZER, roleId.SUPER_ADMIN]),
+  checkRole([roleId.ORGANIZER, roleId.SUPER_ADMIN, roleId.STAFF]),
   getCourseAttendeesList,
 );
 router.get(

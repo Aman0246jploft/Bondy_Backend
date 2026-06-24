@@ -2415,14 +2415,26 @@ const updateEvent = async (req, res) => {
     }
 
     if (dateOrTimeModified) {
-      const newStart = updateData.startDate ? new Date(updateData.startDate) : (existingEvent.startDate ? new Date(existingEvent.startDate) : null);
-      const newEnd = updateData.endDate ? new Date(updateData.endDate) : (existingEvent.endDate ? new Date(existingEvent.endDate) : null);
-      if (!targetIsDraft && newStart && !isNaN(newStart.getTime()) && newEnd && !isNaN(newEnd.getTime()) && newStart >= newEnd) {
-        return apiErrorRes(
-          HTTP_STATUS.BAD_REQUEST,
-          res,
-          "Start date must be before end date"
-        );
+      const newStartVal = updateData.startDate || existingEvent.startDate;
+      const newEndVal = updateData.endDate || existingEvent.endDate;
+      const newStartTime = updateData.startTime || existingEvent.startTime || "00:00";
+      const newEndTime = updateData.endTime || existingEvent.endTime || "00:00";
+
+      if (!targetIsDraft && newStartVal && newEndVal) {
+        // Format dates as YYYY-MM-DD
+        const formattedStartDate = new Date(newStartVal).toISOString().split("T")[0];
+        const formattedEndDate = new Date(newEndVal).toISOString().split("T")[0];
+
+        const startDateTime = new Date(`${formattedStartDate}T${newStartTime}`);
+        const endDateTime = new Date(`${formattedEndDate}T${newEndTime}`);
+
+        if (!isNaN(startDateTime.getTime()) && !isNaN(endDateTime.getTime()) && startDateTime >= endDateTime) {
+          return apiErrorRes(
+            HTTP_STATUS.BAD_REQUEST,
+            res,
+            "Start date must be before end date"
+          );
+        }
       }
     }
 

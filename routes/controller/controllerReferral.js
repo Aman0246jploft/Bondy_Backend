@@ -93,7 +93,7 @@ router.get("/rewards", perApiLimiter(), async (req, res) => {
 
     const totalCoupons = rewards.length;
     const now = new Date();
-    
+
     const activeCoupons = rewards.filter((r) => {
       const isExpired = r.validUntil && now > new Date(r.validUntil);
       const isUsed = r.usedCount >= (r.maxUsage || 1);

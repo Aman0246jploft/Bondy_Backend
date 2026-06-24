@@ -24,7 +24,7 @@ Authorization: Bearer {{organizerToken}}
 
 
 ### 3. Setup Variables for Assignment and Verification
-@eventId = 6a1d642c5fa63c6370bdebce
+@eventId = 6a3b6d8323924715be779c2d
 @courseId = 647f8765432109abcdef8765
 @staffId = 67fa7e9ab921ef559102c019
 
@@ -64,7 +64,7 @@ Content-Type: application/json
 
 
 ### 7. Setup Staff Token Variable
-@staffToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTIxMmFmZmU1MDJiZDMzMGQ5MzlhN2IiLCJyb2xlSWQiOjUsImlhdCI6MTc4MTY5MjczOSwiZXhwIjoyNjQ1NjkyNzM5fQ.uaA4KqnygZ9whBX8mVZ3WEF9tndFcM1iDSkNqr4wJ4E
+@staffToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTNiYTEzZTQyZDk3YWE1Zjg0ODZlZTAiLCJyb2xlSWQiOjUsImlhdCI6MTc4MjI5MjgxMCwiZXhwIjoyNjQ2MjkyODEwfQ.pa-SvMLz56z604NlrbRE5QkGq2mPNKP4DYnrQsK_610
 
 ### 8. Staff Views Assigned Events and Courses
 # Retrieve the list of all active non-draft events and courses assigned to the logged-in staff.
@@ -72,10 +72,7 @@ GET {{baseUrl}}/user/staff/assigned
 Authorization: Bearer {{staffToken}}
 
 
-### 9. Staff Views Attendees List for an Event or Course
-# Retrieve the list of attendees for a specific assigned event or course (with pagination/search/check-in status filter).
-GET {{baseUrl}}/attendee/event/{{eventId}}?page=1&limit=50&search=&checkedIn=true
-Authorization: Bearer {{staffToken}}
+
 
 
 ### 10. Staff Views Ticket Details (Verify QR Code)
@@ -215,8 +212,8 @@ Content-Type: application/json
 
 ### 23. Staff/Organizer Fetches Event Attendees List
 # Fetch attendees enrolled in a specific event (also accepts page, limit, search, and checkedIn filters).
-GET {{baseUrl}}/attendee/event/{{eventId}}?page=1&limit=10&search=&checkedIn=
-Authorization: Bearer {{staffToken}}
+GET {{baseUrl}}/attendee/event/6a3b6d8323924715be779c2d?page=1&limit=10&search=&
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTNiYTEzZTQyZDk3YWE1Zjg0ODZlZTAiLCJyb2xlSWQiOjUsImlhdCI6MTc4MjI5MjgxMCwiZXhwIjoyNjQ2MjkyODEwfQ.pa-SvMLz56z604NlrbRE5QkGq2mPNKP4DYnrQsK_610
 
 
 ### 24. Staff/Organizer Fetches Course Attendees List
@@ -275,7 +272,7 @@ Content-Type: application/json
 
 
 
-///////////////////////////SCANNER FLOw///////////////
+///////////////   SCANNER FLOw   ///////////
 ### 16. Staff Verifies Transaction QR Code (Booking scan-qr - Verification Only)
 # Staff verifies a transaction QR code directly without check-in.
 POST {{baseUrl}}/booking/scan-qr
@@ -283,7 +280,7 @@ Authorization: Bearer {{staffToken}}
 Content-Type: application/json
 
 {
-  "qrCodeData": "TICKET-6a327893b9c6793eb3917571-6a1e80665979beee41cf5f4b-1781692585323"
+  "qrCodeData": "TICKET-6a3ba36442d97aa5f84872a3-6a1e80665979beee41cf5f4b-1782293350094"
 }
 
 ### 30. Course Ongoing Session-based - Check-In Slot
@@ -298,13 +295,27 @@ Content-Type: application/json
   "batchId": "6a2904759f3feca6e22f574d"
 }
 
-
-//////////////////////////////Manuul type code //////////
+//////////// Manuul type code //////////
 ###
 POST {{baseUrl}}/attendee/verify
 Authorization: Bearer {{staffToken}}
 Content-Type: application/json
 
 {
-  "code": "BNDY-346546"
+  "code": "BNDY-447648"
 }
+
+
+
+
+### 9. Staff Views Attendees List for an Event
+
+# Retrieve the list of users who purchased tickets for a specific assigned event.
+GET {{baseUrl}}/booking/event/{{eventId}}/attendees?page=1&limit=50&search=&status=
+Authorization: Bearer {{staffToken}}
+
+
+### 9b. Staff Views Attendees List for a Course
+# Retrieve the list of users who enrolled in a specific assigned course.
+GET {{baseUrl}}/booking/course/{{courseId}}/attendees?page=1&limit=50&search=&status=
+Authorization: Bearer {{staffToken}}

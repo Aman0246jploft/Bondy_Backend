@@ -1289,6 +1289,7 @@ const verifyTicket = async (req, res) => {
         message = isValid ? "Ticket is valid for check-in" : (isExpired ? "Course has expired" : (attended >= totalSessions ? "All sessions checked in" : "Already checked in today"));
       } else {
         if (transaction && transaction.passType) {
+          isAlreadyCheckedIn = checkedInToday;
           isValid = !isExpired && !checkedInToday;
           message = isValid ? "Pass is valid for check-in" : (isExpired ? "Pass has expired" : "Already checked in today");
         } else {
@@ -1296,12 +1297,14 @@ const verifyTicket = async (req, res) => {
           const currentDayOfWeek = daysOfWeekMap[now.getDay()];
 
           const slots = transaction ? (transaction.ongoingSlots || []) : [];
+          const allSlotsCheckedIn = slots.length > 0 && slots.every(s => s.isCheckedIn);
           const matchingSlots = slots.filter(s => s.selectedDate === todayStr || s.selectedDay === currentDayOfWeek);
 
           const uncheckedSlot = matchingSlots.find(slot => {
             return attendee && !attendee.checkInHistory.some(entry => entry.sessionDate === todayStr && entry.batchId === slot.batchId);
           });
 
+          isAlreadyCheckedIn = allSlotsCheckedIn || (matchingSlots.length > 0 && !uncheckedSlot);
           isValid = !isExpired && !!uncheckedSlot;
           message = isValid ? "Session is valid for check-in" : (isExpired ? "Course has expired" : (matchingSlots.length === 0 ? `No booked session matches today (${currentDayOfWeek})` : "Already checked in for today's session"));
         }
@@ -1369,23 +1372,23 @@ router.get("/my-attendees", perApiLimiter(), getMyAttendees);
 
 router.post(
   "/check-in",
-  perApiLimiter(),
+
   validateRequest(checkInSchema),
   checkInAttendee,
 );
 
-router.get("/ticket/:ticketNumber", perApiLimiter(), getAttendeeByTicket);
+router.get("/ticket/:ticketNumber", getAttendeeByTicket);
 
 router.post(
   "/scan-qr",
-  perApiLimiter(),
+
   validateRequest(scanQRSchema),
   scanQRAndCheckIn,
 );
 
 router.post(
   "/verify",
-  perApiLimiter(),
+
   validateRequest(verifySchema),
   verifyTicket,
 );

@@ -1566,16 +1566,26 @@ const updateCourse = async (req, res) => {
     }
 
     if (dateOrTimeModified) {
-      const newStart = updateData.startDate ? new Date(updateData.startDate) : (existingCourse.startDate ? new Date(existingCourse.startDate) : null);
-      const newEnd = (updateData.endDate !== undefined)
-        ? (updateData.endDate ? new Date(updateData.endDate) : null)
-        : (existingCourse.endDate ? new Date(existingCourse.endDate) : null);
-      if (!targetIsDraft && newStart && !isNaN(newStart.getTime()) && newEnd && !isNaN(newEnd.getTime()) && newStart >= newEnd) {
-        return apiErrorRes(
-          HTTP_STATUS.BAD_REQUEST,
-          res,
-          "Start date must be before end date"
-        );
+      const newStartVal = updateData.startDate || existingCourse.startDate;
+      const newEndVal = (updateData.endDate !== undefined) ? updateData.endDate : existingCourse.endDate;
+      const newStartTime = updateData.startTime || existingCourse.startTime || "00:00";
+      const newEndTime = updateData.endTime || existingCourse.endTime || "00:00";
+
+      if (!targetIsDraft && newStartVal && newEndVal) {
+        // Format dates as YYYY-MM-DD
+        const formattedStartDate = new Date(newStartVal).toISOString().split("T")[0];
+        const formattedEndDate = new Date(newEndVal).toISOString().split("T")[0];
+
+        const startDateTime = new Date(`${formattedStartDate}T${newStartTime}`);
+        const endDateTime = new Date(`${formattedEndDate}T${newEndTime}`);
+
+        if (!isNaN(startDateTime.getTime()) && !isNaN(endDateTime.getTime()) && startDateTime >= endDateTime) {
+          return apiErrorRes(
+            HTTP_STATUS.BAD_REQUEST,
+            res,
+            "Start date must be before end date"
+          );
+        }
       }
     }
 
