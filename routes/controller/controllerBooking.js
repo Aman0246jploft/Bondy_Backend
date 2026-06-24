@@ -2997,7 +2997,7 @@ router.get("/refund-preview/:transactionId", perApiLimiter(), previewRefund);
 router.post("/cancel", perApiLimiter(), validateRequest(cancelBookingSchema), cancelBooking);
 router.post(
   "/cancel-event",
-  perApiLimiter(),
+
   checkRole([roleId.ORGANIZER, roleId.SUPER_ADMIN]),
   validateRequest(cancelEventSchema),
   cancelEvent,
@@ -3005,7 +3005,7 @@ router.post(
 
 router.post(
   "/cancel-course",
-  perApiLimiter(),
+
   checkRole([roleId.ORGANIZER, roleId.SUPER_ADMIN]),
   validateRequest(cancelCourseSchema),
   cancelCourse,
@@ -3013,7 +3013,7 @@ router.post(
 
 router.post(
   "/adjust-course-reserved-seats",
-  perApiLimiter(),
+
   checkRole([roleId.ORGANIZER, roleId.SUPER_ADMIN]),
   validateRequest(adjustCourseReservedSeatsSchema),
   adjustCourseReservedSeats,
@@ -3022,7 +3022,7 @@ router.post(
 // Recent Bookings (Organizer/Admin)
 router.get(
   "/recent",
-  perApiLimiter(),
+
   checkRole([roleId.ORGANIZER, roleId.SUPER_ADMIN]),
   getRecentBookings,
 );
@@ -3034,7 +3034,7 @@ router.get("/public/generate-urls/:transactionId", generateTicketUrls);
 // QR Code Scanning (Gate Keeper)
 router.post(
   "/scan-qr",
-  perApiLimiter(),
+
   checkRole([roleId.ORGANIZER, roleId.SUPER_ADMIN, roleId.STAFF]),
   validateRequest(scanQRCodeSchema),
   scanQRCode,
@@ -3043,19 +3043,19 @@ router.post(
 // Event Attendees (Organizer/Admin/Staff)
 router.get(
   "/event/:eventId/attendees",
-  perApiLimiter(),
+
   checkRole([roleId.ORGANIZER, roleId.SUPER_ADMIN, roleId.STAFF]),
   getEventAttendeesList,
 );
 router.get(
   "/course/:courseId/attendees",
-  perApiLimiter(),
+
   checkRole([roleId.ORGANIZER, roleId.SUPER_ADMIN, roleId.STAFF]),
   getCourseAttendeesList,
 );
 router.get(
   "/event/:eventId/stats",
-  perApiLimiter(),
+
   checkRole([roleId.ORGANIZER, roleId.SUPER_ADMIN]),
   getEventAttendeeStats,
 );

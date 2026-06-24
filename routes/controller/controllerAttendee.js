@@ -1088,8 +1088,8 @@ const verifyTicket = async (req, res) => {
       const parts = code.split("-");
       const transactionId = parts[1];
       transaction = await Transaction.findById(transactionId)
-        .populate("eventId")
-        .populate("courseId")
+        .populate({ path: "eventId", populate: { path: "eventCategory", select: "name" } })
+        .populate({ path: "courseId", populate: { path: "courseCategory", select: "name" } })
         .populate("userId", "firstName lastName email profileImage");
 
       if (!transaction) {
@@ -1136,8 +1136,8 @@ const verifyTicket = async (req, res) => {
       bookingType = transaction ? transaction.bookingType : (attendee.eventId ? "EVENT" : "COURSE");
     } else if (code.startsWith("BNDY-")) {
       transaction = await Transaction.findOne({ bookingId: code })
-        .populate("eventId")
-        .populate("courseId")
+        .populate({ path: "eventId", populate: { path: "eventCategory", select: "name" } })
+        .populate({ path: "courseId", populate: { path: "courseCategory", select: "name" } })
         .populate("userId", "firstName lastName email profileImage");
 
       if (!transaction) {
@@ -1178,8 +1178,8 @@ const verifyTicket = async (req, res) => {
 
       transaction = await Transaction.findOne(filter)
         .populate("userId", "firstName lastName email profileImage")
-        .populate("eventId")
-        .populate("courseId");
+        .populate({ path: "eventId", populate: { path: "eventCategory", select: "name" } })
+        .populate({ path: "courseId", populate: { path: "courseCategory", select: "name" } });
 
       if (!transaction) {
         return apiErrorRes(
@@ -1313,6 +1313,47 @@ const verifyTicket = async (req, res) => {
 
     const todayCheckInPass = !!(transaction && transaction.passType && checkedInToday);
 
+    // Build booked tickets list from transaction.tickets[] or fallback to single ticket
+    const bookedTickets = [];
+    if (transaction && transaction.tickets && transaction.tickets.length > 0) {
+      transaction.tickets.forEach(t => {
+        bookedTickets.push({
+          ticketId:   t.ticketId,
+          ticketName: t.ticketName,
+          qty:        t.qty,
+          unitPrice:  t.basePrice,
+          subtotal:   t.basePrice * t.qty,
+        });
+      });
+    } else if (transaction && transaction.ticketName) {
+      bookedTickets.push({
+        ticketId:   transaction.ticketId || null,
+        ticketName: transaction.ticketName,
+        qty:        transaction.qty || 1,
+        unitPrice:  transaction.basePrice,
+        subtotal:   transaction.basePrice * (transaction.qty || 1),
+      });
+    }
+
+    const totalQty = bookedTickets.reduce((sum, t) => sum + t.qty, 0) || (transaction ? transaction.qty : 0);
+
+    // Category name (event uses eventCategory, course uses courseCategory)
+    const categoryName = event
+      ? (event.eventCategory?.name || event.courseCategory?.name || null)
+      : null;
+
+    // Venue details
+    const venue = event
+      ? {
+          venueName:    event.venueName || "Online",
+          address:      event.venueAddress?.address || null,
+          city:         event.venueAddress?.city || null,
+          state:        event.venueAddress?.state || null,
+          country:      event.venueAddress?.country || null,
+          coordinates:  event.venueAddress?.coordinates || null,
+        }
+      : null;
+
     return apiSuccessRes(HTTP_STATUS.OK, res, "Ticket verified successfully", {
       isValid,
       message,
@@ -1322,49 +1363,57 @@ const verifyTicket = async (req, res) => {
       checkedInToday,
       todayCheckInPass,
       bookingType,
-      event: {
-        _id: event._id,
+      event: event ? {
+        _id:        event._id,
         title,
-        venueName: event.venueName || "Online",
-        startDate: event.startDate,
-        endDate: actualEndDate,
+        category:   categoryName,
+        venue,
+        startDate:  event.startDate,
+        endDate:    actualEndDate,
+        startTime:  event.startTime || null,
+        endTime:    event.endTime || null,
         posterImage: Array.isArray(event.posterImage) && event.posterImage.length > 0
           ? formatResponseUrl(event.posterImage[0])
           : (event.posterImage ? formatResponseUrl(event.posterImage) : null),
-      },
+      } : null,
+      booking: transaction ? {
+        bookingId:     transaction.bookingId,
+        totalQty,
+        totalAmount:   transaction.totalAmount,
+        basePrice:     transaction.basePrice,
+        discountAmount: transaction.discountAmount || 0,
+        taxAmount:     transaction.taxAmount || 0,
+        status:        transaction.status,
+        tickets:       bookedTickets,
+        passType:      transaction.passType || null,
+        passExpiryDate: transaction.passExpiryDate || null,
+        checkedInQty:  transaction.checkedInQty || 0,
+        isCheckedIn:   transaction.isCheckedIn,
+        qrCodeData:    transaction.qrCodeData || "",
+        user: transaction.userId ? {
+          _id:          transaction.userId._id,
+          firstName:    transaction.userId.firstName,
+          lastName:     transaction.userId.lastName,
+          email:        transaction.userId.email,
+          profileImage: transaction.userId.profileImage ? formatResponseUrl(transaction.userId.profileImage) : null,
+        } : null,
+      } : null,
       attendee: attendee ? {
-        _id: attendee._id,
-        firstName: attendee.firstName,
-        lastName: attendee.lastName,
-        email: attendee.email,
-        ticketNumber: attendee.ticketNumber,
-        ticketName: attendee.ticketName,
-        isCheckedIn: attendee.isCheckedIn,
-        checkInHistory: attendee.checkInHistory || [],
+        _id:             attendee._id,
+        firstName:       attendee.firstName,
+        lastName:        attendee.lastName,
+        email:           attendee.email,
+        ticketNumber:    attendee.ticketNumber,
+        ticketName:      attendee.ticketName,
+        qty:             attendee.qty || 1,
+        isCheckedIn:     attendee.isCheckedIn,
+        checkInHistory:  attendee.checkInHistory || [],
         sessionsAttended: attendee.checkInHistory ? attendee.checkInHistory.length : 0,
         profileImage: attendee.userId && attendee.userId.profileImage
           ? formatResponseUrl(attendee.userId.profileImage)
           : (transaction && transaction.userId && transaction.userId.profileImage
               ? formatResponseUrl(transaction.userId.profileImage)
               : null),
-      } : null,
-      transaction: transaction ? {
-        _id: transaction._id,
-        bookingId: transaction.bookingId,
-        qty: transaction.qty,
-        checkedInQty: transaction.checkedInQty,
-        isCheckedIn: transaction.isCheckedIn,
-        passType: transaction.passType,
-        passExpiryDate: transaction.passExpiryDate,
-        ongoingSlots: transaction.ongoingSlots || [],
-        qrCodeData: transaction.qrCodeData || "",
-        user: transaction.userId ? {
-          _id: transaction.userId._id,
-          firstName: transaction.userId.firstName,
-          lastName: transaction.userId.lastName,
-          email: transaction.userId.email,
-          profileImage: transaction.userId.profileImage ? formatResponseUrl(transaction.userId.profileImage) : null,
-        } : null,
       } : null,
     });
   } catch (error) {
