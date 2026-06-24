@@ -280,7 +280,7 @@ Authorization: Bearer {{staffToken}}
 Content-Type: application/json
 
 {
-  "qrCodeData": "TICKET-6a3ba36442d97aa5f84872a3-6a1e80665979beee41cf5f4b-1782293350094"
+  "qrCodeData": "TICKET-6a3bb75942d97aa5f8488857-6a1e80665979beee41cf5f4b-1782298458343"
 }
 
 ### 30. Course Ongoing Session-based - Check-In Slot
