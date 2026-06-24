@@ -5,7 +5,7 @@ const { Attendee, Event, Transaction, User, Course } = require("../../db");
 const CONSTANTS = require("../../utils/constants");
 const constantsMessage = require("../../utils/constantsMessage");
 const HTTP_STATUS = require("../../utils/statusCode");
-const { apiErrorRes, apiSuccessRes } = require("../../utils/globalFunction");
+const { apiErrorRes, apiSuccessRes, formatResponseUrl } = require("../../utils/globalFunction");
 const {
   createAttendeesSchema,
   checkInSchema,
@@ -1328,6 +1328,9 @@ const verifyTicket = async (req, res) => {
         venueName: event.venueName || "Online",
         startDate: event.startDate,
         endDate: actualEndDate,
+        posterImage: Array.isArray(event.posterImage) && event.posterImage.length > 0
+          ? formatResponseUrl(event.posterImage[0])
+          : (event.posterImage ? formatResponseUrl(event.posterImage) : null),
       },
       attendee: attendee ? {
         _id: attendee._id,
@@ -1339,6 +1342,11 @@ const verifyTicket = async (req, res) => {
         isCheckedIn: attendee.isCheckedIn,
         checkInHistory: attendee.checkInHistory || [],
         sessionsAttended: attendee.checkInHistory ? attendee.checkInHistory.length : 0,
+        profileImage: attendee.userId && attendee.userId.profileImage
+          ? formatResponseUrl(attendee.userId.profileImage)
+          : (transaction && transaction.userId && transaction.userId.profileImage
+              ? formatResponseUrl(transaction.userId.profileImage)
+              : null),
       } : null,
       transaction: transaction ? {
         _id: transaction._id,
@@ -1350,6 +1358,13 @@ const verifyTicket = async (req, res) => {
         passExpiryDate: transaction.passExpiryDate,
         ongoingSlots: transaction.ongoingSlots || [],
         qrCodeData: transaction.qrCodeData || "",
+        user: transaction.userId ? {
+          _id: transaction.userId._id,
+          firstName: transaction.userId.firstName,
+          lastName: transaction.userId.lastName,
+          email: transaction.userId.email,
+          profileImage: transaction.userId.profileImage ? formatResponseUrl(transaction.userId.profileImage) : null,
+        } : null,
       } : null,
     });
   } catch (error) {
