@@ -100,8 +100,10 @@ const getPromoCodeList = async (req, res) => {
     const size = parseInt(req.query.size) || 10;
     const skip = (pageNo - 1) * size;
 
-    const total = await PromoCode.countDocuments();
-    const promoCodes = await PromoCode.find().skip(skip).limit(size).lean();
+    const filter = req.query.filter || req.body?.filter || 'default';
+    const query = filter === 'all' ? {} : { userId: null };
+    const total = await PromoCode.countDocuments(query);
+    const promoCodes = await PromoCode.find(query).skip(skip).limit(size).lean();
 
     return apiSuccessRes(
       HTTP_STATUS.OK,

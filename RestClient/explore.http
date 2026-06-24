@@ -32,7 +32,7 @@ Authorization: Bearer {{authToken}}
 
 
 ### 7. Search events & courses (Public)
-GET {{baseUrl}}/explore/search?q=test
+GET {{baseUrl}}/explore/search?q=tenniss
 Authorization: Bearer {{authToken}}
 
 
@@ -42,7 +42,7 @@ Authorization: Bearer {{authToken}}
 Content-Type: application/json
 
 {
-  "query": "tennis lessonsdsss"
+  "query": "tenniss"
 }
 
 
