@@ -288,8 +288,8 @@ const searchExplore = async (req, res) => {
     }));
 
     const formattedCourses = courses.map(c => {
-      let earliestStartTime = "00:00";
-      let latestEndTime = "23:59";
+      let earliestStartTime = null;
+      let latestEndTime = null;
       let courseTotalSeats = 0;
       if (c.batches && c.batches.length > 0) {
         const startTimes = c.batches.map((b) => b.startTime).filter(Boolean);
@@ -489,9 +489,9 @@ const getTrendingSearches = async (req, res) => {
             }
             return null;
           };
-          
-          let earliestStartTime = "00:00";
-          let latestEndTime = "23:59";
+
+          let earliestStartTime = null;
+          let latestEndTime = null;
           let courseTotalSeats = 0;
           if (c.batches && c.batches.length > 0) {
             const startTimes = c.batches.map((b) => b.startTime).filter(Boolean);
@@ -577,8 +577,8 @@ const getTrendingSearches = async (req, res) => {
           return null;
         };
 
-        let earliestStartTime = "00:00";
-        let latestEndTime = "23:59";
+        let earliestStartTime = null;
+        let latestEndTime = null;
         let courseTotalSeats = 0;
         if (c.batches && c.batches.length > 0) {
           const startTimes = c.batches.map((b) => b.startTime).filter(Boolean);

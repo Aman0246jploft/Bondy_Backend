@@ -288,11 +288,11 @@ Content-Type: application/json
 ### 16. Staff Verifies Transaction QR Code (Booking scan-qr - Verification Only)
 # Staff verifies a transaction QR code directly without check-in.
 POST {{baseUrl}}/booking/scan-qr
-Authorization: Bearer {{staffToken}}
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTNkMWFiZTFhM2RmNzhlMTZiYjUzMDUiLCJyb2xlSWQiOjUsImlhdCI6MTc4MjM5MDUzNywiZXhwIjoyNjQ2MzkwNTM3fQ.s78XVElFGyJ7kTMSINGqo0KU1_K1vy9b2zkGrDR0ugY
 Content-Type: application/json
 
 {
-  "qrCodeData": "TICKET-6a3bb75942d97aa5f8488857-6a1e80665979beee41cf5f4b-1782298458343"
+  "qrCodeData": "BNDY-111162"
 }
 
 ### 30. Course Ongoing Session-based - Check-In Slot

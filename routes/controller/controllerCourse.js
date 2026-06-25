@@ -1088,10 +1088,12 @@ const getCourses = async (req, res) => {
       const actualBooked = (courseBookingMap[course._id.toString()] || 0);
       const totalacquirewithreserver = actualBooked + totalReservedExternally;
       const totalRevenue = courseRevenueMap[course._id.toString()] || 0;
-      const leftSeats = Math.max(0, courseTotalSeats - actualBooked - totalReservedExternally);
+      const leftSeats = course.enrollmentType === "Ongoing"
+        ? (course.batches && course.batches.length > 0 ? course.batches[0].availableSeats : 0)
+        : Math.max(0, courseTotalSeats - actualBooked - totalReservedExternally);
 
-      let earliestStartTime = "00:00";
-      let latestEndTime = "23:59";
+      let earliestStartTime = null;
+      let latestEndTime = null;
       if (course.batches && course.batches.length > 0) {
         const startTimes = course.batches.map((b) => b.startTime).filter(Boolean);
         const endTimes = course.batches.map((b) => b.endTime).filter(Boolean);
@@ -1333,7 +1335,9 @@ const getCoursesAdmin = async (req, res) => {
       course.totalSeats = totalSeats;
       course.acquiredSeats = acquiredSeats;
       course.totalacquirewithreserver = totalacquirewithreserver;
-      course.leftSeats = Math.max(0, totalSeats - actualBooked - totalReserved);
+      course.leftSeats = course.enrollmentType === "Ongoing"
+        ? (course.batches && course.batches.length > 0 ? Math.max(0, (course.batches[0].seats || 0) - (bookingMap[`${course._id}_${course.batches[0]._id}`] || 0) - (course.batches[0].ReservedExternally || 0)) : 0)
+        : Math.max(0, totalSeats - actualBooked - totalReserved);
       course.capacitypersession = course.batches && course.batches.length > 0 ? (course.batches[0].seats || 0) : 0;
 
       return course;
@@ -1820,10 +1824,10 @@ const isBatchCutOff = (course, batch) => {
   const match = course.bookingCutOff.match(/^(\d+)h$/i);
   if (!match) return false;
   const cutOffMs = parseInt(match[1], 10) * 60 * 60 * 1000;
-  
+
   const now = new Date();
   let sessionStart = null;
-  
+
   if (course.enrollmentType === "Ongoing" && batch.startTime) {
     const daysMap = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
     let targetDate = null;
@@ -1893,7 +1897,7 @@ const isBatchCutOff = (course, batch) => {
       sessionStart = courseStart;
     }
   }
-  
+
   if (sessionStart) {
     const msUntilStart = sessionStart.getTime() - now.getTime();
     return msUntilStart < cutOffMs;
@@ -2110,8 +2114,8 @@ const getCourseDetails = async (req, res) => {
     }
 
     // 5. Dynamic currentSchedule simulation
-    let earliestStartTime = "00:00";
-    let latestEndTime = "23:59";
+    let earliestStartTime = null;
+    let latestEndTime = null;
     if (course.batches && course.batches.length > 0) {
       const startTimes = course.batches.map((b) => b.startTime).filter(Boolean);
       const endTimes = course.batches.map((b) => b.endTime).filter(Boolean);
@@ -2237,7 +2241,9 @@ const getCourseDetails = async (req, res) => {
       // acquiredSeats: totalAcquiredSeats + totalReservedExternally,
       acquiredSeats: totalAcquiredSeats,
       totalacquirewithreserver: totalAcquiredSeats + totalReservedExternally,
-      leftSeats: Math.max(0, courseTotalSeats - totalAcquiredSeats - totalReservedExternally),
+      leftSeats: course.enrollmentType === "Ongoing"
+        ? (course.batches && course.batches.length > 0 ? course.batches[0].availableSeats : 0)
+        : Math.max(0, courseTotalSeats - totalAcquiredSeats - totalReservedExternally),
       isBooked,
       isWishlisted,
       oneMonthPassEnabled: course.oneMonthPassEnabled || false,
@@ -2631,8 +2637,8 @@ const getOrganizerCourses = async (req, res) => {
       const leftSeats = Math.max(0, courseTotalSeats - actualBooked - totalReservedExternally);
 
       // Calculate schedule boundaries
-      let earliestStartTime = "00:00";
-      let latestEndTime = "23:59";
+      let earliestStartTime = null;
+      let latestEndTime = null;
       if (course.batches && course.batches.length > 0) {
         const startTimes = course.batches.map((b) => b.startTime).filter(Boolean);
         const endTimes = course.batches.map((b) => b.endTime).filter(Boolean);

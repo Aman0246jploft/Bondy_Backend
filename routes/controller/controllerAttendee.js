@@ -1337,6 +1337,14 @@ const verifyTicket = async (req, res) => {
 
     const totalQty = bookedTickets.reduce((sum, t) => sum + t.qty, 0) || (transaction ? transaction.qty : 0);
 
+    // Populate userId with contactNumber dynamically if needed
+    if (transaction && transaction.populate) {
+      await transaction.populate("userId", "firstName lastName email profileImage contactNumber");
+    }
+    if (attendee && attendee.populate) {
+      await attendee.populate("userId", "firstName lastName email profileImage contactNumber");
+    }
+
     // Category name (event uses eventCategory, course uses courseCategory)
     const categoryName = event
       ? (event.eventCategory?.name || event.courseCategory?.name || null)
@@ -1390,12 +1398,15 @@ const verifyTicket = async (req, res) => {
         checkedInQty:  transaction.checkedInQty || 0,
         isCheckedIn:   transaction.isCheckedIn,
         qrCodeData:    transaction.qrCodeData || "",
+        batchId:       transaction.batchId || null,
+        ongoingSlots:  transaction.ongoingSlots || [],
         user: transaction.userId ? {
           _id:          transaction.userId._id,
           firstName:    transaction.userId.firstName,
           lastName:     transaction.userId.lastName,
           email:        transaction.userId.email,
           profileImage: transaction.userId.profileImage ? formatResponseUrl(transaction.userId.profileImage) : null,
+          contactNumber: transaction.userId.contactNumber || null,
         } : null,
       } : null,
       attendee: attendee ? {
@@ -1403,6 +1414,7 @@ const verifyTicket = async (req, res) => {
         firstName:       attendee.firstName,
         lastName:        attendee.lastName,
         email:           attendee.email,
+        contactNumber:   attendee.contactNumber || (attendee.userId && attendee.userId.contactNumber) || (transaction && transaction.userId && transaction.userId.contactNumber) || null,
         ticketNumber:    attendee.ticketNumber,
         ticketName:      attendee.ticketName,
         qty:             attendee.qty || 1,
@@ -1414,6 +1426,7 @@ const verifyTicket = async (req, res) => {
           : (transaction && transaction.userId && transaction.userId.profileImage
               ? formatResponseUrl(transaction.userId.profileImage)
               : null),
+        batchId:         attendee.batchId || null,
       } : null,
     });
   } catch (error) {
