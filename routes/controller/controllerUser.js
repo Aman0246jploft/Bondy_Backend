@@ -2548,6 +2548,57 @@ const getStaffScanHistory = async (req, res) => {
       }
     }
 
+    // Filter by type (event or course)
+    if (req.query.type) {
+      if (req.query.type.toLowerCase() === "event") {
+        query.eventId = { $exists: true, $ne: null };
+      } else if (req.query.type.toLowerCase() === "course") {
+        query.courseId = { $exists: true, $ne: null };
+      }
+    }
+
+    // Filter by specific courseId, eventId, or unified entityId parameter
+    if (req.query.eventId) {
+      query.eventId = req.query.eventId;
+    }
+    if (req.query.courseId) {
+      query.courseId = req.query.courseId;
+    }
+    if (req.query.entityId) {
+      query.$or = [
+        { eventId: req.query.entityId },
+        { courseId: req.query.entityId }
+      ];
+    }
+
+    // Single unified search query parameter matching attendee names, emails, and ticket/attendee IDs (excludes course/event titles)
+    if (req.query.search) {
+      const searchVal = req.query.search;
+      const mongoose = require("mongoose");
+      const searchFilter = [
+        { firstName: { $regex: searchVal, $options: "i" } },
+        { lastName: { $regex: searchVal, $options: "i" } },
+        { email: { $regex: searchVal, $options: "i" } },
+        { ticketNumber: { $regex: searchVal, $options: "i" } },
+        { ticketId: { $regex: searchVal, $options: "i" } }
+      ];
+
+      if (mongoose.Types.ObjectId.isValid(searchVal)) {
+        searchFilter.push({ _id: searchVal });
+        searchFilter.push({ userId: searchVal });
+      }
+      
+      if (query.$or) {
+        query.$and = [
+          { $or: query.$or },
+          { $or: searchFilter }
+        ];
+        delete query.$or;
+      } else {
+        query.$or = searchFilter;
+      }
+    }
+
     const total = await AttendeeModel.countDocuments(query);
 
     const scanHistory = await AttendeeModel.find(query)

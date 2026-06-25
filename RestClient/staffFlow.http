@@ -110,6 +110,18 @@ Content-Type: application/json
 GET {{baseUrl}}/user/staff/scan-history?pageNo=1&size=10&startDate=2026-06-01&endDate=2026-06-08
 Authorization: Bearer {{staffToken}}
 
+### 13a. Staff Views Check-in Scan History (Filtered by Name/Email/ID/Ticket in one 'search' field)
+GET {{baseUrl}}/user/staff/scan-history?pageNo=1&size=10&search=John
+Authorization: Bearer {{staffToken}}
+
+### 13b. Staff Views Check-in Scan History (Filtered by courseId or eventId separately)
+GET {{baseUrl}}/user/staff/scan-history?pageNo=1&size=10&courseId={{courseId}}&type=course
+Authorization: Bearer {{staffToken}}
+
+### 13c. Staff Views Check-in Scan History (Filtered by unified entityId separately)
+GET {{baseUrl}}/user/staff/scan-history?pageNo=1&size=10&entityId={{eventId}}&search=John
+Authorization: Bearer {{staffToken}}
+
 
 
 ### 14. Staff Verifies Transaction QR Code
