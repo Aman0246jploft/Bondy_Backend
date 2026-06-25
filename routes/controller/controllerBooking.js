@@ -382,7 +382,44 @@ const isBookingCutOffReached = (course, batch, selectedDay) => {
       sessionStart.setHours(hours, minutes, 0, 0);
     }
   } else if (course.enrollmentType === "fixedStart" && course.startDate) {
-    sessionStart = new Date(course.startDate);
+    const courseStart = new Date(course.startDate);
+    if (courseStart > now) {
+      sessionStart = courseStart;
+    } else if (batch && batch.startTime && batch.days && batch.days.length > 0) {
+      const daysMap = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+      let minDiffMs = Infinity;
+      let closestSession = null;
+      batch.days.forEach(day => {
+        const cleanDay = String(day).substring(0, 3);
+        const targetDay = daysMap[cleanDay];
+        if (targetDay !== undefined) {
+          const currentDay = now.getDay();
+          const offsets = [-7, 0, 7];
+          offsets.forEach(offset => {
+            const targetDate = new Date();
+            let daysToAdd = targetDay - currentDay + offset;
+            targetDate.setDate(now.getDate() + daysToAdd);
+            const [hours, minutes] = batch.startTime.split(":").map(Number);
+            targetDate.setHours(hours, minutes, 0, 0);
+            const diff = Math.abs(targetDate.getTime() - now.getTime());
+            if (diff < minDiffMs) {
+              minDiffMs = diff;
+              closestSession = targetDate;
+            }
+          });
+        }
+      });
+      if (closestSession) {
+        if (closestSession < now) {
+          return true;
+        }
+        sessionStart = closestSession;
+      } else {
+        sessionStart = courseStart;
+      }
+    } else {
+      sessionStart = courseStart;
+    }
   }
 
   if (sessionStart) {
@@ -3022,7 +3059,6 @@ router.post(
 // Recent Bookings (Organizer/Admin)
 router.get(
   "/recent",
-
   checkRole([roleId.ORGANIZER, roleId.SUPER_ADMIN]),
   getRecentBookings,
 );

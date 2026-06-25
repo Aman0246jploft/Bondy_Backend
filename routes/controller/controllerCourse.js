@@ -1815,6 +1815,92 @@ const getUpcomingDateString = (dayName) => {
   return { dateStr: `${m} ${d}`, fullDate: targetDate };
 };
 
+const isBatchCutOff = (course, batch) => {
+  if (!course.bookingCutOff) return false;
+  const match = course.bookingCutOff.match(/^(\d+)h$/i);
+  if (!match) return false;
+  const cutOffMs = parseInt(match[1], 10) * 60 * 60 * 1000;
+  
+  const now = new Date();
+  let sessionStart = null;
+  
+  if (course.enrollmentType === "Ongoing" && batch.startTime) {
+    const daysMap = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+    let targetDate = null;
+    const days = batch.days || [];
+    let minMs = Infinity;
+    days.forEach(day => {
+      const cleanDay = String(day).substring(0, 3);
+      const targetDay = daysMap[cleanDay];
+      if (targetDay !== undefined) {
+        const tDate = new Date();
+        const currentDay = now.getDay();
+        let daysToAdd = targetDay - currentDay;
+        if (daysToAdd < 0) daysToAdd += 7;
+        tDate.setDate(now.getDate() + daysToAdd);
+        const [hours, minutes] = batch.startTime.split(":").map(Number);
+        tDate.setHours(hours, minutes, 0, 0);
+        if (tDate < now) {
+          tDate.setDate(tDate.getDate() + 7);
+        }
+        const diff = tDate.getTime() - now.getTime();
+        if (diff < minMs) {
+          minMs = diff;
+          targetDate = tDate;
+        }
+      }
+    });
+    if (targetDate) {
+      sessionStart = targetDate;
+    }
+  } else if (course.enrollmentType === "fixedStart" && course.startDate) {
+    const courseStart = new Date(course.startDate);
+    if (courseStart > now) {
+      sessionStart = courseStart;
+    } else if (batch.startTime && batch.days && batch.days.length > 0) {
+      const daysMap = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+      let minDiffMs = Infinity;
+      let closestSession = null;
+      batch.days.forEach(day => {
+        const cleanDay = String(day).substring(0, 3);
+        const targetDay = daysMap[cleanDay];
+        if (targetDay !== undefined) {
+          const currentDay = now.getDay();
+          const offsets = [-7, 0, 7];
+          offsets.forEach(offset => {
+            const targetDate = new Date();
+            let daysToAdd = targetDay - currentDay + offset;
+            targetDate.setDate(now.getDate() + daysToAdd);
+            const [hours, minutes] = batch.startTime.split(":").map(Number);
+            targetDate.setHours(hours, minutes, 0, 0);
+            const diff = Math.abs(targetDate.getTime() - now.getTime());
+            if (diff < minDiffMs) {
+              minDiffMs = diff;
+              closestSession = targetDate;
+            }
+          });
+        }
+      });
+      if (closestSession) {
+        if (closestSession < now) {
+          return true;
+        }
+        sessionStart = closestSession;
+      } else {
+        sessionStart = courseStart;
+      }
+    } else {
+      sessionStart = courseStart;
+    }
+  }
+  
+  if (sessionStart) {
+    const msUntilStart = sessionStart.getTime() - now.getTime();
+    return msUntilStart < cutOffMs;
+  }
+  return false;
+};
+
 // ---------------------------------------------------------
 // Get Course Details
 // ---------------------------------------------------------
@@ -2018,6 +2104,7 @@ const getCourseDetails = async (req, res) => {
           availableSeats: available,
           isFull: available <= 0,
           isBooked: bookedBatchIds.has(batchId),
+          bookingCutOffPassed: isBatchCutOff(course, batch),
         };
       });
     }
