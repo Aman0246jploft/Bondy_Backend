@@ -396,6 +396,7 @@ const getEvents = async (req, res) => {
       northEastLng,
       southWestLat,
       southWestLng,
+      visibility,
     } = req.query;
 
     const normalizeLongitude = (lng) => {
@@ -611,6 +612,39 @@ const getEvents = async (req, res) => {
       query.createdBy = new mongoose.Types.ObjectId(userId);
     } else if (shouldExcludeMyEvents && loginUser && !query.createdBy) {
       query.createdBy = { $ne: new mongoose.Types.ObjectId(loginUser) };
+    }
+
+    // Visibility filter
+    // Default: only PUBLIC events are shown.
+    // Pass filter=private or visibility=PRIVATE to see private events (only your own).
+    const wantsPrivate =
+      filters.includes("private") ||
+      (typeof visibility === "string" &&
+        visibility.trim().toUpperCase() === "PRIVATE");
+    if (wantsPrivate) {
+      if (!loginUser) {
+        return apiErrorRes(
+          HTTP_STATUS.UNAUTHORIZED,
+          res,
+          constantsMessage.LOGIN_REQUIRED_DRAFTS,
+        );
+      }
+      query.visibility = "PRIVATE";
+      // Private events are only visible to their creator
+      if (!query.createdBy) {
+        query.createdBy = new mongoose.Types.ObjectId(loginUser);
+      }
+    } else if (!isOrganizerList) {
+      // For all non-organizer, non-private requests: show only PUBLIC events
+      // Also include events where visibility is not set (null / missing field)
+      query.$and = query.$and || [];
+      query.$and.push({
+        $or: [
+          { visibility: "PUBLIC" },
+          { visibility: { $exists: false } },
+          { visibility: null },
+        ],
+      });
     }
 
     // Multiple Categories filter
