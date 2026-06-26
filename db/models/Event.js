@@ -93,6 +93,11 @@ const eventSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+
+    isFeatured: {
+      type: Boolean,
+      default: false,
+    },
     featureEventFee: {
       type: Number,
       default: 0,
@@ -157,6 +162,7 @@ eventSchema.index({ venueAddress: "2dsphere" });
 
 
 eventSchema.pre("save", function (next) {
+  this.isFeatured = this.fetcherEvent;
   // Combine startDate + startTime and endDate + endTime into UTC Date objects if modified
   if (this.isModified("startDate") || this.isModified("startTime") || this.isModified("timeZone")) {
     if (this.startDate) {
