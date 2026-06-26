@@ -459,7 +459,7 @@ const getEvents = async (req, res) => {
       const events = await Event.find(simpleQuery)
         .populate("eventCategory")
         .populate("createdBy", "firstName lastName profileImage isVerified")
-        .sort({ fetcherEvent: -1, isFeatured: -1, startDate: 1, endDate: 1 })
+        .sort({ startDate: 1, endDate: 1, fetcherEvent: -1, isFeatured: -1 })
         .limit(simpleLimit)
         .lean();
       const totalCount = await Event.countDocuments(simpleQuery);
@@ -957,14 +957,14 @@ const getEvents = async (req, res) => {
             : isOrganizerList
               ? { startDate: 1, endDate: 1 }
               : {
+                startDate: 1,
+                endDate: 1,
+                distance: 1,
                 cityMatch: -1,
                 countryMatch: -1,
                 isPromoMatch: -1,
                 fetcherEvent: -1,
                 isFeatured: -1,
-                startDate: 1,
-                endDate: 1,
-                distance: 1,
               },
         },
         { $skip: parseInt(skip) },
@@ -1062,12 +1062,12 @@ const getEvents = async (req, res) => {
               : isOrganizerList
                 ? { startDate: 1, endDate: 1 }
                 : {
-                  isPromoMatch: -1,
-                  fetcherEvent: -1,
-                  isFeatured: -1,
                   startDate: 1,
                   endDate: 1,
                   distance: 1,
+                  isPromoMatch: -1,
+                  fetcherEvent: -1,
+                  isFeatured: -1,
                 },
           },
           { $skip: parseInt(skip) },
@@ -1158,8 +1158,6 @@ const getEvents = async (req, res) => {
           },
           {
             $sort: {
-              isPromoMatch: -1,
-              fetcherEvent: -1,
               ...((filters.includes("latest") || filters.includes("newest"))
                 ? { createdAt: -1 }
                 : filters.includes("past")
@@ -1168,7 +1166,7 @@ const getEvents = async (req, res) => {
                     ? { updatedAt: -1 }
                     : isOrganizerList
                       ? { startDate: 1, endDate: 1 }
-                      : { isFeatured: -1, startDate: 1, endDate: 1 }),
+                      : { startDate: 1, endDate: 1, isPromoMatch: -1, fetcherEvent: -1, isFeatured: -1 }),
             },
           },
           { $skip: parseInt(skip) },
@@ -1212,12 +1210,12 @@ const getEvents = async (req, res) => {
         const sortOrder = (filters.includes("latest") || filters.includes("newest"))
           ? { createdAt: -1 }
           : filters.includes("past")
-            ? { fetcherEvent: -1, endDate: -1, startDate: -1 }
+            ? { endDate: -1, startDate: -1 }
             : filters.includes("draft")
               ? { updatedAt: -1 }
               : isOrganizerList
                 ? { startDate: 1, endDate: 1 }
-                : { fetcherEvent: -1, isFeatured: -1, startDate: 1, endDate: 1 };
+                : { startDate: 1, endDate: 1, fetcherEvent: -1, isFeatured: -1 };
         events = await Event.find(query)
           .populate("eventCategory")
           .populate("createdBy", "firstName lastName profileImage isVerified")

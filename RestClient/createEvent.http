@@ -190,8 +190,8 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTMzZ
 
 
 ### 8. List Events - Filter by Status (Explicitly show Cancelled, Live, or Past events)
-GET {{baseUrl}}/event/list?status=&search=creating
-Authorization: Bearer {{authToken}}
+GET {{baseUrl}}/event/list?limit=300&status=Live,Upcoming
+
 
 
 ### 9. List Events - Multi-way Filtering (Custom date range + Category + Search + Status combined)
