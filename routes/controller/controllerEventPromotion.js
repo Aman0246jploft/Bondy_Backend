@@ -87,6 +87,7 @@ const checkoutPromotion = async (req, res) => {
     expiryDate.setDate(expiryDate.getDate() + pkg.durationInDays);
 
     event.isFeatured = true;
+    event.fetcherEvent = true;
     event.featuredExpiry = expiryDate;
     event.activePromotionPackage = pkg._id;
     await event.save();

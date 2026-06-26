@@ -1640,12 +1640,19 @@ const updateCourse = async (req, res) => {
       "venueName",
       "price",
       "refundPolicy",
+      "oneMonthPassPrice",
+      "oneMonthPassEnabled",
+      "threeMonthPassPrice",
+      "threeMonthPassEnabled",
+      "bookingCutOff",
       "isDraft",
       "batches",
       "isFeatured",
       "featuredExpiry",
       "activePromotionPackage",
       "enrollmentType",
+      "status",
+      "assignedStaff",
     ];
 
     simpleFields.forEach((field) => {

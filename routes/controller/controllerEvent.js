@@ -2544,7 +2544,12 @@ const updateEvent = async (req, res) => {
       "dressCode",
       "isDraft",
       "tickets",
-      "ReservedExternally"
+      "ReservedExternally",
+      "visibility",
+      "notes",
+      "showAttendees",
+      "addToSlider",
+      "assignedStaff",
     ];
 
     simpleFields.forEach((field) => {
