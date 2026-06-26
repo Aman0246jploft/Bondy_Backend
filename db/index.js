@@ -52,11 +52,11 @@ mongoose
         { $setOnInsert: { key: "FEATURE_EVENT_FEE", value: "0", description: "Fee for featuring an event" } },
         { upsert: true, new: true }
       );
-      await GlobalSetting.findOneAndUpdate(
-        { key: "REFERRAL_REWARD_AMOUNT" },
-        { $setOnInsert: { key: "REFERRAL_REWARD_AMOUNT", value: "0", description: "Reward amount for referrals" } },
-        { upsert: true, new: true }
-      );
+      // await GlobalSetting.findOneAndUpdate(
+      //   { key: "REFERRAL_REWARD_AMOUNT" },
+      //   { $setOnInsert: { key: "REFERRAL_REWARD_AMOUNT", value: "0", description: "Reward amount for referrals" } },
+      //   { upsert: true, new: true }
+      // );
       await GlobalSetting.findOneAndUpdate(
         { key: "BOOKING_CUT_OFF_CONFIG" },
         {
