@@ -957,14 +957,14 @@ const getEvents = async (req, res) => {
             : isOrganizerList
               ? { startDate: 1, endDate: 1 }
               : {
+                isFeatured: -1,
+                fetcherEvent: -1,
                 startDate: 1,
                 endDate: 1,
                 distance: 1,
                 cityMatch: -1,
                 countryMatch: -1,
                 isPromoMatch: -1,
-                fetcherEvent: -1,
-                isFeatured: -1,
               },
         },
         { $skip: parseInt(skip) },
@@ -1062,12 +1062,12 @@ const getEvents = async (req, res) => {
               : isOrganizerList
                 ? { startDate: 1, endDate: 1 }
                 : {
+                  isFeatured: -1,
+                  fetcherEvent: -1,
                   startDate: 1,
                   endDate: 1,
                   distance: 1,
                   isPromoMatch: -1,
-                  fetcherEvent: -1,
-                  isFeatured: -1,
                 },
           },
           { $skip: parseInt(skip) },
@@ -1166,7 +1166,7 @@ const getEvents = async (req, res) => {
                     ? { updatedAt: -1 }
                     : isOrganizerList
                       ? { startDate: 1, endDate: 1 }
-                      : { startDate: 1, endDate: 1, isPromoMatch: -1, fetcherEvent: -1, isFeatured: -1 }),
+                      : { isFeatured: -1, fetcherEvent: -1, startDate: 1, endDate: 1, isPromoMatch: -1 }),
             },
           },
           { $skip: parseInt(skip) },
@@ -1215,7 +1215,7 @@ const getEvents = async (req, res) => {
               ? { updatedAt: -1 }
               : isOrganizerList
                 ? { startDate: 1, endDate: 1 }
-                : { startDate: 1, endDate: 1, fetcherEvent: -1, isFeatured: -1 };
+                : { isFeatured: -1, fetcherEvent: -1, startDate: 1, endDate: 1 };
         events = await Event.find(query)
           .populate("eventCategory")
           .populate("createdBy", "firstName lastName profileImage isVerified")
