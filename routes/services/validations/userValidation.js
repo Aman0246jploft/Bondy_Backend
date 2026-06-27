@@ -157,6 +157,10 @@ const assignStaffSchema = Joi.object({
   staffIds: Joi.array().items(Joi.string().hex().length(24)).required(),
 });
 
+const updateTimezoneSchema = Joi.object({
+  timeZone: Joi.string().required(),
+});
+
 module.exports = {
   customerSignupSchema,
   organizerSignupSchema,
@@ -175,4 +179,5 @@ module.exports = {
   assignStaffSchema,
   organizerInfoSchema,
   adminVerifyOrganizerSchema,
+  updateTimezoneSchema,
 };

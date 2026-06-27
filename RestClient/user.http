@@ -28,7 +28,8 @@ Content-Type: application/json
   "contactNumber": "1234567890",
   "password": "Password123!",
   "confirmPassword": "Password123!",
-  "fmcToken": "sample_fmc_token_123"
+  "fmcToken": "sample_fmc_token_123",
+  "timeZone": "Asia/Kolkata"
 }
 
 ### 2. Customer Signup Step 2 (Verify OTP & Register)
@@ -69,7 +70,8 @@ Content-Type: application/json
   "confirmPassword": "password123",
   "acceptTerms": true,
   "referralCode": "",
-  "fmcToken": "sample_fmc_token_456"
+  "fmcToken": "sample_fmc_token_456",
+  "timeZone": "Asia/Kolkata"
 }
 
 ### 5. Organizer Signup Step 2 (Verify OTP & Register)
@@ -97,7 +99,8 @@ Content-Type: application/json
 {
   "email": "new@gmail.com",
   "password": "Test@123",
-  "type": "ORGANIZER"
+  "type": "ORGANIZER",
+  "timeZone": "Asia/Kolkata"
 }
 
 ### 7. User Login Step 2 (Verify Login OTP)
@@ -109,7 +112,8 @@ Content-Type: application/json
 {
   "email": "new@gmail.com",
   "otp": "12345",
-  "type": "LOGIN"
+  "type": "LOGIN",
+  "timeZone": "Asia/Kolkata"
 }
 
 ### 8. Resend Login OTP
@@ -136,7 +140,8 @@ Content-Type: application/json
   "email": "facebookuser@example.com",
   "firstName": "Jane",
   "lastName": "Smith",
-  "profileImage": "https://example.com/jane.jpg"
+  "profileImage": "https://example.com/jane.jpg",
+  "timeZone": "Asia/Kolkata"
 }
 
 
@@ -183,7 +188,8 @@ Content-Type: application/json
   "businessName": "Updated Business Name Ltd",
    "businessCategory": "{{categoryId}}",
    "shortDesc": "We updated our business description directly through the profile update endpoint.",
-  "socialMediaLink": "https://instagram.com/updatedbusiness"
+  "socialMediaLink": "https://instagram.com/updatedbusiness",
+  "timeZone": "Asia/Kolkata"
 }
 
 
@@ -194,7 +200,18 @@ Content-Type: application/json
 
 
 
-### 13. Get My Profile
+### 14. Get External Profile
 GET {{baseUrl}}/user/profile/6a1e80665979beee41cf5f4b
 Authorization: Bearer {{organizerToken}}
 Content-Type: application/json
+
+
+
+### 15. Update Timezone (Hit on Home Page load)
+POST {{baseUrl}}/user/update-timezone
+Authorization: Bearer {{organizerToken}}
+Content-Type: application/json
+
+{
+  "timeZone": "Asia/Kolkata"
+}

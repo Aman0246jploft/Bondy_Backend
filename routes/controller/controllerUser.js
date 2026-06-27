@@ -41,6 +41,7 @@ const {
   editStaffSchema,
   organizerInfoSchema,
   adminVerifyOrganizerSchema,
+  updateTimezoneSchema,
 } = require("../services/validations/userValidation");
 const validateRequest = require("../../middlewares/validateRequest");
 const perApiLimiter = require("../../middlewares/rateLimiter");
@@ -1144,6 +1145,36 @@ const updateUserProfile = async (req, res) => {
     console.error("Error in updateUserProfile:", error);
     return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
   }
+}
+const updateTimezone = async (req, res) => {
+  try {
+    const { timeZone } = req.body;
+    const userId = req.user.userId;
+
+    const user = await User.findByIdAndUpdate(
+      userId,
+      { timeZone },
+      { new: true }
+    );
+
+    if (!user) {
+      return apiErrorRes(
+        HTTP_STATUS.NOT_FOUND,
+        res,
+        constantsMessage.USER_NOT_FOUND
+      );
+    }
+
+    return apiSuccessRes(
+      HTTP_STATUS.OK,
+      res,
+      "Timezone updated successfully",
+      { timeZone: user.timeZone }
+    );
+  } catch (error) {
+    console.error("Error in updateTimezone:", error);
+    return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
+  }
 };
 
 const selfProfile = async (req, res) => {
@@ -2153,6 +2184,13 @@ router.post(
 );
 
 router.post(
+  "/update-timezone",
+  perApiLimiter(),
+  validateRequest(updateTimezoneSchema),
+  updateTimezone,
+);
+
+router.post(
   "/change-password",
   perApiLimiter(),
   validateRequest(changePasswordSchema),
@@ -2599,7 +2637,7 @@ const getStaffScanHistory = async (req, res) => {
         searchFilter.push({ _id: searchVal });
         searchFilter.push({ userId: searchVal });
       }
-      
+
       if (query.$or) {
         query.$and = [
           { $or: query.$or },
