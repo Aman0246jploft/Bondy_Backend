@@ -6,19 +6,19 @@ cron.schedule("* * * * *", async () => {
   console.log("running event status cron >>>>");
   try {
     const nowUtc = moment.utc();
-    
+
     // We cannot use simple updateMany anymore because we need the creator's timezone
     // Fetch all active/published events that are not past
     const events = await Event.find({ status: { $ne: "Past" }, isDraft: false }).populate("createdBy", "timeZone");
-    
+
     const bulkOps = [];
-    
+
     for (const event of events) {
       const creatorTimeZone = event.createdBy?.timeZone;
-      
+
       let eventStartUtc;
       let eventEndUtc;
-      
+
       if (creatorTimeZone && moment.tz.zone(creatorTimeZone)) {
         eventStartUtc = null;
         eventEndUtc = null;
@@ -31,7 +31,7 @@ cron.schedule("* * * * *", async () => {
             eventStartUtc = moment.tz(`${startDateStr}T${startTimeStr}`, creatorTimeZone).utc();
           }
         }
-        
+
         if (event.endDate) {
           const end = new Date(event.endDate);
           if (!isNaN(end.valueOf())) {
@@ -40,7 +40,7 @@ cron.schedule("* * * * *", async () => {
             eventEndUtc = moment.tz(`${endDateStr}T${endTimeStr}`, creatorTimeZone).utc();
           }
         }
-        
+
         if (!eventStartUtc) eventStartUtc = moment.utc(event.startDate);
         if (!eventEndUtc) eventEndUtc = moment.utc(event.endDate);
       } else {
@@ -48,9 +48,9 @@ cron.schedule("* * * * *", async () => {
         eventStartUtc = moment.utc(event.startDate);
         eventEndUtc = moment.utc(event.endDate);
       }
-      
+
       let newStatus = event.status;
-      
+
       if (nowUtc.isAfter(eventEndUtc)) {
         newStatus = "Past";
       } else if (nowUtc.isSameOrAfter(eventStartUtc) && nowUtc.isSameOrBefore(eventEndUtc)) {
@@ -58,7 +58,7 @@ cron.schedule("* * * * *", async () => {
       } else if (nowUtc.isBefore(eventStartUtc)) {
         newStatus = "Upcoming";
       }
-      
+
       if (newStatus !== event.status) {
         bulkOps.push({
           updateOne: {
@@ -68,11 +68,11 @@ cron.schedule("* * * * *", async () => {
         });
       }
     }
-    
+
     if (bulkOps.length > 0) {
       await Event.bulkWrite(bulkOps);
     }
-    
+
     console.log("✅ Event status cron ran successfully");
   } catch (error) {
     console.error("❌ Cron job error:", error);

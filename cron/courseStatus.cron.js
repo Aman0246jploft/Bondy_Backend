@@ -4,21 +4,21 @@ const { eventStatus } = require("../utils/Role");
 const moment = require("moment-timezone");
 
 // Run every 10 minutes, similar to eventStatus.cron.js
-cron.schedule("*/10 * * * *", async () => {
+cron.schedule("* * * * *", async () => {
   try {
     const nowUtc = moment.utc();
-    
+
     // Fetch all courses not cancelled
     const courses = await Course.find({ status: { $ne: eventStatus.CANCELLED } }).populate("createdBy", "timeZone");
-    
+
     const bulkOps = [];
-    
+
     for (const course of courses) {
       const creatorTimeZone = course.createdBy?.timeZone;
-      
+
       let courseStartUtc;
       let courseEndUtc;
-      
+
       if (creatorTimeZone && moment.tz.zone(creatorTimeZone)) {
         courseStartUtc = null;
         courseEndUtc = null;
@@ -30,7 +30,7 @@ cron.schedule("*/10 * * * *", async () => {
             courseStartUtc = moment.tz(`${startDateStr}T00:00:00`, creatorTimeZone).utc();
           }
         }
-        
+
         if (course.endDate) {
           const end = new Date(course.endDate);
           if (!isNaN(end.valueOf())) {
@@ -42,14 +42,14 @@ cron.schedule("*/10 * * * *", async () => {
         // Fallbacks if dates are invalid
         if (!courseStartUtc) courseStartUtc = moment.utc(course.startDate);
         if (!courseEndUtc) courseEndUtc = course.endDate ? moment.utc(course.endDate) : null;
-        
+
       } else {
         courseStartUtc = moment.utc(course.startDate);
         courseEndUtc = course.endDate ? moment.utc(course.endDate) : null;
       }
-      
+
       let newStatus = course.status;
-      
+
       if (courseEndUtc && nowUtc.isAfter(courseEndUtc)) {
         newStatus = eventStatus.PAST;
       } else if (nowUtc.isSameOrAfter(courseStartUtc) && (!courseEndUtc || nowUtc.isSameOrBefore(courseEndUtc))) {
@@ -57,7 +57,7 @@ cron.schedule("*/10 * * * *", async () => {
       } else if (nowUtc.isBefore(courseStartUtc)) {
         newStatus = eventStatus.UPCOMING;
       }
-      
+
       if (newStatus !== course.status) {
         bulkOps.push({
           updateOne: {
@@ -67,11 +67,11 @@ cron.schedule("*/10 * * * *", async () => {
         });
       }
     }
-    
+
     if (bulkOps.length > 0) {
       await Course.bulkWrite(bulkOps);
     }
-    
+
     console.log("✅ Course status cron ran successfully");
   } catch (error) {
     console.error("❌ Course status cron job error:", error);
