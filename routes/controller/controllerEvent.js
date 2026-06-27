@@ -949,12 +949,12 @@ const getEvents = async (req, res) => {
         ...query,
         ...(promotedEventIds.size > 0
           ? {
-              _id: {
-                $nin: [...promotedEventIds].map(
-                  (id) => new mongoose.Types.ObjectId(id)
-                ),
-              },
-            }
+            _id: {
+              $nin: [...promotedEventIds].map(
+                (id) => new mongoose.Types.ObjectId(id)
+              ),
+            },
+          }
           : {}),
       };
 
@@ -962,12 +962,12 @@ const getEvents = async (req, res) => {
         filters.includes("latest") || filters.includes("newest")
           ? { createdAt: -1 }
           : filters.includes("past")
-          ? { endDate: -1, startDate: -1 }
-          : filters.includes("draft")
-          ? { updatedAt: -1 }
-          : isOrganizerList
-          ? { startDate: 1, endDate: 1 }
-          : { fetcherEvent: -1, isFeatured: -1, startDate: 1, endDate: 1 };
+            ? { endDate: -1, startDate: -1 }
+            : filters.includes("draft")
+              ? { updatedAt: -1 }
+              : isOrganizerList
+                ? { startDate: 1, endDate: 1 }
+                : { fetcherEvent: -1, isFeatured: -1, startDate: 1, endDate: 1 };
 
       const remainingEvents = await Event.find(remainingQuery)
         .populate("eventCategory")
@@ -982,9 +982,9 @@ const getEvents = async (req, res) => {
       // Apply pagination manually on merged list
       events = merged.slice(parseInt(skip), parseInt(skip) + parseInt(limit));
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // Execute query with Geo search if coords present
-    // ═══════════════════════════════════════════════════════════════════════
+      // ═══════════════════════════════════════════════════════════════════════
+      // Execute query with Geo search if coords present
+      // ═══════════════════════════════════════════════════════════════════════
     } else if (hasGeoSearchPoint) {
       const parsedRadius = Number(radius);
       const safeRadiusKm = Number.isNaN(parsedRadius)
@@ -1267,6 +1267,7 @@ const getEvents = async (req, res) => {
         );
         if (homePageEvents.length > 0) {
           events = homePageEvents;
+          totalCount = homePageEvents.length;
         } else {
           // Fallback: events where addToSlider === true
           const sliderQuery = { ...query, addToSlider: true };
@@ -1354,12 +1355,12 @@ const getEvents = async (req, res) => {
                 ...((filters.includes("latest") || filters.includes("newest"))
                   ? { createdAt: -1 }
                   : filters.includes("past")
-                  ? { endDate: -1, startDate: -1 }
-                  : filters.includes("draft")
-                  ? { updatedAt: -1 }
-                  : isOrganizerList
-                  ? { startDate: 1, endDate: 1 }
-                  : { fetcherEvent: -1, isFeatured: -1, startDate: 1, endDate: 1, isPromoMatch: -1 }),
+                    ? { endDate: -1, startDate: -1 }
+                    : filters.includes("draft")
+                      ? { updatedAt: -1 }
+                      : isOrganizerList
+                        ? { startDate: 1, endDate: 1 }
+                        : { fetcherEvent: -1, isFeatured: -1, startDate: 1, endDate: 1, isPromoMatch: -1 }),
               },
             },
             {
@@ -1494,12 +1495,12 @@ const getEvents = async (req, res) => {
           filters.includes("latest") || filters.includes("newest")
             ? { createdAt: -1 }
             : filters.includes("past")
-            ? { endDate: -1, startDate: -1 }
-            : filters.includes("draft")
-            ? { updatedAt: -1 }
-            : isOrganizerList
-            ? { startDate: 1, endDate: 1 }
-            : { fetcherEvent: -1, isFeatured: -1, startDate: 1, endDate: 1 };
+              ? { endDate: -1, startDate: -1 }
+              : filters.includes("draft")
+                ? { updatedAt: -1 }
+                : isOrganizerList
+                  ? { startDate: 1, endDate: 1 }
+                  : { fetcherEvent: -1, isFeatured: -1, startDate: 1, endDate: 1 };
         events = await Event.find(query)
           .populate("eventCategory")
           .populate("createdBy", "firstName lastName profileImage isVerified")
