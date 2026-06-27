@@ -15,12 +15,12 @@ Content-Type: application/json
 
 ### 2. Create a Fully Published Event (All required fields provided)
 POST {{baseUrl}}/event/create
-Authorization: Bearer {{authToken}}
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTNlMTliNTNiYzFlZDg1NTAxYzYyOWEiLCJyb2xlSWQiOjIsImlhdCI6MTc4MjU0MTkxNywiZXhwIjoyNjQ2NTQxOTE3fQ.Ldkkv2bvxJx7a_-PAzufwlwR_t-53WhbX-qiZ8FwMoo
 Content-Type: application/json  
 
 {
   "isDraft": false,
-  "eventTitle": "6june",
+  "eventTitle": "277june",
   "ReservedExternally": 10,
   "eventCategory": "647f1234567890abcdef1234",
   "shortdesc": "A vibrant celebration of music and arts.",
@@ -188,7 +188,7 @@ Content-Type: application/json
 
 ### 7. List Events - Standard Retrieve (Active/Upcoming Events)
 GET {{baseUrl}}/event/list
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTNlMTliNTNiYzFlZDg1NTAxYzYyOWEiLCJyb2xlSWQiOjIsImlhdCI6MTc4MjU0MTkxNywiZXhwIjoyNjQ2NTQxOTE3fQ.Ldkkv2bvxJx7a_-PAzufwlwR_t-53WhbX-qiZ8FwMoo
+Authorization: Bearer 
 
 
 ### 8. List Events - Filter by Status (Explicitly show Cancelled, Live, or Past events)
@@ -258,7 +258,7 @@ Authorization: Bearer {{authToken}}
 #============= FILTER ==============
 
 ### 14. Get Event Details
-GET {{baseUrl}}/event/details/{{eventId}}
+GET {{baseUrl}}/event/details/6a3f7b17f00f2ef74366ddc3
 Authorization: Bearer {{authToken}}
 
 

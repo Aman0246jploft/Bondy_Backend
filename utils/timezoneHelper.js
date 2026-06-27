@@ -1,31 +1,59 @@
 const moment = require('moment-timezone');
 
+const tzMapping = {
+  EST: "America/New_York",
+  EDT: "America/New_York",
+  CST: "America/Chicago",
+  CDT: "America/Chicago",
+  MST: "America/Denver",
+  MDT: "America/Denver",
+  PST: "America/Los_Angeles",
+  PDT: "America/Los_Angeles",
+  AST: "America/Halifax",
+  ADT: "America/Halifax",
+  HST: "Pacific/Honolulu",
+  AKST: "America/Anchorage",
+  AKDT: "America/Anchorage",
+  GMT: "Europe/London",
+  BST: "Europe/London",
+  CET: "Europe/Paris",
+  CEST: "Europe/Paris",
+  EET: "Europe/Athens",
+  EEST: "Europe/Athens",
+  JST: "Asia/Tokyo",
+  KST: "Asia/Seoul",
+  AEST: "Australia/Sydney",
+  AEDT: "Australia/Sydney",
+  AWST: "Australia/Perth",
+  ACST: "Australia/Adelaide",
+  ACDT: "Australia/Adelaide",
+};
+
+const getMappedTimeZone = (tz) => {
+  if (!tz) return tz;
+  return tzMapping[tz] || tz;
+};
+
 const formatDateTimeByTimezone = (date, timeZone) => {
-  if (!date || !timeZone || !moment.tz.zone(timeZone)) return date;
+  const mappedTz = getMappedTimeZone(timeZone);
+  if (!date || !mappedTz || !moment.tz.zone(mappedTz)) return date;
   const m = moment(date);
   if (!m.isValid()) return date;
-  return m.tz(timeZone).format('YYYY-MM-DDTHH:mm:ss.SSS');
+  return m.tz(mappedTz).format('YYYY-MM-DDTHH:mm:ss.SSS');
 };
 
 const adjustEventDateTime = (dateVal, timeVal, timeZone) => {
-  if (!dateVal || !timeZone || !moment.tz.zone(timeZone)) {
+  const mappedTz = getMappedTimeZone(timeZone);
+  if (!dateVal || !mappedTz || !moment.tz.zone(mappedTz)) {
     return { date: dateVal, time: timeVal };
   }
   try {
-    // Treat dateVal as a local date originally, combined with timeVal
-    const formattedDate = new Date(dateVal).toISOString().split("T")[0];
-    const timeString = timeVal || "00:00";
-    
-    // Original combined datetime in UTC (this is how it is treated in the DB logic)
-    // Wait, Bondy combines them as new Date(`${formattedStartDate}T${newStartTime}Z`)? 
-    // Usually new Date(`2024-01-01T14:30`) creates a local time date in the server's timezone.
-    // If the server stores it as UTC, we just parse it as UTC.
-    const m = moment.utc(`${formattedDate}T${timeString}`);
+    const m = moment(dateVal);
     if (!m.isValid()) return { date: dateVal, time: timeVal };
 
-    const tzMoment = m.tz(timeZone);
+    const tzMoment = m.tz(mappedTz);
     return {
-      date: tzMoment.format('YYYY-MM-DDTHH:mm:ss.SSS'), // or just tzMoment.startOf('day').toISOString()
+      date: tzMoment.format('YYYY-MM-DDTHH:mm:ss.SSS') + 'Z',
       time: tzMoment.format('HH:mm')
     };
   } catch(e) {

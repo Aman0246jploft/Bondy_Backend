@@ -13,13 +13,43 @@ cron.schedule("* * * * *", async () => {
 
     const bulkOps = [];
 
+    const tzMapping = {
+      EST: "America/New_York",
+      EDT: "America/New_York",
+      CST: "America/Chicago",
+      CDT: "America/Chicago",
+      MST: "America/Denver",
+      MDT: "America/Denver",
+      PST: "America/Los_Angeles",
+      PDT: "America/Los_Angeles",
+      AST: "America/Halifax",
+      ADT: "America/Halifax",
+      HST: "Pacific/Honolulu",
+      AKST: "America/Anchorage",
+      AKDT: "America/Anchorage",
+      GMT: "Europe/London",
+      BST: "Europe/London",
+      CET: "Europe/Paris",
+      CEST: "Europe/Paris",
+      EET: "Europe/Athens",
+      EEST: "Europe/Athens",
+      JST: "Asia/Tokyo",
+      KST: "Asia/Seoul",
+      AEST: "Australia/Sydney",
+      AEDT: "Australia/Sydney",
+      AWST: "Australia/Perth",
+      ACST: "Australia/Adelaide",
+      ACDT: "Australia/Adelaide",
+    };
+
     for (const course of courses) {
-      const creatorTimeZone = course.createdBy?.timeZone;
+      const rawTimeZone = course.timeZone || course.createdBy?.timeZone;
+      const targetTimeZone = rawTimeZone && tzMapping[rawTimeZone] ? tzMapping[rawTimeZone] : rawTimeZone;
 
       let courseStartUtc;
       let courseEndUtc;
 
-      if (creatorTimeZone && moment.tz.zone(creatorTimeZone)) {
+      if (targetTimeZone && moment.tz.zone(targetTimeZone)) {
         courseStartUtc = null;
         courseEndUtc = null;
 
@@ -27,7 +57,7 @@ cron.schedule("* * * * *", async () => {
           const start = new Date(course.startDate);
           if (!isNaN(start.valueOf())) {
             const startDateStr = start.toISOString().split("T")[0];
-            courseStartUtc = moment.tz(`${startDateStr}T00:00:00`, creatorTimeZone).utc();
+            courseStartUtc = moment.tz(`${startDateStr}T00:00:00`, targetTimeZone).utc();
           }
         }
 
@@ -35,7 +65,7 @@ cron.schedule("* * * * *", async () => {
           const end = new Date(course.endDate);
           if (!isNaN(end.valueOf())) {
             const endDateStr = end.toISOString().split("T")[0];
-            courseEndUtc = moment.tz(`${endDateStr}T23:59:59`, creatorTimeZone).utc();
+            courseEndUtc = moment.tz(`${endDateStr}T23:59:59`, targetTimeZone).utc();
           }
         }
 

@@ -1153,13 +1153,14 @@ const getCourses = async (req, res) => {
     }
 
     const formattedCourses = courses.map((course) => {
-      if (userTimeZone) {
+      const displayTimeZone = userTimeZone || course.timeZone;
+      if (displayTimeZone) {
         if (course.startDate) {
-          const startAdjusted = adjustEventDateTime(course.startDate, "00:00", userTimeZone);
+          const startAdjusted = adjustEventDateTime(course.startDate, "00:00", displayTimeZone);
           course.startDate = startAdjusted.date;
         }
         if (course.endDate) {
-          const endAdjusted = adjustEventDateTime(course.endDate, "00:00", userTimeZone);
+          const endAdjusted = adjustEventDateTime(course.endDate, "00:00", displayTimeZone);
           course.endDate = endAdjusted.date;
         }
       }
@@ -1179,9 +1180,9 @@ const getCourses = async (req, res) => {
           const seats = batch.seats || 0;
           const reserved = batch.ReservedExternally || 0;
 
-          if (userTimeZone) {
-            const startAdjusted = adjustEventDateTime(course.startDate, batch.startTime, userTimeZone);
-            const endAdjusted = adjustEventDateTime(course.startDate, batch.endTime, userTimeZone);
+          if (displayTimeZone) {
+            const startAdjusted = adjustEventDateTime(course.startDate, batch.startTime, displayTimeZone);
+            const endAdjusted = adjustEventDateTime(course.startDate, batch.endTime, displayTimeZone);
             batch.startTime = startAdjusted.time;
             batch.endTime = endAdjusted.time;
           }
@@ -2390,19 +2391,20 @@ const getCourseDetails = async (req, res) => {
       if (u && u.timeZone) userTimeZone = u.timeZone;
     }
 
-    if (userTimeZone) {
+    const displayTimeZone = userTimeZone || formattedCourse.timeZone;
+    if (displayTimeZone) {
       if (formattedCourse.startDate) {
-        const startAdjusted = adjustEventDateTime(formattedCourse.startDate, "00:00", userTimeZone);
+        const startAdjusted = adjustEventDateTime(formattedCourse.startDate, "00:00", displayTimeZone);
         formattedCourse.startDate = startAdjusted.date;
       }
       if (formattedCourse.endDate) {
-        const endAdjusted = adjustEventDateTime(formattedCourse.endDate, "00:00", userTimeZone);
+        const endAdjusted = adjustEventDateTime(formattedCourse.endDate, "00:00", displayTimeZone);
         formattedCourse.endDate = endAdjusted.date;
       }
       if (formattedCourse.batches && Array.isArray(formattedCourse.batches)) {
         formattedCourse.batches.forEach((batch) => {
-          const startAdjusted = adjustEventDateTime(course.startDate, batch.startTime, userTimeZone);
-          const endAdjusted = adjustEventDateTime(course.startDate, batch.endTime, userTimeZone);
+          const startAdjusted = adjustEventDateTime(course.startDate, batch.startTime, displayTimeZone);
+          const endAdjusted = adjustEventDateTime(course.startDate, batch.endTime, displayTimeZone);
           batch.startTime = startAdjusted.time;
           batch.endTime = endAdjusted.time;
         });

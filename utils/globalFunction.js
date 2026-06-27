@@ -1,5 +1,5 @@
 const CONSTANTS = require("./constants");
-const moment = require("moment");
+const moment = require("moment-timezone");
 const bcrypt = require("bcryptjs");
 const { default: mongoose } = require("mongoose");
 
@@ -112,8 +112,8 @@ const formatResponseUrl = (url) => {
 function getUTCDateTime(dateInput, timeInput, timeZone = "UTC") {
   if (!dateInput) return null;
 
-  // 1. Get YYYY-MM-DD from dateInput
-  let datePart = moment(dateInput).format("YYYY-MM-DD");
+  // 1. Get YYYY-MM-DD from dateInput in UTC to prevent shifting by server timezone
+  let datePart = moment.utc(dateInput).format("YYYY-MM-DD");
 
   // 2. Clean and parse timeInput
   let timePart = timeInput ? String(timeInput).trim() : "00:00";
@@ -135,41 +135,45 @@ function getUTCDateTime(dateInput, timeInput, timeZone = "UTC") {
 
   // 3. Convert local date-time in timeZone to UTC Date
   try {
-    if (!timeZone || timeZone.toUpperCase() === "UTC") {
+    let zoneName = timeZone;
+    const tzMapping = {
+      EST: "America/New_York",
+      EDT: "America/New_York",
+      CST: "America/Chicago",
+      CDT: "America/Chicago",
+      MST: "America/Denver",
+      MDT: "America/Denver",
+      PST: "America/Los_Angeles",
+      PDT: "America/Los_Angeles",
+      AST: "America/Halifax",
+      ADT: "America/Halifax",
+      HST: "Pacific/Honolulu",
+      AKST: "America/Anchorage",
+      AKDT: "America/Anchorage",
+      GMT: "Europe/London",
+      BST: "Europe/London",
+      CET: "Europe/Paris",
+      CEST: "Europe/Paris",
+      EET: "Europe/Athens",
+      EEST: "Europe/Athens",
+      JST: "Asia/Tokyo",
+      KST: "Asia/Seoul",
+      AEST: "Australia/Sydney",
+      AEDT: "Australia/Sydney",
+      AWST: "Australia/Perth",
+      ACST: "Australia/Adelaide",
+      ACDT: "Australia/Adelaide",
+    };
+
+    if (timeZone && tzMapping[timeZone]) {
+      zoneName = tzMapping[timeZone];
+    }
+
+    if (!zoneName || zoneName.toUpperCase() === "UTC" || !moment.tz.zone(zoneName)) {
       return new Date(localIsoStr + "Z");
     }
 
-    const tempUtcDate = new Date(localIsoStr + "Z");
-    if (isNaN(tempUtcDate.getTime())) {
-      return new Date(localIsoStr + "Z");
-    }
-
-    const formatter = new Intl.DateTimeFormat("en-US", {
-      timeZone: timeZone,
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-      hour12: false,
-    });
-
-    const parts = formatter.formatToParts(tempUtcDate);
-    const partValues = {};
-    parts.forEach(p => { partValues[p.type] = p.value; });
-
-    const tzYear = parseInt(partValues.year);
-    const tzMonth = parseInt(partValues.month) - 1;
-    const tzDay = parseInt(partValues.day);
-    const tzHour = parseInt(partValues.hour) === 24 ? 0 : parseInt(partValues.hour);
-    const tzMin = parseInt(partValues.minute);
-    const tzSec = parseInt(partValues.second);
-
-    const tzDateUtcValue = Date.UTC(tzYear, tzMonth, tzDay, tzHour, tzMin, tzSec);
-    const offsetMs = tempUtcDate.getTime() - tzDateUtcValue;
-
-    return new Date(tempUtcDate.getTime() + offsetMs);
+    return moment.tz(localIsoStr, zoneName).toDate();
   } catch (err) {
     console.error(`Error converting timezone ${timeZone}:`, err);
     return new Date(localIsoStr + "Z");

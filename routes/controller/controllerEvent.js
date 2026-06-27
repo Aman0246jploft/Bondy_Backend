@@ -278,22 +278,23 @@ const checkFewSeatsAvailable = (available, total, percent = 10) => {
   return available <= (percent / 100) * total;
 };
 const formatEvent = (event, bookedEventIds = new Set(), bookedQty = 0, pendingQty = 0, userTimeZone = null) => {
-  if (userTimeZone) {
+  const displayTimeZone = userTimeZone || event.timeZone;
+  if (displayTimeZone) {
     if (event.startDate || event.startTime) {
-      const startAdjusted = adjustEventDateTime(event.startDate, event.startTime, userTimeZone);
+      const startAdjusted = adjustEventDateTime(event.startDate, event.startTime, displayTimeZone);
       if (event.startDate) event.startDate = startAdjusted.date;
       if (event.startTime) event.startTime = startAdjusted.time;
     }
     if (event.endDate || event.endTime) {
-      const endAdjusted = adjustEventDateTime(event.endDate, event.endTime, userTimeZone);
+      const endAdjusted = adjustEventDateTime(event.endDate, event.endTime, displayTimeZone);
       if (event.endDate) event.endDate = endAdjusted.date;
       if (event.endTime) event.endTime = endAdjusted.time;
     }
     
     if (Array.isArray(event.tickets)) {
       event.tickets = event.tickets.map(t => {
-        if (t.salesStart) t.salesStart = formatDateTimeByTimezone(t.salesStart, userTimeZone);
-        if (t.salesEnd) t.salesEnd = formatDateTimeByTimezone(t.salesEnd, userTimeZone);
+        if (t.salesStart) t.salesStart = formatDateTimeByTimezone(t.salesStart, displayTimeZone);
+        if (t.salesEnd) t.salesEnd = formatDateTimeByTimezone(t.salesEnd, displayTimeZone);
         return t;
       });
     }
@@ -2035,21 +2036,22 @@ const getEventDetails = async (req, res) => {
         : null,
     }));
 
-    if (userTimeZone) {
+    const displayTimeZone = userTimeZone || event.timeZone;
+    if (displayTimeZone) {
       if (event.startDate || event.startTime) {
-        const startAdjusted = adjustEventDateTime(event.startDate, event.startTime, userTimeZone);
+        const startAdjusted = adjustEventDateTime(event.startDate, event.startTime, displayTimeZone);
         if (event.startDate) event.startDate = startAdjusted.date;
         if (event.startTime) event.startTime = startAdjusted.time;
       }
       if (event.endDate || event.endTime) {
-        const endAdjusted = adjustEventDateTime(event.endDate, event.endTime, userTimeZone);
+        const endAdjusted = adjustEventDateTime(event.endDate, event.endTime, displayTimeZone);
         if (event.endDate) event.endDate = endAdjusted.date;
         if (event.endTime) event.endTime = endAdjusted.time;
       }
       if (Array.isArray(event.tickets)) {
         event.tickets = event.tickets.map(t => {
-          if (t.salesStart) t.salesStart = formatDateTimeByTimezone(t.salesStart, userTimeZone);
-          if (t.salesEnd) t.salesEnd = formatDateTimeByTimezone(t.salesEnd, userTimeZone);
+          if (t.salesStart) t.salesStart = formatDateTimeByTimezone(t.salesStart, displayTimeZone);
+          if (t.salesEnd) t.salesEnd = formatDateTimeByTimezone(t.salesEnd, displayTimeZone);
           return t;
         });
       }
