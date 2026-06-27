@@ -222,7 +222,7 @@ Authorization: Bearer {{authToken}}
 
 
 ### 14. List Events - Organizer Events (Sorted by Event Start Date - Soonest First by Default)
-GET {{baseUrl}}/event/list?filter=organizer
+GET {{baseUrl}}/event/list?radius=1000.0&limit=10&placement=homePage&addToSlider=true
 Authorization: Bearer {{authToken}}
 
 

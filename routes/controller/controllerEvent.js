@@ -1259,30 +1259,71 @@ const getEvents = async (req, res) => {
       }
 
       // ── homePage placement filter (geo path) ──────────────────────────────
-      if (isHomePagePlacement && events.length > 0) {
-        const homePageEvents = events.filter(
-          (e) =>
-            Array.isArray(e.promoPkg?.placements) &&
-            e.promoPkg.placements.includes("homePage")
-        );
-        if (homePageEvents.length > 0) {
-          events = homePageEvents;
-          totalCount = homePageEvents.length;
+      // We run a dedicated geo query for homePage promoted events instead of
+      // post-filtering a paginated result, so no promoted event is ever missed.
+      if (isHomePagePlacement) {
+        const parsedRadiusHP = Number(radius);
+        const safeRadiusKmHP = Number.isNaN(parsedRadiusHP)
+          ? 500
+          : Math.max(1, Math.min(parsedRadiusHP, 500));
+
+        // Dedicated pipeline: geo → join PromotionPackage → filter homePage
+        const homePageGeoAgg = await Event.aggregate([
+          {
+            $geoNear: {
+              near: { type: "Point", coordinates: [nearLongitude, nearLatitude] },
+              distanceField: "distance",
+              maxDistance: safeRadiusKmHP * 1000,
+              spherical: true,
+              query: { ...query, activePromotionPackage: { $ne: null } },
+            },
+          },
+          {
+            $lookup: {
+              from: "PromotionPackage",
+              localField: "activePromotionPackage",
+              foreignField: "_id",
+              as: "promoPkg",
+            },
+          },
+          { $unwind: { path: "$promoPkg", preserveNullAndEmptyArrays: false } },
+          { $match: { "promoPkg.placements": "homePage" } },
+          {
+            $lookup: {
+              from: "categories",
+              localField: "eventCategory",
+              foreignField: "_id",
+              as: "eventCategory",
+            },
+          },
+          { $unwind: { path: "$eventCategory", preserveNullAndEmptyArrays: true } },
+          {
+            $lookup: {
+              from: "User",
+              localField: "createdBy",
+              foreignField: "_id",
+              pipeline: [
+                { $project: { firstName: 1, lastName: 1, profileImage: 1, isVerified: 1 } },
+              ],
+              as: "createdBy",
+            },
+          },
+          { $unwind: { path: "$createdBy", preserveNullAndEmptyArrays: true } },
+          { $sort: { fetcherEvent: -1, isFeatured: -1, startDate: 1, endDate: 1, distance: 1 } },
+        ]);
+
+        if (homePageGeoAgg.length > 0) {
+          // Paginate manually on the full promoted set
+          totalCount = homePageGeoAgg.length;
+          events = homePageGeoAgg.slice(parseInt(skip), parseInt(skip) + parseInt(limit));
         } else {
-          // Fallback: events where addToSlider === true
-          const sliderQuery = { ...query, addToSlider: true };
-          delete sliderQuery.endDate;
-          delete sliderQuery.status;
-          const parsedRadius = Number(radius);
-          const safeRadiusKm = Number.isNaN(parsedRadius)
-            ? 500
-            : Math.max(1, Math.min(parsedRadius, 500));
+          // Fallback: fetch events where addToSlider === true within geo radius
           const fallbackSliderAgg = await Event.aggregate([
             {
               $geoNear: {
                 near: { type: "Point", coordinates: [nearLongitude, nearLatitude] },
                 distanceField: "distance",
-                maxDistance: safeRadiusKm * 1000,
+                maxDistance: safeRadiusKmHP * 1000,
                 spherical: true,
                 query: { addToSlider: true, isDraft: false },
               },
@@ -1309,11 +1350,9 @@ const getEvents = async (req, res) => {
             },
             { $unwind: { path: "$createdBy", preserveNullAndEmptyArrays: true } },
             { $sort: { fetcherEvent: -1, isFeatured: -1, startDate: 1, endDate: 1, distance: 1 } },
-            { $skip: parseInt(skip) },
-            { $limit: parseInt(limit) },
           ]);
-          events = fallbackSliderAgg;
-          totalCount = await Event.countDocuments({ addToSlider: true, isDraft: false });
+          totalCount = fallbackSliderAgg.length;
+          events = fallbackSliderAgg.slice(parseInt(skip), parseInt(skip) + parseInt(limit));
         }
       }
       // ─────────────────────────────────────────────────────────────────────
