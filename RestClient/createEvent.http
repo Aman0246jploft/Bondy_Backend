@@ -192,7 +192,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTMzZ
 
 
 ### 8. List Events - Filter by Status (Explicitly show Cancelled, Live, or Past events)
-GET {{baseUrl}}/event/list?limit=300&status=Live,Upcoming
+GET {{baseUrl}}/event/list?placement=explorePage&addToSlider=true
 
 
 

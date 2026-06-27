@@ -567,6 +567,10 @@ const getCourses = async (req, res) => {
       }
     }
 
+    // ─── Placement flag ──────────────────────────────────────────────────────
+    const isExplorePagePlacement = placement === "explorePage";
+    // ────────────────────────────────────────────────────────────────────────
+
     let courses = [];
     let totalCount = 0;
 
@@ -837,8 +841,93 @@ const getCourses = async (req, res) => {
         courses = fallbackAgg;
         totalCount = fallbackCountAgg[0]?.total || 0;
       }
+    } else if (isExplorePagePlacement) {
+      // ═══════════════════════════════════════════════════════════════════════
+      // Case: placement=explorePage — promoted courses first (isFeatured on
+      //       top), then remaining courses via existing logic (no duplicates)
+      // ═══════════════════════════════════════════════════════════════════════
+
+      // Step 1: Fetch ALL promoted courses for explorePage
+      const promotedCourseIds = new Set();
+      const promotedLookupPipeline = [
+        { $match: { ...query, activePromotionPackage: { $ne: null } } },
+        {
+          $lookup: {
+            from: "PromotionPackage",
+            localField: "activePromotionPackage",
+            foreignField: "_id",
+            as: "promoPkg",
+          },
+        },
+        { $unwind: { path: "$promoPkg", preserveNullAndEmptyArrays: false } },
+        { $match: { "promoPkg.placements": "explorePage" } },
+        {
+          $lookup: {
+            from: "categories",
+            localField: "courseCategory",
+            foreignField: "_id",
+            as: "courseCategory",
+          },
+        },
+        { $unwind: { path: "$courseCategory", preserveNullAndEmptyArrays: true } },
+        {
+          $lookup: {
+            from: "User",
+            localField: "createdBy",
+            foreignField: "_id",
+            pipeline: [
+              { $project: { firstName: 1, lastName: 1, profileImage: 1, isVerified: 1 } },
+            ],
+            as: "createdBy",
+          },
+        },
+        { $unwind: { path: "$createdBy", preserveNullAndEmptyArrays: true } },
+        // isFeatured courses on top, then nearest start
+        { $sort: { isFeatured: -1, startDate: 1, createdAt: -1 } },
+      ];
+
+      const promotedCourses = await Course.aggregate(promotedLookupPipeline);
+      promotedCourses.forEach((c) => promotedCourseIds.add(c._id.toString()));
+
+      // Step 2: Remaining courses (excluding promoted IDs) with existing logic
+      const remainingQuery = {
+        ...query,
+        ...(promotedCourseIds.size > 0
+          ? {
+              _id: {
+                $nin: [...promotedCourseIds].map(
+                  (id) => new mongoose.Types.ObjectId(id)
+                ),
+              },
+            }
+          : {}),
+      };
+
+      const sortOrder =
+        isOrganizerList || filters.includes("latest") || filters.includes("newest")
+          ? { createdAt: -1 }
+          : filters.includes("past")
+          ? { endDate: -1, startDate: -1 }
+          : filters.includes("draft")
+          ? { updatedAt: -1 }
+          : { isFeatured: -1, startDate: 1, createdAt: -1 };
+
+      const remainingCourses = await Course.find(remainingQuery)
+        .populate("courseCategory")
+        .populate("createdBy", "firstName lastName profileImage isVerified")
+        .sort(sortOrder)
+        .lean();
+
+      // Step 3: Merge — promoted first, then remaining (no duplicates)
+      const merged = [...promotedCourses, ...remainingCourses];
+      totalCount = merged.length;
+
+      // Apply pagination manually on the merged list
+      courses = merged.slice(parseInt(skip), parseInt(skip) + parseInt(limit));
+
     } else {
       if (placement) {
+        // Generic placement (non-explorePage) — existing logic
         courses = await Course.aggregate([
           { $match: query },
           {
@@ -917,13 +1006,14 @@ const getCourses = async (req, res) => {
         ]);
         totalCount = await Course.countDocuments(query);
       } else {
-        const sortOrder = (isOrganizerList || filters.includes("latest") || filters.includes("newest"))
-          ? { createdAt: -1 }
-          : filters.includes("past")
+        const sortOrder =
+          isOrganizerList || filters.includes("latest") || filters.includes("newest")
+            ? { createdAt: -1 }
+            : filters.includes("past")
             ? { endDate: -1, startDate: -1 }
             : filters.includes("draft")
-              ? { updatedAt: -1 }
-              : { isFeatured: -1, startDate: 1, createdAt: -1 };
+            ? { updatedAt: -1 }
+            : { isFeatured: -1, startDate: 1, createdAt: -1 };
         courses = await Course.find(query)
           .populate("courseCategory")
           .populate("createdBy", "firstName lastName profileImage isVerified")

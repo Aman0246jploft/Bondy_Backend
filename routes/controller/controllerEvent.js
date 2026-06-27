@@ -884,11 +884,108 @@ const getEvents = async (req, res) => {
       }
     }
 
+    // ─── Placement flags ────────────────────────────────────────────────────
+    const isHomePagePlacement =
+      placement === "homePage" &&
+      String(addToSlider !== undefined ? addToSlider : req.body?.addToSlider).toLowerCase() === "true";
+    const isExplorePagePlacement = placement === "explorePage";
+    // ────────────────────────────────────────────────────────────────────────
+
     let events = [];
     let totalCount = 0;
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // Case 2: explorePage — promoted events first, then remaining events
+    // ═══════════════════════════════════════════════════════════════════════
+    if (isExplorePagePlacement && !hasGeoSearchPoint) {
+      // Step 1: fetch ALL promoted events for explorePage (no pagination — we
+      //         need full set to deduplicate, but we cap at a reasonable max)
+      const promotedEventIds = new Set();
+      const promotedLookupPipeline = [
+        { $match: { ...query, activePromotionPackage: { $ne: null } } },
+        {
+          $lookup: {
+            from: "PromotionPackage",
+            localField: "activePromotionPackage",
+            foreignField: "_id",
+            as: "promoPkg",
+          },
+        },
+        { $unwind: { path: "$promoPkg", preserveNullAndEmptyArrays: false } },
+        {
+          $match: {
+            "promoPkg.placements": "explorePage",
+          },
+        },
+        {
+          $lookup: {
+            from: "categories",
+            localField: "eventCategory",
+            foreignField: "_id",
+            as: "eventCategory",
+          },
+        },
+        { $unwind: { path: "$eventCategory", preserveNullAndEmptyArrays: true } },
+        {
+          $lookup: {
+            from: "User",
+            localField: "createdBy",
+            foreignField: "_id",
+            pipeline: [
+              { $project: { firstName: 1, lastName: 1, profileImage: 1, isVerified: 1 } },
+            ],
+            as: "createdBy",
+          },
+        },
+        { $unwind: { path: "$createdBy", preserveNullAndEmptyArrays: true } },
+        { $sort: { fetcherEvent: -1, isFeatured: -1, startDate: 1, endDate: 1 } },
+      ];
+
+      const promotedEvents = await Event.aggregate(promotedLookupPipeline);
+      promotedEvents.forEach((e) => promotedEventIds.add(e._id.toString()));
+
+      // Step 2: fetch remaining events (excluding promoted IDs) with existing logic
+      const remainingQuery = {
+        ...query,
+        ...(promotedEventIds.size > 0
+          ? {
+              _id: {
+                $nin: [...promotedEventIds].map(
+                  (id) => new mongoose.Types.ObjectId(id)
+                ),
+              },
+            }
+          : {}),
+      };
+
+      const sortOrder =
+        filters.includes("latest") || filters.includes("newest")
+          ? { createdAt: -1 }
+          : filters.includes("past")
+          ? { endDate: -1, startDate: -1 }
+          : filters.includes("draft")
+          ? { updatedAt: -1 }
+          : isOrganizerList
+          ? { startDate: 1, endDate: 1 }
+          : { fetcherEvent: -1, isFeatured: -1, startDate: 1, endDate: 1 };
+
+      const remainingEvents = await Event.find(remainingQuery)
+        .populate("eventCategory")
+        .populate("createdBy", "firstName lastName profileImage isVerified")
+        .sort(sortOrder)
+        .lean();
+
+      // Step 3: merge — promoted first, then remaining
+      const merged = [...promotedEvents, ...remainingEvents];
+      totalCount = merged.length;
+
+      // Apply pagination manually on merged list
+      events = merged.slice(parseInt(skip), parseInt(skip) + parseInt(limit));
+
+    // ═══════════════════════════════════════════════════════════════════════
     // Execute query with Geo search if coords present
-    if (hasGeoSearchPoint) {
+    // ═══════════════════════════════════════════════════════════════════════
+    } else if (hasGeoSearchPoint) {
       const parsedRadius = Number(radius);
       const safeRadiusKm = Number.isNaN(parsedRadius)
         ? 100
@@ -1160,96 +1257,249 @@ const getEvents = async (req, res) => {
         events = fallbackAgg;
         totalCount = fallbackCountAgg[0]?.total || 0;
       }
-    } else {
-      if (placement) {
-        events = await Event.aggregate([
-          { $match: query },
-          {
-            $lookup: {
-              from: "PromotionPackage",
-              localField: "activePromotionPackage",
-              foreignField: "_id",
-              as: "promoPkg",
-            },
-          },
-          { $unwind: { path: "$promoPkg", preserveNullAndEmptyArrays: true } },
-          {
-            $addFields: {
-              isPromoMatch: {
-                $cond: [
-                  {
-                    $and: [
-                      { $ne: [placement || null, null] },
-                      { $isArray: "$promoPkg.placements" },
-                      { $in: [placement, "$promoPkg.placements"] },
-                    ],
-                  },
-                  1,
-                  0,
-                ],
+
+      // ── homePage placement filter (geo path) ──────────────────────────────
+      if (isHomePagePlacement && events.length > 0) {
+        const homePageEvents = events.filter(
+          (e) =>
+            Array.isArray(e.promoPkg?.placements) &&
+            e.promoPkg.placements.includes("homePage")
+        );
+        if (homePageEvents.length > 0) {
+          events = homePageEvents;
+        } else {
+          // Fallback: events where addToSlider === true
+          const sliderQuery = { ...query, addToSlider: true };
+          delete sliderQuery.endDate;
+          delete sliderQuery.status;
+          const parsedRadius = Number(radius);
+          const safeRadiusKm = Number.isNaN(parsedRadius)
+            ? 500
+            : Math.max(1, Math.min(parsedRadius, 500));
+          const fallbackSliderAgg = await Event.aggregate([
+            {
+              $geoNear: {
+                near: { type: "Point", coordinates: [nearLongitude, nearLatitude] },
+                distanceField: "distance",
+                maxDistance: safeRadiusKm * 1000,
+                spherical: true,
+                query: { addToSlider: true, isDraft: false },
               },
             },
-          },
-          {
-            $sort: {
-              ...((filters.includes("latest") || filters.includes("newest"))
-                ? { createdAt: -1 }
-                : filters.includes("past")
+            {
+              $lookup: {
+                from: "categories",
+                localField: "eventCategory",
+                foreignField: "_id",
+                as: "eventCategory",
+              },
+            },
+            { $unwind: { path: "$eventCategory", preserveNullAndEmptyArrays: true } },
+            {
+              $lookup: {
+                from: "User",
+                localField: "createdBy",
+                foreignField: "_id",
+                pipeline: [
+                  { $project: { firstName: 1, lastName: 1, profileImage: 1, isVerified: 1 } },
+                ],
+                as: "createdBy",
+              },
+            },
+            { $unwind: { path: "$createdBy", preserveNullAndEmptyArrays: true } },
+            { $sort: { fetcherEvent: -1, isFeatured: -1, startDate: 1, endDate: 1, distance: 1 } },
+            { $skip: parseInt(skip) },
+            { $limit: parseInt(limit) },
+          ]);
+          events = fallbackSliderAgg;
+          totalCount = await Event.countDocuments({ addToSlider: true, isDraft: false });
+        }
+      }
+      // ─────────────────────────────────────────────────────────────────────
+
+    } else {
+      if (placement && !isExplorePagePlacement) {
+        // ── homePage + addToSlider=true path (non-geo) ─────────────────────
+        if (isHomePagePlacement) {
+          // Run existing pipeline, then filter to homePage promotions
+          const allPlacementEvents = await Event.aggregate([
+            { $match: query },
+            {
+              $lookup: {
+                from: "PromotionPackage",
+                localField: "activePromotionPackage",
+                foreignField: "_id",
+                as: "promoPkg",
+              },
+            },
+            { $unwind: { path: "$promoPkg", preserveNullAndEmptyArrays: true } },
+            {
+              $addFields: {
+                isPromoMatch: {
+                  $cond: [
+                    {
+                      $and: [
+                        { $isArray: "$promoPkg.placements" },
+                        { $in: ["homePage", "$promoPkg.placements"] },
+                      ],
+                    },
+                    1,
+                    0,
+                  ],
+                },
+              },
+            },
+            {
+              $sort: {
+                ...((filters.includes("latest") || filters.includes("newest"))
+                  ? { createdAt: -1 }
+                  : filters.includes("past")
                   ? { endDate: -1, startDate: -1 }
                   : filters.includes("draft")
-                    ? { updatedAt: -1 }
-                    : isOrganizerList
-                      ? { startDate: 1, endDate: 1 }
-                      : { fetcherEvent: -1, isFeatured: -1, startDate: 1, endDate: 1, isPromoMatch: -1 }),
+                  ? { updatedAt: -1 }
+                  : isOrganizerList
+                  ? { startDate: 1, endDate: 1 }
+                  : { fetcherEvent: -1, isFeatured: -1, startDate: 1, endDate: 1, isPromoMatch: -1 }),
+              },
             },
-          },
-          { $skip: parseInt(skip) },
-          { $limit: parseInt(limit) },
-          {
-            $lookup: {
-              from: "categories",
-              localField: "eventCategory",
-              foreignField: "_id",
-              as: "eventCategory",
+            {
+              $lookup: {
+                from: "categories",
+                localField: "eventCategory",
+                foreignField: "_id",
+                as: "eventCategory",
+              },
             },
-          },
-          {
-            $unwind: {
-              path: "$eventCategory",
-              preserveNullAndEmptyArrays: true,
+            { $unwind: { path: "$eventCategory", preserveNullAndEmptyArrays: true } },
+            {
+              $lookup: {
+                from: "User",
+                localField: "createdBy",
+                foreignField: "_id",
+                pipeline: [
+                  { $project: { firstName: 1, lastName: 1, profileImage: 1, isVerified: 1 } },
+                ],
+                as: "createdBy",
+              },
             },
-          },
-          {
-            $lookup: {
-              from: "User",
-              localField: "createdBy",
-              foreignField: "_id",
-              pipeline: [
-                {
-                  $project: {
-                    firstName: 1,
-                    lastName: 1,
-                    profileImage: 1,
-                    isVerified: 1,
-                  },
+            { $unwind: { path: "$createdBy", preserveNullAndEmptyArrays: true } },
+          ]);
+
+          // Filter to only homePage promoted events
+          const homePageEvents = allPlacementEvents.filter(
+            (e) =>
+              Array.isArray(e.promoPkg?.placements) &&
+              e.promoPkg.placements.includes("homePage")
+          );
+
+          if (homePageEvents.length > 0) {
+            // Apply pagination on matched set
+            totalCount = homePageEvents.length;
+            events = homePageEvents.slice(parseInt(skip), parseInt(skip) + parseInt(limit));
+          } else {
+            // Fallback: Event collection where addToSlider === true
+            const sliderQuery = { addToSlider: true, isDraft: false };
+            const sliderSortOrder =
+              filters.includes("latest") || filters.includes("newest")
+                ? { createdAt: -1 }
+                : { fetcherEvent: -1, isFeatured: -1, startDate: 1, endDate: 1 };
+            events = await Event.find(sliderQuery)
+              .populate("eventCategory")
+              .populate("createdBy", "firstName lastName profileImage isVerified")
+              .sort(sliderSortOrder)
+              .skip(parseInt(skip))
+              .limit(parseInt(limit))
+              .lean();
+            totalCount = await Event.countDocuments(sliderQuery);
+          }
+        } else {
+          // Generic placement (not homePage, not explorePage) — existing logic
+          events = await Event.aggregate([
+            { $match: query },
+            {
+              $lookup: {
+                from: "PromotionPackage",
+                localField: "activePromotionPackage",
+                foreignField: "_id",
+                as: "promoPkg",
+              },
+            },
+            { $unwind: { path: "$promoPkg", preserveNullAndEmptyArrays: true } },
+            {
+              $addFields: {
+                isPromoMatch: {
+                  $cond: [
+                    {
+                      $and: [
+                        { $ne: [placement || null, null] },
+                        { $isArray: "$promoPkg.placements" },
+                        { $in: [placement, "$promoPkg.placements"] },
+                      ],
+                    },
+                    1,
+                    0,
+                  ],
                 },
-              ],
-              as: "createdBy",
+              },
             },
-          },
-          { $unwind: { path: "$createdBy", preserveNullAndEmptyArrays: true } },
-        ]);
-        totalCount = await Event.countDocuments(query);
-      } else {
-        const sortOrder = (filters.includes("latest") || filters.includes("newest"))
-          ? { createdAt: -1 }
-          : filters.includes("past")
+            {
+              $sort: {
+                ...((filters.includes("latest") || filters.includes("newest"))
+                  ? { createdAt: -1 }
+                  : filters.includes("past")
+                    ? { endDate: -1, startDate: -1 }
+                    : filters.includes("draft")
+                      ? { updatedAt: -1 }
+                      : isOrganizerList
+                        ? { startDate: 1, endDate: 1 }
+                        : { fetcherEvent: -1, isFeatured: -1, startDate: 1, endDate: 1, isPromoMatch: -1 }),
+              },
+            },
+            { $skip: parseInt(skip) },
+            { $limit: parseInt(limit) },
+            {
+              $lookup: {
+                from: "categories",
+                localField: "eventCategory",
+                foreignField: "_id",
+                as: "eventCategory",
+              },
+            },
+            { $unwind: { path: "$eventCategory", preserveNullAndEmptyArrays: true } },
+            {
+              $lookup: {
+                from: "User",
+                localField: "createdBy",
+                foreignField: "_id",
+                pipeline: [
+                  {
+                    $project: {
+                      firstName: 1,
+                      lastName: 1,
+                      profileImage: 1,
+                      isVerified: 1,
+                    },
+                  },
+                ],
+                as: "createdBy",
+              },
+            },
+            { $unwind: { path: "$createdBy", preserveNullAndEmptyArrays: true } },
+          ]);
+          totalCount = await Event.countDocuments(query);
+        }
+      } else if (!isExplorePagePlacement) {
+        // No placement — existing plain find
+        const sortOrder =
+          filters.includes("latest") || filters.includes("newest")
+            ? { createdAt: -1 }
+            : filters.includes("past")
             ? { endDate: -1, startDate: -1 }
             : filters.includes("draft")
-              ? { updatedAt: -1 }
-              : isOrganizerList
-                ? { startDate: 1, endDate: 1 }
-                : { fetcherEvent: -1, isFeatured: -1, startDate: 1, endDate: 1 };
+            ? { updatedAt: -1 }
+            : isOrganizerList
+            ? { startDate: 1, endDate: 1 }
+            : { fetcherEvent: -1, isFeatured: -1, startDate: 1, endDate: 1 };
         events = await Event.find(query)
           .populate("eventCategory")
           .populate("createdBy", "firstName lastName profileImage isVerified")
@@ -1259,6 +1509,7 @@ const getEvents = async (req, res) => {
           .lean();
         totalCount = await Event.countDocuments(query);
       }
+      // explorePage non-geo is handled above (isExplorePagePlacement block)
     }
 
     const bookedEventIds = new Set();
