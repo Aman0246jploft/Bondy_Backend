@@ -894,12 +894,12 @@ const getCourses = async (req, res) => {
         ...query,
         ...(promotedCourseIds.size > 0
           ? {
-              _id: {
-                $nin: [...promotedCourseIds].map(
-                  (id) => new mongoose.Types.ObjectId(id)
-                ),
-              },
-            }
+            _id: {
+              $nin: [...promotedCourseIds].map(
+                (id) => new mongoose.Types.ObjectId(id)
+              ),
+            },
+          }
           : {}),
       };
 
@@ -907,10 +907,10 @@ const getCourses = async (req, res) => {
         isOrganizerList || filters.includes("latest") || filters.includes("newest")
           ? { createdAt: -1 }
           : filters.includes("past")
-          ? { endDate: -1, startDate: -1 }
-          : filters.includes("draft")
-          ? { updatedAt: -1 }
-          : { isFeatured: -1, startDate: 1, createdAt: -1 };
+            ? { endDate: -1, startDate: -1 }
+            : filters.includes("draft")
+              ? { updatedAt: -1 }
+              : { isFeatured: -1, startDate: 1, createdAt: -1 };
 
       const remainingCourses = await Course.find(remainingQuery)
         .populate("courseCategory")
@@ -1010,10 +1010,10 @@ const getCourses = async (req, res) => {
           isOrganizerList || filters.includes("latest") || filters.includes("newest")
             ? { createdAt: -1 }
             : filters.includes("past")
-            ? { endDate: -1, startDate: -1 }
-            : filters.includes("draft")
-            ? { updatedAt: -1 }
-            : { isFeatured: -1, startDate: 1, createdAt: -1 };
+              ? { endDate: -1, startDate: -1 }
+              : filters.includes("draft")
+                ? { updatedAt: -1 }
+                : { isFeatured: -1, startDate: 1, createdAt: -1 };
         courses = await Course.find(query)
           .populate("courseCategory")
           .populate("createdBy", "firstName lastName profileImage isVerified")
