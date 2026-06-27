@@ -9,6 +9,7 @@ const {
   apiSuccessRes,
   formatResponseUrl,
 } = require("../../utils/globalFunction");
+const { formatDateTimeByTimezone, adjustEventDateTime } = require("../../utils/timezoneHelper");
 const {
   createCourseSchema,
   getCoursesSchema,
@@ -1145,7 +1146,24 @@ const getCourses = async (req, res) => {
       });
     }
 
+    let userTimeZone = null;
+    if (viewerId) {
+      const u = await User.findById(viewerId).select("timeZone");
+      if (u && u.timeZone) userTimeZone = u.timeZone;
+    }
+
     const formattedCourses = courses.map((course) => {
+      if (userTimeZone) {
+        if (course.startDate) {
+          const startAdjusted = adjustEventDateTime(course.startDate, "00:00", userTimeZone);
+          course.startDate = startAdjusted.date;
+        }
+        if (course.endDate) {
+          const endAdjusted = adjustEventDateTime(course.endDate, "00:00", userTimeZone);
+          course.endDate = endAdjusted.date;
+        }
+      }
+
       if (Array.isArray(course.posterImage)) course.posterImage = course.posterImage.map(formatResponseUrl);
       if (Array.isArray(course.mediaLinks)) course.mediaLinks = course.mediaLinks.map(formatResponseUrl);
       if (Array.isArray(course.shortTeaserVideo)) course.shortTeaserVideo = course.shortTeaserVideo.map(formatResponseUrl);
@@ -1160,6 +1178,13 @@ const getCourses = async (req, res) => {
           const acquired = bookingMap[`${course._id}_${batchId}`] || 0;
           const seats = batch.seats || 0;
           const reserved = batch.ReservedExternally || 0;
+
+          if (userTimeZone) {
+            const startAdjusted = adjustEventDateTime(course.startDate, batch.startTime, userTimeZone);
+            const endAdjusted = adjustEventDateTime(course.startDate, batch.endTime, userTimeZone);
+            batch.startTime = startAdjusted.time;
+            batch.endTime = endAdjusted.time;
+          }
           courseTotalSeats += seats;
           totalReservedExternally += reserved;
           const available = Math.max(0, seats - acquired - reserved);
@@ -2349,6 +2374,40 @@ const getCourseDetails = async (req, res) => {
       threeMonthPassPrice: course.threeMonthPassPrice || 0,
       capacitypersession: course.batches && course.batches.length > 0 ? (course.batches[0].seats || 0) : 0,
     };
+
+    let userTimeZone = null;
+    let viewUserId = null;
+
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      try {
+        const token = authHeader.split(" ")[1];
+        const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY);
+        viewUserId = decoded.userId;
+      } catch (err) { }
+    }
+    if (viewUserId) {
+      const u = await User.findById(viewUserId).select("timeZone");
+      if (u && u.timeZone) userTimeZone = u.timeZone;
+    }
+
+    if (userTimeZone) {
+      if (formattedCourse.startDate) {
+        const startAdjusted = adjustEventDateTime(formattedCourse.startDate, "00:00", userTimeZone);
+        formattedCourse.startDate = startAdjusted.date;
+      }
+      if (formattedCourse.endDate) {
+        const endAdjusted = adjustEventDateTime(formattedCourse.endDate, "00:00", userTimeZone);
+        formattedCourse.endDate = endAdjusted.date;
+      }
+      if (formattedCourse.batches && Array.isArray(formattedCourse.batches)) {
+        formattedCourse.batches.forEach((batch) => {
+          const startAdjusted = adjustEventDateTime(course.startDate, batch.startTime, userTimeZone);
+          const endAdjusted = adjustEventDateTime(course.startDate, batch.endTime, userTimeZone);
+          batch.startTime = startAdjusted.time;
+          batch.endTime = endAdjusted.time;
+        });
+      }
+    }
 
     return apiSuccessRes(
       HTTP_STATUS.OK,

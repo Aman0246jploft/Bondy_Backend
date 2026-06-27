@@ -22,6 +22,7 @@ const {
   formatResponseUrl,
   toObjectId,
 } = require("../../utils/globalFunction");
+const { formatDateTimeByTimezone, adjustEventDateTime } = require("../../utils/timezoneHelper");
 const {
   createEventSchema,
   getEventsSchema,
@@ -276,7 +277,28 @@ const checkFewSeatsAvailable = (available, total, percent = 10) => {
   if (!total || total <= 0) return false;
   return available <= (percent / 100) * total;
 };
-const formatEvent = (event, bookedEventIds = new Set(), bookedQty = 0, pendingQty = 0) => {
+const formatEvent = (event, bookedEventIds = new Set(), bookedQty = 0, pendingQty = 0, userTimeZone = null) => {
+  if (userTimeZone) {
+    if (event.startDate || event.startTime) {
+      const startAdjusted = adjustEventDateTime(event.startDate, event.startTime, userTimeZone);
+      if (event.startDate) event.startDate = startAdjusted.date;
+      if (event.startTime) event.startTime = startAdjusted.time;
+    }
+    if (event.endDate || event.endTime) {
+      const endAdjusted = adjustEventDateTime(event.endDate, event.endTime, userTimeZone);
+      if (event.endDate) event.endDate = endAdjusted.date;
+      if (event.endTime) event.endTime = endAdjusted.time;
+    }
+    
+    if (Array.isArray(event.tickets)) {
+      event.tickets = event.tickets.map(t => {
+        if (t.salesStart) t.salesStart = formatDateTimeByTimezone(t.salesStart, userTimeZone);
+        if (t.salesEnd) t.salesEnd = formatDateTimeByTimezone(t.salesEnd, userTimeZone);
+        return t;
+      });
+    }
+  }
+
   if (Array.isArray(event.posterImage)) {
     event.posterImage = event.posterImage.map((img) => formatResponseUrl(img));
   }
@@ -1553,6 +1575,7 @@ const getEvents = async (req, res) => {
     }
 
     const bookedEventIds = new Set();
+    let userTimeZone = null;
     if (loginUser) {
       const bookings = await Transaction.find({
         userId: loginUser,
@@ -1560,6 +1583,9 @@ const getEvents = async (req, res) => {
         status: "PAID",
       }).select("eventId");
       bookings.forEach((b) => bookedEventIds.add(b.eventId.toString()));
+
+      const u = await User.findById(loginUser).select("timeZone");
+      if (u && u.timeZone) userTimeZone = u.timeZone;
     }
 
     const bookedMap = new Map();
@@ -1593,7 +1619,7 @@ const getEvents = async (req, res) => {
       const eventIdStr = event._id.toString();
       const bookedQty = bookedMap.get(eventIdStr) || 0;
       const pendingQty = pendingMap.get(eventIdStr) || 0;
-      const formatted = formatEvent(event, bookedEventIds, bookedQty, pendingQty);
+      const formatted = formatEvent(event, bookedEventIds, bookedQty, pendingQty, userTimeZone);
       formatted.totalRevenue = revenueMap.get(eventIdStr) || 0;
       return formatted;
     });
@@ -1674,6 +1700,11 @@ const getEventDetails = async (req, res) => {
     const { eventId } = req.params;
 
     const loggedInUserId = req.user?.userId || null;
+    let userTimeZone = null;
+    if (loggedInUserId) {
+      const u = await User.findById(loggedInUserId).select("timeZone");
+      if (u && u.timeZone) userTimeZone = u.timeZone;
+    }
 
     // 1. Fetch Event with populated fields
     const event = await Event.findById(eventId)
@@ -2004,7 +2035,27 @@ const getEventDetails = async (req, res) => {
         : null,
     }));
 
-    const similarEvents = (rawSimilarEvents || []).map(e => formatEvent(e));
+    if (userTimeZone) {
+      if (event.startDate || event.startTime) {
+        const startAdjusted = adjustEventDateTime(event.startDate, event.startTime, userTimeZone);
+        if (event.startDate) event.startDate = startAdjusted.date;
+        if (event.startTime) event.startTime = startAdjusted.time;
+      }
+      if (event.endDate || event.endTime) {
+        const endAdjusted = adjustEventDateTime(event.endDate, event.endTime, userTimeZone);
+        if (event.endDate) event.endDate = endAdjusted.date;
+        if (event.endTime) event.endTime = endAdjusted.time;
+      }
+      if (Array.isArray(event.tickets)) {
+        event.tickets = event.tickets.map(t => {
+          if (t.salesStart) t.salesStart = formatDateTimeByTimezone(t.salesStart, userTimeZone);
+          if (t.salesEnd) t.salesEnd = formatDateTimeByTimezone(t.salesEnd, userTimeZone);
+          return t;
+        });
+      }
+    }
+
+    const similarEvents = (rawSimilarEvents || []).map(e => formatEvent(e, new Set(), 0, 0, userTimeZone));
 
     return apiSuccessRes(
       HTTP_STATUS.OK,
