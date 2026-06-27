@@ -8,6 +8,7 @@ const customerSignupSchema = Joi.object({
   confirmPassword: Joi.string().valid(Joi.ref("password")).required().strict(),
   fmcToken: Joi.string().optional().allow(null, ""),
   referralCode: Joi.string().optional().allow(null, ""),
+  timeZone: Joi.string().optional().allow(null, ""),
 });
 
 const organizerSignupSchema = Joi.object({
@@ -20,6 +21,7 @@ const organizerSignupSchema = Joi.object({
   acceptTerms: Joi.boolean().valid(true).required(),
   referralCode: Joi.string().optional().allow(null, ""),
   fmcToken: Joi.string().optional().allow(null, ""),
+  timeZone: Joi.string().optional().allow(null, ""),
 });
 
 const organizerInfoSchema = Joi.object({
@@ -45,6 +47,7 @@ const loginInitSchema = Joi.object({
   password: Joi.string().required(),
   type: Joi.string().valid("ORGANIZER", "CUSTOMER", "GUEST").required(),
   fmcToken: Joi.string().optional().allow(null, ""),
+  timeZone: Joi.string().optional().allow(null, ""),
 });
 
 const otpVerificationSchema = Joi.object({
@@ -98,6 +101,7 @@ const updateUserSchema = Joi.object({
   businessCategory: Joi.string().hex().length(24).optional(),
   shortDesc: Joi.string().trim().optional(),
   socialMediaLink: Joi.string().trim().optional().allow(null, ""),
+  timeZone: Joi.string().optional().allow(null, ""),
 });
 
 const socialLoginSchema = Joi.object({
@@ -109,6 +113,7 @@ const socialLoginSchema = Joi.object({
   lastName: Joi.string().optional().allow(null, ""),
   profileImage: Joi.string().optional().allow(null, ""),
   fmcToken: Joi.string().optional().allow(null, ""),
+  timeZone: Joi.string().optional().allow(null, ""),
 });
 
 const forgotPasswordInitSchema = Joi.object({

@@ -166,6 +166,7 @@ const customerSignupVerify = async (req, res) => {
       user.countryCode = userData.countryCode;
       user.roleId = roleId.CUSTOMER;
       user.fmcToken = userData.fmcToken || user.fmcToken;
+      user.timeZone = userData.timeZone || user.timeZone;
       user.verifications = {
         email: {
           isVerified: true,
@@ -188,6 +189,7 @@ const customerSignupVerify = async (req, res) => {
         countryCode: userData.countryCode,
         roleId: roleId.CUSTOMER,
         fmcToken: userData.fmcToken || null,
+        timeZone: userData.timeZone || null,
         verifications: {
           email: {
             isVerified: true,
@@ -364,6 +366,7 @@ const organizerSignupVerify = async (req, res) => {
       user.contactNumber = userData.contactNumber || user.contactNumber;
       user.roleId = roleId.ORGANIZER;
       user.fmcToken = userData.fmcToken || user.fmcToken;
+      user.timeZone = userData.timeZone || user.timeZone;
       user.organizerVerificationStatus = "unverified";
       user.verifications = {
         email: {
@@ -391,6 +394,7 @@ const organizerSignupVerify = async (req, res) => {
         roleId: roleId.ORGANIZER, // ORGANIZER
         organizerVerificationStatus: "unverified",
         fmcToken: userData.fmcToken || null,
+        timeZone: userData.timeZone || null,
         verifications: {
           email: {
             isVerified: true,
@@ -645,7 +649,7 @@ const loginInit = async (req, res) => {
 // Login - Step 2: Verify OTP
 const loginVerify = async (req, res) => {
   try {
-    const { email, otp } = req.body;
+    const { email, otp, timeZone } = req.body;
 
     // Verify OTP
     const redisOtp = await getKey(`login_otp:${email}`);
@@ -684,6 +688,10 @@ const loginVerify = async (req, res) => {
     if (fmcToken) {
       user.fmcToken = fmcToken;
       await removeKey(`login_fmcToken:${email}`);
+    }
+
+    if (timeZone) {
+      user.timeZone = timeZone;
     }
 
     // Update last login
@@ -823,6 +831,7 @@ const socialLogin = async (req, res) => {
       lastName,
       profileImage,
       fmcToken,
+      timeZone,
     } = req.body;
 
     // 1. Search by Social ID
@@ -853,6 +862,7 @@ const socialLogin = async (req, res) => {
 
       // Update fmcToken and lastLogin
       if (fmcToken) user.fmcToken = fmcToken;
+      if (timeZone) user.timeZone = timeZone;
       user.lastLogin = new Date();
       await user.save();
     } else {
@@ -880,6 +890,7 @@ const socialLogin = async (req, res) => {
           if (!user.profileImage && profileImage)
             user.profileImage = profileImage;
           if (fmcToken) user.fmcToken = fmcToken;
+          if (timeZone) user.timeZone = timeZone;
           user.lastLogin = new Date();
           await user.save();
         }
@@ -895,6 +906,7 @@ const socialLogin = async (req, res) => {
           socialLogin: { socialId, socialType },
           roleId: roleId[type],
           fmcToken: fmcToken || null,
+          timeZone: timeZone || null,
           lastLogin: new Date(),
           organizerVerificationStatus:
             type === "CUSTOMER" ? "approved" : "unverified",
