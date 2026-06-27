@@ -20,14 +20,29 @@ cron.schedule("* * * * *", async () => {
       let eventEndUtc;
       
       if (creatorTimeZone && moment.tz.zone(creatorTimeZone)) {
-        // Parse the event's local start/end combining date and time fields in the creator's timezone
-        const startDateStr = new Date(event.startDate).toISOString().split("T")[0];
-        const startTimeStr = event.startTime || "00:00";
-        eventStartUtc = moment.tz(`${startDateStr}T${startTimeStr}`, creatorTimeZone).utc();
+        eventStartUtc = null;
+        eventEndUtc = null;
+
+        if (event.startDate) {
+          const start = new Date(event.startDate);
+          if (!isNaN(start.valueOf())) {
+            const startDateStr = start.toISOString().split("T")[0];
+            const startTimeStr = event.startTime || "00:00";
+            eventStartUtc = moment.tz(`${startDateStr}T${startTimeStr}`, creatorTimeZone).utc();
+          }
+        }
         
-        const endDateStr = new Date(event.endDate).toISOString().split("T")[0];
-        const endTimeStr = event.endTime || "00:00";
-        eventEndUtc = moment.tz(`${endDateStr}T${endTimeStr}`, creatorTimeZone).utc();
+        if (event.endDate) {
+          const end = new Date(event.endDate);
+          if (!isNaN(end.valueOf())) {
+            const endDateStr = end.toISOString().split("T")[0];
+            const endTimeStr = event.endTime || "00:00";
+            eventEndUtc = moment.tz(`${endDateStr}T${endTimeStr}`, creatorTimeZone).utc();
+          }
+        }
+        
+        if (!eventStartUtc) eventStartUtc = moment.utc(event.startDate);
+        if (!eventEndUtc) eventEndUtc = moment.utc(event.endDate);
       } else {
         // Fallback to UTC comparison
         eventStartUtc = moment.utc(event.startDate);

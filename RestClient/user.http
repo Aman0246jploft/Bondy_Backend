@@ -209,7 +209,7 @@ Content-Type: application/json
 
 ### 15. Update Timezone (Hit on Home Page load)
 POST {{baseUrl}}/user/update-timezone
-Authorization: Bearer {{organizerToken}}
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTNlMTliNTNiYzFlZDg1NTAxYzYyOWEiLCJyb2xlSWQiOjIsImlhdCI6MTc4MjU0MTkxNywiZXhwIjoyNjQ2NTQxOTE3fQ.Ldkkv2bvxJx7a_-PAzufwlwR_t-53WhbX-qiZ8FwMoo
 Content-Type: application/json
 
 {

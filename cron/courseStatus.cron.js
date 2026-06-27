@@ -20,13 +20,29 @@ cron.schedule("*/10 * * * *", async () => {
       let courseEndUtc;
       
       if (creatorTimeZone && moment.tz.zone(creatorTimeZone)) {
-        const startDateStr = new Date(course.startDate).toISOString().split("T")[0];
-        courseStartUtc = moment.tz(`${startDateStr}T00:00:00`, creatorTimeZone).utc();
+        courseStartUtc = null;
+        courseEndUtc = null;
+
+        if (course.startDate) {
+          const start = new Date(course.startDate);
+          if (!isNaN(start.valueOf())) {
+            const startDateStr = start.toISOString().split("T")[0];
+            courseStartUtc = moment.tz(`${startDateStr}T00:00:00`, creatorTimeZone).utc();
+          }
+        }
         
         if (course.endDate) {
-          const endDateStr = new Date(course.endDate).toISOString().split("T")[0];
-          courseEndUtc = moment.tz(`${endDateStr}T23:59:59`, creatorTimeZone).utc(); // Assuming end of day for course endDate if no specific time is provided at root
+          const end = new Date(course.endDate);
+          if (!isNaN(end.valueOf())) {
+            const endDateStr = end.toISOString().split("T")[0];
+            courseEndUtc = moment.tz(`${endDateStr}T23:59:59`, creatorTimeZone).utc();
+          }
         }
+
+        // Fallbacks if dates are invalid
+        if (!courseStartUtc) courseStartUtc = moment.utc(course.startDate);
+        if (!courseEndUtc) courseEndUtc = course.endDate ? moment.utc(course.endDate) : null;
+        
       } else {
         courseStartUtc = moment.utc(course.startDate);
         courseEndUtc = course.endDate ? moment.utc(course.endDate) : null;
