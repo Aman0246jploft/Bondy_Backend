@@ -1499,6 +1499,7 @@ const updateCourse = async (req, res) => {
 
     // Merge existing batch details for partial batch update payloads
     if (updateData.batches && Array.isArray(updateData.batches)) {
+      updateData.batches = updateData.batches.filter(b => b && Object.keys(b).length > 0);
       for (const b of updateData.batches) {
         if (b._id && existingCourse.batches) {
           const existingBatch = existingCourse.batches.id(b._id);
