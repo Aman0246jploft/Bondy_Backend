@@ -9,8 +9,8 @@ POST {{baseUrl}}/user/admin/login
 Content-Type: application/json
 
 {
-  "email": "superadmin@mailinator.com",
-  "password": "123456"
+  "email": "custtest1@yopmail.com",
+  "password": "Test@123"
 }
 
 
