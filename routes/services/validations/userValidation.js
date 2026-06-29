@@ -76,8 +76,8 @@ const resendOtpSchema = Joi.object({
 });
 
 const updateUserSchema = Joi.object({
-  firstName: Joi.string().trim().optional(),
-  lastName: Joi.string().trim().optional(),
+  firstName: Joi.string().trim().optional().allow(null, ""),
+  lastName: Joi.string().trim().optional().allow(null, ""),
   profileImage: Joi.string().optional().allow(null, ""),
   backgroundImage: Joi.string().optional().allow(null, ""),
   gender: Joi.string().optional().allow("", null),
@@ -97,9 +97,9 @@ const updateUserSchema = Joi.object({
     zipcode: Joi.string().optional().allow(null, ""),
   }).optional().allow(null, ""),
   fmcToken: Joi.string().optional().allow(null, ""),
-  businessName: Joi.string().trim().optional(),
-  businessCategory: Joi.string().hex().length(24).optional(),
-  shortDesc: Joi.string().trim().optional(),
+  businessName: Joi.string().trim().optional().allow(null, ""),
+  businessCategory: Joi.string().hex().length(24).optional().allow(null, ""),
+  shortDesc: Joi.string().trim().optional().allow(null, ""),
   socialMediaLink: Joi.string().trim().optional().allow(null, ""),
   timeZone: Joi.string().optional().allow(null, ""),
 });
