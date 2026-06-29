@@ -7,9 +7,17 @@ const faqSchema = new mongoose.Schema(
             required: true,
             trim: true,
         },
+        question_mn: {
+            type: String,
+            trim: true,
+        },
         answer: {
             type: String,
             required: true,
+            trim: true,
+        },
+        answer_mn: {
+            type: String,
             trim: true,
         },
         order: {

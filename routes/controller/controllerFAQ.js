@@ -34,8 +34,8 @@ const getAllFAQsAdmin = async (req, res) => {
 // Admin: Create FAQ
 const createFAQ = async (req, res) => {
   try {
-    const { question, answer, order, isActive } = req.body;
-    const newFAQ = new FAQ({ question, answer, order, isActive });
+    const { question, question_mn, answer, answer_mn, order, isActive } = req.body;
+    const newFAQ = new FAQ({ question, question_mn, answer, answer_mn, order, isActive });
     await newFAQ.save();
     return apiSuccessRes(HTTP_STATUS.CREATED, res, constantsMessage.FAQ_CREATED, {
       faq: newFAQ,
@@ -49,10 +49,10 @@ const createFAQ = async (req, res) => {
 const updateFAQ = async (req, res) => {
   try {
     const { id } = req.params;
-    const { question, answer, order, isActive } = req.body;
+    const { question, question_mn, answer, answer_mn, order, isActive } = req.body;
     const updatedFAQ = await FAQ.findByIdAndUpdate(
       id,
-      { question, answer, order, isActive },
+      { question, question_mn, answer, answer_mn, order, isActive },
       { new: true },
     );
     if (!updatedFAQ) {
