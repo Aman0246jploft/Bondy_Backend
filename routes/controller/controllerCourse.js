@@ -1153,7 +1153,7 @@ const getCourses = async (req, res) => {
     }
 
     const formattedCourses = courses.map((course) => {
-      const displayTimeZone = userTimeZone || course.timeZone;
+      const displayTimeZone = course.timeZone;
       if (displayTimeZone) {
         if (course.startDate) {
           const startAdjusted = adjustEventDateTime(course.startDate, "00:00", displayTimeZone);
@@ -1163,6 +1163,7 @@ const getCourses = async (req, res) => {
           const endAdjusted = adjustEventDateTime(course.endDate, "00:00", displayTimeZone);
           course.endDate = endAdjusted.date;
         }
+        course.timeZone = displayTimeZone;
       }
 
       if (Array.isArray(course.posterImage)) course.posterImage = course.posterImage.map(formatResponseUrl);
@@ -2392,7 +2393,7 @@ const getCourseDetails = async (req, res) => {
       if (u && u.timeZone) userTimeZone = u.timeZone;
     }
 
-    const displayTimeZone = userTimeZone || formattedCourse.timeZone;
+     const displayTimeZone = formattedCourse.timeZone;
     if (displayTimeZone) {
       if (formattedCourse.startDate) {
         const startAdjusted = adjustEventDateTime(formattedCourse.startDate, "00:00", displayTimeZone);
@@ -2410,6 +2411,7 @@ const getCourseDetails = async (req, res) => {
           batch.endTime = endAdjusted.time;
         });
       }
+      formattedCourse.timeZone = displayTimeZone;
     }
 
     return apiSuccessRes(
@@ -2676,206 +2678,6 @@ const getCourseAnalytics = async (req, res) => {
 // ---------------------------------------------------------
 // Get Organizer Courses (for course management page)
 // ---------------------------------------------------------
-const getOrganizerCourses = async (req, res) => {
-  try {
-    const userId = req.user.userId;
-    const { categoryId, search, page = 1, limit = 10, isDraft, enrollmentType } = req.query;
-
-    const skip = (page - 1) * limit;
-    let query = { createdBy: userId };
-
-    // Apply category filter
-    if (categoryId) {
-      query.courseCategory = categoryId;
-    }
-
-    // Apply isDraft filter
-    if (isDraft === "true" || isDraft === true) {
-      query.isDraft = true;
-    } else if (isDraft === "false" || isDraft === false) {
-      query.isDraft = false;
-    }
-
-    // Apply enrollmentType filter
-    if (enrollmentType) {
-      query.enrollmentType = enrollmentType;
-    }
-
-    // Apply search
-    if (search) {
-      query.$or = [
-        { courseTitle: { $regex: search, $options: "i" } },
-        { shortdesc: { $regex: search, $options: "i" } },
-      ];
-    }
-
-    const totalCourses = await Course.countDocuments(query);
-    const totalPages = Math.ceil(totalCourses / limit);
-
-    const courses = await Course.find(query)
-      .populate("courseCategory", "name image")
-      .populate("createdBy", "firstName lastName profileImage isVerified")
-      .skip(skip)
-      .limit(Number(limit))
-      .sort({ createdAt: -1 })
-      .lean();
-
-    const courseIds = courses.map((c) => c._id);
-
-    // Aggregate revenue and enrollment stats
-    const stats = await Transaction.aggregate([
-      { $match: { courseId: { $in: courseIds }, status: "PAID", bookingType: "COURSE" } },
-      {
-        $group: {
-          _id: "$courseId",
-          totalRevenue: { $sum: "$totalAmount" },
-          totalEnrollments: { $sum: "$qty" },
-        },
-      },
-    ]);
-
-    const statsMap = {};
-    stats.forEach((stat) => {
-      statsMap[stat._id.toString()] = {
-        revenue: stat.totalRevenue,
-        enrollments: stat.totalEnrollments,
-      };
-    });
-
-    // Aggregate bookings by batch for detailed available seats calculation
-    const bookingCounts = await Transaction.aggregate([
-      { $match: { courseId: { $in: courseIds }, status: "PAID", bookingType: "COURSE" } },
-      {
-        $group: {
-          _id: { course: "$courseId", batch: "$batchId" },
-          count: { $sum: "$qty" },
-        },
-      },
-    ]);
-
-    const bookingMap = {};
-    const courseBookingMap = {};
-    bookingCounts.forEach((b) => {
-      const courseId = b._id.course.toString();
-      const batchIdStr = b._id.batch ? b._id.batch.toString() : "null";
-      bookingMap[`${courseId}_${batchIdStr}`] = b.count;
-      courseBookingMap[courseId] = (courseBookingMap[courseId] || 0) + b.count;
-    });
-
-    const formattedCourses = courses.map((course) => {
-      // Format images
-      if (Array.isArray(course.posterImage)) course.posterImage = course.posterImage.map(formatResponseUrl);
-      if (Array.isArray(course.mediaLinks)) course.mediaLinks = course.mediaLinks.map(formatResponseUrl);
-      if (Array.isArray(course.shortTeaserVideo)) course.shortTeaserVideo = course.shortTeaserVideo.map(formatResponseUrl);
-      if (course.courseCategory?.image) course.courseCategory.image = formatResponseUrl(course.courseCategory.image);
-      if (course.createdBy?.profileImage) course.createdBy.profileImage = formatResponseUrl(course.createdBy.profileImage);
-
-      let courseTotalSeats = 0;
-      let totalReservedExternally = 0;
-      if (course.batches && Array.isArray(course.batches)) {
-        course.batches = course.batches.map((batch) => {
-          const batchId = batch._id?.toString();
-          const acquired = bookingMap[`${course._id}_${batchId}`] || 0;
-          const seats = batch.seats || 0;
-          const reserved = batch.ReservedExternally || 0;
-          courseTotalSeats += seats;
-          totalReservedExternally += reserved;
-          const available = Math.max(0, seats - acquired - reserved);
-          return {
-            ...batch,
-            acquiredSeats: acquired,
-            totalacquirewithreserver: acquired + reserved,
-            availableSeats: available,
-            isFull: available <= 0,
-          };
-        });
-      }
-
-      const actualBooked = (courseBookingMap[course._id.toString()] || 0);
-      const totalacquirewithreserver = actualBooked + totalReservedExternally;
-      const leftSeats = Math.max(0, courseTotalSeats - actualBooked - totalReservedExternally);
-
-      // Calculate schedule boundaries
-      let earliestStartTime = null;
-      let latestEndTime = null;
-      if (course.batches && course.batches.length > 0) {
-        const startTimes = course.batches.map((b) => b.startTime).filter(Boolean);
-        const endTimes = course.batches.map((b) => b.endTime).filter(Boolean);
-        if (startTimes.length > 0) {
-          startTimes.sort();
-          earliestStartTime = startTimes[0];
-        }
-        if (endTimes.length > 0) {
-          endTimes.sort();
-          latestEndTime = endTimes[endTimes.length - 1];
-        }
-      }
-
-      const currentSchedule = {
-        startDate: course.startDate,
-        endDate: course.endDate,
-        startTime: earliestStartTime,
-        endTime: latestEndTime,
-      };
-
-      const sessionStatus = getSessionStatus(currentSchedule);
-
-      // Duration calculations
-      let duration = null;
-      let durationTranslation = null;
-      if (earliestStartTime && latestEndTime) {
-        const [sh, sm] = earliestStartTime.split(":").map(Number);
-        const [eh, em] = latestEndTime.split(":").map(Number);
-        let mins = eh * 60 + em - (sh * 60 + sm);
-        if (mins < 0) mins += 1440;
-        if (mins > 0) {
-          const h = Math.floor(mins / 60);
-          const m = mins % 60;
-          duration = h ? (m ? `${h} H ${m} min` : `${h} H`) : `${m} min`;
-          durationTranslation = h ? (m ? `${h} Цаг ${m} мин` : `${h} Цаг`) : `${m} мин`;
-        }
-      }
-
-      const courseStats = statsMap[course._id.toString()] || {
-        revenue: 0,
-        enrollments: 0,
-      };
-
-      return {
-        ...course,
-        totalSeats: courseTotalSeats,
-        acquiredSeats: actualBooked,
-        totalacquirewithreserver,
-        leftSeats,
-        currentSchedule,
-        sessionStatus,
-        isAvailable: !!currentSchedule && sessionStatus !== "PAST",
-        duration,
-        durationTranslation,
-        totalRevenue: courseStats.revenue,
-        totalEnrollments: courseStats.enrollments,
-        capacitypersession: course.batches && course.batches.length > 0 ? (course.batches[0].seats || 0) : 0,
-      };
-    });
-
-    const grandTotalRevenue = formattedCourses.reduce(
-      (sum, c) => sum + (c.totalRevenue || 0),
-      0,
-    );
-
-    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.SUCCESS, {
-      totalCourses,
-      currentPage: Number(page),
-      totalPages,
-      coursesPerPage: Number(limit),
-      grandTotalRevenue,
-      courses: formattedCourses,
-    });
-  } catch (error) {
-    console.error("Error in getOrganizerCourses:", error);
-    return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
-  }
-};
 
 const getBookingCutOffs = async (req, res) => {
   try {

@@ -15,12 +15,12 @@ Content-Type: application/json
 
 ### 2. Create a Fully Published Event (All required fields provided)
 POST {{baseUrl}}/event/create
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTNlMTliNTNiYzFlZDg1NTAxYzYyOWEiLCJyb2xlSWQiOjIsImlhdCI6MTc4MjU0MTkxNywiZXhwIjoyNjQ2NTQxOTE3fQ.Ldkkv2bvxJx7a_-PAzufwlwR_t-53WhbX-qiZ8FwMoo
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTQyMTg5OWY4NjgzYzZlOWNhMjY4Y2EiLCJyb2xlSWQiOjIsImlhdCI6MTc4MjcyNTY3OSwiZXhwIjoyNjQ2NzI1Njc5fQ.zhMUUjZJeK3T49iQ3-fmLqtL7yOYjbRhWJLTsYPqhbs
 Content-Type: application/json  
 
 {
   "isDraft": false,
-  "eventTitle": "277june",
+  "eventTitle": "29june",
   "ReservedExternally": 10,
   "eventCategory": "647f1234567890abcdef1234",
   "shortdesc": "A vibrant celebration of music and arts.",
@@ -187,8 +187,7 @@ Content-Type: application/json
 #======================================= ==== FILTER ==== ==============================================
 
 ### 7. List Events - Standard Retrieve (Active/Upcoming Events)
-GET {{baseUrl}}/event/list?filter=recommended
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTNlMGFlYjNiYzFlZDg1NTAxYzUxOWEiLCJyb2xlSWQiOjMsImlhdCI6MTc4MjU0NTk5MiwiZXhwIjoyNjQ2NTQ1OTkyfQ.ZrhxJZt9MFGc8kfDgCZPh8V0pI3Ers_LY5GXVZtAYXw
+GET {{baseUrl}}/event/list?search=29june
 
 
 ### 8. List Events - Filter by Status (Explicitly show Cancelled, Live, or Past events)
@@ -258,7 +257,7 @@ Authorization: Bearer {{authToken}}
 #============= FILTER ==============
 
 ### 14. Get Event Details
-GET {{baseUrl}}/event/details/6a3f7b17f00f2ef74366ddc3
+GET {{baseUrl}}/event/details/6a423c4929d148068546d19c
 Authorization: Bearer {{authToken}}
 
 

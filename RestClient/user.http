@@ -9,7 +9,7 @@ POST {{baseUrl}}/user/admin/login
 Content-Type: application/json
 
 {
-  "email": "custtest1@yopmail.com",
+  "email": "alex1@yopmail.com",
   "password": "Test@123"
 }
 

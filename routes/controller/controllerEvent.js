@@ -278,7 +278,7 @@ const checkFewSeatsAvailable = (available, total, percent = 10) => {
   return available <= (percent / 100) * total;
 };
 const formatEvent = (event, bookedEventIds = new Set(), bookedQty = 0, pendingQty = 0, userTimeZone = null) => {
-  const displayTimeZone = userTimeZone || event.timeZone;
+  const displayTimeZone = event.timeZone;
   if (displayTimeZone) {
     if (event.startDate || event.startTime) {
       const startAdjusted = adjustEventDateTime(event.startDate, event.startTime, displayTimeZone);
@@ -290,6 +290,7 @@ const formatEvent = (event, bookedEventIds = new Set(), bookedQty = 0, pendingQt
       if (event.endDate) event.endDate = endAdjusted.date;
       if (event.endTime) event.endTime = endAdjusted.time;
     }
+    event.timeZone = displayTimeZone;
     
     if (Array.isArray(event.tickets)) {
       event.tickets = event.tickets.map(t => {
@@ -2036,7 +2037,7 @@ const getEventDetails = async (req, res) => {
         : null,
     }));
 
-    const displayTimeZone = userTimeZone || event.timeZone;
+    const displayTimeZone = event.timeZone;
     if (displayTimeZone) {
       if (event.startDate || event.startTime) {
         const startAdjusted = adjustEventDateTime(event.startDate, event.startTime, displayTimeZone);
@@ -2048,6 +2049,7 @@ const getEventDetails = async (req, res) => {
         if (event.endDate) event.endDate = endAdjusted.date;
         if (event.endTime) event.endTime = endAdjusted.time;
       }
+      event.timeZone = displayTimeZone;
       if (Array.isArray(event.tickets)) {
         event.tickets = event.tickets.map(t => {
           if (t.salesStart) t.salesStart = formatDateTimeByTimezone(t.salesStart, displayTimeZone);
