@@ -28,6 +28,18 @@ const publicRoutes = [
   "/api/v1/faq/list",
   "/api/v1/globalsetting/all",
   "/api/v1/globalsetting/",
+
+
+
+
+  "/api/v1/globalsetting/privacy_policy",
+  "/api/v1/globalsetting/terms_conditions_mn",
+  "/api/v1/globalsetting/privacy_policy_mn",
+  "/api/v1/globalsetting/faqsterms_conditions",
+
+
+
+
   "/api/v1/booking/cancellation-reasons",
   "/api/v1/user/social-login",
 
