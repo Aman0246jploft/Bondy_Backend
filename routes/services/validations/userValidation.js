@@ -52,14 +52,18 @@ const loginInitSchema = Joi.object({
 
 const otpVerificationSchema = Joi.object({
   email: Joi.string().email().required(),
-  otp: Joi.string().length(5).pattern(/^[0-9]+$/).required(),
+  otp: Joi.string().pattern(/^[0-9]{5}$/).required().messages({
+    "string.pattern.base": "otp length must be 5 digits long",
+  }),
   type: Joi.string().optional(),
   fmcToken: Joi.string().optional().allow(null, ""),
 });
 
 const universalOtpSchema = Joi.object({
   email: Joi.string().email().required(),
-  otp: Joi.string().length(5).pattern(/^[0-9]+$/).required(),
+  otp: Joi.string().pattern(/^[0-9]{5}$/).required().messages({
+    "string.pattern.base": "otp length must be 5 digits long",
+  }),
   type: Joi.string().valid("LOGIN", "CUSTOMER", "ORGANIZER").required(),
   fmcToken: Joi.string().optional().allow(null, ""),
 });

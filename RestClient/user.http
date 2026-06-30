@@ -97,8 +97,8 @@ POST {{baseUrl}}/user/login/init
 Content-Type: application/json
 
 {
-  "email": "new@gmail.com",
-  "password": "Test@123",
+  "email": "testOrganizer6@example.com",
+  "password": "password123",
   "type": "ORGANIZER",
   "timeZone": "Asia/Kolkata"
 }
@@ -110,8 +110,8 @@ POST {{baseUrl}}/user/verify-otp
 Content-Type: application/json
 
 {
-  "email": "new@gmail.com",
-  "otp": "12345",
+  "email": "testOrganizer6@example.com",
+  "otp": "1234",
   "type": "LOGIN",
   "timeZone": "Asia/Kolkata"
 }
