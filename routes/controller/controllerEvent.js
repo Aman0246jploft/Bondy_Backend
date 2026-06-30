@@ -109,6 +109,14 @@ const createEvent = async (req, res) => {
         );
       }
 
+      if (!event.isDraft && event.status === eventStatus.LIVE) {
+        return apiErrorRes(
+          HTTP_STATUS.BAD_REQUEST,
+          res,
+          "Your event is already live",
+        );
+      }
+
       if (!isDraftValue) {
         const reservedVal = req.body.ReservedExternally !== undefined ? req.body.ReservedExternally : (event.ReservedExternally || 0);
         let ticketsVal = req.body.tickets;
@@ -2670,6 +2678,15 @@ const updateEvent = async (req, res) => {
         res,
         constantsMessage.CANNOT_EDIT_PAST_EVENT ||
         "Cannot edit an event that has already ended",
+      );
+    }
+
+    // Prevent editing live events
+    if (!existingEvent.isDraft && existingEvent.status === eventStatus.LIVE) {
+      return apiErrorRes(
+        HTTP_STATUS.BAD_REQUEST,
+        res,
+        "Your event is already live",
       );
     }
 
