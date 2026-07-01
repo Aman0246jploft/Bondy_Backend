@@ -241,9 +241,20 @@ const chatSocketController = (io, socket) => {
       });
 
       if (!chat) {
+        // Check for existing blocks
+        const Block = require("../../db/models/Block");
+        const activeBlocks = await Block.find({
+          $or: [
+            { fromUser: userId, toUser: receiverId },
+            { fromUser: receiverId, toUser: userId }
+          ]
+        });
+        const blockedBy = activeBlocks.map(b => b.fromUser);
+
         // Create new chat
         chat = await Chat.create({
           participants: [userId, receiverId],
+          blockedBy,
           unreadCounts: {
             [receiverId]: 0,
             [userId]: 0,
@@ -327,9 +338,20 @@ const chatSocketController = (io, socket) => {
         });
 
         if (!chat) {
+          // Check for existing blocks
+          const Block = require("../../db/models/Block");
+          const activeBlocks = await Block.find({
+            $or: [
+              { fromUser: userId, toUser: receiverId },
+              { fromUser: receiverId, toUser: userId }
+            ]
+          });
+          const blockedBy = activeBlocks.map(b => b.fromUser);
+
           // Create new chat
           chat = await Chat.create({
             participants: [userId, receiverId],
+            blockedBy,
             lastMessage: {
               content: content || (fileType ? (fileType.charAt(0).toUpperCase() + fileType.slice(1)) : "File"),
               sender: userId,
@@ -431,9 +453,6 @@ const chatSocketController = (io, socket) => {
           io.to(pSocketId).emit("update_chat_list", formattedChat);
         }
       });
-
-
-
 
       // Emit to Room (standard message receive)
       socket.to(chatId).emit("receive_message", formatMessage(populatedMessage));

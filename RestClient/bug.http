@@ -1,0 +1,19 @@
+### Environment Variables
+@baseUrl = http://localhost:8080/api/v1
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTMyOTFmNDZhOTAwMDQyMWVjNzYyMjIiLCJyb2xlSWQiOjIsImlhdCI6MTc4MTg3NDEzOCwiZXhwIjoyNjQ1ODc0MTM4fQ.bdHXpekE-IfKeF5GTfuvBrM5IuBzsD4gXp8zhP-1mhk
+
+### 1. Report Bug
+POST {{baseUrl}}/bug/report
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "title": "Button click not working",
+  "description": "When clicking the submit button, nothing happens on the screen.",
+  "image": "uploads/bugs/example-bug.png"
+}
+
+### 2. List Bugs (Admin/User list)
+GET {{baseUrl}}/bug/list?page=1&limit=10
+Authorization: Bearer {{token}}
+Content-Type: application/json

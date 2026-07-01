@@ -109,19 +109,21 @@ const unblockUser = async (req, res) => {
       { $pull: { blockedBy: fromUser } },
     );
 
+    let formattedForBlocker = null;
+
     // Emit socket events for real-time update
     const io = req.app.get("io");
-    if (io) {
-      // Find the chat to notify participants
-      const chat = await Chat.findOne({
-        participants: { $all: [fromUser, toUser] }
-      }).populate("participants", "firstName lastName profileImage lastSeen roleId isVerified")
-        .populate("lastMessage.sender", "firstName lastName profileImage lastSeen roleId isVerified")
-        .populate("blockedBy", "firstName lastName profileImage");
+    // Find the chat to notify participants
+    const chat = await Chat.findOne({
+      participants: { $all: [fromUser, toUser] }
+    }).populate("participants", "firstName lastName profileImage lastSeen roleId isVerified")
+      .populate("lastMessage.sender", "firstName lastName profileImage lastSeen roleId isVerified")
+      .populate("blockedBy", "firstName lastName profileImage");
 
-      if (chat) {
+    if (chat) {
+      formattedForBlocker = formatChatForUser(chat, fromUser);
+      if (io) {
         // Notify blocker
-        const formattedForBlocker = formatChatForUser(chat, fromUser);
         io.to(fromUser.toString()).emit("user_unblocked", {
           targetUserId: toUser,
           chat: formattedForBlocker
@@ -137,12 +139,17 @@ const unblockUser = async (req, res) => {
         io.to(toUser.toString()).emit("update_chat_list", formattedForUnblocked);
 
         // Notify the specific chat room
+        // Calculate dynamic block state for the room
+        const roomIsBlocked = chat.blockedBy.length > 0;
         io.to(chat._id.toString()).emit("chat_unblocked", {
           chatId: chat._id,
           unblockedBy: fromUser,
-          isBlocked: false
+          isBlocked: roomIsBlocked,
+          blockedBy: roomIsBlocked ? chat.blockedBy[0] : null
         });
-      } else {
+      }
+    } else {
+      if (io) {
         // If no chat exists, still notify they are unblocked
         io.to(fromUser.toString()).emit("user_unblocked", { targetUserId: toUser });
         io.to(toUser.toString()).emit("user_unblocked", { unblockerId: fromUser });
@@ -153,7 +160,7 @@ const unblockUser = async (req, res) => {
       HTTP_STATUS.OK,
       res,
       constantsMessage.USER_UNBLOCKED,
-      null,
+      { chat: formattedForBlocker },
     );
   } catch (error) {
     return apiErrorRes(
