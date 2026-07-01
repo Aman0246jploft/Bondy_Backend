@@ -23,8 +23,8 @@ Content-Type: application/json
 }
 
 ### Get My Tickets (with optional pagination & filter)
-GET {{baseUrl}}/support/my-tickets?page=1&limit=10&status=Pending
-Authorization: Bearer {{userToken}}
+GET {{baseUrl}}/support/my-tickets?page=1&limit=10&status=
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTM4ZTA3MDU4ZWQxNGQ1YTZmNjFmZjEiLCJyb2xlSWQiOjIsImlhdCI6MTc4MjkwNDUwNywiZXhwIjoyNjQ2OTA0NTA3fQ.zbmiICItQpSQ8eNGzp_D5F62YVfgnrIwFTFex5rTKZU
 Content-Type: application/json
 
 ### Get Support Ticket Details

@@ -9,7 +9,7 @@ POST {{baseUrl}}/user/admin/login
 Content-Type: application/json
 
 {
-  "email": "alex1@yopmail.com",
+  "email": "weborg@yopmail.com",
   "password": "Test@123"
 }
 
@@ -215,3 +215,8 @@ Content-Type: application/json
 {
   "timeZone": "Asia/Kolkata"
 }
+
+
+
+###
+GET {{baseUrl}}/booking/public/generate-urls/6a437448cfa178aee8b76ba8

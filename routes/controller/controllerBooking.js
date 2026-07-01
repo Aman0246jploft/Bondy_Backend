@@ -2994,9 +2994,8 @@ const getPublicTicketDetail = async (req, res) => {
 const generateTicketUrls = async (req, res) => {
   try {
     const { transactionId } = req.params;
-    const userId = req.user.userId;
 
-    const transaction = await Transaction.findOne({ _id: transactionId, userId });
+    const transaction = await Transaction.findById(transactionId);
     if (!transaction) {
       return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.TICKET_NOT_FOUND_OR_UNAUTHORIZED);
     }
