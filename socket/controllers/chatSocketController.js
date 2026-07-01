@@ -71,6 +71,17 @@ const formatChatForUser = (chatDoc, targetUserId) => {
     chatObj.blockedBy = null;
   }
 
+  // If lastMessage is older than clearedAt, don't show it
+  const clearedAt = chatDoc.clearedAt && chatDoc.clearedAt.get
+    ? chatDoc.clearedAt.get(targetUserId.toString())
+    : chatDoc.clearedAt
+      ? chatDoc.clearedAt[targetUserId.toString()]
+      : null;
+
+  if (clearedAt && chatObj.lastMessage && new Date(chatObj.lastMessage.createdAt) <= new Date(clearedAt)) {
+    chatObj.lastMessage = null;
+  }
+
   return chatObj;
 };
 
@@ -320,7 +331,7 @@ const chatSocketController = (io, socket) => {
           chat = await Chat.create({
             participants: [userId, receiverId],
             lastMessage: {
-              content: content || "File",
+              content: content || (fileType ? (fileType.charAt(0).toUpperCase() + fileType.slice(1)) : "File"),
               sender: userId,
               createdAt: new Date(),
             },
@@ -385,7 +396,7 @@ const chatSocketController = (io, socket) => {
 
       // Update Chat (lastMessage)
       chat.lastMessage = {
-        content: content || "File",
+        content: content || (fileType ? (fileType.charAt(0).toUpperCase() + fileType.slice(1)) : "File"),
         sender: userId,
         createdAt: new Date(),
       };
@@ -577,21 +588,7 @@ const chatSocketController = (io, socket) => {
       ]);
 
       const chatsWithCount = chats.map((chat) => {
-        const chatObj = formatChatForUser(chat, userId);
-        const currentUserId = userId.toString();
-
-        // If lastMessage is older than clearedAt, don't show it in the list
-        const clearedAt = chat.clearedAt && chat.clearedAt.get
-          ? chat.clearedAt.get(currentUserId)
-          : chat.clearedAt
-            ? chat.clearedAt[currentUserId]
-            : null;
-
-        if (clearedAt && chatObj.lastMessage && new Date(chatObj.lastMessage.createdAt) <= new Date(clearedAt)) {
-          chatObj.lastMessage = null;
-        }
-
-        return chatObj;
+        return formatChatForUser(chat, userId);
       });
 
       const hasMore = skip + chats.length < totalChats;
