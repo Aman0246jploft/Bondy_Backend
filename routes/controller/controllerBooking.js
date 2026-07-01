@@ -20,7 +20,9 @@ const {
   apiErrorRes,
   apiSuccessRes,
   formatResponseUrl,
-} = require("../../utils/globalFunction"); const {
+} = require("../../utils/globalFunction");
+const { generateTicketPdf } = require("../../utils/pdfGenerator");
+const {
   initiateBookingSchema,
   confirmPaymentSchema,
   cancelBookingSchema,
@@ -3000,8 +3002,9 @@ const generateTicketUrls = async (req, res) => {
     }
 
     const frontendUrl = process.env.FRONTEND_URL || "https://bondy-user.tasksplan.com";
+    const backendUrl = process.env.API_URL || "https://dev.tasksplan.com/bondyBackend/api/v1";
     const shareUrl = `${frontendUrl}/public/ticket?id=${transactionId}`;
-    const downloadUrl = `${frontendUrl}/public/ticket?id=${transactionId}&download=true`;
+    const downloadUrl = `${backendUrl}/booking/public/ticket/download/${transactionId}`;
 
     return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.TICKET_URLS_GENERATED, {
       shareUrl,
@@ -3066,6 +3069,48 @@ router.get(
 // Public Ticket APIs
 router.get("/public/detail/:transactionId", getPublicTicketDetail);
 router.get("/public/generate-urls/:transactionId", generateTicketUrls);
+
+// ════════════════════════════════════════════════════════════════════════════
+// 15. DOWNLOAD TICKET PDF
+// ════════════════════════════════════════════════════════════════════════════
+
+const downloadTicketPdf = async (req, res) => {
+  try {
+    const { transactionId } = req.params;
+
+    const transaction = await Transaction.findById(transactionId)
+      .populate({ path: "userId", select: "firstName lastName email profileImage" })
+      .populate({
+        path: "eventId",
+        populate: [
+          { path: "eventCategory", model: "Category" },
+          { path: "createdBy", model: "User", select: "firstName lastName email profileImage" },
+        ],
+      })
+      .populate({
+        path: "courseId",
+        populate: [
+          { path: "courseCategory", model: "Category" },
+          { path: "createdBy", model: "User", select: "firstName lastName email profileImage" },
+        ],
+      });
+
+    if (!transaction) {
+      return res.status(404).send("Ticket not found");
+    }
+
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename="Ticket-${transaction.bookingId}.pdf"`);
+
+    const transactionObj = transaction.toObject();
+    await generateTicketPdf(transactionObj, res);
+  } catch (error) {
+    console.error("Error generating PDF:", error);
+    res.status(500).send("Error generating PDF");
+  }
+};
+
+router.get("/public/ticket/download/:transactionId", downloadTicketPdf);
 
 // QR Code Scanning (Gate Keeper)
 router.post(

@@ -187,7 +187,7 @@ Content-Type: application/json
 #======================================= ==== FILTER ==== ==============================================
 
 ### 7. List Events - Standard Retrieve (Active/Upcoming Events)
-GET {{baseUrl}}/event/list?search=&filter=recommended&status=Upcoming,Live
+GET {{baseUrl}}/event/list?search=&filter=recommended&status=Upcoming,Live&excludemyevents=true,
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTM4ZTA3MDU4ZWQxNGQ1YTZmNjFmZjEiLCJyb2xlSWQiOjIsImlhdCI6MTc4MjgxMDA5MCwiZXhwIjoyNjQ2ODEwMDkwfQ.IR7-BEwclecHPjSnUgKezuO1D2KeY2H2oMuejEVYrCE
 
 
