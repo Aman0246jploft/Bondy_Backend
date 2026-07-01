@@ -3002,9 +3002,8 @@ const generateTicketUrls = async (req, res) => {
     }
 
     const frontendUrl = process.env.FRONTEND_URL || "https://bondy-user.tasksplan.com";
-    const backendUrl = process.env.API_URL || "https://dev.tasksplan.com/bondyBackend/api/v1";
     const shareUrl = `${frontendUrl}/public/ticket?id=${transactionId}`;
-    const downloadUrl = `${backendUrl}/booking/public/ticket/download/${transactionId}`;
+    const downloadUrl = `${frontendUrl}/public/ticket?id=${transactionId}&download=true`;
 
     return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.TICKET_URLS_GENERATED, {
       shareUrl,
