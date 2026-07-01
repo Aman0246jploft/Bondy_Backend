@@ -299,7 +299,7 @@ const formatEvent = (event, bookedEventIds = new Set(), bookedQty = 0, pendingQt
       if (event.endTime) event.endTime = endAdjusted.time;
     }
     event.timeZone = displayTimeZone;
-    
+
     if (Array.isArray(event.tickets)) {
       event.tickets = event.tickets.map(t => {
         if (t.salesStart) t.salesStart = formatDateTimeByTimezone(t.salesStart, displayTimeZone);
@@ -806,6 +806,7 @@ const getEvents = async (req, res) => {
               const token = authHeader.split(" ")[1];
               const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY);
               const user = await User.findById(decoded.userId).lean();
+              console.log("44444444555", user?.categories)
               if (user?.categories?.length > 0)
                 userCategories = user.categories;
             } catch (err) { }
@@ -814,6 +815,8 @@ const getEvents = async (req, res) => {
             query.eventCategory = {
               $in: userCategories.map((id) => new mongoose.Types.ObjectId(id)),
             };
+          } else {
+            query.eventCategory = { $in: [] };
           }
           break;
       }
