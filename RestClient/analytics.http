@@ -1,0 +1,54 @@
+### Environment Variables
+@baseUrl = http://localhost:8080/api/v1
+@adminToken = your_super_admin_token_here
+@organizerToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTQzOGFlZWNmYTE3OGFlZThiNzg4YTIiLCJyb2xlSWQiOjIsImlhdCI6MTc4MjkzODg3NywiZXhwIjoyNjQ2OTM4ODc3fQ.4ksKrK4CS5sfMtD1gzpccWpQ45v8FKqqnk0W8oLVrJI
+@customerToken = your_customer_token_here
+@targetUserId = 6a227663a2023c86b5b23c65
+
+### 1. Global Admin Analytics
+GET {{baseUrl}}/analytics/admin/global-stats
+Authorization: Bearer {{adminToken}}
+
+### 2. Organizer Stats
+GET {{baseUrl}}/analytics/organizer/stats
+Authorization: Bearer {{organizerToken}}
+
+### 3. Customer Stats
+GET {{baseUrl}}/analytics/customer/stats
+Authorization: Bearer {{customerToken}}
+
+### 4. Admin view of any user's stats
+GET {{baseUrl}}/analytics/admin/user-stats/{{targetUserId}}
+Authorization: Bearer {{adminToken}}
+
+### 5. Admin Revenue Analytics (Global - No Filter)
+GET {{baseUrl}}/analytics/admin/revenue-analytics
+Authorization: Bearer {{adminToken}}
+
+### 6. Admin Revenue Analytics (Filter: last 7 days)
+GET {{baseUrl}}/analytics/admin/revenue-analytics?filter=7d
+Authorization: Bearer {{adminToken}}
+
+### 7. Admin Revenue Analytics (Filter: last 30 days)
+GET {{baseUrl}}/analytics/admin/revenue-analytics?filter=30d
+Authorization: Bearer {{adminToken}}
+
+### 8. Admin Revenue Analytics (Filter: this month)
+GET {{baseUrl}}/analytics/admin/revenue-analytics?filter=thisMonth
+Authorization: Bearer {{adminToken}}
+
+### 9. Admin Revenue Analytics (Filter: custom date range)
+GET {{baseUrl}}/analytics/admin/revenue-analytics?startDate=2026-06-01T00:00:00.000Z&endDate=2026-06-10T23:59:59.000Z
+Authorization: Bearer {{adminToken}}
+
+### 10. Organizer Revenue Analytics (Specific to logged-in Organizer - No Filter)
+GET {{baseUrl}}/analytics/organizer/revenue-analytics
+Authorization: Bearer {{organizerToken}}
+
+### 11. Organizer Revenue Analytics (Filter: last 7 days)
+GET {{baseUrl}}/analytics/organizer/revenue-analytics?filter=7d
+Authorization: Bearer {{organizerToken}}
+
+### 12. Organizer Revenue Analytics (Filter: custom date range)
+GET {{baseUrl}}/analytics/organizer/revenue-analytics?startDate=2026-06-01T00:00:00.000Z&endDate=2026-06-10T23:59:59.000Z
+Authorization: Bearer {{organizerToken}}

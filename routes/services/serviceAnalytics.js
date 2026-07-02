@@ -575,8 +575,8 @@ async function getRevenueAnalytics({ filter, startDate, endDate, organizerId = n
         labels.push(label);
 
         const data = resultMap[key] || { grossRevenue: 0, netAdminRevenue: 0, netOrganizerRevenue: 0 };
-        grossRevenueArr.push(data.grossRevenue);
-        netRevenueArr.push(organizerId ? data.netOrganizerRevenue : data.netAdminRevenue);
+        grossRevenueArr.push(parseFloat((data.grossRevenue || 0).toFixed(2)));
+        netRevenueArr.push(parseFloat((organizerId ? data.netOrganizerRevenue || 0 : data.netAdminRevenue || 0).toFixed(2)));
 
         current.setMonth(current.getMonth() + 1);
       }
@@ -591,15 +591,15 @@ async function getRevenueAnalytics({ filter, startDate, endDate, organizerId = n
         labels.push(label);
 
         const data = resultMap[key] || { grossRevenue: 0, netAdminRevenue: 0, netOrganizerRevenue: 0 };
-        grossRevenueArr.push(data.grossRevenue);
-        netRevenueArr.push(organizerId ? data.netOrganizerRevenue : data.netAdminRevenue);
+        grossRevenueArr.push(parseFloat((data.grossRevenue || 0).toFixed(2)));
+        netRevenueArr.push(parseFloat((organizerId ? data.netOrganizerRevenue || 0 : data.netAdminRevenue || 0).toFixed(2)));
 
         current.setDate(current.getDate() + 1);
       }
     }
 
-    const totalGross = grossRevenueArr.reduce((a, b) => a + b, 0);
-    const totalNet = netRevenueArr.reduce((a, b) => a + b, 0);
+    const totalGross = parseFloat(grossRevenueArr.reduce((a, b) => a + b, 0).toFixed(2));
+    const totalNet = parseFloat(netRevenueArr.reduce((a, b) => a + b, 0).toFixed(2));
 
     // 4. Calculate Growth
     const prevPipeline = [
