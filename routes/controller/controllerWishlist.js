@@ -99,17 +99,26 @@ const getUserWishlist = async (req, res) => {
             }
         };
 
-        // Standard Mongoose Find with skip/limit because Wishlist is not using mongoose-paginate-v2 plugin directly on the model likely
-        const totalDocs = await Wishlist.countDocuments(query);
+        // Fetch all wishlist items for the user, then filter out past ones
+        let wishlist = await Wishlist.find(query)
+            .sort(options.sort)
+            .populate({
+                path: 'entityId',
+                match: {
+                    status: { $ne: "Past" }
+                }
+            })
+            .lean();
+
+        // Filter out items where the populated event/course is in the past (entityId is null)
+        wishlist = wishlist.filter(item => item.entityId !== null && item.entityId !== undefined);
+
+        const totalDocs = wishlist.length;
         const totalPages = Math.ceil(totalDocs / options.limit);
         const skip = (options.page - 1) * options.limit;
 
-        let wishlist = await Wishlist.find(query)
-            .sort(options.sort)
-            .skip(skip)
-            .limit(options.limit)
-            .populate('entityId')
-            .lean();
+        // Apply pagination
+        wishlist = wishlist.slice(skip, skip + options.limit);
 
         // Format images and structure success response
         wishlist = wishlist.map(item => {

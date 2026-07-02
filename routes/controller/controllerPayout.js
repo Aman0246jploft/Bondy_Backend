@@ -252,21 +252,6 @@ const markPayoutAsPaid = async (req, res) => {
       paidAt: new Date(),
     });
     await payout.save();
-
-    // Deduct from Balance
-    // NOTE: Balance was ALREADY deducted when payout was requested (PENDING).
-    // If the admin is just marking it as PAID, we don't deduct again.
-    // However, if the payout system allows "Admin Initiated Payouts" without request, only then we deduct.
-    // But typically, Payout Request logic handles the deduction.
-    // Let's assume this endpoint is for approving PENDING payouts or creating new immediate payouts.
-
-    // Scenario A: Payout exists and is Pending -> just mark paid.
-    // Scenario B: Admin creates new Payout completely (Manual Payout) -> deduct.
-
-    // Let's check if we are updating an existing request or creating new.
-    // The current code creates a NEW Payout object. This implies "Manual Payout".
-    // If it's manual payout, yes, deduct.
-
     ORGANIZER.payoutBalance -= amount;
     await ORGANIZER.save();
 
