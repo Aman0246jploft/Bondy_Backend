@@ -131,6 +131,10 @@ Authorization: Bearer {{customerToken}}
 ### 10. Get Public Ticket Detail (No auth required)
 GET {{baseUrl}}/booking/public/detail/{{transactionId}}
 
+### 10c. Download Public Ticket PDF (No auth required)
+GET {{baseUrl}}/booking/public/ticket/download/6a44cfa1a62a2d968f8cb600
+
+
 ### 10b. Refund Preview (Check policy & refund amount before cancelling)
 GET {{baseUrl}}/booking/refund-preview/{{transactionId}}
 Authorization: Bearer {{customerToken}}

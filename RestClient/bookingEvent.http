@@ -94,6 +94,9 @@ Authorization: Bearer {{customerToken}}
 ### 10. Get Public Ticket Detail (No auth required)
 GET {{baseUrl}}/booking/public/detail/{{transactionId}}
 
+### 10b. Download Public Ticket PDF (No auth required)
+GET {{baseUrl}}/booking/public/ticket/download/{{transactionId}}
+
 #==========================================================
 # EVENT ATTENDEE MANAGEMENT (Organizer)
 #==========================================================
