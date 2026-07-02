@@ -67,12 +67,34 @@ const getOrganizerEarnings = async (req, res) => {
     });
     const minPayout = minPayoutSetting ? Number(minPayoutSetting.value) : 1000;
 
+    // Format types and round amounts to 2 decimal places in walletHistory
+    const formattedWalletHistory = combinedHistory.map((item) => {
+      const doc = item.toObject ? item.toObject() : { ...item };
+
+      if (typeof doc.amount === "number") {
+        doc.amount = Number(doc.amount.toFixed(2));
+      }
+      if (typeof doc.balanceAfter === "number") {
+        doc.balanceAfter = Number(doc.balanceAfter.toFixed(2));
+      }
+
+      const typeMapping = {
+        COURSE_SALE: "Course Sale",
+      };
+
+      if (doc.type && typeMapping[doc.type]) {
+        doc.type = typeMapping[doc.type];
+      }
+
+      return doc;
+    });
+
     return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.EARNINGS_FETCHED, {
-      totalEarnings: user.totalEarnings,
-      payoutBalance: user.payoutBalance,
+      totalEarnings: user.totalEarnings ? Number(user.totalEarnings.toFixed(2)) : 0,
+      payoutBalance: user.payoutBalance ? Number(user.payoutBalance.toFixed(2)) : 0,
       bankDetails: user.bankDetails,
       payoutHistory,
-      walletHistory: combinedHistory,
+      walletHistory: formattedWalletHistory,
       minPayout,
     });
   } catch (error) {
