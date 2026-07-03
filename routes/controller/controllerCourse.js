@@ -346,33 +346,48 @@ const getCourses = async (req, res) => {
     const effectiveStartDate = customStartDate || fromDate;
     const effectiveEndDate = customEndDate || toDate;
 
+    let timeConditions = [];
+
     if (effectiveStartDate || effectiveEndDate) {
+      const cond = {};
       if (effectiveStartDate) {
         const sD = new Date(effectiveStartDate);
         if (!isNaN(sD.getTime())) {
-          startDateConditions.push({ $gte: sD });
+          cond.$or = [
+            { endDate: { $gte: sD } },
+            { endDate: null },
+            { endDate: { $exists: false } }
+          ];
         }
       }
       if (effectiveEndDate) {
         const eD = new Date(effectiveEndDate);
         if (!isNaN(eD.getTime())) {
-          startDateConditions.push({ $lte: eD });
+          cond.startDate = { $lte: eD };
         }
       }
+      if (Object.keys(cond).length > 0) timeConditions.push(cond);
     }
 
     // Apply Time-based filters
     for (const f of filters) {
       switch (f) {
         case "upcoming":
-          startDateConditions.push({ $gt: now });
+          timeConditions.push({ startDate: { $gt: now } });
           break;
         case "today":
           const startOfToday = new Date(now);
           startOfToday.setHours(0, 0, 0, 0);
           const endOfToday = new Date(now);
           endOfToday.setHours(23, 59, 59, 999);
-          startDateConditions.push({ $gte: startOfToday, $lte: endOfToday });
+          timeConditions.push({
+            startDate: { $lte: endOfToday },
+            $or: [
+              { endDate: { $gte: startOfToday } },
+              { endDate: null },
+              { endDate: { $exists: false } }
+            ]
+          });
           break;
         case "tomorrow":
           const startOfTomorrow = new Date(now);
@@ -380,9 +395,13 @@ const getCourses = async (req, res) => {
           startOfTomorrow.setHours(0, 0, 0, 0);
           const endOfTomorrow = new Date(startOfTomorrow);
           endOfTomorrow.setHours(23, 59, 59, 999);
-          startDateConditions.push({
-            $gte: startOfTomorrow,
-            $lte: endOfTomorrow,
+          timeConditions.push({
+            startDate: { $lte: endOfTomorrow },
+            $or: [
+              { endDate: { $gte: startOfTomorrow } },
+              { endDate: null },
+              { endDate: { $exists: false } }
+            ]
           });
           break;
         case "thisweek":
@@ -394,7 +413,14 @@ const getCourses = async (req, res) => {
           const endOfWeek = new Date(startOfWeek);
           endOfWeek.setDate(startOfWeek.getDate() + 6);
           endOfWeek.setHours(23, 59, 59, 999);
-          startDateConditions.push({ $gte: startOfWeek, $lte: endOfWeek });
+          timeConditions.push({
+            startDate: { $lte: endOfWeek },
+            $or: [
+              { endDate: { $gte: startOfWeek } },
+              { endDate: null },
+              { endDate: { $exists: false } }
+            ]
+          });
           break;
         case "thisweekend":
           const tW = new Date(now);
@@ -406,19 +432,37 @@ const getCourses = async (req, res) => {
           const endOfWeekend = new Date(startOfWeekend);
           endOfWeekend.setDate(endOfWeekend.getDate() + 1);
           endOfWeekend.setHours(23, 59, 59, 999);
-          startDateConditions.push({
-            $gte: startOfWeekend,
-            $lte: endOfWeekend,
+          timeConditions.push({
+            startDate: { $lte: endOfWeekend },
+            $or: [
+              { endDate: { $gte: startOfWeekend } },
+              { endDate: null },
+              { endDate: { $exists: false } }
+            ]
           });
           break;
         case "thismonth":
           const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
           const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
-          startDateConditions.push({ $gte: startOfMonth, $lte: endOfMonth });
+          timeConditions.push({
+            startDate: { $lte: endOfMonth },
+            $or: [
+              { endDate: { $gte: startOfMonth } },
+              { endDate: null },
+              { endDate: { $exists: false } }
+            ]
+          });
           break;
         case "happeningsoon":
           const soonEnd = new Date(now.getTime() + 48 * 60 * 60 * 1000);
-          startDateConditions.push({ $gte: now, $lte: soonEnd });
+          timeConditions.push({
+            startDate: { $lte: soonEnd },
+            $or: [
+              { endDate: { $gte: now } },
+              { endDate: null },
+              { endDate: { $exists: false } }
+            ]
+          });
           break;
         case "thisyear":
           const startOfYear = new Date(now.getFullYear(), 0, 1, 0, 0, 0, 0);
@@ -431,7 +475,14 @@ const getCourses = async (req, res) => {
             59,
             999,
           );
-          startDateConditions.push({ $gte: startOfYear, $lte: endOfYear });
+          timeConditions.push({
+            startDate: { $lte: endOfYear },
+            $or: [
+              { endDate: { $gte: startOfYear } },
+              { endDate: null },
+              { endDate: { $exists: false } }
+            ]
+          });
           break;
         case "nextweek":
           const startOfNextWeek = new Date(now);
@@ -442,9 +493,13 @@ const getCourses = async (req, res) => {
           const endOfNextWeek = new Date(startOfNextWeek);
           endOfNextWeek.setDate(startOfNextWeek.getDate() + 6);
           endOfNextWeek.setHours(23, 59, 59, 999);
-          startDateConditions.push({
-            $gte: startOfNextWeek,
-            $lte: endOfNextWeek,
+          timeConditions.push({
+            startDate: { $lte: endOfNextWeek },
+            $or: [
+              { endDate: { $gte: startOfNextWeek } },
+              { endDate: null },
+              { endDate: { $exists: false } }
+            ]
           });
           break;
         case "featured":
@@ -471,15 +526,11 @@ const getCourses = async (req, res) => {
       }
     }
 
-    if (startDateConditions.length > 0) {
-      if (startDateConditions.length === 1) {
-        query.startDate = startDateConditions[0];
-      } else {
-        if (!query.$and) query.$and = [];
-        startDateConditions.forEach((cond) => {
-          query.$and.push({ startDate: cond });
-        });
-      }
+    if (timeConditions.length > 0) {
+      if (!query.$and) query.$and = [];
+      timeConditions.forEach((cond) => {
+        query.$and.push(cond);
+      });
     }
 
     // Search filter
@@ -2393,7 +2444,7 @@ const getCourseDetails = async (req, res) => {
       if (u && u.timeZone) userTimeZone = u.timeZone;
     }
 
-     const displayTimeZone = formattedCourse.timeZone;
+    const displayTimeZone = formattedCourse.timeZone;
     if (displayTimeZone) {
       if (formattedCourse.startDate) {
         const startAdjusted = adjustEventDateTime(formattedCourse.startDate, "00:00", displayTimeZone);

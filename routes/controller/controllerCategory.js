@@ -299,6 +299,8 @@ const getCategoryStats = async (req, res) => {
   try {
     const { Event, Course } = require("../../db");
 
+    const now = new Date();
+
     // Total counts for Upcoming/Live events and courses
     const [totalEvents, totalCourses] = await Promise.all([
       Event.countDocuments({

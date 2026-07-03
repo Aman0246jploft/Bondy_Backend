@@ -1180,9 +1180,27 @@ const updateTimezone = async (req, res) => {
 const selfProfile = async (req, res) => {
   try {
     let userId = req.user.userId;
+    const user = await User.findById(userId).lean();
+    if (!user || user.isDeleted) {
+      return apiErrorRes(
+        HTTP_STATUS.NOT_FOUND,
+        res,
+        constantsMessage.USER_NOT_FOUND,
+      );
+    }
+    if (user.isDisable) {
+      return apiErrorRes(
+        HTTP_STATUS.FORBIDDEN,
+        res,
+        constantsMessage.ACCOUNT_DISABLED,
+      );
+    }
     req.params.userId = userId;
     await getUserProfileById(req, res);
-  } catch (error) { }
+  } catch (error) {
+    console.error("Error in selfProfile:", error);
+    return apiErrorRes(HTTP_STATUS.INTERNAL_SERVER_ERROR, res, error.message);
+  }
 };
 
 const getUserProfileById = async (req, res) => {
