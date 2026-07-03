@@ -62,14 +62,23 @@ const formatChatForUser = (chatDoc, targetUserId) => {
     chatObj.lastMessage.sender = formatUser(chatObj.lastMessage.sender);
   }
 
-  // Add block information
-  chatObj.isBlocked = !!(chatObj.blockedBy && chatObj.blockedBy.length > 0);
-  if (chatObj.blockedBy && Array.isArray(chatObj.blockedBy) && chatObj.blockedBy.length > 0) {
-    const firstBlocker = chatObj.blockedBy[0];
-    chatObj.blockedBy = typeof firstBlocker === "object" ? formatUser(firstBlocker) : firstBlocker;
-  } else {
-    chatObj.blockedBy = null;
-  }
+  // Add per-user block information
+  const blockedByArray = chatObj.blockedBy || [];
+  const targetIdStr = targetUserId.toString();
+  // Did the target user (the one receiving this response) block the other person?
+  chatObj.isBlockedByMe = blockedByArray.some(b => {
+    const id = typeof b === "object" ? (b._id ? b._id.toString() : b.toString()) : b.toString();
+    return id === targetIdStr;
+  });
+  // Did the other person block the target user?
+  chatObj.isBlockedByOther = blockedByArray.some(b => {
+    const id = typeof b === "object" ? (b._id ? b._id.toString() : b.toString()) : b.toString();
+    return id !== targetIdStr;
+  });
+  // Chat is blocked if anyone has blocked
+  chatObj.isBlocked = blockedByArray.length > 0;
+  // Keep blockedBy as null for backward compat (use isBlockedByMe/isBlockedByOther instead)
+  chatObj.blockedBy = null;
 
   // If lastMessage is older than clearedAt, don't show it
   const clearedAt = chatDoc.clearedAt && chatDoc.clearedAt.get
