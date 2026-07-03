@@ -595,15 +595,29 @@ const chatSocketController = (io, socket) => {
     const skip = (page - 1) * limit;
 
     try {
+      const deletedUsers = await User.find({ isDeleted: true }, "_id");
+      const deletedUserIds = deletedUsers.map((u) => u._id);
+
+      const query = {
+        participants: userId,
+      };
+
+      if (deletedUserIds.length > 0) {
+        query.participants = {
+          $all: [userId],
+          $nin: deletedUserIds,
+        };
+      }
+
       const [chats, totalChats] = await Promise.all([
-        Chat.find({ participants: userId })
+        Chat.find(query)
           .populate("participants", "firstName lastName profileImage lastSeen roleId isVerified")
           .populate("lastMessage.sender", "firstName lastName profileImage lastSeen roleId isVerified")
           .populate("blockedBy", "firstName lastName profileImage")
           .sort({ "lastMessage.createdAt": -1 })
           .skip(skip)
           .limit(limit),
-        Chat.countDocuments({ participants: userId }),
+        Chat.countDocuments(query),
       ]);
 
       const chatsWithCount = chats.map((chat) => {
