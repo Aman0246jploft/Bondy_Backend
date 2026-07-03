@@ -501,6 +501,8 @@ const chatSocketController = (io, socket) => {
     const userName = `${userObj.firstName || ""} ${userObj.lastName || ""}`.trim() || "Someone";
 
     try {
+      const Block = require("../../db/models/Block");
+
       // 1. Get Participants (using cache)
       let participants = chatParticipantsCache.get(chatId);
       if (!participants) {
@@ -511,15 +513,23 @@ const chatSocketController = (io, socket) => {
         }
       }
 
-      // 2. Emit to each participant's private room
+      // 2. Emit to each participant's private room (skip if blocked)
       let firedCount = 0;
       if (participants) {
-        participants.forEach(pId => {
-          if (pId !== userId) {
+        for (const pId of participants) {
+          if (pId === userId) continue;
+          // Check if either side has blocked the other
+          const blockExists = await Block.findOne({
+            $or: [
+              { fromUser: userId, toUser: pId, isActive: true },
+              { fromUser: pId, toUser: userId, isActive: true },
+            ],
+          });
+          if (!blockExists) {
             io.to(pId).emit("typing", { chatId, userId, userName });
             firedCount++;
           }
-        });
+        }
       }
 
       console.log(`[Socket/Global] Firing typing listener: User ${userId} (${userName}) -> ${firedCount} participants notified for chat ${chatId}`);
@@ -546,6 +556,8 @@ const chatSocketController = (io, socket) => {
     const { chatId } = value;
 
     try {
+      const Block = require("../../db/models/Block");
+
       // 1. Get Participants (using cache)
       let participants = chatParticipantsCache.get(chatId);
       if (!participants) {
@@ -556,15 +568,23 @@ const chatSocketController = (io, socket) => {
         }
       }
 
-      // 2. Emit to each participant's private room
+      // 2. Emit to each participant's private room (skip if blocked)
       let firedCount = 0;
       if (participants) {
-        participants.forEach(pId => {
-          if (pId !== userId) {
+        for (const pId of participants) {
+          if (pId === userId) continue;
+          // Check if either side has blocked the other
+          const blockExists = await Block.findOne({
+            $or: [
+              { fromUser: userId, toUser: pId, isActive: true },
+              { fromUser: pId, toUser: userId, isActive: true },
+            ],
+          });
+          if (!blockExists) {
             io.to(pId).emit("stop_typing", { chatId, userId });
             firedCount++;
           }
-        });
+        }
       }
 
       console.log(`[Socket/Global] Firing stop_typing listener: User ${userId} -> ${firedCount} participants notified for chat ${chatId}`);
