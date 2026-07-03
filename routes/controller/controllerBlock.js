@@ -62,13 +62,17 @@ const blockUser = async (req, res) => {
         });
         io.to(toUser.toString()).emit("update_chat_list", formattedForBlocked);
 
-        // Notify the specific chat room
+        // Notify each participant individually with personalized boolean keys
         const activeBlockers = (chat.blockedBy || []).map(b => b._id ? b._id.toString() : b.toString());
-        io.to(chat._id.toString()).emit("chat_blocked", {
-          chatId: chat._id,
-          blockedBy: fromUser,
-          activeBlockers,
-          isBlocked: true
+        chat.participants.forEach(p => {
+          const pIdStr = p._id.toString();
+          io.to(pIdStr).emit("chat_blocked", {
+            chatId: chat._id,
+            blockedBy: fromUser,
+            isBlocked: true,
+            isBlockedByMe: activeBlockers.includes(pIdStr),
+            isBlockedByOther: activeBlockers.some(id => id !== pIdStr)
+          });
         });
       } else {
         // If no chat exists, still notify they are blocked for global UI state
@@ -140,16 +144,19 @@ const unblockUser = async (req, res) => {
         });
         io.to(toUser.toString()).emit("update_chat_list", formattedForUnblocked);
 
-        // Notify the specific chat room
-        // Calculate dynamic block state for the room
+        // Notify each participant individually with personalized boolean keys
         const roomIsBlocked = chat.blockedBy.length > 0;
         const activeBlockers = (chat.blockedBy || []).map(b => b._id ? b._id.toString() : b.toString());
-        io.to(chat._id.toString()).emit("chat_unblocked", {
-          chatId: chat._id,
-          unblockedBy: fromUser,
-          activeBlockers,
-          isBlocked: roomIsBlocked,
-          blockedBy: roomIsBlocked ? chat.blockedBy[0] : null
+        chat.participants.forEach(p => {
+          const pIdStr = p._id.toString();
+          io.to(pIdStr).emit("chat_unblocked", {
+            chatId: chat._id,
+            unblockedBy: fromUser,
+            isBlocked: roomIsBlocked,
+            isBlockedByMe: activeBlockers.includes(pIdStr),
+            isBlockedByOther: activeBlockers.some(id => id !== pIdStr),
+            blockedBy: roomIsBlocked ? chat.blockedBy[0] : null
+          });
         });
       }
     } else {
