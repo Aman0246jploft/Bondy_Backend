@@ -63,9 +63,11 @@ const blockUser = async (req, res) => {
         io.to(toUser.toString()).emit("update_chat_list", formattedForBlocked);
 
         // Notify the specific chat room
+        const activeBlockers = (chat.blockedBy || []).map(b => b._id ? b._id.toString() : b.toString());
         io.to(chat._id.toString()).emit("chat_blocked", {
           chatId: chat._id,
           blockedBy: fromUser,
+          activeBlockers,
           isBlocked: true
         });
       } else {
@@ -141,9 +143,11 @@ const unblockUser = async (req, res) => {
         // Notify the specific chat room
         // Calculate dynamic block state for the room
         const roomIsBlocked = chat.blockedBy.length > 0;
+        const activeBlockers = (chat.blockedBy || []).map(b => b._id ? b._id.toString() : b.toString());
         io.to(chat._id.toString()).emit("chat_unblocked", {
           chatId: chat._id,
           unblockedBy: fromUser,
+          activeBlockers,
           isBlocked: roomIsBlocked,
           blockedBy: roomIsBlocked ? chat.blockedBy[0] : null
         });
