@@ -839,10 +839,26 @@ const socialLogin = async (req, res) => {
     let user = await User.findOne({
       "socialLogin.socialId": socialId,
       "socialLogin.socialType": socialType,
-      isDeleted: false,
     });
 
     if (user) {
+      if (user.isDeleted) {
+        user.isDeleted = false;
+        user.isDisable = false;
+        user.organizerVerificationStatus = type === "CUSTOMER" ? "approved" : "unverified";
+        user.verifications = {
+          email: {
+            isVerified: true,
+            verifiedAt: new Date(),
+          },
+          phone: {
+            isVerified: false,
+            verifiedAt: null,
+            isVerifiedOnce: false,
+          },
+        };
+      }
+
       // Role Check
       if (userRole[user.roleId] !== type) {
         return apiErrorRes(
@@ -871,10 +887,26 @@ const socialLogin = async (req, res) => {
       if (email) {
         user = await User.findOne({
           email: email.toLowerCase(),
-          isDeleted: false,
         });
 
         if (user) {
+          if (user.isDeleted) {
+            user.isDeleted = false;
+            user.isDisable = false;
+            user.organizerVerificationStatus = type === "CUSTOMER" ? "approved" : "unverified";
+            user.verifications = {
+              email: {
+                isVerified: true,
+                verifiedAt: new Date(),
+              },
+              phone: {
+                isVerified: false,
+                verifiedAt: null,
+                isVerifiedOnce: false,
+              },
+            };
+          }
+
           // Role Check
           if (userRole[user.roleId] !== type) {
             return apiErrorRes(
@@ -2436,8 +2468,8 @@ const addStaff = async (req, res) => {
     const { fullname, email, password, profilePhoto } = req.body;
     const organizerId = req.user.userId;
 
-    const existingUser = await User.findOne({ email, isDeleted: false });
-    if (existingUser) {
+    const existingUser = await User.findOne({ email });
+    if (existingUser && !existingUser.isDeleted) {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
@@ -2449,17 +2481,43 @@ const addStaff = async (req, res) => {
     const firstName = parts[0];
     const lastName = parts.slice(1).join(" ") || "";
 
-    const staffUser = new User({
-      firstName,
-      lastName,
-      email,
-      password,
-      profileImage: profilePhoto || null,
-      roleId: roleId.STAFF,
-      createdBy: organizerId,
-      isVerified: true,
-      organizerVerificationStatus: "approved",
-    });
+    let staffUser;
+    if (existingUser && existingUser.isDeleted) {
+      // Reactivate deleted user as staff
+      staffUser = existingUser;
+      staffUser.firstName = firstName;
+      staffUser.lastName = lastName;
+      staffUser.password = password;
+      staffUser.profileImage = profilePhoto || null;
+      staffUser.roleId = roleId.STAFF;
+      staffUser.createdBy = organizerId;
+      staffUser.isDeleted = false;
+      staffUser.isDisable = false;
+      staffUser.organizerVerificationStatus = "approved";
+      staffUser.verifications = {
+        email: {
+          isVerified: true,
+          verifiedAt: new Date(),
+        },
+        phone: {
+          isVerified: false,
+          verifiedAt: null,
+          isVerifiedOnce: false,
+        },
+      };
+    } else {
+      staffUser = new User({
+        firstName,
+        lastName,
+        email,
+        password,
+        profileImage: profilePhoto || null,
+        roleId: roleId.STAFF,
+        createdBy: organizerId,
+        isVerified: true,
+        organizerVerificationStatus: "approved",
+      });
+    }
 
     await staffUser.save();
 

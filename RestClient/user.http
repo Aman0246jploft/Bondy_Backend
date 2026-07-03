@@ -9,7 +9,7 @@ POST {{baseUrl}}/user/admin/login
 Content-Type: application/json
 
 {
-  "email": "weborg@yopmail.com",
+  "email": "Playjploft@gmail.com",
   "password": "Test@123"
 }
 
@@ -23,7 +23,7 @@ POST {{baseUrl}}/user/customer/signup
 Content-Type: application/json
 
 {
-  "email": "customer@example.com",
+  "email": "playjploft@gmail.com",
   "countryCode": "+1",
   "contactNumber": "1234567890",
   "password": "Password123!",
@@ -63,7 +63,7 @@ Content-Type: application/json
 
 {
   "fullname": "Test Organizer",
-  "email": "testOrganizer6@example.com",
+  "email": "playjploft@gmail.com",
   "countryCode": "+91",
   "contactNumber": "9005267079",
   "password": "password123",
@@ -81,7 +81,7 @@ POST {{baseUrl}}/user/verify-otp
 Content-Type: application/json
 
 {
-  "email": "testorg90@yopmail.com",
+  "email": "playjploft@gmail.com",
   "otp": "12345",
   "type": "ORGANIZER"
 }
