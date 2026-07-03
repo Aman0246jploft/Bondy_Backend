@@ -358,7 +358,7 @@ const chatSocketController = (io, socket) => {
               createdAt: new Date(),
             },
             unreadCounts: {
-              [receiverId]: 1, // Start with 1 unread for receiver
+              [receiverId]: 0, // Initialize to 0; the shared increment block below will set it to 1
               [userId]: 0,
             },
           });
