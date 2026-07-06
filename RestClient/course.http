@@ -1,7 +1,7 @@
 ### Environment Variables
 @baseUrl = http://localhost:8080/api/v1
 @authToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTFlODA2NjU5NzliZWVlNDFjZjVmNGIiLCJyb2xlSWQiOjIsImlhdCI6MTc4MjE5NjM4NCwiZXhwIjoyNjQ2MTk2Mzg0fQ.So1y13dDz22i-_60knc1spmpe5jS4qg4O1Ivgys7hLM
-@courseId = 6a33e82326c0cd28d18ac315
+@courseId = 6a35331ec1d17af49fd535f5
 
 ### 1. Create a Draft Course (Allows missing fields for draft mode)
 POST {{baseUrl}}/course/create
