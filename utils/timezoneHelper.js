@@ -48,7 +48,14 @@ const adjustEventDateTime = (dateVal, timeVal, timeZone) => {
     return { date: dateVal, time: timeVal };
   }
   try {
-    const m = moment(dateVal);
+    let m;
+    if (timeVal && typeof timeVal === 'string') {
+      const datePart = moment.utc(dateVal).format('YYYY-MM-DD');
+      m = moment.utc(`${datePart}T${timeVal}`);
+    } else {
+      m = moment.utc(dateVal);
+    }
+
     if (!m.isValid()) return { date: dateVal, time: timeVal };
 
     const tzMoment = m.tz(mappedTz);

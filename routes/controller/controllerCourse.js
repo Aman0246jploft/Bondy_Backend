@@ -1291,15 +1291,10 @@ const getCourses = async (req, res) => {
         const end = new Date(course.endDate);
         const diffMs = end - start;
         if (diffMs > 0) {
-          const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
-          if (diffDays % 7 === 0) {
-            const weeks = diffDays / 7;
-            duration = `${weeks} Week${weeks > 1 ? "s" : ""}`;
-            durationTranslation = `${weeks} Долоо хоног`;
-          } else {
-            duration = `${diffDays} Day${diffDays > 1 ? "s" : ""}`;
-            durationTranslation = `${diffDays} Өдөр`;
-          }
+          const hours = Math.floor(diffMs / (1000 * 60 * 60));
+          const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+          duration = hours ? (minutes ? `${hours} H ${minutes} min` : `${hours} H`) : `${minutes} min`;
+          durationTranslation = hours ? (minutes ? `${hours} Цаг ${minutes} мин` : `${hours} Цаг`) : `${minutes} мин`;
         }
       } else if (earliestStartTime && latestEndTime) {
         const [sh, sm] = earliestStartTime.split(":").map(Number);
@@ -1497,13 +1492,9 @@ const getCoursesAdmin = async (req, res) => {
         const end = new Date(course.endDate);
         const diffMs = end - start;
         if (diffMs > 0) {
-          const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
-          if (diffDays % 7 === 0) {
-            const weeks = diffDays / 7;
-            duration = `${weeks} Week${weeks > 1 ? "s" : ""}`;
-          } else {
-            duration = `${diffDays} Day${diffDays > 1 ? "s" : ""}`;
-          }
+          const hours = Math.floor(diffMs / (1000 * 60 * 60));
+          const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+          duration = hours ? (minutes ? `${hours} H ${minutes} min` : `${hours} H`) : `${minutes} min`;
         }
       } else if (earliestStartTime && latestEndTime) {
         const [startH, startM] = earliestStartTime.split(":").map(Number);
@@ -2356,15 +2347,10 @@ const getCourseDetails = async (req, res) => {
       const end = new Date(course.endDate);
       const diffMs = end - start;
       if (diffMs > 0) {
-        const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
-        if (diffDays % 7 === 0) {
-          const weeks = diffDays / 7;
-          duration = `${weeks} Week${weeks > 1 ? "s" : ""}`;
-          durationTranslation = `${weeks} Долоо хоног`;
-        } else {
-          duration = `${diffDays} Day${diffDays > 1 ? "s" : ""}`;
-          durationTranslation = `${diffDays} Өдөр`;
-        }
+        const hours = Math.floor(diffMs / (1000 * 60 * 60));
+        const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+        duration = hours ? (minutes ? `${hours} H ${minutes} min` : `${hours} H`) : `${minutes} min`;
+        durationTranslation = hours ? (minutes ? `${hours} Цаг ${minutes} мин` : `${hours} Цаг`) : `${minutes} мин`;
       }
     } else if (earliestStartTime && latestEndTime) {
       const [sh, sm] = earliestStartTime.split(":").map(Number);
