@@ -9,7 +9,8 @@ const {
   apiSuccessRes,
   formatResponseUrl,
 } = require("../../utils/globalFunction");
-const { formatDateTimeByTimezone, adjustEventDateTime } = require("../../utils/timezoneHelper");
+const moment = require("moment-timezone");
+const { formatDateTimeByTimezone, adjustEventDateTime, getMappedTimeZone } = require("../../utils/timezoneHelper");
 const {
   createCourseSchema,
   getCoursesSchema,
@@ -1256,9 +1257,9 @@ const getCourses = async (req, res) => {
       const actualBooked = (courseBookingMap[course._id.toString()] || 0);
       const totalacquirewithreserver = actualBooked + totalReservedExternally;
       const totalRevenue = courseRevenueMap[course._id.toString()] || 0;
-      const leftSeats = course.enrollmentType === "Ongoing"
-        ? (course.batches && course.batches.length > 0 ? course.batches[0].availableSeats : 0)
-        : Math.max(0, courseTotalSeats - actualBooked - totalReservedExternally);
+      let leftSeats = 0;
+      let courseTotalSeatsVal = courseTotalSeats;
+      let courseAcquiredSeatsVal = actualBooked;
 
       let earliestStartTime = null;
       let latestEndTime = null;
@@ -1325,11 +1326,20 @@ const getCourses = async (req, res) => {
         for (const day of dayOrder) {
           if (scheduleByDay[day]) {
             scheduleByDay[day].sort((a, b) => (a.startTime || "").localeCompare(b.startTime || ""));
-            const { dateStr, fullDate } = getUpcomingDateString(day);
+
+            const firstSlotDate = getUpcomingDateForSlot(day, scheduleByDay[day][0]?.endTime, course.timeZone || "UTC");
+            let dateStr = "";
+            if (firstSlotDate) {
+              const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+              const m = months[firstSlotDate.getMonth()];
+              const d = firstSlotDate.getDate();
+              dateStr = `${m} ${d}`;
+            }
             const keyWithDate = dateStr ? `${day} (${dateStr})` : day;
 
             const slotsWithCancelStatus = scheduleByDay[day].map(slot => {
-              const ymd = fullDate ? `${fullDate.getFullYear()}-${String(fullDate.getMonth() + 1).padStart(2, '0')}-${String(fullDate.getDate()).padStart(2, '0')}` : null;
+              const slotDate = getUpcomingDateForSlot(day, slot.endTime, course.timeZone || "UTC");
+              const ymd = slotDate ? `${slotDate.getFullYear()}-${String(slotDate.getMonth() + 1).padStart(2, '0')}-${String(slotDate.getDate()).padStart(2, '0')}` : null;
               const cancelRecord = ymd && slot.cancelledDates ? slot.cancelledDates.find(cd => cd.date === ymd) : null;
 
               let reserved = slot.defaultReservedExternally || 0;
@@ -1346,6 +1356,7 @@ const getCourses = async (req, res) => {
                 date: ymd,
                 ...slot,
                 ReservedExternally: reserved,
+                bookedSeats: booked,
                 availableSeats,
                 isFull: availableSeats <= 0,
                 isCancelled: !!cancelRecord,
@@ -1361,10 +1372,37 @@ const getCourses = async (req, res) => {
         }
       }
 
+      if (course.enrollmentType === "Ongoing") {
+        const allSlots = [];
+        if (weeklySchedule) {
+          for (const key in weeklySchedule) {
+            if (Array.isArray(weeklySchedule[key])) {
+              allSlots.push(...weeklySchedule[key]);
+            }
+          }
+        }
+        if (allSlots.length > 0) {
+          let sumLeft = 0;
+          let sumTotal = 0;
+          let sumAcquired = 0;
+          allSlots.forEach(slot => {
+            if (slot.isCancelled) return;
+            sumLeft += (slot.availableSeats || 0);
+            sumTotal += Math.max(0, (slot.seats || 0) - (slot.ReservedExternally || 0));
+            sumAcquired += (slot.bookedSeats || 0);
+          });
+          leftSeats = sumLeft;
+          courseTotalSeatsVal = sumTotal;
+          courseAcquiredSeatsVal = sumAcquired;
+        }
+      } else {
+        leftSeats = Math.max(0, courseTotalSeats - actualBooked - totalReservedExternally);
+      }
+
       return {
         ...course,
-        totalSeats: courseTotalSeats,
-        acquiredSeats: actualBooked,
+        totalSeats: courseTotalSeatsVal,
+        acquiredSeats: courseAcquiredSeatsVal,
         totalacquirewithreserver,
         leftSeats,
         currentSchedule,
@@ -1966,6 +2004,37 @@ router.post(
   updateCourse,
 );
 
+// Helper: Get Nearest Upcoming Date for a specific batch day/slot (shifts to next week if endTime is in the past)
+const getUpcomingDateForSlot = (dayName, endTime, timeZone = "UTC") => {
+  const dayMap = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+  const targetDay = dayMap[dayName];
+  if (targetDay === undefined) return null;
+
+  const tz = getMappedTimeZone(timeZone);
+  const now = moment().tz(tz);
+  const currentDay = now.day();
+
+  let daysToAdd = targetDay - currentDay;
+  if (daysToAdd < 0) {
+    daysToAdd += 7;
+  }
+
+  const targetDate = now.clone().add(daysToAdd, 'days');
+
+  if (endTime) {
+    const [hours, minutes] = endTime.split(":").map(Number);
+    targetDate.hour(hours).minute(minutes).second(0).millisecond(0);
+  } else {
+    targetDate.hour(23).minute(59).second(59).millisecond(999);
+  }
+
+  if (targetDate.isBefore(now)) {
+    targetDate.add(7, 'days');
+  }
+
+  return targetDate.toDate();
+};
+
 // ---------------------------------------------------------
 // Helper: Get Nearest Upcoming Date for Weekday (e.g. Mon -> Jun 15)
 // ---------------------------------------------------------
@@ -2361,10 +2430,19 @@ const getCourseDetails = async (req, res) => {
       for (const day of dayOrder) {
         if (scheduleByDay[day]) {
           scheduleByDay[day].sort((a, b) => (a.startTime || "").localeCompare(b.startTime || ""));
-          const { dateStr, fullDate } = getUpcomingDateString(day);
+
+          const firstSlotDate = getUpcomingDateForSlot(day, scheduleByDay[day][0]?.endTime, course.timeZone || "UTC");
+          let dateStr = "";
+          if (firstSlotDate) {
+            const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+            const m = months[firstSlotDate.getMonth()];
+            const d = firstSlotDate.getDate();
+            dateStr = `${m} ${d}`;
+          }
 
           const slotsWithDate = scheduleByDay[day].map(slot => {
-            const ymd = fullDate ? `${fullDate.getFullYear()}-${String(fullDate.getMonth() + 1).padStart(2, '0')}-${String(fullDate.getDate()).padStart(2, '0')}` : null;
+            const slotDate = getUpcomingDateForSlot(day, slot.endTime, course.timeZone || "UTC");
+            const ymd = slotDate ? `${slotDate.getFullYear()}-${String(slotDate.getMonth() + 1).padStart(2, '0')}-${String(slotDate.getDate()).padStart(2, '0')}` : null;
             const cancelRecord = ymd && slot.cancelledDates ? slot.cancelledDates.find(cd => cd.date === ymd) : null;
 
             let reserved = slot.defaultReservedExternally || 0;
@@ -2381,6 +2459,7 @@ const getCourseDetails = async (req, res) => {
               date: ymd,
               ...slot,
               ReservedExternally: reserved,
+              bookedSeats: booked,
               availableSeats,
               isFull: availableSeats <= 0,
               isCancelled: !!cancelRecord,
@@ -2399,10 +2478,41 @@ const getCourseDetails = async (req, res) => {
       }
     }
 
+    let leftSeatsVal = 0;
+    let courseTotalSeatsVal = courseTotalSeats;
+    let courseAcquiredSeatsVal = totalAcquiredSeats;
+
+    if (course.enrollmentType === "Ongoing") {
+      const allSlots = [];
+      if (weeklySchedule) {
+        for (const day in weeklySchedule) {
+          if (weeklySchedule[day] && Array.isArray(weeklySchedule[day].slots)) {
+            allSlots.push(...weeklySchedule[day].slots);
+          }
+        }
+      }
+      if (allSlots.length > 0) {
+        let sumLeft = 0;
+        let sumTotal = 0;
+        let sumAcquired = 0;
+        allSlots.forEach(slot => {
+          if (slot.isCancelled) return;
+          sumLeft += (slot.availableSeats || 0);
+          sumTotal += Math.max(0, (slot.seats || 0) - (slot.ReservedExternally || 0));
+          sumAcquired += (slot.bookedSeats || 0);
+        });
+        leftSeatsVal = sumLeft;
+        courseTotalSeatsVal = sumTotal;
+        courseAcquiredSeatsVal = sumAcquired;
+      }
+    } else {
+      leftSeatsVal = Math.max(0, courseTotalSeats - totalAcquiredSeats - totalReservedExternally);
+    }
+
     // 8. Final Object Construction
     const formattedCourse = {
       ...course,
-      totalSeats: courseTotalSeats,
+      totalSeats: courseTotalSeatsVal,
       currentSchedule,
       weeklySchedule,
       sessionStatus,
@@ -2410,11 +2520,9 @@ const getCourseDetails = async (req, res) => {
       duration,
       durationTranslation,
       // acquiredSeats: totalAcquiredSeats + totalReservedExternally,
-      acquiredSeats: totalAcquiredSeats,
+      acquiredSeats: courseAcquiredSeatsVal,
       totalacquirewithreserver: totalAcquiredSeats + totalReservedExternally,
-      leftSeats: course.enrollmentType === "Ongoing"
-        ? (course.batches && course.batches.length > 0 ? course.batches[0].availableSeats : 0)
-        : Math.max(0, courseTotalSeats - totalAcquiredSeats - totalReservedExternally),
+      leftSeats: leftSeatsVal,
       isBooked,
       isWishlisted,
       oneMonthPassEnabled: course.oneMonthPassEnabled || false,

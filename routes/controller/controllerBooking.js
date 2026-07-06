@@ -758,8 +758,14 @@ const initiateBooking = async (req, res) => {
               );
             }
 
+            let reserved = batch.ReservedExternally || 0;
+            if (dateStr && batch.reservedDates) {
+              const resRec = batch.reservedDates.find(r => r.date === dateStr);
+              if (resRec) reserved = resRec.seats;
+            }
+
             const bookedCount = await getCourseBatchBookedCount(course._id, slot.batchId, dateStr);
-            const available = batch.seats - (batch.ReservedExternally || 0) - bookedCount;
+            const available = batch.seats - reserved - bookedCount;
             if (available < qty) {
               return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, `Batch full: ${batch.batchName || slot.batchId}`);
             }

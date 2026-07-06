@@ -70,5 +70,6 @@ const adjustEventDateTime = (dateVal, timeVal, timeZone) => {
 
 module.exports = {
   formatDateTimeByTimezone,
-  adjustEventDateTime
+  adjustEventDateTime,
+  getMappedTimeZone
 };
