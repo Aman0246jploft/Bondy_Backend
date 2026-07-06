@@ -1296,17 +1296,6 @@ const getCourses = async (req, res) => {
           duration = hours ? (minutes ? `${hours} H ${minutes} min` : `${hours} H`) : `${minutes} min`;
           durationTranslation = hours ? (minutes ? `${hours} Цаг ${minutes} мин` : `${hours} Цаг`) : `${minutes} мин`;
         }
-      } else if (earliestStartTime && latestEndTime) {
-        const [sh, sm] = earliestStartTime.split(":").map(Number);
-        const [eh, em] = latestEndTime.split(":").map(Number);
-        let mins = eh * 60 + em - (sh * 60 + sm);
-        if (mins < 0) mins += 1440;
-        if (mins > 0) {
-          const h = Math.floor(mins / 60);
-          const m = mins % 60;
-          duration = h ? (m ? `${h} H ${m} min` : `${h} H`) : `${m} min`;
-          durationTranslation = h ? (m ? `${h} Цаг ${m} мин` : `${h} Цаг`) : `${m} мин`;
-        }
       }
 
       // 5a. Weekly Schedule (for Ongoing classes)
@@ -1495,18 +1484,6 @@ const getCoursesAdmin = async (req, res) => {
           const hours = Math.floor(diffMs / (1000 * 60 * 60));
           const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
           duration = hours ? (minutes ? `${hours} H ${minutes} min` : `${hours} H`) : `${minutes} min`;
-        }
-      } else if (earliestStartTime && latestEndTime) {
-        const [startH, startM] = earliestStartTime.split(":").map(Number);
-        const [endH, endM] = latestEndTime.split(":").map(Number);
-        let diffMins = endH * 60 + endM - (startH * 60 + startM);
-        if (diffMins < 0) diffMins += 24 * 60;
-        if (diffMins > 0) {
-          const hours = Math.floor(diffMins / 60);
-          const minutes = diffMins % 60;
-          if (hours > 0 && minutes > 0) duration = `${hours} H ${minutes} min`;
-          else if (hours > 0) duration = `${hours} H`;
-          else duration = `${minutes} min`;
         }
       }
       course.duration = duration;
@@ -2351,17 +2328,6 @@ const getCourseDetails = async (req, res) => {
         const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
         duration = hours ? (minutes ? `${hours} H ${minutes} min` : `${hours} H`) : `${minutes} min`;
         durationTranslation = hours ? (minutes ? `${hours} Цаг ${minutes} мин` : `${hours} Цаг`) : `${minutes} мин`;
-      }
-    } else if (earliestStartTime && latestEndTime) {
-      const [sh, sm] = earliestStartTime.split(":").map(Number);
-      const [eh, em] = latestEndTime.split(":").map(Number);
-      let mins = eh * 60 + em - (sh * 60 + sm);
-      if (mins < 0) mins += 1440;
-      if (mins > 0) {
-        const h = Math.floor(mins / 60);
-        const m = mins % 60;
-        duration = h ? (m ? `${h} H ${m} min` : `${h} H`) : `${m} min`;
-        durationTranslation = h ? (m ? `${h} Цаг ${m} мин` : `${h} Цаг`) : `${m} мин`;
       }
     }
 
