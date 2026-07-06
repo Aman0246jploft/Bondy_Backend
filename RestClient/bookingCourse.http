@@ -207,3 +207,8 @@ Content-Type: application/json
 GET {{baseUrl}}/event/refund-policies
 Authorization: Bearer {{customerToken}}
 Content-Type: application/json
+
+
+### 19. Get Course Attendees List (Filtered by batch and date)
+GET {{baseUrl}}/booking/course/{{courseId}}/attendees?batchId={{batchId}}&date=2026-07-06&page=1&limit=10
+Authorization: Bearer {{authToken}}

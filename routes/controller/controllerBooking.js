@@ -525,6 +525,13 @@ const calculateBooking = async (req, res) => {
             if (batch.status === "Cancelled") return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, `Batch inactive: ${batch.batchName || slot.batchId}`);
 
             const dateStr = slot.selectedDate || (slot.selectedDay && slot.selectedDay.includes("-") ? slot.selectedDay : null) || req.body.selectedDate || (selectedDay && selectedDay.includes("-") ? selectedDay : null);
+            if (dateStr && batch.cancelledDates && batch.cancelledDates.some(cd => cd.date === dateStr)) {
+              return apiErrorRes(
+                HTTP_STATUS.BAD_REQUEST,
+                res,
+                `Booking is closed for slot: ${batch.batchName || slot.batchId} on ${dateStr} (this date is cancelled)`
+              );
+            }
             if (isBookingCutOffReached(course, batch, dateStr)) {
               return apiErrorRes(
                 HTTP_STATUS.BAD_REQUEST,
@@ -750,6 +757,13 @@ const initiateBooking = async (req, res) => {
             if (batch.status === "Cancelled") return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, `Batch inactive: ${batch.batchName || slot.batchId}`);
 
             const dateStr = slot.selectedDate || (slot.selectedDay && slot.selectedDay.includes("-") ? slot.selectedDay : null) || req.body.selectedDate || (selectedDay && selectedDay.includes("-") ? selectedDay : null);
+            if (dateStr && batch.cancelledDates && batch.cancelledDates.some(cd => cd.date === dateStr)) {
+              return apiErrorRes(
+                HTTP_STATUS.BAD_REQUEST,
+                res,
+                `Booking is closed for slot: ${batch.batchName || slot.batchId} on ${dateStr} (this date is cancelled)`
+              );
+            }
             if (isBookingCutOffReached(course, batch, dateStr)) {
               return apiErrorRes(
                 HTTP_STATUS.BAD_REQUEST,

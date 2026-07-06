@@ -2283,6 +2283,7 @@ const getCourseDetails = async (req, res) => {
     });
     // 3. Check if Viewer (User) has booked
     let viewerId = null;
+    let viewerRole = null;
     const authHeader = req.headers.authorization;
     let isBooked = false;
     const bookedBatchIds = new Set();
@@ -2294,6 +2295,7 @@ const getCourseDetails = async (req, res) => {
           process.env.JWT_SECRET_KEY,
         );
         viewerId = decoded.userId;
+        viewerRole = decoded.roleId;
       } catch { }
     }
 
@@ -2470,10 +2472,22 @@ const getCourseDetails = async (req, res) => {
             };
           });
 
-          weeklySchedule[day] = {
-            date: dateStr,
-            slots: slotsWithDate
-          };
+          const isOwner = viewerId && (
+            (course.createdBy && (viewerId.toString() === (course.createdBy._id || course.createdBy).toString())) ||
+            (viewerRole === roleId.SUPER_ADMIN)
+          );
+
+          let filteredSlots = slotsWithDate;
+          if (!isOwner) {
+            filteredSlots = slotsWithDate.filter(slot => !slot.isCancelled);
+          }
+
+          if (filteredSlots.length > 0) {
+            weeklySchedule[day] = {
+              date: dateStr,
+              slots: filteredSlots
+            };
+          }
         }
       }
     }
