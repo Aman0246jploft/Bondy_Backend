@@ -1025,7 +1025,7 @@ const getEvents = async (req, res) => {
       const parsedRadius = Number(radius);
       const safeRadiusKm = Number.isNaN(parsedRadius)
         ? 100
-        : Math.max(1, Math.min(parsedRadius, 500));
+        : Math.max(1, Math.min(parsedRadius, 20000));
       const geoQuery = { ...query };
 
       if (hasBounds) {
@@ -1179,10 +1179,10 @@ const getEvents = async (req, res) => {
       events = geoAgg;
       totalCount = countAgg[0]?.total || 0;
 
-      if (events.length === 0 && safeRadiusKm < 500) {
+      if (events.length === 0 && safeRadiusKm < 20000) {
         const fallbackGeoQuery = { ...query };
         delete fallbackGeoQuery.venueAddress;
-        const fallbackMaxDistance = 500 * 1000;
+        const fallbackMaxDistance = 20000 * 1000;
 
         const fallbackAgg = await Event.aggregate([
           {
