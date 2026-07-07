@@ -124,24 +124,26 @@ const createEvent = async (req, res) => {
         ticketsVal = ticketsVal.filter(t => t && Object.keys(t).length > 0 && t.ticketName && t.qty !== undefined);
       }
 
-      if (ticketsVal !== undefined && ticketsVal.length === 0) {
-        ticketsVal = [{
-          ticketName: "Free Entry",
-          ticketShortDesc: "Free entry for this event",
-          price: 0,
-          qty: 999999,
-        }];
-        req.body.tickets = ticketsVal;
-        eventData.tickets = ticketsVal;
-      } else if (ticketsVal === undefined && (!event.tickets || event.tickets.length === 0)) {
-        ticketsVal = [{
-          ticketName: "Free Entry",
-          ticketShortDesc: "Free entry for this event",
-          price: 0,
-          qty: 999999,
-        }];
-        req.body.tickets = ticketsVal;
-        eventData.tickets = ticketsVal;
+      if (!isDraftValue) {
+        if (ticketsVal !== undefined && ticketsVal.length === 0) {
+          ticketsVal = [{
+            ticketName: "Free Entry",
+            ticketShortDesc: "Free entry for this event",
+            price: 0,
+            qty: 999999,
+          }];
+          req.body.tickets = ticketsVal;
+          eventData.tickets = ticketsVal;
+        } else if (ticketsVal === undefined && (!event.tickets || event.tickets.length === 0)) {
+          ticketsVal = [{
+            ticketName: "Free Entry",
+            ticketShortDesc: "Free entry for this event",
+            price: 0,
+            qty: 999999,
+          }];
+          req.body.tickets = ticketsVal;
+          eventData.tickets = ticketsVal;
+        }
       }
 
       if (!isDraftValue) {
@@ -207,7 +209,7 @@ const createEvent = async (req, res) => {
         ticketsVal = ticketsVal.filter(t => t && Object.keys(t).length > 0 && t.ticketName && t.qty !== undefined);
       }
 
-      if (ticketsVal.length === 0) {
+      if (!isDraftValue && ticketsVal.length === 0) {
         ticketsVal = [{
           ticketName: "Free Entry",
           ticketShortDesc: "Free entry for this event",
@@ -2710,24 +2712,26 @@ const updateEvent = async (req, res) => {
       reqTickets = reqTickets.filter(t => t && Object.keys(t).length > 0 && t.ticketName && t.qty !== undefined);
     }
 
-    if (reqTickets !== undefined && reqTickets.length === 0) {
-      reqTickets = [{
-        ticketName: "Free Entry",
-        ticketShortDesc: "Free entry for this event",
-        price: 0,
-        qty: 999999,
-      }];
-      req.body.tickets = reqTickets;
-      updateData.tickets = reqTickets;
-    } else if (reqTickets === undefined && (!existingEvent.tickets || existingEvent.tickets.length === 0)) {
-      reqTickets = [{
-        ticketName: "Free Entry",
-        ticketShortDesc: "Free entry for this event",
-        price: 0,
-        qty: 999999,
-      }];
-      req.body.tickets = reqTickets;
-      updateData.tickets = reqTickets;
+    if (!targetIsDraft) {
+      if (reqTickets !== undefined && reqTickets.length === 0) {
+        reqTickets = [{
+          ticketName: "Free Entry",
+          ticketShortDesc: "Free entry for this event",
+          price: 0,
+          qty: 999999,
+        }];
+        req.body.tickets = reqTickets;
+        updateData.tickets = reqTickets;
+      } else if (reqTickets === undefined && (!existingEvent.tickets || existingEvent.tickets.length === 0)) {
+        reqTickets = [{
+          ticketName: "Free Entry",
+          ticketShortDesc: "Free entry for this event",
+          price: 0,
+          qty: 999999,
+        }];
+        req.body.tickets = reqTickets;
+        updateData.tickets = reqTickets;
+      }
     }
 
     // 5. If published (or transitioning to published), enforce required fields
