@@ -79,6 +79,7 @@ const createEventSchema = Joi.object({
     dressCode: Joi.string().optional().allow(null, ""),
     fetcherEvent: Joi.boolean().optional(),
     timeZone: Joi.string().optional().allow(null, ""),
+    isFreeEvent: Joi.boolean().optional(),
     ReservedExternally: Joi.number().integer().min(0).optional(),
 });
 
@@ -165,6 +166,7 @@ const updateEventSchema = Joi.object({
     fetcherEvent: Joi.boolean().optional(),
     isDraft: Joi.boolean().optional(),
     timeZone: Joi.string().optional().allow(null, ""),
+    isFreeEvent: Joi.boolean().optional(),
     ReservedExternally: Joi.number().integer().min(0).optional(),
 });
 

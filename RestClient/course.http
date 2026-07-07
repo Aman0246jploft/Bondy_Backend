@@ -296,7 +296,7 @@ Authorization: Bearer {{authToken}}
 Content-Type: application/json
 
 {
-  "courseId": "{{courseId}}",
+  "courseId": "6a43be55cfa178aee8b7cb78",
   "reason": "Cancelled due to unforeseen circumstances."
 }
 

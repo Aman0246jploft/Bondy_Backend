@@ -1750,11 +1750,15 @@ const getEventDetails = async (req, res) => {
 
     // 2. Determine Status & Booking
     const now = new Date();
-    let status = "Upcoming";
-    if (event.endDate < now) {
-      status = "Past";
-    } else if (now >= event.startDate && now <= event.endDate) {
-      status = "Live";
+    let status = event.status || "Upcoming";
+    if (status !== "Cancelled") {
+      if (event.endDate < now) {
+        status = "Past";
+      } else if (now >= event.startDate && now <= event.endDate) {
+        status = "Live";
+      } else {
+        status = "Upcoming";
+      }
     }
     // Override status in response
     event.status = status;

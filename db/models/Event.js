@@ -93,6 +93,10 @@ const eventSchema = new mongoose.Schema(
     dressCode: {
       type: String, // e.g. "Casual", "Formal", "Traditional"
     },
+    isFreeEvent: {
+      type: Boolean,
+      default: false,
+    },
     fetcherEvent: {
       type: Boolean,
       default: false,
@@ -167,6 +171,9 @@ eventSchema.index({ venueAddress: "2dsphere" });
 
 eventSchema.pre("save", function (next) {
   this.isFeatured = this.fetcherEvent;
+  if (this.tickets && Array.isArray(this.tickets)) {
+    this.isFreeEvent = this.tickets.some(t => t.isFreeTicket === true);
+  }
   // Combine startDate + startTime and endDate + endTime into UTC Date objects if modified
   if (this.isModified("startDate") || this.isModified("startTime") || this.isModified("timeZone")) {
     if (this.startDate) {
