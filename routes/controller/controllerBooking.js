@@ -1640,6 +1640,12 @@ const cancelCourse = async (req, res) => {
       } else {
         // Cancel entire batch
         batch.status = "Cancelled";
+
+        // If all batches are Cancelled, update the entire course status to Cancelled
+        const allBatchesCancelled = course.batches.every((b) => b.status === "Cancelled");
+        if (allBatchesCancelled) {
+          course.status = "Cancelled";
+        }
         await course.save();
 
         // Cancel PENDING transactions for this batch
