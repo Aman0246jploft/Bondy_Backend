@@ -9,7 +9,7 @@ cron.schedule("* * * * *", async () => {
     const nowUtc = moment.utc();
 
     // Fetch all courses not cancelled
-    const courses = await Course.find({ status: { $ne: eventStatus.CANCELLED } }).populate("createdBy", "timeZone");
+    const courses = await Course.find({ status: { $nin: [eventStatus.CANCELLED, eventStatus.PAST] }, isDraft: false }).populate("createdBy", "timeZone");
 
     const bulkOps = [];
 
