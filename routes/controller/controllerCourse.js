@@ -435,8 +435,9 @@ const getCourses = async (req, res) => {
           const tW = moment.tz(mappedTz);
           const currentDay = tW.day();
           const SaturdayOffset = currentDay === 0 ? -1 : 6 - currentDay;
-          const startOfWeekend = tW.clone().add(SaturdayOffset, 'days').startOf('day').toDate();
-          const endOfWeekend = startOfWeekend.clone().add(1, 'days').endOf('day').toDate();
+          const startOfWeekendMoment = tW.clone().add(SaturdayOffset, 'days').startOf('day');
+          const startOfWeekend = startOfWeekendMoment.toDate();
+          const endOfWeekend = startOfWeekendMoment.clone().add(1, 'days').endOf('day').toDate();
           timeConditions.push({
             startDate: { $lte: endOfWeekend },
             $or: [
