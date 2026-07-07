@@ -124,6 +124,10 @@ const createEvent = async (req, res) => {
         ticketsVal = ticketsVal.filter(t => t && Object.keys(t).length > 0 && t.ticketName && t.qty !== undefined);
       }
 
+      if (ticketsVal !== undefined) {
+        eventData.tickets = ticketsVal;
+      }
+
       if (!isDraftValue) {
         if (ticketsVal !== undefined && ticketsVal.length === 0) {
           ticketsVal = [{
@@ -208,6 +212,8 @@ const createEvent = async (req, res) => {
       if (Array.isArray(ticketsVal)) {
         ticketsVal = ticketsVal.filter(t => t && Object.keys(t).length > 0 && t.ticketName && t.qty !== undefined);
       }
+
+      eventData.tickets = ticketsVal;
 
       if (!isDraftValue && ticketsVal.length === 0) {
         ticketsVal = [{
@@ -2710,6 +2716,10 @@ const updateEvent = async (req, res) => {
     let reqTickets = updateData.tickets;
     if (Array.isArray(reqTickets)) {
       reqTickets = reqTickets.filter(t => t && Object.keys(t).length > 0 && t.ticketName && t.qty !== undefined);
+    }
+
+    if (reqTickets !== undefined) {
+      updateData.tickets = reqTickets;
     }
 
     if (!targetIsDraft) {
