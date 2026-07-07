@@ -84,8 +84,8 @@ GET {{baseUrl}}/booking/list?bookingType=EVENT&page=1&limit=5
 Authorization: Bearer {{customerToken}}
 
 ### 8. Get Ticket Detail
-GET {{baseUrl}}/booking/detail/{{transactionId}}
-Authorization: Bearer {{customerToken}}
+GET {{baseUrl}}/booking/detail/6a4ccaa2084c571553c54b4f
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTM4ZTA3MDU4ZWQxNGQ1YTZmNjFmZjEiLCJyb2xlSWQiOjIsImlhdCI6MTc4MzA4NTc2NSwiZXhwIjoyNjQ3MDg1NzY1fQ.7P9TcWn_4fYJ1DhrSUTfVTNAbfWa7dVpAnE0dFRgeno
 
 ### 9. Generate Share & Download URLs
 GET {{baseUrl}}/booking/public/generate-urls/{{transactionId}}
