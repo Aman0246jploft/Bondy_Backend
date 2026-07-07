@@ -9,7 +9,7 @@ cron.schedule("* * * * *", async () => {
 
     // We cannot use simple updateMany anymore because we need the creator's timezone
     // Fetch all active/published events that are not past
-    const events = await Event.find({ status: { $ne: "Past" }, isDraft: false }).populate("createdBy", "timeZone");
+    const events = await Event.find({ status: { $nin: ["Past", "Cancelled"] }, isDraft: false }).populate("createdBy", "timeZone");
 
     const bulkOps = [];
 

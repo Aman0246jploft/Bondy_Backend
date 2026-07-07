@@ -22,7 +22,8 @@ const {
   formatResponseUrl,
   toObjectId,
 } = require("../../utils/globalFunction");
-const { formatDateTimeByTimezone, adjustEventDateTime } = require("../../utils/timezoneHelper");
+const moment = require("moment-timezone");
+const { formatDateTimeByTimezone, adjustEventDateTime, getMappedTimeZone } = require("../../utils/timezoneHelper");
 const {
   createEventSchema,
   getEventsSchema,
@@ -399,6 +400,13 @@ const getEvents = async (req, res) => {
       }
     }
 
+    let userTimeZone = req.query.timeZone || "UTC";
+    if (loginUser) {
+      const u = await User.findById(loginUser).select("timeZone");
+      if (u && u.timeZone) userTimeZone = u.timeZone;
+    }
+    const mappedTz = getMappedTimeZone(userTimeZone);
+
     // // Redis Cache Check
     // const cacheKeyData = JSON.stringify(req.query) + (loginUser || "anonymous");
     // const cacheKeyHash = crypto.createHash("md5").update(cacheKeyData).digest("hex");
@@ -728,83 +736,54 @@ const getEvents = async (req, res) => {
     for (const f of filters) {
       switch (f) {
         case "upcoming":
-          startDateConditions.push({ $gt: now });
+          startDateConditions.push({ $gt: moment.tz(mappedTz).toDate() });
           break;
         case "today":
-          const startOfToday = new Date(now);
-          startOfToday.setHours(0, 0, 0, 0);
-          const endOfToday = new Date(now);
-          endOfToday.setHours(23, 59, 59, 999);
+          const startOfToday = moment.tz(mappedTz).startOf('day').toDate();
+          const endOfToday = moment.tz(mappedTz).endOf('day').toDate();
           startDateConditions.push({ $gte: startOfToday, $lte: endOfToday });
           break;
         case "tomorrow":
-          const startOfTomorrow = new Date(now);
-          startOfTomorrow.setDate(startOfTomorrow.getDate() + 1);
-          startOfTomorrow.setHours(0, 0, 0, 0);
-          const endOfTomorrow = new Date(startOfTomorrow);
-          endOfTomorrow.setHours(23, 59, 59, 999);
+          const startOfTomorrow = moment.tz(mappedTz).add(1, 'day').startOf('day').toDate();
+          const endOfTomorrow = moment.tz(mappedTz).add(1, 'day').endOf('day').toDate();
           startDateConditions.push({
             $gte: startOfTomorrow,
             $lte: endOfTomorrow,
           });
           break;
         case "thisweek":
-          const startOfWeek = new Date(now);
-          const dayOfWeek = startOfWeek.getDay();
-          const diffW = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-          startOfWeek.setDate(startOfWeek.getDate() + diffW);
-          startOfWeek.setHours(0, 0, 0, 0);
-          const endOfWeek = new Date(startOfWeek);
-          endOfWeek.setDate(startOfWeek.getDate() + 6);
-          endOfWeek.setHours(23, 59, 59, 999);
+          const startOfWeek = moment.tz(mappedTz).startOf('isoWeek').toDate();
+          const endOfWeek = moment.tz(mappedTz).endOf('isoWeek').toDate();
           startDateConditions.push({ $gte: startOfWeek, $lte: endOfWeek });
           break;
         case "thisweekend":
-          const tW = new Date(now);
-          const currentDay = tW.getDay();
-          const startOfWeekend = new Date(tW);
-          const daysUntilSaturday = currentDay === 0 ? -1 : 6 - currentDay;
-          startOfWeekend.setDate(startOfWeekend.getDate() + daysUntilSaturday);
-          startOfWeekend.setHours(0, 0, 0, 0);
-          const endOfWeekend = new Date(startOfWeekend);
-          endOfWeekend.setDate(endOfWeekend.getDate() + 1);
-          endOfWeekend.setHours(23, 59, 59, 999);
+          const tW = moment.tz(mappedTz);
+          const currentDay = tW.day();
+          const SaturdayOffset = currentDay === 0 ? -1 : 6 - currentDay;
+          const startOfWeekend = tW.clone().add(SaturdayOffset, 'days').startOf('day').toDate();
+          const endOfWeekend = startOfWeekend.clone().add(1, 'days').endOf('day').toDate();
           startDateConditions.push({
             $gte: startOfWeekend,
             $lte: endOfWeekend,
           });
           break;
         case "thismonth":
-          const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
-          const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+          const startOfMonth = moment.tz(mappedTz).startOf('month').toDate();
+          const endOfMonth = moment.tz(mappedTz).endOf('month').toDate();
           startDateConditions.push({ $gte: startOfMonth, $lte: endOfMonth });
           break;
         case "happeningsoon":
-          const soonEnd = new Date(now.getTime() + 48 * 60 * 60 * 1000);
-          startDateConditions.push({ $gte: now, $lte: soonEnd });
+          const soonEnd = moment.tz(mappedTz).add(48, 'hours').toDate();
+          startDateConditions.push({ $gte: moment.tz(mappedTz).toDate(), $lte: soonEnd });
           break;
         case "thisyear":
-          const startOfYear = new Date(now.getFullYear(), 0, 1, 0, 0, 0, 0);
-          const endOfYear = new Date(
-            now.getFullYear(),
-            11,
-            31,
-            23,
-            59,
-            59,
-            999,
-          );
+          const startOfYear = moment.tz(mappedTz).startOf('year').toDate();
+          const endOfYear = moment.tz(mappedTz).endOf('year').toDate();
           startDateConditions.push({ $gte: startOfYear, $lte: endOfYear });
           break;
         case "nextweek":
-          const startOfNextWeek = new Date(now);
-          const currentDayNW = startOfNextWeek.getDay();
-          const diffNW = currentDayNW === 0 ? -6 : 1 - currentDayNW;
-          startOfNextWeek.setDate(startOfNextWeek.getDate() + diffNW + 7);
-          startOfNextWeek.setHours(0, 0, 0, 0);
-          const endOfNextWeek = new Date(startOfNextWeek);
-          endOfNextWeek.setDate(endOfNextWeek.getDate() + 6);
-          endOfNextWeek.setHours(23, 59, 59, 999);
+          const startOfNextWeek = moment.tz(mappedTz).startOf('isoWeek').add(1, 'week').toDate();
+          const endOfNextWeek = moment.tz(mappedTz).endOf('isoWeek').add(1, 'week').toDate();
           startDateConditions.push({
             $gte: startOfNextWeek,
             $lte: endOfNextWeek,
@@ -1600,7 +1579,6 @@ const getEvents = async (req, res) => {
     }
 
     const bookedEventIds = new Set();
-    let userTimeZone = null;
     if (loginUser) {
       const bookings = await Transaction.find({
         userId: loginUser,
@@ -1608,9 +1586,6 @@ const getEvents = async (req, res) => {
         status: "PAID",
       }).select("eventId");
       bookings.forEach((b) => bookedEventIds.add(b.eventId.toString()));
-
-      const u = await User.findById(loginUser).select("timeZone");
-      if (u && u.timeZone) userTimeZone = u.timeZone;
     }
 
     const bookedMap = new Map();

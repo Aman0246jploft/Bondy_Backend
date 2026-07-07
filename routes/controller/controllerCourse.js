@@ -211,6 +211,13 @@ const getCourses = async (req, res) => {
       }
     }
 
+    let userTimeZone = req.query.timeZone || "UTC";
+    if (loginUser) {
+      const u = await User.findById(loginUser).select("timeZone");
+      if (u && u.timeZone) userTimeZone = u.timeZone;
+    }
+    const mappedTz = getMappedTimeZone(userTimeZone);
+
     // // Redis Cache Check
     // const cacheKeyData = JSON.stringify(req.query) + (loginUser || "anonymous");
     // const cacheKeyHash = crypto.createHash("md5").update(cacheKeyData).digest("hex");
@@ -380,13 +387,11 @@ const getCourses = async (req, res) => {
     for (const f of filters) {
       switch (f) {
         case "upcoming":
-          timeConditions.push({ startDate: { $gt: now } });
+          timeConditions.push({ startDate: { $gt: moment.tz(mappedTz).toDate() } });
           break;
         case "today":
-          const startOfToday = new Date(now);
-          startOfToday.setHours(0, 0, 0, 0);
-          const endOfToday = new Date(now);
-          endOfToday.setHours(23, 59, 59, 999);
+          const startOfToday = moment.tz(mappedTz).startOf('day').toDate();
+          const endOfToday = moment.tz(mappedTz).endOf('day').toDate();
           timeConditions.push({
             startDate: { $lte: endOfToday },
             $or: [
@@ -397,11 +402,8 @@ const getCourses = async (req, res) => {
           });
           break;
         case "tomorrow":
-          const startOfTomorrow = new Date(now);
-          startOfTomorrow.setDate(startOfTomorrow.getDate() + 1);
-          startOfTomorrow.setHours(0, 0, 0, 0);
-          const endOfTomorrow = new Date(startOfTomorrow);
-          endOfTomorrow.setHours(23, 59, 59, 999);
+          const startOfTomorrow = moment.tz(mappedTz).add(1, 'day').startOf('day').toDate();
+          const endOfTomorrow = moment.tz(mappedTz).add(1, 'day').endOf('day').toDate();
           timeConditions.push({
             startDate: { $lte: endOfTomorrow },
             $or: [
@@ -412,14 +414,8 @@ const getCourses = async (req, res) => {
           });
           break;
         case "thisweek":
-          const startOfWeek = new Date(now);
-          const dayOfWeek = startOfWeek.getDay();
-          const diffW = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-          startOfWeek.setDate(startOfWeek.getDate() + diffW);
-          startOfWeek.setHours(0, 0, 0, 0);
-          const endOfWeek = new Date(startOfWeek);
-          endOfWeek.setDate(startOfWeek.getDate() + 6);
-          endOfWeek.setHours(23, 59, 59, 999);
+          const startOfWeek = moment.tz(mappedTz).startOf('isoWeek').toDate();
+          const endOfWeek = moment.tz(mappedTz).endOf('isoWeek').toDate();
           timeConditions.push({
             startDate: { $lte: endOfWeek },
             $or: [
@@ -430,15 +426,11 @@ const getCourses = async (req, res) => {
           });
           break;
         case "thisweekend":
-          const tW = new Date(now);
-          const currentDay = tW.getDay();
-          const startOfWeekend = new Date(tW);
-          const daysUntilSaturday = currentDay === 0 ? -1 : 6 - currentDay;
-          startOfWeekend.setDate(startOfWeekend.getDate() + daysUntilSaturday);
-          startOfWeekend.setHours(0, 0, 0, 0);
-          const endOfWeekend = new Date(startOfWeekend);
-          endOfWeekend.setDate(endOfWeekend.getDate() + 1);
-          endOfWeekend.setHours(23, 59, 59, 999);
+          const tW = moment.tz(mappedTz);
+          const currentDay = tW.day();
+          const SaturdayOffset = currentDay === 0 ? -1 : 6 - currentDay;
+          const startOfWeekend = tW.clone().add(SaturdayOffset, 'days').startOf('day').toDate();
+          const endOfWeekend = startOfWeekend.clone().add(1, 'days').endOf('day').toDate();
           timeConditions.push({
             startDate: { $lte: endOfWeekend },
             $or: [
@@ -449,8 +441,8 @@ const getCourses = async (req, res) => {
           });
           break;
         case "thismonth":
-          const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
-          const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+          const startOfMonth = moment.tz(mappedTz).startOf('month').toDate();
+          const endOfMonth = moment.tz(mappedTz).endOf('month').toDate();
           timeConditions.push({
             startDate: { $lte: endOfMonth },
             $or: [
@@ -461,27 +453,19 @@ const getCourses = async (req, res) => {
           });
           break;
         case "happeningsoon":
-          const soonEnd = new Date(now.getTime() + 48 * 60 * 60 * 1000);
+          const soonEnd = moment.tz(mappedTz).add(48, 'hours').toDate();
           timeConditions.push({
             startDate: { $lte: soonEnd },
             $or: [
-              { endDate: { $gte: now } },
+              { endDate: { $gte: moment.tz(mappedTz).toDate() } },
               { endDate: null },
               { endDate: { $exists: false } }
             ]
           });
           break;
         case "thisyear":
-          const startOfYear = new Date(now.getFullYear(), 0, 1, 0, 0, 0, 0);
-          const endOfYear = new Date(
-            now.getFullYear(),
-            11,
-            31,
-            23,
-            59,
-            59,
-            999,
-          );
+          const startOfYear = moment.tz(mappedTz).startOf('year').toDate();
+          const endOfYear = moment.tz(mappedTz).endOf('year').toDate();
           timeConditions.push({
             startDate: { $lte: endOfYear },
             $or: [
@@ -492,14 +476,8 @@ const getCourses = async (req, res) => {
           });
           break;
         case "nextweek":
-          const startOfNextWeek = new Date(now);
-          const currentDayNW = startOfNextWeek.getDay();
-          const diffNW = currentDayNW === 0 ? -6 : 1 - currentDayNW;
-          startOfNextWeek.setDate(startOfNextWeek.getDate() + diffNW + 7);
-          startOfNextWeek.setHours(0, 0, 0, 0);
-          const endOfNextWeek = new Date(startOfNextWeek);
-          endOfNextWeek.setDate(startOfNextWeek.getDate() + 6);
-          endOfNextWeek.setHours(23, 59, 59, 999);
+          const startOfNextWeek = moment.tz(mappedTz).startOf('isoWeek').add(1, 'week').toDate();
+          const endOfNextWeek = moment.tz(mappedTz).endOf('isoWeek').add(1, 'week').toDate();
           timeConditions.push({
             startDate: { $lte: endOfNextWeek },
             $or: [
@@ -1204,11 +1182,7 @@ const getCourses = async (req, res) => {
       });
     }
 
-    let userTimeZone = null;
-    if (viewerId) {
-      const u = await User.findById(viewerId).select("timeZone");
-      if (u && u.timeZone) userTimeZone = u.timeZone;
-    }
+
 
     const formattedCourses = courses.map((course) => {
       const displayTimeZone = course.timeZone;
