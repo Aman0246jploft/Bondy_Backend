@@ -1300,8 +1300,8 @@ const getEvents = async (req, res) => {
       if (isHomePagePlacement) {
         const parsedRadiusHP = Number(radius);
         const safeRadiusKmHP = Number.isNaN(parsedRadiusHP)
-          ? 500
-          : Math.max(1, Math.min(parsedRadiusHP, 500));
+          ? 20000
+          : Math.max(1, Math.min(parsedRadiusHP, 20000));
 
         // Dedicated pipeline: geo → join PromotionPackage → filter homePage
         const homePageGeoAgg = await Event.aggregate([
