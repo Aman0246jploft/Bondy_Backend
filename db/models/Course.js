@@ -40,7 +40,16 @@ const batchSchema = new mongoose.Schema(
     },
     seats: {
       type: Number,
-      min: 1,
+      validate: {
+        validator: function (val) {
+          const parent = this.parent ? this.parent() : this;
+          if (parent && parent.isDraft) {
+            return true;
+          }
+          return val >= 1;
+        },
+        message: "Seats must be at least 1 when the course is not a draft."
+      },
       required: function () {
         const parent = this.parent ? this.parent() : this;
         return parent && !parent.isDraft;
@@ -106,7 +115,15 @@ const courseSchema = new mongoose.Schema(
     },
     totalSessions: {
       type: Number,
-      min: 1,
+      validate: {
+        validator: function (val) {
+          if (this.isDraft) {
+            return true;
+          }
+          return val >= 1;
+        },
+        message: "Total sessions must be at least 1 when the course is not a draft."
+      },
       required: function () {
         return !this.isDraft;
       },
