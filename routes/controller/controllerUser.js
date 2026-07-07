@@ -1610,6 +1610,7 @@ const getUserProfileById = async (req, res) => {
         endDate: { $gte: now },
         isDraft: false,
         isDeleted: { $ne: true },
+        status: { $ne: "Cancelled" },
       })
         .populate("eventCategory", "name")
         .sort({ startDate: 1 }) // Soonest first
@@ -1621,6 +1622,7 @@ const getUserProfileById = async (req, res) => {
         endDate: { $lt: now },
         isDraft: false,
         isDeleted: { $ne: true },
+        status: { $ne: "Cancelled" },
       })
         .populate("eventCategory", "name")
         .sort({ startDate: -1 }) // Most recent past first
@@ -1633,6 +1635,7 @@ const getUserProfileById = async (req, res) => {
         createdBy: userId,
         isDraft: false,
         isDeleted: { $ne: true },
+        status: { $ne: "Cancelled" },
         $or: [
           { enrollmentType: "Ongoing" },
           { endDate: { $gte: now } },
@@ -1650,6 +1653,7 @@ const getUserProfileById = async (req, res) => {
         enrollmentType: "fixedStart",
         endDate: { $lt: now },
         isDeleted: { $ne: true },
+        status: { $ne: "Cancelled" },
       })
         .populate("courseCategory", "name")
         .sort({ endDate: -1 })

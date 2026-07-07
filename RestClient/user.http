@@ -201,7 +201,7 @@ Content-Type: application/json
 
 
 ### 14. Get External Profile
-GET {{baseUrl}}/user/profile/6a1e80665979beee41cf5f4b
+GET {{baseUrl}}/user/profile/6a38e07058ed14d5a6f61ff1
 Authorization: Bearer {{organizerToken}}
 Content-Type: application/json
 
