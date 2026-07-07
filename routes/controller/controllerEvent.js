@@ -618,6 +618,8 @@ const getEvents = async (req, res) => {
         } else {
           query.status = statusValues[0];
         }
+      } else {
+        query.status = { $ne: eventStatus.CANCELLED };
       }
     } else {
       // Draft filter (explicit param or through filter string)
@@ -657,9 +659,10 @@ const getEvents = async (req, res) => {
           // Default time constraints (active events) - unless "past" filter is specifically requested
           if (!filters.includes("past")) {
             query.endDate = { $gte: now };
-            query.status = { $ne: eventStatus.PAST };
+            query.status = { $nin: [eventStatus.PAST, eventStatus.CANCELLED] };
           } else {
             query.endDate = { $lt: now };
+            query.status = { $ne: eventStatus.CANCELLED };
           }
         }
       }

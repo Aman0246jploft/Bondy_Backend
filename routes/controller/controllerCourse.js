@@ -1214,7 +1214,13 @@ const getCourses = async (req, res) => {
       let courseTotalSeats = 0;
       let totalReservedExternally = 0;
       if (course.batches && Array.isArray(course.batches)) {
-        course.batches = course.batches.map((batch) => {
+        let filteredBatches = course.batches;
+        const creatorId = course.createdBy?._id?.toString() || course.createdBy?.toString();
+        const isCreator = loginUser && creatorId && loginUser.toString() === creatorId;
+        if (course.enrollmentType === "fixedStart" && !isCreator) {
+          filteredBatches = filteredBatches.filter((b) => b.status !== "Cancelled");
+        }
+        course.batches = filteredBatches.map((batch) => {
           const batchId = batch._id?.toString();
           const acquired = bookingMap[`${course._id}_${batchId}`] || 0;
           const seats = batch.seats || 0;
@@ -2374,11 +2380,20 @@ const getCourseDetails = async (req, res) => {
       if (wishlistItem) isWishlisted = true;
     }
 
+    const isOwner = viewerId && (
+      (course.createdBy && (viewerId.toString() === (course.createdBy._id || course.createdBy).toString())) ||
+      (viewerRole === roleId.SUPER_ADMIN)
+    );
+
     // 4. Enrich Batches
     let courseTotalSeats = 0;
     let totalReservedExternally = 0;
     if (course.batches && Array.isArray(course.batches)) {
-      course.batches = course.batches.map((batch) => {
+      let filteredBatches = course.batches;
+      if (course.enrollmentType === "fixedStart" && !isOwner) {
+        filteredBatches = filteredBatches.filter((b) => b.status !== "Cancelled");
+      }
+      course.batches = filteredBatches.map((batch) => {
         const batchId = batch._id?.toString();
         const acquired = bookingMap[batchId] || 0;
         const seats = batch.seats || 0;
