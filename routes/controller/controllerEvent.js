@@ -940,7 +940,17 @@ const getEvents = async (req, res) => {
       //         need full set to deduplicate, but we cap at a reasonable max)
       const promotedEventIds = new Set();
       const promotedLookupPipeline = [
-        { $match: { ...query, activePromotionPackage: { $ne: null } } },
+        {
+          $match: {
+            ...query,
+            activePromotionPackage: { $ne: null },
+            $or: [
+              { featuredExpiry: { $exists: false } },
+              { featuredExpiry: null },
+              { featuredExpiry: { $gte: now } }
+            ]
+          }
+        },
         {
           $lookup: {
             from: "PromotionPackage",
@@ -1200,7 +1210,15 @@ const getEvents = async (req, res) => {
               distanceField: "distance",
               maxDistance: safeRadiusKmHP * 1000,
               spherical: true,
-              query: { ...query, activePromotionPackage: { $ne: null } },
+              query: {
+                ...query,
+                activePromotionPackage: { $ne: null },
+                $or: [
+                  { featuredExpiry: { $exists: false } },
+                  { featuredExpiry: null },
+                  { featuredExpiry: { $gte: now } }
+                ]
+              },
             },
           },
           {
@@ -1306,6 +1324,12 @@ const getEvents = async (req, res) => {
                       $and: [
                         { $isArray: "$promoPkg.placements" },
                         { $in: ["homePage", "$promoPkg.placements"] },
+                        {
+                          $or: [
+                            { $eq: [{ $ifNull: ["$featuredExpiry", null] }, null] },
+                            { $gte: ["$featuredExpiry", now] }
+                          ]
+                        }
                       ],
                     },
                     1,
@@ -1354,7 +1378,8 @@ const getEvents = async (req, res) => {
           const homePageEvents = allPlacementEvents.filter(
             (e) =>
               Array.isArray(e.promoPkg?.placements) &&
-              e.promoPkg.placements.includes("homePage")
+              e.promoPkg.placements.includes("homePage") &&
+              (!e.featuredExpiry || new Date(e.featuredExpiry) >= now)
           );
 
           if (homePageEvents.length > 0) {
@@ -1399,6 +1424,12 @@ const getEvents = async (req, res) => {
                         { $ne: [placement || null, null] },
                         { $isArray: "$promoPkg.placements" },
                         { $in: [placement, "$promoPkg.placements"] },
+                        {
+                          $or: [
+                            { $eq: [{ $ifNull: ["$featuredExpiry", null] }, null] },
+                            { $gte: ["$featuredExpiry", now] }
+                          ]
+                        }
                       ],
                     },
                     1,
