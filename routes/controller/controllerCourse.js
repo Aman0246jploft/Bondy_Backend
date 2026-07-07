@@ -2016,6 +2016,56 @@ router.post(
   updateCourse,
 );
 
+const deleteDraftCourse = async (req, res) => {
+  try {
+    const { courseId } = req.params;
+    const userId = req.user.userId;
+
+    if (!mongoose.Types.ObjectId.isValid(courseId)) {
+      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Invalid course ID format");
+    }
+
+    const course = await Course.findById(courseId);
+    if (!course) {
+      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Course not found");
+    }
+
+    if (course.createdBy.toString() !== userId) {
+      return apiErrorRes(
+        HTTP_STATUS.FORBIDDEN,
+        res,
+        "You are not authorized to delete this course",
+      );
+    }
+
+    if (!course.isDraft) {
+      return apiErrorRes(
+        HTTP_STATUS.BAD_REQUEST,
+        res,
+        "Only draft courses can be deleted",
+      );
+    }
+
+    await Course.findByIdAndDelete(courseId);
+
+    return apiSuccessRes(
+      HTTP_STATUS.OK,
+      res,
+      "Draft course deleted successfully",
+    );
+  } catch (error) {
+    console.error("Error in deleteDraftCourse:", error);
+    return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
+  }
+};
+
+router.post(
+  "/delete/:courseId",
+  perApiLimiter(),
+  checkRole([roleId.ORGANIZER]),
+  deleteDraftCourse,
+);
+
 // Helper: Get Nearest Upcoming Date for a specific batch day/slot (shifts to next week if endTime is in the past)
 const getUpcomingDateForSlot = (dayName, endTime, timeZone = "UTC") => {
   const dayMap = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };

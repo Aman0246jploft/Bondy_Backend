@@ -1485,6 +1485,7 @@ const getUserProfileById = async (req, res) => {
         createdBy: userId,
         isDraft: false,
         isDeleted: { $ne: true },
+        status: { $ne: "Cancelled" },
       });
       profileData.totalCoursesAdded = totalCourses; // "total course he added"
 
@@ -1493,6 +1494,7 @@ const getUserProfileById = async (req, res) => {
         createdBy: userId,
         isDraft: false,
         isDeleted: { $ne: true },
+        status: { $ne: "Cancelled" },
       });
       profileData.totalEventsHosted = totalEventsHosted + totalCourses;
 

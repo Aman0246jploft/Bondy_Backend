@@ -16,6 +16,12 @@ Content-Type: application/json
 }
 
 
+### 1.b. Delete a Draft Course
+POST {{baseUrl}}/course/delete/{{courseId}}
+Authorization: Bearer {{authToken}}
+
+
+
 ### 2. Create a Fully Published Course (All required fields provided)
 POST {{baseUrl}}/course/create
 Authorization: Bearer {{authToken}}

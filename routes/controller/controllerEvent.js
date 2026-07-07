@@ -3175,6 +3175,56 @@ router.post(
   updateEvent,
 );
 
+const deleteDraftEvent = async (req, res) => {
+  try {
+    const { eventId } = req.params;
+    const userId = req.user.userId;
+
+    if (!mongoose.Types.ObjectId.isValid(eventId)) {
+      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Invalid event ID format");
+    }
+
+    const event = await Event.findById(eventId);
+    if (!event) {
+      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Event not found");
+    }
+
+    if (event.createdBy.toString() !== userId) {
+      return apiErrorRes(
+        HTTP_STATUS.FORBIDDEN,
+        res,
+        "You are not authorized to delete this event",
+      );
+    }
+
+    if (!event.isDraft) {
+      return apiErrorRes(
+        HTTP_STATUS.BAD_REQUEST,
+        res,
+        "Only draft events can be deleted",
+      );
+    }
+
+    await Event.findByIdAndDelete(eventId);
+
+    return apiSuccessRes(
+      HTTP_STATUS.OK,
+      res,
+      "Draft event deleted successfully",
+    );
+  } catch (error) {
+    console.error("Error in deleteDraftEvent:", error);
+    return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
+  }
+};
+
+router.post(
+  "/delete/:eventId",
+  perApiLimiter(),
+  checkRole([roleId.ORGANIZER]),
+  deleteDraftEvent,
+);
+
 const assignStaffToEvent = async (req, res) => {
   try {
     const { entityId: eventId, staffIds } = req.body;

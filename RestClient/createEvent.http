@@ -13,6 +13,11 @@ Content-Type: application/json
   "notes": "Draft setup with basic details"
 }
 
+### 1.b. Delete a Draft Event
+POST {{baseUrl}}/event/delete/{{eventId}}
+Authorization: Bearer {{authToken}}
+
+
 ### 2. Create a Fully Published Event (All required fields provided)
 POST {{baseUrl}}/event/create
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTQyMTg5OWY4NjgzYzZlOWNhMjY4Y2EiLCJyb2xlSWQiOjIsImlhdCI6MTc4MjcyNTY3OSwiZXhwIjoyNjQ2NzI1Njc5fQ.zhMUUjZJeK3T49iQ3-fmLqtL7yOYjbRhWJLTsYPqhbs

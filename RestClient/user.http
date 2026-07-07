@@ -9,8 +9,8 @@ POST {{baseUrl}}/user/admin/login
 Content-Type: application/json
 
 {
-  "email": "weborg@yopmail.com",
-  "password": "Test@123"
+  "email": "luv@yopmail.com",
+  "password": "Test@1234"
 }
 
 
@@ -195,7 +195,7 @@ Content-Type: application/json
 
 ### 13. Get My Profile
 GET {{baseUrl}}/user/selfProfile
-Authorization: Bearer {{organizerToken}}
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTRiOGEwN2IwMWFlZDAxZjBlY2NkMWYiLCJyb2xlSWQiOjIsImlhdCI6MTc4MzQwMjQwMiwiZXhwIjoyNjQ3NDAyNDAyfQ.JPurkxaY4oqMPOVwqZMYfDM1AOho1mQXm_0vgxnuZ2I
 Content-Type: application/json
 
 
