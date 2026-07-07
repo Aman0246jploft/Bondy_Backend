@@ -330,6 +330,49 @@ const getCancellationFeePercent = async () => {
 };
 
 /**
+ * Calculate the current refund preview and cancellation fee for a transaction
+ * and attach it to the response object.
+ */
+const attachRefundPreview = async (transaction, transactionObj) => {
+  if (transaction.status === "PAID") {
+    const { item } = resolveBookingItem(transaction);
+    if (item) {
+      let startDate;
+      if (transaction.bookingType === "EVENT") {
+        startDate = item.startDate;
+      } else {
+        startDate = item.startDate;
+      }
+
+      const policyValue = item.refundPolicy || refundPolicyEnum.NO_REFUND;
+      const { eligible, refundPercentage } = checkRefundEligibility(policyValue, startDate);
+      const grossRefundAmount = eligible
+        ? roundToTwo(transaction.totalAmount * (refundPercentage / 100))
+        : 0;
+
+      let cancellationFeePercent = 0;
+      let cancellationFeeAmount = 0;
+      let estimatedRefundAmount = grossRefundAmount;
+
+      if (grossRefundAmount > 0) {
+        cancellationFeePercent = await getCancellationFeePercent();
+        if (cancellationFeePercent > 0) {
+          cancellationFeeAmount = roundToTwo(grossRefundAmount * (cancellationFeePercent / 100));
+          estimatedRefundAmount = roundToTwo(grossRefundAmount - cancellationFeeAmount);
+        }
+      }
+
+      transactionObj.refundPolicy = policyValue;
+      transactionObj.isRefundEligible = eligible;
+      transactionObj.refundPercentage = refundPercentage;
+      transactionObj.estimatedRefundAmount = estimatedRefundAmount;
+      transactionObj.currentCancellationFeePercent = cancellationFeePercent;
+      transactionObj.currentCancellationFeeAmount = cancellationFeeAmount;
+    }
+  }
+};
+
+/**
  * Format media URLs on an event or course object
  */
 const formatItemMedia = (tObj, bookingType) => {
@@ -1122,6 +1165,7 @@ const confirmPayment = async (req, res) => {
     }
     if (transaction.status === "PAID") {
       const transactionObj = transaction.toObject();
+      await attachRefundPreview(transaction, transactionObj);
       formatItemMedia(transactionObj, transaction.bookingType);
       return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.BOOKING_CONFIRMED, {
         transaction: transactionObj,
@@ -2003,6 +2047,7 @@ const getTicketDetail = async (req, res) => {
     const transactionObj = transaction.toObject();
     transactionObj.cancellationFeePercent = transaction.cancellationFeePercent || 0;
     transactionObj.cancellationFeeAmount = transaction.cancellationFeeAmount || 0;
+    await attachRefundPreview(transaction, transactionObj);
     formatItemMedia(transactionObj, transaction.bookingType);
 
     if (transactionObj.userId?.profileImage) {
