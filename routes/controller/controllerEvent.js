@@ -807,7 +807,7 @@ const getEvents = async (req, res) => {
               const token = authHeader.split(" ")[1];
               const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY);
               const user = await User.findById(decoded.userId).lean();
-              console.log("44444444555", user?.categories)
+              // console.log("44444444555", user?.categories)
               if (user?.categories?.length > 0)
                 userCategories = user.categories;
             } catch (err) { }
@@ -1179,120 +1179,7 @@ const getEvents = async (req, res) => {
       events = geoAgg;
       totalCount = countAgg[0]?.total || 0;
 
-      if (events.length === 0 && safeRadiusKm < 20000) {
-        const fallbackGeoQuery = { ...query };
-        delete fallbackGeoQuery.venueAddress;
-        const fallbackMaxDistance = 20000 * 1000;
-
-        const fallbackAgg = await Event.aggregate([
-          {
-            $geoNear: {
-              near: {
-                type: "Point",
-                coordinates: [nearLongitude, nearLatitude],
-              },
-              distanceField: "distance",
-              maxDistance: fallbackMaxDistance,
-              spherical: true,
-              query: fallbackGeoQuery,
-            },
-          },
-          {
-            $lookup: {
-              from: "PromotionPackage",
-              localField: "activePromotionPackage",
-              foreignField: "_id",
-              as: "promoPkg",
-            },
-          },
-          { $unwind: { path: "$promoPkg", preserveNullAndEmptyArrays: true } },
-          {
-            $addFields: {
-              isPromoMatch: {
-                $cond: [
-                  {
-                    $and: [
-                      { $ne: [placement || null, null] },
-                      { $isArray: "$promoPkg.placements" },
-                      { $in: [placement, "$promoPkg.placements"] },
-                    ],
-                  },
-                  1,
-                  0,
-                ],
-              },
-            },
-          },
-          {
-            $sort: (filters.includes("latest") || filters.includes("newest"))
-              ? { createdAt: -1 }
-              : isOrganizerList
-                ? { startDate: 1, endDate: 1 }
-                : {
-                  fetcherEvent: -1,
-                  isFeatured: -1,
-                  startDate: 1,
-                  endDate: 1,
-                  distance: 1,
-                  isPromoMatch: -1,
-                },
-          },
-          { $skip: parseInt(skip) },
-          { $limit: parseInt(limit) },
-          {
-            $lookup: {
-              from: "categories",
-              localField: "eventCategory",
-              foreignField: "_id",
-              as: "eventCategory",
-            },
-          },
-          {
-            $unwind: {
-              path: "$eventCategory",
-              preserveNullAndEmptyArrays: true,
-            },
-          },
-          {
-            $lookup: {
-              from: "User",
-              localField: "createdBy",
-              foreignField: "_id",
-              pipeline: [
-                {
-                  $project: {
-                    firstName: 1,
-                    lastName: 1,
-                    profileImage: 1,
-                    isVerified: 1,
-                  },
-                },
-              ],
-              as: "createdBy",
-            },
-          },
-          { $unwind: { path: "$createdBy", preserveNullAndEmptyArrays: true } },
-        ]);
-
-        const fallbackCountAgg = await Event.aggregate([
-          {
-            $geoNear: {
-              near: {
-                type: "Point",
-                coordinates: [nearLongitude, nearLatitude],
-              },
-              distanceField: "distance",
-              maxDistance: fallbackMaxDistance,
-              spherical: true,
-              query: fallbackGeoQuery,
-            },
-          },
-          { $count: "total" },
-        ]);
-
-        events = fallbackAgg;
-        totalCount = fallbackCountAgg[0]?.total || 0;
-      }
+      // Fallback block removed to ensure strict local query results are returned when location is searched.
 
       // ── homePage placement filter (geo path) ──────────────────────────────
       // We run a dedicated geo query for homePage promoted events instead of
