@@ -497,7 +497,9 @@ const getEvents = async (req, res) => {
     );
 
     const addToSliderInput =
-      addToSlider !== undefined ? addToSlider : req.body?.addToSlider;
+      (typeof addToSlider === "string" ? addToSlider.trim() : addToSlider) !== undefined
+        ? (typeof addToSlider === "string" ? addToSlider.trim() : addToSlider)
+        : (typeof req.body?.addToSlider === "string" ? req.body.addToSlider.trim() : req.body?.addToSlider);
     const isAddToSliderTrueOnlyRequest =
       String(addToSliderInput).toLowerCase() === "true" &&
       ((queryEntries.length === 1 && queryEntries[0][0] === "addToSlider") ||
@@ -922,8 +924,8 @@ const getEvents = async (req, res) => {
 
     // ─── Placement flags ────────────────────────────────────────────────────
     const isHomePagePlacement =
-      placement === "homePage" &&
-      String(addToSlider !== undefined ? addToSlider : req.body?.addToSlider).toLowerCase() === "true";
+      (typeof placement === "string" ? placement.trim() : placement) === "homePage" &&
+      String(addToSliderInput).toLowerCase() === "true";
     const isExplorePagePlacement = placement === "explorePage";
     // ────────────────────────────────────────────────────────────────────────
 
