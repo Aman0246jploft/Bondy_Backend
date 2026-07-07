@@ -180,6 +180,15 @@ const transactionSchema = new mongoose.Schema(
             ref: "User",
             default: null,
         },
+        // ── Cancellation Fee fields ──
+        cancellationFeePercent: {
+            type: Number,
+            default: 0,
+        },
+        cancellationFeeAmount: {
+            type: Number,
+            default: 0,
+        },
     },
     {
         timestamps: true,

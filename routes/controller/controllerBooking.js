@@ -311,6 +311,25 @@ const checkRefundEligibility = (refundPolicyValue, startDate) => {
 };
 
 /**
+ * Fetch the cancellation fee percentage from GlobalSetting.
+ * Returns 0 if not configured (backward compatible).
+ */
+const getCancellationFeePercent = async () => {
+  try {
+    const setting = await GlobalSetting.findOne({ key: "CANCELLATION_FEE_PERCENT" });
+    if (setting && setting.value != null) {
+      const parsed = parseFloat(setting.value);
+      if (!isNaN(parsed) && parsed >= 0 && parsed <= 100) {
+        return parsed;
+      }
+    }
+  } catch (err) {
+    console.error("[CANCELLATION_FEE] Error fetching fee config:", err);
+  }
+  return 0;
+};
+
+/**
  * Format media URLs on an event or course object
  */
 const formatItemMedia = (tObj, bookingType) => {
@@ -1321,9 +1340,22 @@ const previewRefund = async (req, res) => {
     const policyValue = item.refundPolicy || refundPolicyEnum.NO_REFUND;
     const { eligible, refundPercentage } = checkRefundEligibility(policyValue, startDate);
 
-    const refundAmount = eligible
+    const grossRefundAmount = eligible
       ? roundToTwo(transaction.totalAmount * (refundPercentage / 100))
       : 0;
+
+    // ── Cancellation fee calculation ──
+    let cancellationFeePercent = 0;
+    let cancellationFeeAmount = 0;
+    let estimatedRefundAmount = grossRefundAmount;
+
+    if (grossRefundAmount > 0) {
+      cancellationFeePercent = await getCancellationFeePercent();
+      if (cancellationFeePercent > 0) {
+        cancellationFeeAmount = roundToTwo(grossRefundAmount * (cancellationFeePercent / 100));
+        estimatedRefundAmount = roundToTwo(grossRefundAmount - cancellationFeeAmount);
+      }
+    }
 
     return apiSuccessRes(HTTP_STATUS.OK, res, "Refund preview calculated successfully", {
       transactionId: transaction._id,
@@ -1332,7 +1364,9 @@ const previewRefund = async (req, res) => {
       refundPolicy: policyValue,
       eligible,
       refundPercentage,
-      estimatedRefundAmount: refundAmount,
+      cancellationFeePercent,
+      cancellationFeeAmount,
+      estimatedRefundAmount,
     });
   } catch (error) {
     console.error("Error in previewRefund:", error);
@@ -1399,13 +1433,28 @@ const cancelBooking = async (req, res) => {
     const policyValue = item.refundPolicy || refundPolicyEnum.NO_REFUND;
     const { eligible, refundPercentage } = checkRefundEligibility(policyValue, startDate);
 
-    const refundAmount = eligible
+    const grossRefundAmount = eligible
       ? roundToTwo(transaction.totalAmount * (refundPercentage / 100))
       : 0;
+
+    // ── Cancellation fee calculation ──
+    let cancellationFeePercent = 0;
+    let cancellationFeeAmount = 0;
+    let refundAmount = grossRefundAmount;
+
+    if (grossRefundAmount > 0) {
+      cancellationFeePercent = await getCancellationFeePercent();
+      if (cancellationFeePercent > 0) {
+        cancellationFeeAmount = roundToTwo(grossRefundAmount * (cancellationFeePercent / 100));
+        refundAmount = roundToTwo(grossRefundAmount - cancellationFeeAmount);
+      }
+    }
 
     // Update transaction
     transaction.status = refundAmount > 0 ? "REFUNDED" : "CANCELLED";
     transaction.refundAmount = refundAmount;
+    transaction.cancellationFeePercent = cancellationFeePercent;
+    transaction.cancellationFeeAmount = cancellationFeeAmount;
     transaction.refundReason = reason || "User cancelled";
     transaction.cancelledAt = now;
     transaction.cancelledBy = userId;
@@ -1446,6 +1495,8 @@ const cancelBooking = async (req, res) => {
       bookingId: transaction.bookingId,
       status: transaction.status,
       refundAmount,
+      cancellationFeePercent,
+      cancellationFeeAmount,
       refundPolicy: policyValue,
       refundEligible: eligible,
     });
@@ -1950,6 +2001,8 @@ const getTicketDetail = async (req, res) => {
     }
 
     const transactionObj = transaction.toObject();
+    transactionObj.cancellationFeePercent = transaction.cancellationFeePercent || 0;
+    transactionObj.cancellationFeeAmount = transaction.cancellationFeeAmount || 0;
     formatItemMedia(transactionObj, transaction.bookingType);
 
     if (transactionObj.userId?.profileImage) {

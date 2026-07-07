@@ -317,4 +317,5 @@ module.exports = Object.freeze({
   CANCEL_COURSE_UNAUTHORIZED: "You are not authorized to cancel this course",
   CANCELLATION_REASONS_FETCHED: "Cancellation reasons fetched successfully",
   INVALID_CANCELLATION_REASON: "Invalid cancellation reason",
+  CANCELLATION_FEE_APPLIED: "Cancellation fee applied to refund",
 });

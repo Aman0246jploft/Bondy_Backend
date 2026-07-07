@@ -184,3 +184,48 @@ Content-Type: application/json
   "transactionId": "{{transactionId}}",
   "reason": "Not an actual predefined reason"
 }
+
+#==========================================================
+# CANCELLATION FEE CONFIGURATION (Admin)
+#==========================================================
+
+### 16. Set Cancellation Fee Percentage (Admin only)
+# Sets the platform-wide cancellation fee deducted from user-initiated refunds.
+# Value is a percentage (0-100). Default is 0 (no fee).
+# Organizer-initiated cancellations are NOT affected by this setting.
+POST {{baseUrl}}/globalsetting/upsert
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "key": "CANCELLATION_FEE_PERCENT",
+  "value": 10,
+  "description": "Cancellation fee percentage deducted from user-initiated refunds"
+}
+
+### 17. Get Current Cancellation Fee Setting
+GET {{baseUrl}}/globalsetting/CANCELLATION_FEE_PERCENT
+Authorization: Bearer {{authToken}}
+
+### 18. Set Cancellation Fee to 0% (Disable fee)
+POST {{baseUrl}}/globalsetting/upsert
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "key": "CANCELLATION_FEE_PERCENT",
+  "value": 0,
+  "description": "Cancellation fee percentage deducted from user-initiated refunds"
+}
+
+#==========================================================
+# REFUND PREVIEW WITH CANCELLATION FEE
+#==========================================================
+
+### 19. Preview Refund (Shows fee breakdown)
+# Response includes: cancellationFeePercent, cancellationFeeAmount, estimatedRefundAmount
+# Example: If totalAmount=100, refundPolicy allows full refund, fee=10%:
+#   → cancellationFeeAmount = 10
+#   → estimatedRefundAmount = 90
+GET {{baseUrl}}/booking/refund-preview/{{transactionId}}
+Authorization: Bearer {{customerToken}}
