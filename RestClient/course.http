@@ -254,6 +254,10 @@ Authorization: Bearer {{authToken}}
 GET {{baseUrl}}/course/list?filter=organizer,draft
 Authorization: Bearer {{authToken}}
 
+### 17.c List Courses - Organizer Cancelled & Past Courses
+GET {{baseUrl}}/course/list?filter=organizer&status=Cancelled,Past
+Authorization: Bearer {{authToken}}
+
 
 ### 17.a List Courses - Exclude My Created Courses (using excludeMyCourses query parameter)
 GET {{baseUrl}}/course/list?excludeMyCourses=true

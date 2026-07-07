@@ -260,6 +260,10 @@ Authorization: Bearer {{authToken}}
 GET {{baseUrl}}/event/list?page=1&limit=3&filter=organizer,excludemyevents&status=Live,Upcoming
 Authorization: Bearer {{authToken}}
 
+### 14.g. List Events - Organizer Events (Cancelled & Past)
+GET {{baseUrl}}/event/list?filter=organizer&status=
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTRiOGEwN2IwMWFlZDAxZjBlY2NkMWYiLCJyb2xlSWQiOjIsImlhdCI6MTc4MzQwMjQwMiwiZXhwIjoyNjQ3NDAyNDAyfQ.JPurkxaY4oqMPOVwqZMYfDM1AOho1mQXm_0vgxnuZ2I
+
 #============= FILTER ==============
 
 ### 14. Get Event Details

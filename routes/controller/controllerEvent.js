@@ -604,11 +604,14 @@ const getEvents = async (req, res) => {
       if (status) {
         const statusValues = (Array.isArray(status) ? status : status.split(","))
           .map((s) => {
-            const trimmed = s.trim();
+            const trimmed = s.trim().toLowerCase();
+            if (["cancel", "canceled", "cancelled"].includes(trimmed)) {
+              return "Cancelled";
+            }
             const matched = Object.values(eventStatus).find(
-              (val) => val.toLowerCase() === trimmed.toLowerCase()
+              (val) => val.toLowerCase() === trimmed
             );
-            return matched || trimmed;
+            return matched || s.trim();
           });
         if (statusValues.length > 1) {
           query.status = { $in: statusValues };
@@ -636,11 +639,14 @@ const getEvents = async (req, res) => {
         if (status) {
           const statusValues = (Array.isArray(status) ? status : status.split(","))
             .map((s) => {
-              const trimmed = s.trim();
+              const trimmed = s.trim().toLowerCase();
+              if (["cancel", "canceled", "cancelled"].includes(trimmed)) {
+                return "Cancelled";
+              }
               const matched = Object.values(eventStatus).find(
-                (val) => val.toLowerCase() === trimmed.toLowerCase()
+                (val) => val.toLowerCase() === trimmed
               );
-              return matched || trimmed;
+              return matched || s.trim();
             });
           if (statusValues.length > 1) {
             query.status = { $in: statusValues };
