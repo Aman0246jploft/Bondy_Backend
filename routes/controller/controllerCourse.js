@@ -321,12 +321,13 @@ const getCourses = async (req, res) => {
               { enrollmentType: "Ongoing" },
               { enrollmentType: { $exists: false } }
             ];
-            query.status = { $ne: eventStatus.PAST };
+            query.status = { $nin: [eventStatus.PAST, "Cancelled"] };
           } else {
             query.$or = [
               { enrollmentType: "fixedStart", endDate: { $lt: now } },
               { enrollmentType: "Ongoing", status: eventStatus.PAST }
             ];
+            query.status = { $ne: "Cancelled" };
           }
         }
       }
