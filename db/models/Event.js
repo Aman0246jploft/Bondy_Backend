@@ -57,6 +57,10 @@ const eventSchema = new mongoose.Schema(
           type: Number,
           min: 1,
         },
+        isFreeTicket: {
+          type: Boolean,
+          default: false,
+        },
         salesStart: { type: Date },
         salesEnd: { type: Date },
       },

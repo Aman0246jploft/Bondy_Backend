@@ -135,6 +135,7 @@ const createEvent = async (req, res) => {
             ticketShortDesc: "Free entry for this event",
             price: 0,
             qty: 999999,
+            isFreeTicket: true,
           }];
           req.body.tickets = ticketsVal;
           eventData.tickets = ticketsVal;
@@ -144,6 +145,7 @@ const createEvent = async (req, res) => {
             ticketShortDesc: "Free entry for this event",
             price: 0,
             qty: 999999,
+            isFreeTicket: true,
           }];
           req.body.tickets = ticketsVal;
           eventData.tickets = ticketsVal;
@@ -221,6 +223,7 @@ const createEvent = async (req, res) => {
           ticketShortDesc: "Free entry for this event",
           price: 0,
           qty: 999999,
+          isFreeTicket: true,
         }];
         req.body.tickets = ticketsVal;
         eventData.tickets = ticketsVal;
@@ -2729,6 +2732,7 @@ const updateEvent = async (req, res) => {
           ticketShortDesc: "Free entry for this event",
           price: 0,
           qty: 999999,
+          isFreeTicket: true,
         }];
         req.body.tickets = reqTickets;
         updateData.tickets = reqTickets;
@@ -2738,6 +2742,7 @@ const updateEvent = async (req, res) => {
           ticketShortDesc: "Free entry for this event",
           price: 0,
           qty: 999999,
+          isFreeTicket: true,
         }];
         req.body.tickets = reqTickets;
         updateData.tickets = reqTickets;
