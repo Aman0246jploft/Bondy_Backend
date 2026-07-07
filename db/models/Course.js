@@ -139,7 +139,6 @@ const courseSchema = new mongoose.Schema(
     oneMonthPassPrice: {
       type: Number,
       min: 0,
-      default: 0,
     },
     oneMonthPassEnabled: {
       type: Boolean,
@@ -148,7 +147,6 @@ const courseSchema = new mongoose.Schema(
     threeMonthPassPrice: {
       type: Number,
       min: 0,
-      default: 0,
     },
     threeMonthPassEnabled: {
       type: Boolean,

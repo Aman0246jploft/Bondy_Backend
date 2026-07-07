@@ -41,6 +41,12 @@ const createCourse = async (req, res) => {
     if (courseData.refundPolicy === "") {
       courseData.refundPolicy = null;
     }
+    if (courseData.oneMonthPassPrice === "" || courseData.oneMonthPassPrice === null) {
+      courseData.oneMonthPassPrice = null;
+    }
+    if (courseData.threeMonthPassPrice === "" || courseData.threeMonthPassPrice === null) {
+      courseData.threeMonthPassPrice = null;
+    }
 
     let isDraftValue = isDraftBody === true || isDraftBody === "true";
 
@@ -1572,6 +1578,12 @@ const updateCourse = async (req, res) => {
     if (updateData.refundPolicy === "") {
       updateData.refundPolicy = null;
     }
+    if (updateData.oneMonthPassPrice === "" || updateData.oneMonthPassPrice === null) {
+      updateData.oneMonthPassPrice = null;
+    }
+    if (updateData.threeMonthPassPrice === "" || updateData.threeMonthPassPrice === null) {
+      updateData.threeMonthPassPrice = null;
+    }
 
     // 1. Check if course exists
     const existingCourse = await Course.findById(courseId);
@@ -2540,9 +2552,9 @@ const getCourseDetails = async (req, res) => {
       isBooked,
       isWishlisted,
       oneMonthPassEnabled: course.oneMonthPassEnabled || false,
-      oneMonthPassPrice: course.oneMonthPassPrice || 0,
+      oneMonthPassPrice: course.oneMonthPassPrice,
       threeMonthPassEnabled: course.threeMonthPassEnabled || false,
-      threeMonthPassPrice: course.threeMonthPassPrice || 0,
+      threeMonthPassPrice: course.threeMonthPassPrice,
       capacitypersession: course.batches && course.batches.length > 0 ? (course.batches[0].seats || 0) : 0,
     };
 

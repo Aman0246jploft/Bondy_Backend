@@ -1254,9 +1254,13 @@ const getUserProfileById = async (req, res) => {
       }
     }
 
-    // Find user with populated categories
+    // Find user with populated categories (excluding deleted ones)
     const user = await User.findById(userId)
-      .populate("categories", "name type image name_thi")
+      .populate({
+        path: "categories",
+        select: "name type image name_thi isDeleted",
+        match: { isDeleted: false }
+      })
       .lean();
 
     if (!user || user.isDeleted) {
@@ -1278,11 +1282,13 @@ const getUserProfileById = async (req, res) => {
     });
     const totalAttended = attendedEvents.length;
 
+    const activeCategories = (user.categories || []).filter(Boolean);
+
     // Calculate totalInterests (categories count)
-    const totalInterests = user.categories?.length || 0;
+    const totalInterests = activeCategories.length || 0;
 
     // Format categories with names
-    const categories = (user.categories || []).map((cat) => ({
+    const categories = activeCategories.map((cat) => ({
       _id: cat._id,
       name: cat.name,
       name_thi: cat.name_thi,
@@ -1338,7 +1344,7 @@ const getUserProfileById = async (req, res) => {
     else if (user.roleId === roleId.STAFF) role = "STAFF";
 
     // Get interested category names
-    const interestedCategories = (user.categories || []).map((cat) => cat.name);
+    const interestedCategories = activeCategories.map((cat) => cat.name);
 
     // Calculate allVerifiedAt: latest timestamp of all verifications when fully verified
     let allVerifiedAt = null;
@@ -1429,19 +1435,38 @@ const getUserProfileById = async (req, res) => {
       totalFollowing: 0, // Default to 0, overwritten below
     };
 
-    // Calculate totalFollowers for everyone (or just organizers? Requirement says "toall followers API... if he is ORGANIZER".
-    // Actually typically anyone can have followers if the social graph exists, but requirement phrased "name , i f he is ORGANIZER than his... toall followers...".
-    // I'll add totalFollowers for everyone as it's useful social proof, or just organizer if strictly interpreted.
-    // The prompt says "toall followers ... , if he is ORGANIZER than his ... data".
-    // I'll compute followers for all users as the Follow model exists.
-    const totalFollowers = await Follow.countDocuments({
-      toUser: userId,
-    });
+    // Calculate totalFollowers (excluding deleted users)
+    const followersCountResult = await Follow.aggregate([
+      { $match: { toUser: new mongoose.Types.ObjectId(userId) } },
+      {
+        $lookup: {
+          from: "users",
+          localField: "fromUser",
+          foreignField: "_id",
+          as: "followerInfo"
+        }
+      },
+      { $match: { "followerInfo.isDeleted": { $ne: true } } },
+      { $count: "count" }
+    ]);
+    const totalFollowers = followersCountResult[0]?.count || 0;
     profileData.totalFollowers = totalFollowers;
 
-    const totalFollowing = await Follow.countDocuments({
-      fromUser: userId,
-    });
+    // Calculate totalFollowing (excluding deleted users)
+    const followingCountResult = await Follow.aggregate([
+      { $match: { fromUser: new mongoose.Types.ObjectId(userId) } },
+      {
+        $lookup: {
+          from: "users",
+          localField: "toUser",
+          foreignField: "_id",
+          as: "followingInfo"
+        }
+      },
+      { $match: { "followingInfo.isDeleted": { $ne: true } } },
+      { $count: "count" }
+    ]);
+    const totalFollowing = followingCountResult[0]?.count || 0;
     profileData.totalFollowing = totalFollowing;
 
     // If user is organizer, add additional data
@@ -1459,6 +1484,7 @@ const getUserProfileById = async (req, res) => {
       const totalCourses = await Course.countDocuments({
         createdBy: userId,
         isDraft: false,
+        isDeleted: { $ne: true },
       });
       profileData.totalCoursesAdded = totalCourses; // "total course he added"
 
@@ -1466,6 +1492,7 @@ const getUserProfileById = async (req, res) => {
       const totalEventsHosted = await Event.countDocuments({
         createdBy: userId,
         isDraft: false,
+        isDeleted: { $ne: true },
       });
       profileData.totalEventsHosted = totalEventsHosted + totalCourses;
 
@@ -1478,6 +1505,7 @@ const getUserProfileById = async (req, res) => {
         createdBy: userId,
         status: { $in: ["Upcoming", "Live"] },
         isDraft: false,
+        isDeleted: { $ne: true },
       });
       profileData.totalUpcomingCourses = totalUpcomingCourses;
 
@@ -1486,6 +1514,7 @@ const getUserProfileById = async (req, res) => {
         createdBy: userId,
         status: { $in: ["Upcoming", "Live"] },
         isDraft: false,
+        isDeleted: { $ne: true },
       });
       profileData.totalUpcomingEvents = totalUpcomingEvents + totalUpcomingCourses;
 
@@ -1577,6 +1606,8 @@ const getUserProfileById = async (req, res) => {
       const nextEventsQuery = Event.find({
         createdBy: userId,
         endDate: { $gte: now },
+        isDraft: false,
+        isDeleted: { $ne: true },
       })
         .populate("eventCategory", "name")
         .sort({ startDate: 1 }) // Soonest first
@@ -1586,6 +1617,8 @@ const getUserProfileById = async (req, res) => {
       const pastEventsQuery = Event.find({
         createdBy: userId,
         endDate: { $lt: now },
+        isDraft: false,
+        isDeleted: { $ne: true },
       })
         .populate("eventCategory", "name")
         .sort({ startDate: -1 }) // Most recent past first
@@ -1597,6 +1630,7 @@ const getUserProfileById = async (req, res) => {
       const nextCoursesQuery = Course.find({
         createdBy: userId,
         isDraft: false,
+        isDeleted: { $ne: true },
         $or: [
           { enrollmentType: "Ongoing" },
           { endDate: { $gte: now } },
@@ -1612,7 +1646,8 @@ const getUserProfileById = async (req, res) => {
         createdBy: userId,
         isDraft: false,
         enrollmentType: "fixedStart",
-        endDate: { $lt: now }
+        endDate: { $lt: now },
+        isDeleted: { $ne: true },
       })
         .populate("courseCategory", "name")
         .sort({ endDate: -1 })

@@ -9,7 +9,7 @@ POST {{baseUrl}}/user/admin/login
 Content-Type: application/json
 
 {
-  "email": "Playjploft@gmail.com",
+  "email": "weborg@yopmail.com",
   "password": "Test@123"
 }
 
