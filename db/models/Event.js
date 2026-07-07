@@ -187,13 +187,15 @@ eventSchema.pre("save", function (next) {
     return next(new Error("You cannot create an event in the past"));
   }
 
-  // ✅ Auto-manage status
-  if (now < this.startDate) {
-    this.status = "Upcoming";
-  } else if (now >= this.startDate && now <= this.endDate) {
-    this.status = "Live";
-  } else if (this.endDate < now) {
-    this.status = "Past";
+  // ✅ Auto-manage status (only if status is not Cancelled)
+  if (this.status !== "Cancelled") {
+    if (now < this.startDate) {
+      this.status = "Upcoming";
+    } else if (now >= this.startDate && now <= this.endDate) {
+      this.status = "Live";
+    } else if (this.endDate < now) {
+      this.status = "Past";
+    }
   }
 
   next();
