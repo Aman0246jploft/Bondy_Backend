@@ -117,34 +117,34 @@ const createEvent = async (req, res) => {
         );
       }
 
+      const reservedVal = req.body.ReservedExternally !== undefined ? req.body.ReservedExternally : (event.ReservedExternally || 0);
+      let ticketsVal = req.body.tickets;
+
+      if (Array.isArray(ticketsVal)) {
+        ticketsVal = ticketsVal.filter(t => t && Object.keys(t).length > 0 && t.ticketName && t.qty !== undefined);
+      }
+
+      if (ticketsVal !== undefined && ticketsVal.length === 0) {
+        ticketsVal = [{
+          ticketName: "Free Entry",
+          ticketShortDesc: "Free entry for this event",
+          price: 0,
+          qty: 999999,
+        }];
+        req.body.tickets = ticketsVal;
+        eventData.tickets = ticketsVal;
+      } else if (ticketsVal === undefined && (!event.tickets || event.tickets.length === 0)) {
+        ticketsVal = [{
+          ticketName: "Free Entry",
+          ticketShortDesc: "Free entry for this event",
+          price: 0,
+          qty: 999999,
+        }];
+        req.body.tickets = ticketsVal;
+        eventData.tickets = ticketsVal;
+      }
+
       if (!isDraftValue) {
-        const reservedVal = req.body.ReservedExternally !== undefined ? req.body.ReservedExternally : (event.ReservedExternally || 0);
-        let ticketsVal = req.body.tickets;
-
-        if (Array.isArray(ticketsVal)) {
-          ticketsVal = ticketsVal.filter(t => t && Object.keys(t).length > 0 && t.ticketName && t.qty !== undefined);
-        }
-
-        if (ticketsVal !== undefined && ticketsVal.length === 0) {
-          ticketsVal = [{
-            ticketName: "Free Entry",
-            ticketShortDesc: "Free entry for this event",
-            price: 0,
-            qty: 999999,
-          }];
-          req.body.tickets = ticketsVal;
-          eventData.tickets = ticketsVal;
-        } else if (ticketsVal === undefined && (!event.tickets || event.tickets.length === 0)) {
-          ticketsVal = [{
-            ticketName: "Free Entry",
-            ticketShortDesc: "Free entry for this event",
-            price: 0,
-            qty: 999999,
-          }];
-          req.body.tickets = ticketsVal;
-          eventData.tickets = ticketsVal;
-        }
-
         const finalTicketsVal = ticketsVal || event.tickets || [];
         const totalSeats = finalTicketsVal.reduce((sum, t) => sum + (t.qty || 0), 0);
 
@@ -201,24 +201,25 @@ const createEvent = async (req, res) => {
 
       await event.save();
     } else {
+      let ticketsVal = req.body.tickets || [];
+
+      if (Array.isArray(ticketsVal)) {
+        ticketsVal = ticketsVal.filter(t => t && Object.keys(t).length > 0 && t.ticketName && t.qty !== undefined);
+      }
+
+      if (ticketsVal.length === 0) {
+        ticketsVal = [{
+          ticketName: "Free Entry",
+          ticketShortDesc: "Free entry for this event",
+          price: 0,
+          qty: 999999,
+        }];
+        req.body.tickets = ticketsVal;
+        eventData.tickets = ticketsVal;
+      }
+
       if (!isDraftValue) {
         const reservedVal = req.body.ReservedExternally || 0;
-        let ticketsVal = req.body.tickets || [];
-
-        if (Array.isArray(ticketsVal)) {
-          ticketsVal = ticketsVal.filter(t => t && Object.keys(t).length > 0 && t.ticketName && t.qty !== undefined);
-        }
-
-        if (ticketsVal.length === 0) {
-          ticketsVal = [{
-            ticketName: "Free Entry",
-            ticketShortDesc: "Free entry for this event",
-            price: 0,
-            qty: 999999,
-          }];
-          req.body.tickets = ticketsVal;
-          eventData.tickets = ticketsVal;
-        }
         const totalSeats = ticketsVal.reduce((sum, t) => sum + (t.qty || 0), 0);
 
         if (totalSeats < reservedVal) {
@@ -2704,31 +2705,29 @@ const updateEvent = async (req, res) => {
 
     const targetIsDraft = updateData.isDraft === true || updateData.isDraft === "true" || (updateData.isDraft === undefined && existingEvent.isDraft);
 
-    if (!targetIsDraft) {
-      let reqTickets = updateData.tickets;
-      if (Array.isArray(reqTickets)) {
-        reqTickets = reqTickets.filter(t => t && Object.keys(t).length > 0 && t.ticketName && t.qty !== undefined);
-      }
+    let reqTickets = updateData.tickets;
+    if (Array.isArray(reqTickets)) {
+      reqTickets = reqTickets.filter(t => t && Object.keys(t).length > 0 && t.ticketName && t.qty !== undefined);
+    }
 
-      if (reqTickets !== undefined && reqTickets.length === 0) {
-        reqTickets = [{
-          ticketName: "Free Entry",
-          ticketShortDesc: "Free entry for this event",
-          price: 0,
-          qty: 999999,
-        }];
-        req.body.tickets = reqTickets;
-        updateData.tickets = reqTickets;
-      } else if (reqTickets === undefined && (!existingEvent.tickets || existingEvent.tickets.length === 0)) {
-        reqTickets = [{
-          ticketName: "Free Entry",
-          ticketShortDesc: "Free entry for this event",
-          price: 0,
-          qty: 999999,
-        }];
-        req.body.tickets = reqTickets;
-        updateData.tickets = reqTickets;
-      }
+    if (reqTickets !== undefined && reqTickets.length === 0) {
+      reqTickets = [{
+        ticketName: "Free Entry",
+        ticketShortDesc: "Free entry for this event",
+        price: 0,
+        qty: 999999,
+      }];
+      req.body.tickets = reqTickets;
+      updateData.tickets = reqTickets;
+    } else if (reqTickets === undefined && (!existingEvent.tickets || existingEvent.tickets.length === 0)) {
+      reqTickets = [{
+        ticketName: "Free Entry",
+        ticketShortDesc: "Free entry for this event",
+        price: 0,
+        qty: 999999,
+      }];
+      req.body.tickets = reqTickets;
+      updateData.tickets = reqTickets;
     }
 
     // 5. If published (or transitioning to published), enforce required fields
