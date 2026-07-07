@@ -11,6 +11,7 @@ const {
   Notification,
   GlobalSetting,
   Block,
+  Report,
 } = require("../../db");
 const CONSTANTS = require("../../utils/constants");
 const constantsMessage = require("../../utils/constantsMessage");
@@ -1330,6 +1331,18 @@ const getUserProfileById = async (req, res) => {
       }
     }
 
+    // Check if viewer reported this user
+    let isReported = false;
+    if (viewerId) {
+      const reportRecord = await Report.findOne({
+        fromUser: viewerId,
+        toUser: userId,
+      });
+      if (reportRecord) {
+        isReported = true;
+      }
+    }
+
     // Check if it is my profile
     let isMyProfile = false;
     if (viewerId === userId) {
@@ -1397,6 +1410,7 @@ const getUserProfileById = async (req, res) => {
       totalInterests: totalInterests,
       isFollowed: isFollowed,
       isBlocked: isBlocked,
+      isReported: isReported,
       isAllVerified: user.isAllVerified,
       allVerifiedAt: allVerifiedAt,
       isVerifiedOnce: user.verifications?.phone?.isVerifiedOnce || false,
