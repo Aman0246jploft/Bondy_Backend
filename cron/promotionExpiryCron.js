@@ -13,7 +13,6 @@ cron.schedule("0 * * * *", async () => {
     // process expired EVENT promotions
     // -------------------------------------------------------------
     const expiredEvents = await Event.find({
-      isFeatured: true,
       featuredExpiry: { $lt: now },
     });
 
@@ -36,7 +35,6 @@ cron.schedule("0 * * * *", async () => {
     // process expired COURSE promotions
     // -------------------------------------------------------------
     const expiredCourses = await Course.find({
-      isFeatured: true,
       featuredExpiry: { $lt: now },
     });
 
