@@ -1560,9 +1560,9 @@ const getTopEvents = async (req, res) => {
     const limit = Number.isNaN(rawLimit) ? 10 : Math.min(Math.max(rawLimit, 1), 20);
 
     const query = {
-      addToSlider: true,
+      isFeatured: true,
       isDraft: false,
-      endDate: { $gte: now },
+      // endDate: { $gte: now },
     };
 
     const events = await Event.find(query)
