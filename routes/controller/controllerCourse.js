@@ -1062,6 +1062,7 @@ const getCourses = async (req, res) => {
         courses = await Course.find(query)
           .populate("courseCategory")
           .populate("createdBy", "firstName lastName profileImage isVerified")
+          .populate("activePromotionPackage")
           .sort(sortOrder)
           .skip(skip)
           .limit(parseInt(limit))
@@ -1393,8 +1394,28 @@ const getCourses = async (req, res) => {
         leftSeats = Math.max(0, courseTotalSeats - actualBooked - totalReservedExternally);
       }
 
+      // Manage isFeatured based on activePromotionPackage placements
+      const promoPkg = course.activePromotionPackage || course.promoPkg;
+      let dynamicIsFeatured = course.isFeatured || false;
+      if (promoPkg) {
+        const placements = Array.isArray(promoPkg.placements) ? promoPkg.placements : [];
+        const now = new Date();
+        const isPromoActive = !course.featuredExpiry || new Date(course.featuredExpiry) >= now;
+
+        if (isPromoActive) {
+          if (placement) {
+            dynamicIsFeatured = placements.includes(placement);
+          } else {
+            dynamicIsFeatured = placements.includes("homePage") || placements.includes("explorePage");
+          }
+        } else {
+          dynamicIsFeatured = false;
+        }
+      }
+
       return {
         ...course,
+        isFeatured: dynamicIsFeatured,
         totalSeats: courseTotalSeatsVal,
         acquiredSeats: courseAcquiredSeatsVal,
         totalacquirewithreserver,
@@ -2238,10 +2259,27 @@ const getCourseDetails = async (req, res) => {
     const course = await Course.findById(courseId)
       .populate("courseCategory")
       .populate("createdBy", "firstName lastName profileImage isVerified")
+      .populate("activePromotionPackage")
       .lean();
 
     if (!course) {
       return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.COURSE_NOT_FOUND);
+    }
+
+    // Manage isFeatured based on activePromotionPackage placements
+    const promoPkg = course.activePromotionPackage || course.promoPkg;
+    if (promoPkg) {
+      const placements = Array.isArray(promoPkg.placements) ? promoPkg.placements : [];
+      const now = new Date();
+      const isPromoActive = !course.featuredExpiry || new Date(course.featuredExpiry) >= now;
+
+      if (isPromoActive) {
+        course.isFeatured = placements.includes("homePage") || placements.includes("explorePage");
+      } else {
+        course.isFeatured = false;
+      }
+    } else {
+      course.isFeatured = course.isFeatured || false;
     }
 
     // 2. Booking Aggregation (Per Batch for this Course)

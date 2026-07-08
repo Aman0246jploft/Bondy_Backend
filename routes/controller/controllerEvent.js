@@ -298,7 +298,27 @@ const checkFewSeatsAvailable = (available, total, percent = 10) => {
   if (!total || total <= 0) return false;
   return available <= (percent / 100) * total;
 };
-const formatEvent = (event, bookedEventIds = new Set(), bookedQty = 0, pendingQty = 0, userTimeZone = null) => {
+const formatEvent = (event, bookedEventIds = new Set(), bookedQty = 0, pendingQty = 0, userTimeZone = null, placement = null) => {
+  // Manage isFeatured based on activePromotionPackage placements
+  const promoPkg = event.activePromotionPackage || event.promoPkg;
+  if (promoPkg) {
+    const placements = Array.isArray(promoPkg.placements) ? promoPkg.placements : [];
+    const now = new Date();
+    const isPromoActive = !event.featuredExpiry || new Date(event.featuredExpiry) >= now;
+
+    if (isPromoActive) {
+      if (placement) {
+        event.isFeatured = placements.includes(placement);
+      } else {
+        event.isFeatured = placements.includes("homePage") || placements.includes("explorePage");
+      }
+    } else {
+      event.isFeatured = false;
+    }
+  } else {
+    event.isFeatured = event.isFeatured || false;
+  }
+
   const displayTimeZone = event.timeZone;
   if (displayTimeZone) {
     if (event.startDate || event.startTime) {
@@ -514,6 +534,7 @@ const getEvents = async (req, res) => {
       const events = await Event.find(simpleQuery)
         .populate("eventCategory")
         .populate("createdBy", "firstName lastName profileImage isVerified")
+        .populate("activePromotionPackage")
         .sort({ startDate: 1, endDate: 1, fetcherEvent: -1, isFeatured: -1 })
         .limit(simpleLimit)
         .lean();
@@ -549,7 +570,7 @@ const getEvents = async (req, res) => {
         const eventIdStr = event._id.toString();
         const bookedQty = bookedMap.get(eventIdStr) || 0;
         const pendingQty = pendingMap.get(eventIdStr) || 0;
-        return formatEvent(event, bookedEventIds, bookedQty, pendingQty);
+        return formatEvent(event, bookedEventIds, bookedQty, pendingQty, userTimeZone, placement);
       });
 
       const responseData = {
@@ -1378,6 +1399,7 @@ const getEvents = async (req, res) => {
             events = await Event.find(sliderQuery)
               .populate("eventCategory")
               .populate("createdBy", "firstName lastName profileImage isVerified")
+              .populate("activePromotionPackage")
               .sort(sliderSortOrder)
               .skip(parseInt(skip))
               .limit(parseInt(limit))
@@ -1481,6 +1503,7 @@ const getEvents = async (req, res) => {
         events = await Event.find(query)
           .populate("eventCategory")
           .populate("createdBy", "firstName lastName profileImage isVerified")
+          .populate("activePromotionPackage")
           .sort(sortOrder)
           .skip(skip)
           .limit(parseInt(limit))
@@ -1531,7 +1554,7 @@ const getEvents = async (req, res) => {
       const eventIdStr = event._id.toString();
       const bookedQty = bookedMap.get(eventIdStr) || 0;
       const pendingQty = pendingMap.get(eventIdStr) || 0;
-      const formatted = formatEvent(event, bookedEventIds, bookedQty, pendingQty, userTimeZone);
+      const formatted = formatEvent(event, bookedEventIds, bookedQty, pendingQty, userTimeZone, placement);
       formatted.totalRevenue = revenueMap.get(eventIdStr) || 0;
       return formatted;
     });
@@ -1622,6 +1645,7 @@ const getEventDetails = async (req, res) => {
     const event = await Event.findById(eventId)
       .populate("eventCategory")
       .populate("createdBy", "firstName lastName profileImage isVerified")
+      .populate("activePromotionPackage")
       .lean();
 
     if (!event) {
@@ -1630,6 +1654,22 @@ const getEventDetails = async (req, res) => {
         res,
         constantsMessage.EVENT_NOT_FOUND,
       );
+    }
+
+    // Manage isFeatured based on activePromotionPackage placements
+    const promoPkg = event.activePromotionPackage || event.promoPkg;
+    if (promoPkg) {
+      const placements = Array.isArray(promoPkg.placements) ? promoPkg.placements : [];
+      const now = new Date();
+      const isPromoActive = !event.featuredExpiry || new Date(event.featuredExpiry) >= now;
+
+      if (isPromoActive) {
+        event.isFeatured = placements.includes("homePage") || placements.includes("explorePage");
+      } else {
+        event.isFeatured = false;
+      }
+    } else {
+      event.isFeatured = event.isFeatured || false;
     }
 
     // Record view in a non-blocking asynchronous way
