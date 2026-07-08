@@ -301,22 +301,30 @@ const checkFewSeatsAvailable = (available, total, percent = 10) => {
 const formatEvent = (event, bookedEventIds = new Set(), bookedQty = 0, pendingQty = 0, userTimeZone = null, placement = null) => {
   // Manage isFeatured based on activePromotionPackage placements
   const promoPkg = event.activePromotionPackage || event.promoPkg;
-  if (promoPkg) {
-    const placements = Array.isArray(promoPkg.placements) ? promoPkg.placements : [];
+  const isPopulated = promoPkg && typeof promoPkg === "object" && Array.isArray(promoPkg.placements);
+  if (isPopulated) {
+    const placements = promoPkg.placements;
     const now = new Date();
     const isPromoActive = !event.featuredExpiry || new Date(event.featuredExpiry) >= now;
 
     if (isPromoActive) {
       if (placement) {
         event.isFeatured = placements.includes(placement);
+        event.fetcherEvent = placements.includes(placement);
       } else {
         event.isFeatured = placements.includes("homePage") || placements.includes("explorePage");
+        event.fetcherEvent = placements.includes("homePage") || placements.includes("explorePage");
+
       }
     } else {
       event.isFeatured = false;
+      event.fetcherEvent = false;
+
     }
   } else {
     event.isFeatured = event.isFeatured || false;
+    event.fetcherEvent = event.fetcherEvent || false;
+
   }
 
   const displayTimeZone = event.timeZone;
@@ -1023,6 +1031,7 @@ const getEvents = async (req, res) => {
       const remainingEvents = await Event.find(remainingQuery)
         .populate("eventCategory")
         .populate("createdBy", "firstName lastName profileImage isVerified")
+        .populate("activePromotionPackage")
         .sort(sortOrder)
         .lean();
 

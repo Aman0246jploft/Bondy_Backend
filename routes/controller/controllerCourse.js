@@ -1397,8 +1397,9 @@ const getCourses = async (req, res) => {
       // Manage isFeatured based on activePromotionPackage placements
       const promoPkg = course.activePromotionPackage || course.promoPkg;
       let dynamicIsFeatured = course.isFeatured || false;
-      if (promoPkg) {
-        const placements = Array.isArray(promoPkg.placements) ? promoPkg.placements : [];
+      const isPopulated = promoPkg && typeof promoPkg === "object" && Array.isArray(promoPkg.placements);
+      if (isPopulated) {
+        const placements = promoPkg.placements;
         const now = new Date();
         const isPromoActive = !course.featuredExpiry || new Date(course.featuredExpiry) >= now;
 
