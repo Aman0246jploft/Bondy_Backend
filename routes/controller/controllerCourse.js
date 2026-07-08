@@ -2402,12 +2402,21 @@ const getCourseDetails = async (req, res) => {
         courseTotalSeats += seats;
         totalReservedExternally += reserved;
         const available = Math.max(0, seats - acquired - reserved);
+        const remainingPercentage = seats > 0
+          ? Math.round((available / seats) * 100 * 100) / 100
+          : 0;
+        const showHurryBadge = remainingPercentage <= 5;
 
         return {
           ...batch,
+          totalSeats: seats,
+          soldSeats: acquired,
+          reservedSeats: reserved,
           acquiredSeats: acquired,
           totalacquirewithreserver: acquired + reserved,
           availableSeats: available,
+          remainingPercentage,
+          showHurryBadge,
           isFull: available <= 0,
           isBooked: bookedBatchIds.has(batchId),
           bookingCutOffPassed: isBatchCutOff(course, batch),

@@ -1848,11 +1848,21 @@ const getEventDetails = async (req, res) => {
         .map(t => {
           const ticketIdStr = t._id ? t._id.toString() : "";
           const soldQty = ticketSalesMap[ticketIdStr] || 0;
-          const availableQty = Math.max(0, (t.qty || 0) - soldQty);
+          const totalQty = t.qty || 0;
+          const reservedQty = t.ReservedExternally || 0;
+          const availableQty = Math.max(0, totalQty - reservedQty - soldQty);
+          const remainingPercentage = totalQty > 0
+            ? Math.round((availableQty / totalQty) * 100 * 100) / 100
+            : 0;
+          const showHurryBadge = remainingPercentage <= 5;
           return {
             ...t,
+            totalQty,
             soldQty,
+            reservedQty,
             availableQty,
+            remainingPercentage,
+            showHurryBadge,
           };
         })
         .sort((a, b) => (a.price || 0) - (b.price || 0));
