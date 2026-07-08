@@ -2405,7 +2405,7 @@ const getCourseDetails = async (req, res) => {
         const remainingPercentage = seats > 0
           ? Math.round((available / seats) * 100 * 100) / 100
           : 0;
-        const showHurryBadge = remainingPercentage <= 5;
+        const showHurryBadge = remainingPercentage <= 10;
 
         return {
           ...batch,
@@ -2528,7 +2528,7 @@ const getCourseDetails = async (req, res) => {
             const remainingPercentage = totalSeats > 0
               ? Math.round((availableSeats / totalSeats) * 100 * 100) / 100
               : 0;
-            const showHurryBadge = remainingPercentage <= 5;
+            const showHurryBadge = remainingPercentage <= 10;
 
             return {
               date: ymd,

@@ -1854,7 +1854,7 @@ const getEventDetails = async (req, res) => {
           const remainingPercentage = totalQty > 0
             ? Math.round((availableQty / totalQty) * 100 * 100) / 100
             : 0;
-          const showHurryBadge = remainingPercentage <= 5;
+          const showHurryBadge = remainingPercentage <= 10;
           return {
             ...t,
             totalQty,
