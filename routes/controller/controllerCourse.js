@@ -2523,14 +2523,24 @@ const getCourseDetails = async (req, res) => {
 
             const key = `${slot.batchId.toString()}_${ymd}`;
             const booked = slotBookingMap[key] || 0;
-            const availableSeats = Math.max(0, slot.seats - booked - reserved);
+            const totalSeats = slot.seats || 0;
+            const availableSeats = Math.max(0, totalSeats - booked - reserved);
+            const remainingPercentage = totalSeats > 0
+              ? Math.round((availableSeats / totalSeats) * 100 * 100) / 100
+              : 0;
+            const showHurryBadge = remainingPercentage <= 5;
 
             return {
               date: ymd,
               ...slot,
+              totalSeats,
+              soldSeats: booked,
+              reservedSeats: reserved,
               ReservedExternally: reserved,
               bookedSeats: booked,
               availableSeats,
+              remainingPercentage,
+              showHurryBadge,
               isFull: availableSeats <= 0,
               isCancelled: !!cancelRecord,
               cancelReason: cancelRecord ? cancelRecord.reason : null,
