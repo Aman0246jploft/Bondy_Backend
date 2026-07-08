@@ -960,6 +960,7 @@ const getCourses = async (req, res) => {
       const remainingCourses = await Course.find(remainingQuery)
         .populate("courseCategory")
         .populate("createdBy", "firstName lastName profileImage isVerified")
+        .populate("activePromotionPackage")
         .sort(sortOrder)
         .lean();
 
