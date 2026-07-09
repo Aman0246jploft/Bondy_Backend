@@ -1251,7 +1251,7 @@ const getCourses = async (req, res) => {
       }
 
       const actualBooked = (courseBookingMap[course._id.toString()] || 0);
-      const totalacquirewithreserver = actualBooked + totalReservedExternally;
+      let totalacquirewithreserver = actualBooked + totalReservedExternally;
       const totalRevenue = courseRevenueMap[course._id.toString()] || 0;
       let leftSeats = 0;
       let courseTotalSeatsVal = courseTotalSeats;
@@ -1381,15 +1381,18 @@ const getCourses = async (req, res) => {
           let sumLeft = 0;
           let sumTotal = 0;
           let sumAcquired = 0;
+          let sumReserved = 0;
           allSlots.forEach(slot => {
             if (slot.isCancelled) return;
             sumLeft += (slot.availableSeats || 0);
             sumTotal += Math.max(0, (slot.seats || 0) - (slot.ReservedExternally || 0));
             sumAcquired += (slot.bookedSeats || 0);
+            sumReserved += (slot.ReservedExternally || 0);
           });
           leftSeats = sumLeft;
           courseTotalSeatsVal = sumTotal;
           courseAcquiredSeatsVal = sumAcquired;
+          totalacquirewithreserver = sumAcquired + sumReserved;
         }
       } else {
         leftSeats = Math.max(0, courseTotalSeats - actualBooked - totalReservedExternally);
@@ -2601,6 +2604,7 @@ const getCourseDetails = async (req, res) => {
     let leftSeatsVal = 0;
     let courseTotalSeatsVal = courseTotalSeats;
     let courseAcquiredSeatsVal = totalAcquiredSeats;
+    let courseTotalAcquireWithReserverVal = totalAcquiredSeats + totalReservedExternally;
 
     if (course.enrollmentType === "Ongoing") {
       const allSlots = [];
@@ -2615,15 +2619,18 @@ const getCourseDetails = async (req, res) => {
         let sumLeft = 0;
         let sumTotal = 0;
         let sumAcquired = 0;
+        let sumReserved = 0;
         allSlots.forEach(slot => {
           if (slot.isCancelled) return;
           sumLeft += (slot.availableSeats || 0);
           sumTotal += Math.max(0, (slot.seats || 0) - (slot.ReservedExternally || 0));
           sumAcquired += (slot.bookedSeats || 0);
+          sumReserved += (slot.ReservedExternally || 0);
         });
         leftSeatsVal = sumLeft;
         courseTotalSeatsVal = sumTotal;
         courseAcquiredSeatsVal = sumAcquired;
+        courseTotalAcquireWithReserverVal = sumAcquired + sumReserved;
       }
     } else {
       leftSeatsVal = Math.max(0, courseTotalSeats - totalAcquiredSeats - totalReservedExternally);
@@ -2645,7 +2652,7 @@ const getCourseDetails = async (req, res) => {
       durationTranslation,
       // acquiredSeats: totalAcquiredSeats + totalReservedExternally,
       acquiredSeats: courseAcquiredSeatsVal,
-      totalacquirewithreserver: totalAcquiredSeats + totalReservedExternally,
+      totalacquirewithreserver: courseTotalAcquireWithReserverVal,
       leftSeats: leftSeatsVal,
       showHurryBadge: courseRemainingPercentage <= 10,
       reserveExternal: totalReservedExternally,
