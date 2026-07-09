@@ -2281,7 +2281,7 @@ const getEventAttendeesList = async (req, res) => {
       return apiErrorRes(HTTP_STATUS.FORBIDDEN, res, "You don't have permission to view this event's attendees");
     }
 
-    let filter = { eventId: event._id, status: "PAID", bookingType: "EVENT" };
+    let filter = { eventId: event._id, status: { $in: ["PAID", "REFUNDED"] }, bookingType: "EVENT" };
 
     if (status === "checked-in") {
       filter.checkedInQty = { $gt: 0 };
@@ -2373,6 +2373,7 @@ const getEventAttendeesList = async (req, res) => {
             ? { _id: checkedInByUser._id, firstName: checkedInByUser.firstName, lastName: checkedInByUser.lastName, email: checkedInByUser.email }
             : null,
         },
+        status: transaction.status,
         bookingDate: transaction.createdAt,
       };
     });
@@ -2430,7 +2431,7 @@ const getCourseAttendeesList = async (req, res) => {
       );
     }
 
-    let filter = { courseId: course._id, status: "PAID", bookingType: "COURSE" };
+    let filter = { courseId: course._id, status: { $in: ["PAID", "REFUNDED"] }, bookingType: "COURSE" };
 
     if (status === "checked-in") {
       filter.checkedInQty = { $gt: 0 };
@@ -2512,7 +2513,7 @@ const getCourseAttendeesList = async (req, res) => {
 
     const aggMatch = {
       courseId: new mongoose.Types.ObjectId(courseId),
-      status: "PAID",
+      status: { $in: ["PAID", "REFUNDED"] },
       bookingType: "COURSE"
     };
 
@@ -2675,6 +2676,7 @@ const getCourseAttendeesList = async (req, res) => {
           checkedInQty: totalCheckedIn,
           remainingQty: totalQty - totalCheckedIn,
           isFullyCheckedIn: totalCheckedIn >= totalQty,
+          status: txn.status,
           bookingDate: txn.createdAt,
         };
       });
@@ -2777,6 +2779,7 @@ const getCourseAttendeesList = async (req, res) => {
             }
             : null,
         },
+        status: transaction.status,
         bookingDate: transaction.createdAt,
       };
     });
