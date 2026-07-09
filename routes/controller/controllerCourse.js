@@ -1391,7 +1391,7 @@ const getCourses = async (req, res) => {
           });
           leftSeats = sumLeft;
           courseTotalSeatsVal = sumTotal;
-          courseAcquiredSeatsVal = sumAcquired;
+          courseAcquiredSeatsVal = sumAcquired + sumReserved;
           totalacquirewithreserver = sumAcquired + sumReserved;
         }
       } else {
@@ -2629,7 +2629,7 @@ const getCourseDetails = async (req, res) => {
         });
         leftSeatsVal = sumLeft;
         courseTotalSeatsVal = sumTotal;
-        courseAcquiredSeatsVal = sumAcquired;
+        courseAcquiredSeatsVal = sumAcquired + sumReserved;
         courseTotalAcquireWithReserverVal = sumAcquired + sumReserved;
       }
     } else {
