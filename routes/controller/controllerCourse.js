@@ -2442,10 +2442,6 @@ const getCourseDetails = async (req, res) => {
         courseTotalSeats += seats;
         totalReservedExternally += reserved;
         const available = Math.max(0, seats - acquired - reserved);
-        const remainingPercentage = seats > 0
-          ? Math.round((available / seats) * 100 * 100) / 100
-          : 0;
-        const showHurryBadge = remainingPercentage <= 10;
 
         return {
           ...batch,
@@ -2455,8 +2451,6 @@ const getCourseDetails = async (req, res) => {
           acquiredSeats: acquired,
           totalacquirewithreserver: acquired + reserved,
           availableSeats: available,
-          remainingPercentage,
-          showHurryBadge,
           isFull: available <= 0,
           isBooked: bookedBatchIds.has(batchId),
           bookingCutOffPassed: isBatchCutOff(course, batch),
@@ -2565,10 +2559,6 @@ const getCourseDetails = async (req, res) => {
             const booked = slotBookingMap[key] || 0;
             const totalSeats = slot.seats || 0;
             const availableSeats = Math.max(0, totalSeats - booked - reserved);
-            const remainingPercentage = totalSeats > 0
-              ? Math.round((availableSeats / totalSeats) * 100 * 100) / 100
-              : 0;
-            const showHurryBadge = remainingPercentage <= 10;
 
             return {
               date: ymd,
@@ -2579,8 +2569,6 @@ const getCourseDetails = async (req, res) => {
               ReservedExternally: reserved,
               bookedSeats: booked,
               availableSeats,
-              remainingPercentage,
-              showHurryBadge,
               isFull: availableSeats <= 0,
               isCancelled: !!cancelRecord,
               cancelReason: cancelRecord ? cancelRecord.reason : null,
@@ -2642,6 +2630,10 @@ const getCourseDetails = async (req, res) => {
     }
 
     // 8. Final Object Construction
+    const courseRemainingPercentage = courseTotalSeatsVal > 0
+      ? Math.round((leftSeatsVal / courseTotalSeatsVal) * 100 * 100) / 100
+      : 0;
+
     const formattedCourse = {
       ...course,
       totalSeats: courseTotalSeatsVal,
@@ -2655,6 +2647,8 @@ const getCourseDetails = async (req, res) => {
       acquiredSeats: courseAcquiredSeatsVal,
       totalacquirewithreserver: totalAcquiredSeats + totalReservedExternally,
       leftSeats: leftSeatsVal,
+      showHurryBadge: courseRemainingPercentage <= 10,
+      reserveExternal: totalReservedExternally,
       isBooked,
       isWishlisted,
       oneMonthPassEnabled: course.oneMonthPassEnabled || false,

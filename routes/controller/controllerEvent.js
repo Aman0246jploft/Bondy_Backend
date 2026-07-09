@@ -1900,18 +1900,12 @@ const getEventDetails = async (req, res) => {
           const totalQty = t.qty || 0;
           const reservedQty = t.ReservedExternally || 0;
           const availableQty = Math.max(0, totalQty - reservedQty - soldQty);
-          const remainingPercentage = totalQty > 0
-            ? Math.round((availableQty / totalQty) * 100 * 100) / 100
-            : 0;
-          const showHurryBadge = remainingPercentage <= 10;
           return {
             ...t,
             totalQty,
             soldQty,
             reservedQty,
             availableQty,
-            remainingPercentage,
-            showHurryBadge,
           };
         })
         .sort((a, b) => (a.price || 0) - (b.price || 0));
@@ -1940,6 +1934,12 @@ const getEventDetails = async (req, res) => {
       totalTicketCount,
       10,
     );
+
+    const eventRemainingPercentage = totalTicketCount > 0
+      ? Math.round((availableSeats / totalTicketCount) * 100 * 100) / 100
+      : 0;
+    event.showHurryBadge = eventRemainingPercentage <= 10;
+    event.reserveExternal = reservedExternally;
 
     // Sync event.totalAttendees with calculated totalAttendees
     event.totalAttendees = totalAttendees;
