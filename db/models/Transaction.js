@@ -137,6 +137,10 @@ const transactionSchema = new mongoose.Schema(
         paymentId: {
             type: String, // from payment gateway
         },
+        qpayInvoiceId: {
+            type: String,
+            default: null,
+        },
         qrCodeData: {
             type: String, // Unique string/payload for QR
         },

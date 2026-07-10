@@ -42,6 +42,7 @@ const {
   notifyBookingCreated,
   notifyOrganizerNewBooking,
 } = require("../services/serviceNotification");
+const qpayService = require("../services/qpayService");
 
 // ════════════════════════════════════════════════════════════════════════════
 // HELPERS
@@ -1335,6 +1336,425 @@ const confirmPayment = async (req, res) => {
   }
 };
 
+// ════════════════════════════════════════════════════════════════════════════
+// 3.1 INITIATE QPAY PAYMENT
+// ════════════════════════════════════════════════════════════════════════════
+
+const initiateQpayPayment = async (req, res) => {
+  try {
+    const { transactionId } = req.body;
+    const userId = req.user.userId;
+
+    const transaction = await Transaction.findOne({ _id: transactionId, userId });
+    if (!transaction) {
+      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.TRANSACTION_NOT_FOUND);
+    }
+    if (transaction.status !== "PENDING") {
+      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.INVALID_TRANSACTION_STATE);
+    }
+
+    if (transaction.totalAmount <= 0) {
+      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Cannot initiate QPay for a free booking");
+    }
+
+    const backendBaseUrl = process.env.BACKEND_URL || "http://localhost:8080";
+    const callbackUrl = `${backendBaseUrl}/api/v1/booking/qpay/webhook`;
+
+    const invoiceData = {
+      invoice_code: process.env.QPAY_INVOICE_CODE || "BONDY_MN_INVOICE",
+      sender_invoice_no: transaction.bookingId,
+      invoice_receiver_code: "terminal",
+      invoice_description: `Booking ${transaction.bookingId}`,
+      sender_branch_code: "SALBAR1",
+      amount: transaction.totalAmount,
+      callback_url: callbackUrl
+    };
+
+    const qpayResponse = await qpayService.createInvoice(invoiceData);
+
+    transaction.qpayInvoiceId = qpayResponse.invoice_id;
+    await transaction.save();
+
+    return apiSuccessRes(HTTP_STATUS.OK, res, "QPay invoice created successfully", {
+      transactionId: transaction._id,
+      qpayInvoiceId: qpayResponse.invoice_id,
+      qr_text: qpayResponse.qr_text,
+      qr_image: qpayResponse.qr_image,
+      urls: qpayResponse.urls,
+    });
+  } catch (error) {
+    console.error("Error in initiateQpayPayment:", error);
+    return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
+  }
+};
+
+// ════════════════════════════════════════════════════════════════════════════
+// 3.2 CHECK QPAY PAYMENT STATUS
+// ════════════════════════════════════════════════════════════════════════════
+
+const checkQpayPaymentStatus = async (req, res) => {
+  try {
+    const { transactionId } = req.body;
+    const userId = req.user.userId;
+
+    const transaction = await Transaction.findOne({ _id: transactionId, userId })
+      .populate("eventId")
+      .populate("courseId");
+
+    if (!transaction) {
+      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.TRANSACTION_NOT_FOUND);
+    }
+
+    if (transaction.status === "PAID") {
+      const transactionObj = transaction.toObject();
+      await attachRefundPreview(transaction, transactionObj);
+      formatItemMedia(transactionObj, transaction.bookingType);
+      return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.BOOKING_CONFIRMED, {
+        transaction: transactionObj,
+        status: "PAID"
+      });
+    }
+
+    if (!transaction.qpayInvoiceId) {
+      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "No QPay invoice found for this transaction");
+    }
+
+    const checkRes = await qpayService.checkPayment(transaction.qpayInvoiceId);
+
+    const isPaid = checkRes.paid_amount >= transaction.totalAmount || (checkRes.rows && checkRes.rows.length > 0 && checkRes.rows[0].payment_status === "PAID");
+
+    if (!isPaid) {
+      return apiSuccessRes(HTTP_STATUS.OK, res, "Payment pending", {
+        status: "PENDING"
+      });
+    }
+
+    // Verify availability
+    if (transaction.bookingType === "EVENT") {
+      const event = transaction.eventId;
+      if (!event) return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.EVENT_NOT_FOUND);
+
+      const ticketsToCheck = transaction.tickets && transaction.tickets.length > 0
+        ? transaction.tickets
+        : [{ ticketId: transaction.ticketId, qty: transaction.qty, ticketName: transaction.ticketName }];
+
+      for (const item of ticketsToCheck) {
+        const ticket = event.tickets.id(item.ticketId);
+        if (!ticket) return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.TICKET_TYPE_NOT_FOUND);
+
+        const bookedCount = await getEventTicketBookedCount(event._id, item.ticketId);
+        if (ticket.qty - bookedCount < item.qty) {
+          transaction.status = "REFUND_INITIATED";
+          await transaction.save();
+          return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.REFUND_INITIATED_TICKETS, {
+            transaction: transaction.toObject(),
+            status: "REFUND_INITIATED"
+          });
+        }
+      }
+    } else if (transaction.bookingType === "COURSE") {
+      const course = transaction.courseId;
+      if (!course) return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.COURSE_NOT_FOUND);
+
+      const hasSlots = transaction.batchId || (transaction.ongoingSlots && transaction.ongoingSlots.length > 0);
+      if (hasSlots) {
+        const slotsToCheck = transaction.ongoingSlots && transaction.ongoingSlots.length > 0
+          ? transaction.ongoingSlots
+          : [{ batchId: transaction.batchId }];
+        for (const slot of slotsToCheck) {
+          const batch = course.batches.id(slot.batchId);
+          if (!batch) return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.BATCH_NOT_FOUND);
+
+          const dateStr = slot.selectedDay || transaction.selectedDay;
+          let reservedVal = batch.ReservedExternally || 0;
+          if (dateStr && batch.reservedDates) {
+            const resRec = batch.reservedDates.find((r) => r.date === dateStr);
+            if (resRec) reservedVal = resRec.seats;
+          }
+
+          const bookedCount = await getCourseBatchBookedCount(course._id, slot.batchId, dateStr);
+          const available = batch.seats - reservedVal - bookedCount;
+          if (available < transaction.qty) {
+            transaction.status = "REFUND_INITIATED";
+            await transaction.save();
+            return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.REFUND_INITIATED_SEATS, {
+              transaction: transaction.toObject(),
+              status: "REFUND_INITIATED"
+            });
+          }
+        }
+      }
+    }
+
+    let commissionAmount = 0;
+    let organizerEarning = 0;
+    if (transaction.totalAmount > 0) {
+      const commissionResult = await calculateCommission(transaction);
+      commissionAmount = commissionResult.commissionAmount;
+      organizerEarning = commissionResult.organizerEarning;
+    }
+
+    transaction.status = "PAID";
+    transaction.paymentId = `QPAY_${transaction.qpayInvoiceId}`;
+    transaction.qrCodeData = generateQRData(transaction._id, userId);
+    transaction.commissionAmount = commissionAmount;
+    transaction.organizerEarning = organizerEarning;
+
+    if (transaction.bookingType === "COURSE" && transaction.passType) {
+      const days = transaction.passType === "1_month" ? 30 : transaction.passType === "3_month" ? 90 : null;
+      if (days) {
+        const expiry = new Date();
+        expiry.setDate(expiry.getDate() + days);
+        transaction.passExpiryDate = expiry;
+      }
+    }
+
+    await transaction.save();
+
+    const { item, organizerId, itemTitle } = resolveBookingItem(transaction);
+    if (organizerEarning > 0) {
+      await creditOrganizerWallet(organizerId, organizerEarning, transaction, itemTitle);
+    }
+
+    notifyBookingConfirmed(
+      userId,
+      transaction.bookingType,
+      itemTitle,
+      String(transaction._id),
+    ).catch((e) => console.error("[Notification] notifyBookingConfirmed:", e));
+
+    const buyer = await User.findById(userId).select("firstName lastName");
+    const buyerName = buyer ? `${buyer.firstName} ${buyer.lastName}` : "A customer";
+    notifyOrganizerNewBooking(
+      String(organizerId),
+      buyerName,
+      transaction.bookingType,
+      itemTitle,
+      String(item?._id),
+    ).catch((e) => console.error("[Notification] notifyOrganizerNewBooking:", e));
+
+    if (transaction.discountCode) {
+      await PromoCode.updateOne(
+        { code: transaction.discountCode },
+        { $inc: { usedCount: 1 } },
+      );
+    }
+
+    try {
+      const pendingReferral = await Referral.findOne({ referee: userId, status: "PENDING_REFERRAL" });
+      if (pendingReferral && transaction.bookingType === "EVENT" && transaction.totalAmount > 0) {
+        pendingReferral.status = "PENDING_VALIDATION";
+        pendingReferral.qualifyingOrderId = transaction._id;
+        pendingReferral.orderDate = new Date();
+
+        const eventItem = transaction.eventId || item;
+        if (eventItem && eventItem.endDate) {
+          const refundEnd = new Date(eventItem.endDate);
+          refundEnd.setDate(refundEnd.getDate() + 2);
+          pendingReferral.refundWindowEndDate = refundEnd;
+        } else {
+          const refundEnd = new Date();
+          refundEnd.setDate(refundEnd.getDate() + 30);
+          pendingReferral.refundWindowEndDate = refundEnd;
+        }
+
+        await pendingReferral.save();
+
+        const { notifyReferralPendingValidation } = require("../services/serviceNotification");
+        notifyReferralPendingValidation(pendingReferral.referrer, buyerName)
+          .catch((e) => console.error("[Notification] notifyReferralPendingValidation:", e));
+      }
+    } catch (refErr) {
+      console.error("[REFERRAL] Error validating referral during booking:", refErr);
+    }
+
+    const transactionObj = transaction.toObject();
+    await attachRefundPreview(transaction, transactionObj);
+    formatItemMedia(transactionObj, transaction.bookingType);
+
+    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.BOOKING_CONFIRMED, {
+      transaction: transactionObj,
+      status: "PAID"
+    });
+  } catch (error) {
+    console.error("Error in checkQpayPaymentStatus:", error);
+    return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
+  }
+};
+
+// ════════════════════════════════════════════════════════════════════════════
+// 3.3 QPAY WEBHOOK/CALLBACK ENDPOINT
+// ════════════════════════════════════════════════════════════════════════════
+
+const qpayWebhook = async (req, res) => {
+  try {
+    const { invoice_id } = req.body;
+
+    if (!invoice_id) {
+      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Invoice ID required");
+    }
+
+    const transaction = await Transaction.findOne({ qpayInvoiceId: invoice_id })
+      .populate("eventId")
+      .populate("courseId");
+
+    if (!transaction) {
+      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.TRANSACTION_NOT_FOUND);
+    }
+
+    if (transaction.status === "PAID") {
+      return apiSuccessRes(HTTP_STATUS.OK, res, "Already Paid");
+    }
+
+    const checkRes = await qpayService.checkPayment(invoice_id);
+    const isPaid = checkRes.paid_amount >= transaction.totalAmount || (checkRes.rows && checkRes.rows.length > 0 && checkRes.rows[0].payment_status === "PAID");
+
+    if (!isPaid) {
+      return apiSuccessRes(HTTP_STATUS.OK, res, "Payment pending");
+    }
+
+    const userId = transaction.userId;
+
+    // Verify availability
+    if (transaction.bookingType === "EVENT") {
+      const event = transaction.eventId;
+      if (!event) return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.EVENT_NOT_FOUND);
+
+      const ticketsToCheck = transaction.tickets && transaction.tickets.length > 0
+        ? transaction.tickets
+        : [{ ticketId: transaction.ticketId, qty: transaction.qty, ticketName: transaction.ticketName }];
+
+      for (const item of ticketsToCheck) {
+        const ticket = event.tickets.id(item.ticketId);
+        if (!ticket) return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.TICKET_TYPE_NOT_FOUND);
+
+        const bookedCount = await getEventTicketBookedCount(event._id, item.ticketId);
+        if (ticket.qty - bookedCount < item.qty) {
+          transaction.status = "REFUND_INITIATED";
+          await transaction.save();
+          return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.REFUND_INITIATED_TICKETS);
+        }
+      }
+    } else if (transaction.bookingType === "COURSE") {
+      const course = transaction.courseId;
+      if (!course) return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.COURSE_NOT_FOUND);
+
+      const hasSlots = transaction.batchId || (transaction.ongoingSlots && transaction.ongoingSlots.length > 0);
+      if (hasSlots) {
+        const slotsToCheck = transaction.ongoingSlots && transaction.ongoingSlots.length > 0
+          ? transaction.ongoingSlots
+          : [{ batchId: transaction.batchId }];
+        for (const slot of slotsToCheck) {
+          const batch = course.batches.id(slot.batchId);
+          if (!batch) return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.BATCH_NOT_FOUND);
+
+          const dateStr = slot.selectedDay || transaction.selectedDay;
+          let reservedVal = batch.ReservedExternally || 0;
+          if (dateStr && batch.reservedDates) {
+            const resRec = batch.reservedDates.find((r) => r.date === dateStr);
+            if (resRec) reservedVal = resRec.seats;
+          }
+
+          const bookedCount = await getCourseBatchBookedCount(course._id, slot.batchId, dateStr);
+          const available = batch.seats - reservedVal - bookedCount;
+          if (available < transaction.qty) {
+            transaction.status = "REFUND_INITIATED";
+            await transaction.save();
+            return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.REFUND_INITIATED_SEATS);
+          }
+        }
+      }
+    }
+
+    let commissionAmount = 0;
+    let organizerEarning = 0;
+    if (transaction.totalAmount > 0) {
+      const commissionResult = await calculateCommission(transaction);
+      commissionAmount = commissionResult.commissionAmount;
+      organizerEarning = commissionResult.organizerEarning;
+    }
+
+    transaction.status = "PAID";
+    transaction.paymentId = `QPAY_${invoice_id}`;
+    transaction.qrCodeData = generateQRData(transaction._id, userId);
+    transaction.commissionAmount = commissionAmount;
+    transaction.organizerEarning = organizerEarning;
+
+    if (transaction.bookingType === "COURSE" && transaction.passType) {
+      const days = transaction.passType === "1_month" ? 30 : transaction.passType === "3_month" ? 90 : null;
+      if (days) {
+        const expiry = new Date();
+        expiry.setDate(expiry.getDate() + days);
+        transaction.passExpiryDate = expiry;
+      }
+    }
+
+    await transaction.save();
+
+    const { item, organizerId, itemTitle } = resolveBookingItem(transaction);
+    if (organizerEarning > 0) {
+      await creditOrganizerWallet(organizerId, organizerEarning, transaction, itemTitle);
+    }
+
+    notifyBookingConfirmed(
+      userId,
+      transaction.bookingType,
+      itemTitle,
+      String(transaction._id),
+    ).catch((e) => console.error("[Notification] notifyBookingConfirmed:", e));
+
+    const buyer = await User.findById(userId).select("firstName lastName");
+    const buyerName = buyer ? `${buyer.firstName} ${buyer.lastName}` : "A customer";
+    notifyOrganizerNewBooking(
+      String(organizerId),
+      buyerName,
+      transaction.bookingType,
+      itemTitle,
+      String(item?._id),
+    ).catch((e) => console.error("[Notification] notifyOrganizerNewBooking:", e));
+
+    if (transaction.discountCode) {
+      await PromoCode.updateOne(
+        { code: transaction.discountCode },
+        { $inc: { usedCount: 1 } },
+      );
+    }
+
+    try {
+      const pendingReferral = await Referral.findOne({ referee: userId, status: "PENDING_REFERRAL" });
+      if (pendingReferral && transaction.bookingType === "EVENT" && transaction.totalAmount > 0) {
+        pendingReferral.status = "PENDING_VALIDATION";
+        pendingReferral.qualifyingOrderId = transaction._id;
+        pendingReferral.orderDate = new Date();
+
+        const eventItem = transaction.eventId || item;
+        if (eventItem && eventItem.endDate) {
+          const refundEnd = new Date(eventItem.endDate);
+          refundEnd.setDate(refundEnd.getDate() + 2);
+          pendingReferral.refundWindowEndDate = refundEnd;
+        } else {
+          const refundEnd = new Date();
+          refundEnd.setDate(refundEnd.getDate() + 30);
+          pendingReferral.refundWindowEndDate = refundEnd;
+        }
+
+        await pendingReferral.save();
+
+        const { notifyReferralPendingValidation } = require("../services/serviceNotification");
+        notifyReferralPendingValidation(pendingReferral.referrer, buyerName)
+          .catch((e) => console.error("[Notification] notifyReferralPendingValidation:", e));
+      }
+    } catch (refErr) {
+      console.error("[REFERRAL] Error validating referral during booking:", refErr);
+    }
+
+    return apiSuccessRes(HTTP_STATUS.OK, res, "Webhook handled successfully");
+  } catch (error) {
+    console.error("Error in qpayWebhook:", error);
+    return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
+  }
+};
+
 
 // ════════════════════════════════════════════════════════════════════════════
 // 4. REFUND PREVIEW (Preview refund policy and amount before cancellation)
@@ -1417,7 +1837,6 @@ const previewRefund = async (req, res) => {
     return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
   }
 };
-
 
 // ════════════════════════════════════════════════════════════════════════════
 // 5. CANCEL BOOKING (User cancels their own booking)
@@ -3151,6 +3570,9 @@ router.post("/calculate", validateRequest(initiateBookingSchema), calculateBooki
 router.post("/initiate", perApiLimiter(), validateRequest(initiateBookingSchema), initiateBooking);
 router.post("/direct-enroll", perApiLimiter(), validateRequest(initiateBookingSchema), initiateBooking);
 router.post("/confirm-payment", perApiLimiter(), validateRequest(confirmPaymentSchema), confirmPayment);
+router.post("/qpay/initiate", perApiLimiter(), initiateQpayPayment);
+router.post("/qpay/check", perApiLimiter(), checkQpayPaymentStatus);
+router.post("/qpay/webhook", qpayWebhook);
 
 // Ticket Management
 router.get("/list", perApiLimiter(), getTicketList);

@@ -70,6 +70,7 @@ const publicRoutes = [
 
 
   "/api/v1/booking/public/",
+  "/api/v1/booking/qpay/webhook",
   "/uploads",
 ];
 
