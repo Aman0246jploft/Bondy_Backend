@@ -45,9 +45,12 @@ const notificationProcessor = async (job) => {
       settings = await UserSetting.create({ userId: recipient });
     }
 
-    // 2. Save in-app notification (gated by inAppNotification preference)
+    const user = await User.findById(recipient).select("fmcToken");
+    const hasFmcToken = !!(user && user.fmcToken);
+
+    // 2. Save in-app notification (always save directly in DB if fmcToken is not present)
     let savedNotification = null;
-    if (settings.inAppNotification !== false) {
+    if (settings.inAppNotification !== false || !hasFmcToken) {
       savedNotification = await Notification.create({
         recipient,
         sender: sender || null,
@@ -63,27 +66,26 @@ const notificationProcessor = async (job) => {
     }
 
     // 3. Send push notification (gated by pushNotification preference and sub-preferences)
-    let shouldSendPush = settings.pushNotification !== false;
-    if (shouldSendPush) {
-      if (type === "CHAT" && settings.messageNotification === false) {
-        shouldSendPush = false;
-      } else if (metadata?.isReminder === "true" && settings.reminderNotification === false) {
-        shouldSendPush = false;
-      } else if (metadata?.isOrganizerUpdate === "true" && settings.organizerUpdateNotification === false) {
-        shouldSendPush = false;
-      } else if (
-        (type === "EVENT" || type === "COURSE") &&
-        metadata?.isReminder !== "true" &&
-        metadata?.isOrganizerUpdate !== "true" &&
-        settings.bookingNotification === false
-      ) {
-        shouldSendPush = false;
-      }
-    }
+    if (hasFmcToken) {
+      let shouldSendPush = false;
 
-    if (shouldSendPush) {
-      const user = await User.findById(recipient).select("fmcToken");
-      if (user && user.fmcToken) {
+      // Only allow push if the global master switch is enabled
+      if (settings.pushNotification !== false) {
+        if (type === "CHAT") {
+          shouldSendPush = settings.messageNotification !== false;
+        } else if (metadata?.isReminder === "true") {
+          shouldSendPush = settings.reminderNotification !== false;
+        } else if (metadata?.isOrganizerUpdate === "true") {
+          shouldSendPush = settings.organizerUpdateNotification !== false;
+        } else if (type === "EVENT" || type === "COURSE") {
+          shouldSendPush = settings.bookingNotification !== false;
+        } else {
+          // Default fallback for other notification types (e.g. FOLLOW, SYSTEM, PAYOUT)
+          shouldSendPush = true;
+        }
+      }
+
+      if (shouldSendPush) {
         await sendFirebaseNotification({
           token: user.fmcToken,
           title,
@@ -573,7 +575,7 @@ const markRead = async (notificationId, recipient) => {
       { new: true }
     );
     if (!notification) return resultDb(NOT_FOUND, "Notification not found");
-    
+
     // Emit live update
     await emitUnreadCount(recipient);
 
@@ -587,7 +589,7 @@ const markRead = async (notificationId, recipient) => {
 const markAllRead = async (recipient) => {
   try {
     await Notification.updateMany({ recipient, isRead: false }, { isRead: true });
-    
+
     // Emit live update
     await emitUnreadCount(recipient);
 
@@ -606,7 +608,7 @@ const deleteNotification = async (notificationId, recipient) => {
       { new: true }
     );
     if (!notification) return resultDb(NOT_FOUND, "Notification not found");
-    
+
     // Emit live update
     await emitUnreadCount(recipient);
 
