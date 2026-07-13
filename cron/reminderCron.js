@@ -1,6 +1,13 @@
 const cron = require("node-cron");
-const { Event, Course, Transaction, Notification } = require("../db");
+const { Event, Course, Transaction, Notification, User } = require("../db");
 const { sendAppNotification } = require("../utils/notificationHelper");
+const moment = require("moment-timezone");
+const { getMappedTimeZone } = require("../utils/timezoneHelper");
+
+function formatForNotification(date, timeZone) {
+  const mappedTz = getMappedTimeZone(timeZone) || "UTC";
+  return moment(date).tz(mappedTz).format("DD MMM YYYY, hh:mm A z"); // e.g. "15 Jul 2026, 02:00 PM EST"
+}
 
 const reminderCron = () => {
   // Run every 15 minutes
@@ -34,11 +41,15 @@ const reminderCron = () => {
 
           if (!alreadyReminded) {
             console.log(`[CRON] Sending event reminder to user ${txn.userId} for event ${event.eventTitle}`);
+            const userRecord = await User.findById(txn.userId).select("timeZone").lean();
+            const userTz = userRecord?.timeZone || "UTC";
+            const formattedDate = formatForNotification(event.startDate, userTz);
+
             await sendAppNotification({
               recipient: txn.userId,
               type: "EVENT",
               title: "Upcoming Event Reminder ⏰",
-              message: `Friendly reminder: "${event.eventTitle}" is starting soon on ${new Date(event.startDate).toLocaleString()}. See you there!`,
+              message: `Friendly reminder: "${event.eventTitle}" is starting soon on ${formattedDate}. See you there!`,
               relatedId: event._id,
               onModel: "Event",
               deepLink: `/tickets/${txn._id}`,
@@ -76,11 +87,15 @@ const reminderCron = () => {
 
           if (!alreadyReminded) {
             console.log(`[CRON] Sending course reminder to user ${txn.userId} for course ${course.courseTitle}`);
+            const userRecord = await User.findById(txn.userId).select("timeZone").lean();
+            const userTz = userRecord?.timeZone || "UTC";
+            const formattedDate = formatForNotification(course.startDate, userTz);
+
             await sendAppNotification({
               recipient: txn.userId,
               type: "COURSE",
               title: "Upcoming Course Reminder ⏰",
-              message: `Friendly reminder: "${course.courseTitle}" is starting soon on ${new Date(course.startDate).toLocaleString()}!`,
+              message: `Friendly reminder: "${course.courseTitle}" is starting soon on ${formattedDate}!`,
               relatedId: course._id,
               onModel: "Course",
               deepLink: `/tickets/${txn._id}`,
@@ -128,11 +143,15 @@ const reminderCron = () => {
 
             if (!alreadyReminded) {
               console.log(`[CRON] Sending ongoing course reminder to user ${txn.userId} for course ${course.courseTitle} slot ${slot.selectedDate}`);
+              const userRecord = await User.findById(txn.userId).select("timeZone").lean();
+              const userTz = userRecord?.timeZone || "UTC";
+              const formattedDate = formatForNotification(slotDateTime, userTz);
+
               await sendAppNotification({
                 recipient: txn.userId,
                 type: "COURSE",
                 title: "Upcoming Course Reminder ⏰",
-                message: `Friendly reminder: your session for "${course.courseTitle}" is starting on ${slot.selectedDate} at ${startTimeStr}!`,
+                message: `Friendly reminder: your session for "${course.courseTitle}" is starting on ${formattedDate}!`,
                 relatedId: course._id,
                 onModel: "Course",
                 deepLink: `/tickets/${txn._id}`,
