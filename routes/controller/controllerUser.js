@@ -821,6 +821,473 @@ const resendLoginOtp = async (req, res) => {
   }
 };
 
+// Helper to get formatted profile data
+const getFormattedProfileData = async (userId, viewerId = null) => {
+  // Find user with populated categories (excluding deleted ones)
+  const user = await User.findById(userId)
+    .populate({
+      path: "categories",
+      select: "name type image name_thi isDeleted",
+      match: { isDeleted: false }
+    })
+    .lean();
+
+  if (!user || user.isDeleted) {
+    return null;
+  }
+
+  // Calculate totalAttended (unique events where user has checked in)
+  const attendedEvents = await Transaction.distinct("eventId", {
+    userId: userId,
+    status: "PAID",
+    checkedInQty: { $gt: 0 },
+  });
+  const totalAttended = attendedEvents.length;
+
+  const activeCategories = (user.categories || []).filter(Boolean);
+
+  // Calculate totalInterests (categories count)
+  const totalInterests = activeCategories.length || 0;
+
+  // Format categories with names
+  const categories = activeCategories.map((cat) => ({
+    _id: cat._id,
+    name: cat.name,
+    name_thi: cat.name_thi,
+    type: cat.type,
+    image: cat.image ? formatResponseUrl(cat.image) : null,
+  }));
+
+  // Format profile image
+  const profileImage = user.profileImage
+    ? formatResponseUrl(user.profileImage)
+    : null;
+  const backgroundImage = user.backgroundImage
+    ? formatResponseUrl(user.backgroundImage)
+    : null;
+
+  // Check if viewer follows this user
+  let isFollowed = false;
+
+  if (viewerId) {
+    const followRecord = await Follow.findOne({
+      fromUser: viewerId,
+      toUser: userId,
+    });
+
+    if (followRecord) {
+      isFollowed = true;
+    }
+  }
+
+  // Check if viewer blocked this user
+  let isBlocked = false;
+  if (viewerId) {
+    const blockRecord = await Block.findOne({
+      fromUser: viewerId,
+      toUser: userId,
+    });
+    if (blockRecord) {
+      isBlocked = true;
+    }
+  }
+
+  // Check if viewer reported this user
+  let isReported = false;
+  if (viewerId) {
+    const reportRecord = await Report.findOne({
+      fromUser: viewerId,
+      toUser: userId,
+    });
+    if (reportRecord) {
+      isReported = true;
+    }
+  }
+
+  // Check if it is my profile
+  let isMyProfile = false;
+  if (viewerId && viewerId.toString() === userId.toString()) {
+    isMyProfile = true;
+  }
+
+  // Map roleId to string
+  let role = "CUSTOMER";
+  if (user.roleId === roleId.SUPER_ADMIN) role = "SUPER_ADMIN";
+  else if (user.roleId === roleId.ORGANIZER) role = "ORGANIZER";
+  else if (user.roleId === roleId.GUEST) role = "GUEST";
+  else if (user.roleId === roleId.STAFF) role = "STAFF";
+
+  // Get interested category names
+  const interestedCategories = activeCategories.map((cat) => cat.name);
+
+  // Calculate allVerifiedAt: latest timestamp of all verifications when fully verified
+  let allVerifiedAt = null;
+  if (user.isAllVerified) {
+    const dates = [];
+    if (user.verifications?.phone?.isVerified && user.verifications.phone.verifiedAt) {
+      dates.push(new Date(user.verifications.phone.verifiedAt));
+    }
+    if (user.verifications?.email?.isVerified && user.verifications.email.verifiedAt) {
+      dates.push(new Date(user.verifications.email.verifiedAt));
+    }
+    if (user.verifications?.idVerification?.nationalId?.isVerified && user.verifications.idVerification.nationalId.verifiedAt) {
+      dates.push(new Date(user.verifications.idVerification.nationalId.verifiedAt));
+    }
+    if (user.verifications?.idVerification?.drivingLicence?.isVerified && user.verifications.idVerification.drivingLicence.verifiedAt) {
+      dates.push(new Date(user.verifications.idVerification.drivingLicence.verifiedAt));
+    }
+    if (user.verifications?.bankVerification?.isVerified && user.verifications.bankVerification.verifiedAt) {
+      dates.push(new Date(user.verifications.bankVerification.verifiedAt));
+    }
+    if (dates.length > 0) {
+      allVerifiedAt = new Date(Math.max(...dates.map(d => d.getTime())));
+    }
+  }
+
+  // Base profile data (common for all users)
+  const profileData = {
+    _id: user._id,
+    firstName: user.firstName,
+    lastName: user.lastName,
+    isVerified: user.isVerified,
+    hasBeenApproved: user.hasBeenApproved,
+    email: user.email,
+    gender: user.gender,
+    countryCode: user.countryCode,
+    contactNumber: user.contactNumber,
+    dob: user.dob,
+    profileImage: profileImage,
+    backgroundImage: backgroundImage,
+    bio: user.bio,
+    role: role,
+    userRole: role,
+    roleId: user.roleId,
+    averageRating: user.averageRating,
+    reviewCount: user.reviewCount,
+    location: user.location || null,
+    interestedCategories: interestedCategories,
+    categories: categories,
+    totalAttended: totalAttended,
+    totalInterests: totalInterests,
+    isFollowed: isFollowed,
+    isBlocked: isBlocked,
+    isReported: isReported,
+    isAllVerified: user.isAllVerified,
+    allVerifiedAt: allVerifiedAt,
+    isVerifiedOnce: user.verifications?.phone?.isVerifiedOnce || false,
+    isMyProfile: isMyProfile,
+    businessName: user.businessName,
+    businessCategory: user.businessCategory,
+    shortDesc: user.shortDesc,
+    socialMediaLink: user.socialMediaLink,
+    businessVerificationStatus: user.businessVerificationStatus,
+    businessRejectionReason: user.businessRejectionReason,
+    businessRejectionReasonTitle: user.businessRejectionReasonTitle,
+    createdAt: user.createdAt,
+    verifications: {
+      email: user.verifications?.email,
+      phone: user.verifications?.phone ? {
+        isVerified: user.verifications.phone.isVerified || false,
+        verifiedAt: user.verifications.phone.verifiedAt || null,
+        isVerifiedOnce: user.verifications.phone.isVerifiedOnce || false,
+      } : undefined,
+      idVerification: user.verifications?.idVerification ? {
+        nationalId: user.verifications.idVerification.nationalId ? {
+          ...user.verifications.idVerification.nationalId,
+          frontImage: formatResponseUrl(user.verifications.idVerification.nationalId.frontImage),
+          backImage: formatResponseUrl(user.verifications.idVerification.nationalId.backImage),
+        } : undefined,
+        drivingLicence: user.verifications.idVerification.drivingLicence ? {
+          ...user.verifications.idVerification.drivingLicence,
+          frontImage: formatResponseUrl(user.verifications.idVerification.drivingLicence.frontImage),
+          backImage: formatResponseUrl(user.verifications.idVerification.drivingLicence.backImage),
+        } : undefined,
+      } : undefined,
+      bankVerification: user.verifications?.bankVerification,
+      allVerifiedAt: allVerifiedAt,
+    } || {},
+    totalFollowers: 0,
+    totalFollowing: 0,
+  };
+
+  // Calculate totalFollowers (excluding deleted users)
+  const followersCountResult = await Follow.aggregate([
+    { $match: { toUser: new mongoose.Types.ObjectId(userId) } },
+    {
+      $lookup: {
+        from: "users",
+        localField: "fromUser",
+        foreignField: "_id",
+        as: "followerInfo"
+      }
+    },
+    { $match: { "followerInfo.isDeleted": { $ne: true } } },
+    { $count: "count" }
+  ]);
+  const totalFollowers = followersCountResult[0]?.count || 0;
+  profileData.totalFollowers = totalFollowers;
+
+  // Calculate totalFollowing (excluding deleted users)
+  const followingCountResult = await Follow.aggregate([
+    { $match: { fromUser: new mongoose.Types.ObjectId(userId) } },
+    {
+      $lookup: {
+        from: "users",
+        localField: "toUser",
+        foreignField: "_id",
+        as: "followingInfo"
+      }
+    },
+    { $match: { "followingInfo.isDeleted": { $ne: true } } },
+    { $count: "count" }
+  ]);
+  const totalFollowing = followingCountResult[0]?.count || 0;
+  profileData.totalFollowing = totalFollowing;
+
+  // If user is organizer, add additional data
+  if (user.roleId === roleId.ORGANIZER) {
+    // Organizer specific fields
+    profileData.businessType = user.businessType;
+    profileData.organizerVerificationStatus =
+      user.organizerVerificationStatus;
+    profileData.documents = (user.documents || []).map((doc) => ({
+      ...doc,
+      file: doc.file ? formatResponseUrl(doc.file) : null,
+    }));
+
+    // Calculate totalCourses count (added)
+    const totalCourses = await Course.countDocuments({
+      createdBy: userId,
+      isDraft: false,
+      isDeleted: { $ne: true },
+      status: { $ne: "Cancelled" },
+    });
+    profileData.totalCoursesAdded = totalCourses; // "total course he added"
+
+    // Calculate totalEventsHosted  
+    const totalEventsHosted = await Event.countDocuments({
+      createdBy: userId,
+      isDraft: false,
+      isDeleted: { $ne: true },
+      status: { $ne: "Cancelled" },
+    });
+    profileData.totalEventsHosted = totalEventsHosted + totalCourses;
+
+    const organizerObjectId = new mongoose.Types.ObjectId(userId);
+    const roundToTwo = (num) =>
+      Math.round((num + Number.EPSILON) * 100) / 100;
+
+    // 1b. Total Upcoming Courses
+    const totalUpcomingCourses = await Course.countDocuments({
+      createdBy: userId,
+      status: { $in: ["Upcoming", "Live"] },
+      isDraft: false,
+      isDeleted: { $ne: true },
+    });
+    profileData.totalUpcomingCourses = totalUpcomingCourses;
+
+    // 1. Total Upcoming Events
+    const totalUpcomingEvents = await Event.countDocuments({
+      createdBy: userId,
+      status: { $in: ["Upcoming", "Live"] },
+      isDraft: false,
+      isDeleted: { $ne: true },
+    });
+    profileData.totalUpcomingEvents = totalUpcomingEvents + totalUpcomingCourses;
+
+    // 2. Total Tickets Sold
+    const ticketsSoldResult = await Transaction.aggregate([
+      {
+        $lookup: {
+          from: "events",
+          localField: "eventId",
+          foreignField: "_id",
+          as: "eventInfo",
+        },
+      },
+      {
+        $match: {
+          bookingType: "EVENT",
+          status: "PAID",
+          "eventInfo.createdBy": organizerObjectId,
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          totalTickets: { $sum: "$qty" },
+        },
+      },
+    ]);
+    profileData.totalTicketSold = ticketsSoldResult[0]?.totalTickets || 0;
+
+    // 3. Net Earnings from Events
+    const eventEarningsResult = await Transaction.aggregate([
+      {
+        $lookup: {
+          from: "events",
+          localField: "eventId",
+          foreignField: "_id",
+          as: "eventInfo",
+        },
+      },
+      {
+        $match: {
+          bookingType: "EVENT",
+          status: "PAID",
+          "eventInfo.createdBy": organizerObjectId,
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          totalEarnings: { $sum: "$organizerEarning" },
+        },
+      },
+    ]);
+    profileData.netEarningEvents = roundToTwo(
+      eventEarningsResult[0]?.totalEarnings || 0,
+    );
+
+    // 4. Net Earnings from Courses
+    const courseEarningsResult = await Transaction.aggregate([
+      {
+        $lookup: {
+          from: "courses",
+          localField: "courseId",
+          foreignField: "_id",
+          as: "courseInfo",
+        },
+      },
+      {
+        $match: {
+          bookingType: "COURSE",
+          status: "PAID",
+          "courseInfo.createdBy": organizerObjectId,
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          totalEarnings: { $sum: "$organizerEarning" },
+        },
+      },
+    ]);
+    profileData.netEarningCourses = roundToTwo(
+      courseEarningsResult[0]?.totalEarnings || 0,
+    );
+
+    const now = new Date();
+
+    // -- EVENTS --
+    const nextEventsQuery = Event.find({
+      createdBy: userId,
+      endDate: { $gte: now },
+      isDraft: false,
+      isDeleted: { $ne: true },
+      status: { $ne: "Cancelled" },
+    })
+      .populate("eventCategory", "name")
+      .sort({ startDate: 1 }) // Soonest first
+      .limit(4)
+      .lean();
+
+    const pastEventsQuery = Event.find({
+      createdBy: userId,
+      endDate: { $lt: now },
+      isDraft: false,
+      isDeleted: { $ne: true },
+      status: { $ne: "Cancelled" },
+    })
+      .populate("eventCategory", "name")
+      .sort({ startDate: -1 }) // Most recent past first
+      .limit(4)
+      .lean();
+
+    // -- COURSES --
+    const nextCoursesQuery = Course.find({
+      createdBy: userId,
+      isDraft: false,
+      isDeleted: { $ne: true },
+      status: { $ne: "Cancelled" },
+      $or: [
+        { enrollmentType: "Ongoing" },
+        { endDate: { $gte: now } },
+        { endDate: null }
+      ]
+    })
+      .populate("courseCategory", "name")
+      .sort({ startDate: 1 })
+      .limit(4)
+      .lean();
+
+    const pastCoursesQuery = Course.find({
+      createdBy: userId,
+      isDraft: false,
+      enrollmentType: "fixedStart",
+      endDate: { $lt: now },
+      isDeleted: { $ne: true },
+      status: { $ne: "Cancelled" },
+    })
+      .populate("courseCategory", "name")
+      .sort({ endDate: -1 })
+      .limit(4)
+      .lean();
+
+    const [nextEventsRaw, pastEventsRaw, nextCoursesRaw, pastCoursesRaw] =
+      await Promise.all([
+        nextEventsQuery,
+        pastEventsQuery,
+        nextCoursesQuery,
+        pastCoursesQuery,
+      ]);
+
+    // Helper to format event
+    const formatEvent = (event) => {
+      const eventObj = { ...event };
+      if (Array.isArray(eventObj.posterImage)) {
+        eventObj.posterImage = eventObj.posterImage.map((img) =>
+          formatResponseUrl(img),
+        );
+      }
+      if (Array.isArray(eventObj.mediaLinks)) {
+        eventObj.mediaLinks = eventObj.mediaLinks.map((link) =>
+          formatResponseUrl(link),
+        );
+      }
+      if (Array.isArray(eventObj.shortTeaserVideo)) {
+        eventObj.shortTeaserVideo = eventObj.shortTeaserVideo.map((video) =>
+          formatResponseUrl(video),
+        );
+      }
+      return eventObj;
+    };
+
+    // Helper to format course
+    const formatCourse = (course) => {
+      const courseObj = { ...course };
+      if (Array.isArray(courseObj.posterImage)) {
+        courseObj.posterImage = courseObj.posterImage.map((img) =>
+          formatResponseUrl(img),
+        );
+      }
+      return courseObj;
+    };
+
+    profileData.events = {
+      upcoming_events: nextEventsRaw.map(formatEvent),
+      previous_events: pastEventsRaw.map(formatEvent),
+    };
+
+    profileData.courses = {
+      upcoming_courses: nextCoursesRaw.map(formatCourse),
+      previous_courses: pastCoursesRaw.map(formatCourse),
+    };
+  }
+
+  return profileData;
+};
+
 // Social Login
 const socialLogin = async (req, res) => {
   try {
@@ -952,12 +1419,15 @@ const socialLogin = async (req, res) => {
     // Generate Token
     const token = signToken({ userId: user._id, roleId: user.roleId });
 
+    // Fetch and format profile data identically to getUserProfileById
+    const profileData = await getFormattedProfileData(user._id, user._id);
+
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
       constantsMessage.LOGIN_SUCCESS_MSG,
       {
-        user: { ...user.toObject(), userRole: userRole[user.roleId] },
+        user: profileData,
         token,
       },
     );
@@ -1255,474 +1725,14 @@ const getUserProfileById = async (req, res) => {
       }
     }
 
-    // Find user with populated categories (excluding deleted ones)
-    const user = await User.findById(userId)
-      .populate({
-        path: "categories",
-        select: "name type image name_thi isDeleted",
-        match: { isDeleted: false }
-      })
-      .lean();
+    const profileData = await getFormattedProfileData(userId, viewerId);
 
-    if (!user || user.isDeleted) {
+    if (!profileData) {
       return apiErrorRes(
         HTTP_STATUS.NOT_FOUND,
         res,
         constantsMessage.USER_NOT_FOUND,
       );
-    }
-
-    // Get verification data
-    // const verification = await Verification.findOne({ user: userId }).lean();
-
-    // Calculate totalAttended (unique events where user has checked in)
-    const attendedEvents = await Transaction.distinct("eventId", {
-      userId: userId,
-      status: "PAID",
-      checkedInQty: { $gt: 0 },
-    });
-    const totalAttended = attendedEvents.length;
-
-    const activeCategories = (user.categories || []).filter(Boolean);
-
-    // Calculate totalInterests (categories count)
-    const totalInterests = activeCategories.length || 0;
-
-    // Format categories with names
-    const categories = activeCategories.map((cat) => ({
-      _id: cat._id,
-      name: cat.name,
-      name_thi: cat.name_thi,
-      type: cat.type,
-      image: cat.image ? formatResponseUrl(cat.image) : null,
-    }));
-
-    // Format profile image
-    const profileImage = user.profileImage
-      ? formatResponseUrl(user.profileImage)
-      : null;
-    const backgroundImage = user.backgroundImage
-      ? formatResponseUrl(user.backgroundImage)
-      : null;
-
-    // Check if viewer follows this user
-    let isFollowed = false;
-
-    if (viewerId) {
-      const followRecord = await Follow.findOne({
-        fromUser: viewerId,
-        toUser: userId,
-      });
-
-      if (followRecord) {
-        isFollowed = true;
-      }
-    }
-
-    // Check if viewer blocked this user
-    let isBlocked = false;
-    if (viewerId) {
-      const blockRecord = await Block.findOne({
-        fromUser: viewerId,
-        toUser: userId,
-      });
-      if (blockRecord) {
-        isBlocked = true;
-      }
-    }
-
-    // Check if viewer reported this user
-    let isReported = false;
-    if (viewerId) {
-      const reportRecord = await Report.findOne({
-        fromUser: viewerId,
-        toUser: userId,
-      });
-      if (reportRecord) {
-        isReported = true;
-      }
-    }
-
-    // Check if it is my profile
-    let isMyProfile = false;
-    if (viewerId === userId) {
-      isMyProfile = true;
-    }
-
-    // Map roleId to string
-    let role = "CUSTOMER";
-    if (user.roleId === roleId.SUPER_ADMIN) role = "SUPER_ADMIN";
-    else if (user.roleId === roleId.ORGANIZER) role = "ORGANIZER";
-    else if (user.roleId === roleId.GUEST) role = "GUEST";
-    else if (user.roleId === roleId.STAFF) role = "STAFF";
-
-    // Get interested category names
-    const interestedCategories = activeCategories.map((cat) => cat.name);
-
-    // Calculate allVerifiedAt: latest timestamp of all verifications when fully verified
-    let allVerifiedAt = null;
-    if (user.isAllVerified) {
-      const dates = [];
-      if (user.verifications?.phone?.isVerified && user.verifications.phone.verifiedAt) {
-        dates.push(new Date(user.verifications.phone.verifiedAt));
-      }
-      if (user.verifications?.email?.isVerified && user.verifications.email.verifiedAt) {
-        dates.push(new Date(user.verifications.email.verifiedAt));
-      }
-      if (user.verifications?.idVerification?.nationalId?.isVerified && user.verifications.idVerification.nationalId.verifiedAt) {
-        dates.push(new Date(user.verifications.idVerification.nationalId.verifiedAt));
-      }
-      if (user.verifications?.idVerification?.drivingLicence?.isVerified && user.verifications.idVerification.drivingLicence.verifiedAt) {
-        dates.push(new Date(user.verifications.idVerification.drivingLicence.verifiedAt));
-      }
-      if (user.verifications?.bankVerification?.isVerified && user.verifications.bankVerification.verifiedAt) {
-        dates.push(new Date(user.verifications.bankVerification.verifiedAt));
-      }
-      if (dates.length > 0) {
-        allVerifiedAt = new Date(Math.max(...dates.map(d => d.getTime())));
-      }
-    }
-
-    // Base profile data (common for all users)
-    const profileData = {
-      _id: user._id,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      isVerified: user.roleId === roleId.ORGANIZER ? user.isVerified : false,
-      hasBeenApproved: user.hasBeenApproved,
-      email: user.email,
-      gender: user.gender,
-      countryCode: user.countryCode,
-      contactNumber: user.contactNumber,
-      dob: user.dob,
-      profileImage: profileImage,
-      backgroundImage: backgroundImage,
-      bio: user.bio,
-      role: role,
-      userRole: role,
-      roleId: user.roleId,
-      averageRating: user.averageRating,
-      reviewCount: user.reviewCount,
-      location: user.location || null,
-      interestedCategories: interestedCategories,
-      categories: categories,
-      totalAttended: totalAttended,
-      totalInterests: totalInterests,
-      isFollowed: isFollowed,
-      isBlocked: isBlocked,
-      isReported: isReported,
-      isAllVerified: user.isAllVerified,
-      allVerifiedAt: allVerifiedAt,
-      isVerifiedOnce: user.verifications?.phone?.isVerifiedOnce || false,
-      isMyProfile: isMyProfile,
-      businessName: user.businessName,
-      businessCategory: user.businessCategory,
-      shortDesc: user.shortDesc,
-      socialMediaLink: user.socialMediaLink,
-      businessVerificationStatus: user.businessVerificationStatus,
-      businessRejectionReason: user.businessRejectionReason,
-      businessRejectionReasonTitle: user.businessRejectionReasonTitle,
-      createdAt: user.createdAt,
-      verifications: {
-        email: user.verifications?.email,
-        phone: user.verifications?.phone ? {
-          isVerified: user.verifications.phone.isVerified || false,
-          verifiedAt: user.verifications.phone.verifiedAt || null,
-          isVerifiedOnce: user.verifications.phone.isVerifiedOnce || false,
-        } : undefined,
-        idVerification: user.verifications?.idVerification ? {
-          nationalId: user.verifications.idVerification.nationalId ? {
-            ...user.verifications.idVerification.nationalId,
-            frontImage: formatResponseUrl(user.verifications.idVerification.nationalId.frontImage),
-            backImage: formatResponseUrl(user.verifications.idVerification.nationalId.backImage),
-          } : undefined,
-          drivingLicence: user.verifications.idVerification.drivingLicence ? {
-            ...user.verifications.idVerification.drivingLicence,
-            frontImage: formatResponseUrl(user.verifications.idVerification.drivingLicence.frontImage),
-            backImage: formatResponseUrl(user.verifications.idVerification.drivingLicence.backImage),
-          } : undefined,
-        } : undefined,
-        bankVerification: user.verifications?.bankVerification,
-        allVerifiedAt: allVerifiedAt,
-      } || {},
-      totalFollowers: 0, // Default to 0, overwritten below
-      totalFollowing: 0, // Default to 0, overwritten below
-    };
-
-    // Calculate totalFollowers (excluding deleted users)
-    const followersCountResult = await Follow.aggregate([
-      { $match: { toUser: new mongoose.Types.ObjectId(userId) } },
-      {
-        $lookup: {
-          from: "users",
-          localField: "fromUser",
-          foreignField: "_id",
-          as: "followerInfo"
-        }
-      },
-      { $match: { "followerInfo.isDeleted": { $ne: true } } },
-      { $count: "count" }
-    ]);
-    const totalFollowers = followersCountResult[0]?.count || 0;
-    profileData.totalFollowers = totalFollowers;
-
-    // Calculate totalFollowing (excluding deleted users)
-    const followingCountResult = await Follow.aggregate([
-      { $match: { fromUser: new mongoose.Types.ObjectId(userId) } },
-      {
-        $lookup: {
-          from: "users",
-          localField: "toUser",
-          foreignField: "_id",
-          as: "followingInfo"
-        }
-      },
-      { $match: { "followingInfo.isDeleted": { $ne: true } } },
-      { $count: "count" }
-    ]);
-    const totalFollowing = followingCountResult[0]?.count || 0;
-    profileData.totalFollowing = totalFollowing;
-
-    // If user is organizer, add additional data
-    if (user.roleId === roleId.ORGANIZER) {
-      // Organizer specific fields
-      profileData.businessType = user.businessType;
-      profileData.organizerVerificationStatus =
-        user.organizerVerificationStatus;
-      profileData.documents = (user.documents || []).map((doc) => ({
-        ...doc,
-        file: doc.file ? formatResponseUrl(doc.file) : null,
-      }));
-
-      // Calculate totalCourses count (added)
-      const totalCourses = await Course.countDocuments({
-        createdBy: userId,
-        isDraft: false,
-        isDeleted: { $ne: true },
-        status: { $ne: "Cancelled" },
-      });
-      profileData.totalCoursesAdded = totalCourses; // "total course he added"
-
-      // Calculate totalEventsHosted  
-      const totalEventsHosted = await Event.countDocuments({
-        createdBy: userId,
-        isDraft: false,
-        isDeleted: { $ne: true },
-        status: { $ne: "Cancelled" },
-      });
-      profileData.totalEventsHosted = totalEventsHosted + totalCourses;
-
-      const organizerObjectId = new mongoose.Types.ObjectId(userId);
-      const roundToTwo = (num) =>
-        Math.round((num + Number.EPSILON) * 100) / 100;
-
-      // 1b. Total Upcoming Courses
-      const totalUpcomingCourses = await Course.countDocuments({
-        createdBy: userId,
-        status: { $in: ["Upcoming", "Live"] },
-        isDraft: false,
-        isDeleted: { $ne: true },
-      });
-      profileData.totalUpcomingCourses = totalUpcomingCourses;
-
-      // 1. Total Upcoming Events
-      const totalUpcomingEvents = await Event.countDocuments({
-        createdBy: userId,
-        status: { $in: ["Upcoming", "Live"] },
-        isDraft: false,
-        isDeleted: { $ne: true },
-      });
-      profileData.totalUpcomingEvents = totalUpcomingEvents + totalUpcomingCourses;
-
-      // 2. Total Tickets Sold
-      const ticketsSoldResult = await Transaction.aggregate([
-        {
-          $lookup: {
-            from: "events",
-            localField: "eventId",
-            foreignField: "_id",
-            as: "eventInfo",
-          },
-        },
-        {
-          $match: {
-            bookingType: "EVENT",
-            status: "PAID",
-            "eventInfo.createdBy": organizerObjectId,
-          },
-        },
-        {
-          $group: {
-            _id: null,
-            totalTickets: { $sum: "$qty" },
-          },
-        },
-      ]);
-      profileData.totalTicketSold = ticketsSoldResult[0]?.totalTickets || 0;
-
-      // 3. Net Earnings from Events
-      const eventEarningsResult = await Transaction.aggregate([
-        {
-          $lookup: {
-            from: "events",
-            localField: "eventId",
-            foreignField: "_id",
-            as: "eventInfo",
-          },
-        },
-        {
-          $match: {
-            bookingType: "EVENT",
-            status: "PAID",
-            "eventInfo.createdBy": organizerObjectId,
-          },
-        },
-        {
-          $group: {
-            _id: null,
-            totalEarnings: { $sum: "$organizerEarning" },
-          },
-        },
-      ]);
-      profileData.netEarningEvents = roundToTwo(
-        eventEarningsResult[0]?.totalEarnings || 0,
-      );
-
-      // 4. Net Earnings from Courses
-      const courseEarningsResult = await Transaction.aggregate([
-        {
-          $lookup: {
-            from: "courses",
-            localField: "courseId",
-            foreignField: "_id",
-            as: "courseInfo",
-          },
-        },
-        {
-          $match: {
-            bookingType: "COURSE",
-            status: "PAID",
-            "courseInfo.createdBy": organizerObjectId,
-          },
-        },
-        {
-          $group: {
-            _id: null,
-            totalEarnings: { $sum: "$organizerEarning" },
-          },
-        },
-      ]);
-      profileData.netEarningCourses = roundToTwo(
-        courseEarningsResult[0]?.totalEarnings || 0,
-      );
-
-      const now = new Date();
-
-      // -- EVENTS --
-      const nextEventsQuery = Event.find({
-        createdBy: userId,
-        endDate: { $gte: now },
-        isDraft: false,
-        isDeleted: { $ne: true },
-        status: { $ne: "Cancelled" },
-      })
-        .populate("eventCategory", "name")
-        .sort({ startDate: 1 }) // Soonest first
-        .limit(4)
-        .lean();
-
-      const pastEventsQuery = Event.find({
-        createdBy: userId,
-        endDate: { $lt: now },
-        isDraft: false,
-        isDeleted: { $ne: true },
-        status: { $ne: "Cancelled" },
-      })
-        .populate("eventCategory", "name")
-        .sort({ startDate: -1 }) // Most recent past first
-        .limit(4)
-        .lean();
-
-      // -- COURSES --
-      // Match the new Course schema using startDate, endDate, and enrollmentType
-      const nextCoursesQuery = Course.find({
-        createdBy: userId,
-        isDraft: false,
-        isDeleted: { $ne: true },
-        status: { $ne: "Cancelled" },
-        $or: [
-          { enrollmentType: "Ongoing" },
-          { endDate: { $gte: now } },
-          { endDate: null }
-        ]
-      })
-        .populate("courseCategory", "name")
-        .sort({ startDate: 1 })
-        .limit(4)
-        .lean();
-
-      const pastCoursesQuery = Course.find({
-        createdBy: userId,
-        isDraft: false,
-        enrollmentType: "fixedStart",
-        endDate: { $lt: now },
-        isDeleted: { $ne: true },
-        status: { $ne: "Cancelled" },
-      })
-        .populate("courseCategory", "name")
-        .sort({ endDate: -1 })
-        .limit(4)
-        .lean();
-
-      const [nextEventsRaw, pastEventsRaw, nextCoursesRaw, pastCoursesRaw] =
-        await Promise.all([
-          nextEventsQuery,
-          pastEventsQuery,
-          nextCoursesQuery,
-          pastCoursesQuery,
-        ]);
-
-      // Helper to format event
-      const formatEvent = (event) => {
-        const eventObj = { ...event };
-        if (Array.isArray(eventObj.posterImage)) {
-          eventObj.posterImage = eventObj.posterImage.map((img) =>
-            formatResponseUrl(img),
-          );
-        }
-        if (Array.isArray(eventObj.mediaLinks)) {
-          eventObj.mediaLinks = eventObj.mediaLinks.map((link) =>
-            formatResponseUrl(link),
-          );
-        }
-        if (Array.isArray(eventObj.shortTeaserVideo)) {
-          eventObj.shortTeaserVideo = eventObj.shortTeaserVideo.map((video) =>
-            formatResponseUrl(video),
-          );
-        }
-        return eventObj;
-      };
-
-      // Helper to format course
-      const formatCourse = (course) => {
-        const courseObj = { ...course };
-        if (Array.isArray(courseObj.posterImage)) {
-          courseObj.posterImage = courseObj.posterImage.map((img) =>
-            formatResponseUrl(img),
-          );
-        }
-        return courseObj;
-      };
-
-      profileData.events = {
-        upcoming_events: nextEventsRaw.map(formatEvent),
-        previous_events: pastEventsRaw.map(formatEvent),
-      };
-
-      profileData.courses = {
-        upcoming_courses: nextCoursesRaw.map(formatCourse),
-        previous_courses: pastCoursesRaw.map(formatCourse),
-      };
     }
 
     return apiSuccessRes(
