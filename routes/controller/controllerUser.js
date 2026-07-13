@@ -1388,7 +1388,7 @@ const getUserProfileById = async (req, res) => {
       _id: user._id,
       firstName: user.firstName,
       lastName: user.lastName,
-      isVerified: user.isVerified,
+      isVerified: user.roleId === roleId.ORGANIZER ? user.isVerified : false,
       hasBeenApproved: user.hasBeenApproved,
       email: user.email,
       gender: user.gender,
