@@ -8,7 +8,7 @@ const { notifyPromotionExpiry } = require("../routes/services/serviceNotificatio
 cron.schedule("0 * * * *", async () => {
   try {
     const now = new Date();
-    
+
     // -------------------------------------------------------------
     // process expired EVENT promotions
     // -------------------------------------------------------------
@@ -19,6 +19,7 @@ cron.schedule("0 * * * *", async () => {
     if (expiredEvents.length > 0) {
       for (const event of expiredEvents) {
         event.isFeatured = false;
+        event.fetcherEvent = false;
         event.featuredExpiry = null;
         event.activePromotionPackage = null;
         await event.save();

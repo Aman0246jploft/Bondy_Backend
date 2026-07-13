@@ -1,7 +1,7 @@
 ### Environment Variables
 @baseUrl = http://localhost:8080/api/v1
 @adminToken = your_super_admin_token_here
-@organizerToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTQzOGFlZWNmYTE3OGFlZThiNzg4YTIiLCJyb2xlSWQiOjIsImlhdCI6MTc4MjkzODg3NywiZXhwIjoyNjQ2OTM4ODc3fQ.4ksKrK4CS5sfMtD1gzpccWpQ45v8FKqqnk0W8oLVrJI
+@organizerToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTM4ZTA3MDU4ZWQxNGQ1YTZmNjFmZjEiLCJyb2xlSWQiOjIsImlhdCI6MTc4MzkzMjY3MiwiZXhwIjoyNjQ3OTMyNjcyfQ.2LzxnSN4S0Ft5fQ3jpQWdH2pRlpUa8VN2OMHWVAaMQg
 @customerToken = your_customer_token_here
 @targetUserId = 6a227663a2023c86b5b23c65
 
