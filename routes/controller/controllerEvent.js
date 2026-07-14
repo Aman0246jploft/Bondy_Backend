@@ -1778,20 +1778,18 @@ const getEventDetails = async (req, res) => {
         const hours = Math.floor(diffMs / (1000 * 60 * 60));
         const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
         if (hours > 0 && minutes > 0) {
-          // duration = `${hours} H ${minutes} min`;
           duration = `${hours}`;
 
         } else if (hours > 0) {
           duration = `${hours}`;
         } else {
-          duration = `${minutes} min`;
+          duration = `${hours}`;
         }
-        durationTranslation = duration.replace(/H/g, "Цаг").replace(/min/g, "мин");
+        durationTranslation = duration;
       }
     }
     event.duration = duration;
-    event.durationTranslation = duration
-    // durationTranslation;
+    event.durationTranslation = duration;
 
     // 3. Parallel Fetch for Related Data
     const [reviews, comments, totalAttendeesAgg, recentTransactions, ticketSalesAgg, rawSimilarEvents] =
