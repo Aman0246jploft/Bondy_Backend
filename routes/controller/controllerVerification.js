@@ -310,9 +310,9 @@ const getVerificationRequests = async (req, res) => {
     const [users, total] = await Promise.all([
       User.find(query)
         .select(
-          "firstName lastName email countryCode contactNumber businessType businessName businessCategory shortDesc socialMediaLink isBusinessVerified businessVerificationStatus businessRejectionReason businessRejectionReasonTitle organizerRejectionReason organizerRejectionReasonTitle organizerVerificationStatus verifications createdAt",
+          "firstName lastName email countryCode contactNumber businessType businessName businessCategory shortDesc socialMediaLink isBusinessVerified businessVerificationStatus businessRejectionReason businessRejectionReasonTitle organizerRejectionReason organizerRejectionReasonTitle organizerVerificationStatus verifications createdAt updatedAt",
         )
-        .sort({ createdAt: -1 })
+        .sort({ updatedAt: -1 })
         .skip(skip)
         .limit(Number(limit))
         .lean(),
