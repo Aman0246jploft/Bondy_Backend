@@ -3343,22 +3343,22 @@ const getOrganizerEventsAnalytics = async (req, res) => {
     let courses = [];
 
     if (type === "event") {
-      events = await Event.find({ createdBy: userId })
+      events = await Event.find({ createdBy: userId, isDraft: { $ne: true } })
         .populate("eventCategory", "name")
         .select("_id eventTitle posterImage eventCategory")
         .lean();
     } else if (type === "course") {
-      courses = await Course.find({ createdBy: userId })
+      courses = await Course.find({ createdBy: userId, isDraft: { $ne: true } })
         .populate("courseCategory", "name")
         .select("_id courseTitle posterImage courseCategory")
         .lean();
     } else {
       const [fetchedEvents, fetchedCourses] = await Promise.all([
-        Event.find({ createdBy: userId })
+        Event.find({ createdBy: userId, isDraft: { $ne: true } })
           .populate("eventCategory", "name")
           .select("_id eventTitle posterImage eventCategory")
           .lean(),
-        Course.find({ createdBy: userId })
+        Course.find({ createdBy: userId, isDraft: { $ne: true } })
           .populate("courseCategory", "name")
           .select("_id courseTitle posterImage courseCategory")
           .lean()
