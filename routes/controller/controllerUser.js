@@ -1780,6 +1780,10 @@ const userList = async (req, res) => {
     // Role filter
     if (roleId) {
       filter.roleId = Number(roleId);
+      if (Number(roleId) === 2) {
+        filter.hasBeenApproved = true;
+        filter.isAllVerified = true;
+      }
     }
 
     // Keyword search
