@@ -378,9 +378,9 @@ const formatEvent = (event, bookedEventIds = new Set(), bookedQty = 0, pendingQt
       const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
       duration =
         hours > 0 && minutes > 0
-          ? `${hours}`
+          ? `${hours} H ${minutes} min`
           : hours > 0
-            ? `${hours}`
+            ? `${hours} H`
             : `${minutes} min`;
     }
   }
@@ -1778,18 +1778,17 @@ const getEventDetails = async (req, res) => {
         const hours = Math.floor(diffMs / (1000 * 60 * 60));
         const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
         if (hours > 0 && minutes > 0) {
-          duration = `${hours}`;
-
+          duration = `${hours} H ${minutes} min`;
         } else if (hours > 0) {
-          duration = `${hours}`;
+          duration = `${hours} H`;
         } else {
-          duration = `${hours}`;
+          duration = `${minutes} min`;
         }
-        durationTranslation = duration;
+        durationTranslation = duration.replace(/H/g, "Цаг").replace(/min/g, "мин");
       }
     }
     event.duration = duration;
-    event.durationTranslation = duration;
+    event.durationTranslation = durationTranslation;
 
     // 3. Parallel Fetch for Related Data
     const [reviews, comments, totalAttendeesAgg, recentTransactions, ticketSalesAgg, rawSimilarEvents] =
