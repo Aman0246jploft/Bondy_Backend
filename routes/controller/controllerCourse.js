@@ -1290,8 +1290,9 @@ const getCourses = async (req, res) => {
         if (diffMs > 0) {
           const hours = Math.floor(diffMs / (1000 * 60 * 60));
           const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-          duration = hours ? (minutes ? `${hours} H ${minutes} min` : `${hours} H`) : `${minutes} min`;
-          durationTranslation = hours ? (minutes ? `${hours} Цаг ${minutes} мин` : `${hours} Цаг`) : `${minutes} мин`;
+          duration = hours;
+          durationTranslation = hours;
+          //  hours ? (minutes ? `${hours} Цаг ${minutes} мин` : `${hours} Цаг`) : `${minutes} мин`;
         }
       }
 
@@ -1541,7 +1542,7 @@ const getCoursesAdmin = async (req, res) => {
         if (diffMs > 0) {
           const hours = Math.floor(diffMs / (1000 * 60 * 60));
           const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-          duration = hours ? (minutes ? `${hours} H ${minutes} min` : `${hours} H`) : `${minutes} min`;
+          duration = hours;
         }
       }
       course.duration = duration;
@@ -1558,7 +1559,7 @@ const getCoursesAdmin = async (req, res) => {
       course.acquiredSeats = acquiredSeats;
       course.totalacquirewithreserver = totalacquirewithreserver;
       course.leftSeats = course.enrollmentType === "Ongoing"
-        ? (course.batches && course.batches.length > 0 ? Math.max(0, (course.batches[0].seats || 0) - (bookingMap[`${course._id}_${course.batches[0]._id}`] || 0) - (course.batches[0].ReservedExternally || 0)) : 0)
+        ? (course.batches && course.batches.length > 0 ? Math.max(0, (course.batches[0].seats || 0) - (bookingMap[`${course._id}_${course.batches[0]._id} `] || 0) - (course.batches[0].ReservedExternally || 0)) : 0)
         : Math.max(0, totalSeats - actualBooked - totalReserved);
       course.capacitypersession = course.batches && course.batches.length > 0 ? (course.batches[0].seats || 0) : 0;
 
@@ -1809,8 +1810,8 @@ const updateCourse = async (req, res) => {
         const formattedStartDate = new Date(newStartVal).toISOString().split("T")[0];
         const formattedEndDate = new Date(newEndVal).toISOString().split("T")[0];
 
-        const startDateTime = new Date(`${formattedStartDate}T${newStartTime}`);
-        const endDateTime = new Date(`${formattedEndDate}T${newEndTime}`);
+        const startDateTime = new Date(`${formattedStartDate}T${newStartTime} `);
+        const endDateTime = new Date(`${formattedEndDate}T${newEndTime} `);
 
         if (!isNaN(startDateTime.getTime()) && !isNaN(endDateTime.getTime()) && startDateTime >= endDateTime) {
           return apiErrorRes(
@@ -1846,7 +1847,7 @@ const updateCourse = async (req, res) => {
           return apiErrorRes(
             HTTP_STATUS.BAD_REQUEST,
             res,
-            `Seats limit (${seatsVal}) cannot be less than enrolled count (${enrolledCount}) + externally reserved seats (${reservedVal}) for batch "${batch.batchName || (existingBatch ? existingBatch.batchName : '') || batch._id || 'new batch'}"`,
+            `Seats limit(${seatsVal}) cannot be less than enrolled count(${enrolledCount}) + externally reserved seats(${reservedVal}) for batch "${batch.batchName || (existingBatch ? existingBatch.batchName : '') || batch._id || 'new batch'}"`,
           );
         }
       }
@@ -2502,8 +2503,10 @@ const getCourseDetails = async (req, res) => {
       if (diffMs > 0) {
         const hours = Math.floor(diffMs / (1000 * 60 * 60));
         const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-        duration = hours ? (minutes ? `${hours} H ${minutes} min` : `${hours} H`) : `${minutes} min`;
-        durationTranslation = hours ? (minutes ? `${hours} Цаг ${minutes} мин` : `${hours} Цаг`) : `${minutes} мин`;
+        // duration = hours ? (minutes ? `${hours} H ${minutes} min` : `${hours} H`) : `${minutes} min`;
+        // durationTranslation = hours ? (minutes ? `${hours} Цаг ${minutes} мин` : `${hours} Цаг`) : `${minutes} мин`;
+        duration = hours;
+        durationTranslation = hours;
       }
     }
 
