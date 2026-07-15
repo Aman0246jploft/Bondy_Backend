@@ -3168,7 +3168,6 @@ const adminVerifyOrganizer = async (req, res) => {
         "Invalid action. Use 'approve' or 'reject'."
       );
     }
-    console.log(user.organizerVerificationStatus);
 
     await user.save();
 

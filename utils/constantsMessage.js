@@ -10,6 +10,7 @@ module.exports = Object.freeze({
   LOGIN_FAILURE:
     "Sorry for inconvenience! Facing something wrong while processing your request.",
   EMAIL_NOTFOUND: "Email not Found",
+  EMAIL_REQUIRED: "Email is required.",
   INVALID_PASSWORD: "Invalid Password",
   UPDATE_PASSWORD_SUCCESS: "Your password is successfully updated.",
   UPDATE_PASSWORD_FAILURE:
