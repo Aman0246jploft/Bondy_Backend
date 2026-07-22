@@ -13,7 +13,26 @@ cron.schedule("0 * * * *", async () => {
     // process expired EVENT promotions
     // -------------------------------------------------------------
     const expiredEvents = await Event.find({
-      featuredExpiry: { $lt: now },
+      $or: [
+        { featuredExpiry: { $lt: now } },
+        {
+          status: "Past",
+          $or: [
+            { isFeatured: true },
+            { fetcherEvent: true },
+            { addToSlider: true },
+            { activePromotionPackage: { $ne: null } }
+          ]
+        },
+        {
+          featuredExpiry: null,
+          activePromotionPackage: null,
+          $or: [
+            { isFeatured: true },
+            { fetcherEvent: true }
+          ]
+        }
+      ]
     });
 
     if (expiredEvents.length > 0) {
@@ -22,11 +41,12 @@ cron.schedule("0 * * * *", async () => {
         event.fetcherEvent = false;
         event.featuredExpiry = null;
         event.activePromotionPackage = null;
+        event.addToSlider = false;
         await event.save();
 
-        await notifyPromotionExpiry(event.createdBy, "Event", event.title, event._id);
+        await notifyPromotionExpiry(event.createdBy, "Event", event.eventTitle, event._id);
 
-        console.log(`[${now.toISOString()}] Expired promotion for Event ID: ${event._id}`);
+        console.log(`[${now.toISOString()}] Expired promotion/slider for Event ID: ${event._id}`);
       }
     } else {
       console.log(`[${now.toISOString()}] No expired event promotions found.`);
@@ -36,7 +56,21 @@ cron.schedule("0 * * * *", async () => {
     // process expired COURSE promotions
     // -------------------------------------------------------------
     const expiredCourses = await Course.find({
-      featuredExpiry: { $lt: now },
+      $or: [
+        { featuredExpiry: { $lt: now } },
+        {
+          status: "Past",
+          $or: [
+            { isFeatured: true },
+            { activePromotionPackage: { $ne: null } }
+          ]
+        },
+        {
+          featuredExpiry: null,
+          activePromotionPackage: null,
+          isFeatured: true
+        }
+      ]
     });
 
     if (expiredCourses.length > 0) {
@@ -46,7 +80,7 @@ cron.schedule("0 * * * *", async () => {
         course.activePromotionPackage = null;
         await course.save();
 
-        await notifyPromotionExpiry(course.createdBy, "Course", course.title, course._id);
+        await notifyPromotionExpiry(course.createdBy, "Course", course.courseTitle, course._id);
 
         console.log(`[${now.toISOString()}] Expired promotion for Course ID: ${course._id}`);
       }
