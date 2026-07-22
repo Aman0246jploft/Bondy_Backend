@@ -1866,6 +1866,8 @@ const getEventDetails = async (req, res) => {
             eventCategory: event.eventCategory._id || event.eventCategory,
             _id: { $ne: eventId },
             isDraft: false,
+            endDate: { $gte: now },
+            status: { $in: [eventStatus.LIVE, eventStatus.UPCOMING] },
             ...(loggedInUserId ? { createdBy: { $ne: loggedInUserId } } : {}),
           })
             .populate("eventCategory")
