@@ -2778,11 +2778,15 @@ const parseDateRange = (query) => {
     const now = new Date();
     start = new Date(now.getFullYear(), now.getMonth(), 1);
     end = now;
+  } else if (filter === "lastMonth") {
+    const now = new Date();
+    start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    end = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
   } else if (filter === "thisYear") {
     const now = new Date();
     start = new Date(now.getFullYear(), 0, 1);
     end = now;
-  } else if (startDate || endDate) {
+  } else if (filter === "custom" || startDate || endDate) {
     if (startDate) start = new Date(startDate);
     if (endDate) end = new Date(endDate);
   }
