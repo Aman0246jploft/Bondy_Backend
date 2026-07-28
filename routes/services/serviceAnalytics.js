@@ -471,6 +471,9 @@ async function getRevenueAnalytics({ filter, startDate, endDate, organizerId = n
     } else if (filter === "1m") {
       start.setMonth(now.getMonth() - 1);
       prevStart.setMonth(now.getMonth() - 2);
+    } else if (filter === "lastMonth") {
+      start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      prevStart = new Date(now.getFullYear(), now.getMonth() - 2, 1);
     } else if (filter === "6m") {
       start.setMonth(now.getMonth() - 6);
       prevStart.setMonth(now.getMonth() - 12);
@@ -502,6 +505,8 @@ async function getRevenueAnalytics({ filter, startDate, endDate, organizerId = n
     };
     if (filter === "custom" && endDate) {
       baseMatch.createdAt.$lte = new Date(endDate);
+    } else if (filter === "lastMonth") {
+      baseMatch.createdAt.$lte = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
     }
     pipeline.push({ $match: baseMatch });
 
@@ -565,7 +570,12 @@ async function getRevenueAnalytics({ filter, startDate, endDate, organizerId = n
 
     // Fill the timeline
     const current = new Date(start);
-    const end = filter === "custom" && endDate ? new Date(endDate) : now;
+    let end = now;
+    if (filter === "custom" && endDate) {
+      end = new Date(endDate);
+    } else if (filter === "lastMonth") {
+      end = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
+    }
 
     if (groupFormat === "%Y-%m") {
       // Monthly steps
