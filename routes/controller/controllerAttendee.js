@@ -126,28 +126,23 @@ const resolveAttendeeFromSecureQR = async (qrString) => {
  */
 const resolveSubBookingQR = async (subBookingId, scannedBy) => {
   // 1. Find transaction atomically — only match if that specific QR is NOT yet checked in.
-  // We use nested $elemMatch because tickets and qrs are both arrays (nested array structure).
+  // We use $elemMatch directly on tickets array since it's flat now.
   const transaction = await Transaction.findOneAndUpdate(
     {
       tickets: {
-        $elemMatch: {
-          qrs: {
-            $elemMatch: { subBookingId, isCheckedIn: false }
-          }
-        }
+        $elemMatch: { subBookingId, isCheckedIn: false }
       }
     },
     {
       $set: {
-        "tickets.$[ticket].qrs.$[qr].isCheckedIn": true,
-        "tickets.$[ticket].qrs.$[qr].checkedInAt": new Date(),
-        "tickets.$[ticket].qrs.$[qr].checkedInBy": scannedBy,
+        "tickets.$[ticket].isCheckedIn": true,
+        "tickets.$[ticket].checkedInAt": new Date(),
+        "tickets.$[ticket].checkedInBy": scannedBy,
       },
     },
     {
       arrayFilters: [
-        { "ticket.qrs.subBookingId": subBookingId },
-        { "qr.subBookingId": subBookingId },
+        { "ticket.subBookingId": subBookingId },
       ],
       new: true,
     },
@@ -160,29 +155,18 @@ const resolveSubBookingQR = async (subBookingId, scannedBy) => {
     // Either the QR doesn't exist at all, or it's already been checked in
     // Do a read-only lookup to distinguish the two cases
     const existing = await Transaction.findOne({
-      "tickets.qrs.subBookingId": subBookingId,
+      "tickets.subBookingId": subBookingId,
     });
     if (!existing) {
-      throw new Error("TICKET_NOT_FOUND: No ticket found for this QR code");
+      throw new Error(`QR not recognized (subBookingId: ${subBookingId})`);
     }
-    throw new Error("ALREADY_CHECKED_IN: This QR code has already been scanned and checked in");
+    throw new Error("ALREADY_CHECKED_IN: This sub-booking QR has already been scanned");
   }
 
-  // Find which ticket type this QR belongs to
-  let foundTicket = null;
-  let foundQREntry = null;
-  for (const t of transaction.tickets) {
-    if (t.qrs) {
-      const qr = t.qrs.find((q) => q.subBookingId === subBookingId);
-      if (qr) {
-        foundTicket = t;
-        foundQREntry = qr;
-        break;
-      }
-    }
-  }
-
-  return { transaction, ticketId: foundTicket?.ticketId, qrEntry: foundQREntry };
+  // 2. Extract the matched ticket
+  const matchedTicket = transaction.tickets.find(t => t.subBookingId === subBookingId);
+  
+  return { transaction, ticketId: matchedTicket?.ticketId, qrEntry: matchedTicket };
 };
 
 /**
@@ -1678,10 +1662,10 @@ const verifyTicket = async (req, res) => {
               .populate("userId", "firstName lastName email profileImage");
           }
         } else {
-          // Find the specific ticket inside the tickets array matching our subBookingId via the qrs array
-          const matchedTicket = transaction.tickets.find((t) => t.qrs && t.qrs.some(qr => qr.subBookingId === matchedSubBookingId));
+          // Find the specific ticket inside the tickets array matching our subBookingId directly
+          const matchedTicket = transaction.tickets.find((t) => t.subBookingId === matchedSubBookingId);
           if (matchedTicket) {
-            matchedQrEntry = matchedTicket.qrs.find(qr => qr.subBookingId === matchedSubBookingId);
+            matchedQrEntry = matchedTicket;
             attendee = await Attendee.findOne({
               transactionId: transaction._id,
               ticketId: matchedTicket.ticketId,

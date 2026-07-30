@@ -72,18 +72,13 @@ const transactionSchema = new mongoose.Schema(
             {
                 ticketId: { type: String, required: true },
                 ticketName: { type: String, required: true },
-                qty: { type: Number, required: true, min: 1 },
+                qty: { type: Number, required: true, min: 1, default: 1 },
                 basePrice: { type: Number, required: true },
-                // Array of individual QRs for this ticket type
-                qrs: [
-                    {
-                        subBookingId: { type: String },
-                        qrCodeData: { type: String },
-                        isCheckedIn: { type: Boolean, default: false },
-                        checkedInAt: { type: Date, default: null },
-                        checkedInBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
-                    }
-                ]
+                subBookingId: { type: String },
+                qrCodeData: { type: String },
+                isCheckedIn: { type: Boolean, default: false },
+                checkedInAt: { type: Date, default: null },
+                checkedInBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
             }
         ],
         bookingType: {

@@ -73,12 +73,14 @@ const generatePerTicketQR = (bookingId, transactionId, index) => {
  * Example:
  *   tickets = [
  *     { 
- *       ticketId, ticketName:"vip", qty:4, 
- *       qrs: [
- *         { subBookingId:"BNDY-531806-1", qrCodeData:"TICKET-BNDY-531806-1-..." },
- *         { subBookingId:"BNDY-531806-2", qrCodeData:"TICKET-BNDY-531806-2-..." },
- *         ...
- *       ] 
+ *       ticketId, ticketName:"vip", qty:1, 
+ *       subBookingId:"BNDY-531806-1", 
+ *       qrCodeData:"TICKET-BNDY-531806-1-..." 
+ *     },
+ *     { 
+ *       ticketId, ticketName:"vip", qty:1, 
+ *       subBookingId:"BNDY-531806-2", 
+ *       qrCodeData:"TICKET-BNDY-531806-2-..." 
  *     }
  *   ]
  */
@@ -88,23 +90,16 @@ const stampPerTicketQR = (transaction) => {
   let counter = 0;
 
   for (const ticket of transaction.tickets) {
-    if (!ticket.qrs) {
-      ticket.qrs = [];
+    if (!ticket.qrCodeData) {
+      const { subBookingId, qrCodeData } = generatePerTicketQR(
+        transaction.bookingId,
+        transaction._id,
+        counter,
+      );
+      ticket.subBookingId = subBookingId;
+      ticket.qrCodeData = qrCodeData;
     }
-    // Only generate if we haven't already generated the right amount
-    if (ticket.qrs.length === 0) {
-      for (let q = 0; q < ticket.qty; q++) {
-        const { subBookingId, qrCodeData } = generatePerTicketQR(
-          transaction.bookingId,
-          transaction._id,
-          counter,
-        );
-        ticket.qrs.push({ subBookingId, qrCodeData });
-        counter++;
-      }
-    } else {
-       counter += ticket.qty;
-    }
+    counter++;
   }
 };
 
@@ -986,12 +981,14 @@ const initiateBooking = async (req, res) => {
 
           const base = roundToTwo(ticket.price * item.qty);
           totalBasePrice += base;
-          ticketItems.push({
-            ticketId: item.ticketId,
-            ticketName: ticket.ticketName,
-            qty: item.qty,
-            basePrice: base,
-          });
+          for (let q = 0; q < item.qty; q++) {
+            ticketItems.push({
+              ticketId: item.ticketId,
+              ticketName: ticket.ticketName,
+              qty: 1,
+              basePrice: ticket.price,
+            });
+          }
         }
       } else {
         let ticket = event.tickets.id(ticketId);
@@ -1017,12 +1014,14 @@ const initiateBooking = async (req, res) => {
 
         const base = roundToTwo(ticket.price * qty);
         totalBasePrice = base;
-        ticketItems.push({
-          ticketId,
-          ticketName: ticket.ticketName,
-          qty,
-          basePrice: base,
-        });
+        for (let q = 0; q < qty; q++) {
+          ticketItems.push({
+            ticketId,
+            ticketName: ticket.ticketName,
+            qty: 1,
+            basePrice: ticket.price,
+          });
+        }
       }
     }
     // ── COURSE BOOKING ──
