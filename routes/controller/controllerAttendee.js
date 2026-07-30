@@ -693,59 +693,140 @@ const checkInAttendee = async (req, res) => {
           transaction = await Transaction.findById(attendee.transactionId);
         }
       } else {
+        // TICKET- format — detect per-ticket (TICKET-BNDY-XXXXXX-N-txnId) vs legacy (TICKET-txnId-...)
         const parts = ticketNumber.split("-");
-        const transactionId = parts[1];
+        let transactionId;
+        let matchedSubBookingId = null;
+
+        if (parts[1] === "BNDY") {
+          matchedSubBookingId = `${parts[1]}-${parts[2]}-${parts[3]}`; // e.g. BNDY-531806-4
+          transactionId = parts[4];
+        } else {
+          transactionId = parts[1];
+        }
+
         transaction = await Transaction.findById(transactionId);
         if (transaction) {
           await ensureAttendeesExist(transaction);
+          if (matchedSubBookingId) {
+            // Resolve specific attendee by ticket type from qrs[]
+            const matchedTicket = transaction.tickets.find(
+              (t) => t.qrs && t.qrs.some((qr) => qr.subBookingId === matchedSubBookingId),
+            );
+            if (matchedTicket) {
+              attendee = await Attendee.findOne({
+                transactionId: transaction._id,
+                ticketId: matchedTicket.ticketId,
+                isCheckedIn: false,
+              })
+                .populate("eventId")
+                .populate("courseId");
+              if (!attendee) {
+                // Fallback — return already-checked-in attendee for this ticket type
+                attendee = await Attendee.findOne({
+                  transactionId: transaction._id,
+                  ticketId: matchedTicket.ticketId,
+                })
+                  .populate("eventId")
+                  .populate("courseId");
+              }
+            }
+          }
+          if (!attendee) {
+            attendee = await Attendee.findOne({ transactionId: transaction._id, isCheckedIn: false })
+              .populate("eventId")
+              .populate("courseId");
+          }
+        }
+      }
+    }
+    // Handle sub-booking ID (BNDY-531806-1) or parent booking ID (BNDY-531806)
+    else if (ticketNumber.startsWith("BNDY-")) {
+      const bndyParts = ticketNumber.split("-");
+      const isSubBooking = bndyParts.length === 3; // BNDY-531806-1 has 3 parts
+
+      if (isSubBooking) {
+        const parentBookingId = `${bndyParts[0]}-${bndyParts[1]}`;
+        transaction = await Transaction.findOne({
+          bookingId: parentBookingId,
+          "tickets.qrs.subBookingId": ticketNumber,
+        });
+        if (!transaction) {
+          return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Ticket not found for this sub-booking ID");
+        }
+        if (transaction.status !== "PAID") {
+          return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Booking is not paid");
+        }
+        await ensureAttendeesExist(transaction);
+
+        const matchedTicket = transaction.tickets.find(
+          (t) => t.qrs && t.qrs.some((qr) => qr.subBookingId === ticketNumber),
+        );
+        if (matchedTicket) {
+          attendee = await Attendee.findOne({
+            transactionId: transaction._id,
+            ticketId: matchedTicket.ticketId,
+            isCheckedIn: false,
+          })
+            .populate("eventId")
+            .populate("courseId");
+          if (!attendee) {
+            attendee = await Attendee.findOne({
+              transactionId: transaction._id,
+              ticketId: matchedTicket.ticketId,
+            })
+              .populate("eventId")
+              .populate("courseId");
+          }
+        }
+        if (!attendee) {
           attendee = await Attendee.findOne({ transactionId: transaction._id, isCheckedIn: false })
             .populate("eventId")
             .populate("courseId");
         }
-      }
-    }
-    // Handle short Booking ID (BNDY-XXXXXX)
-    else if (ticketNumber.startsWith("BNDY-")) {
-      transaction = await Transaction.findOne({ bookingId: ticketNumber });
-      if (!transaction) {
-        return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Booking not found");
-      }
-      if (transaction.status !== "PAID") {
-        return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Booking is not paid");
-      }
-
-      if (entityId) {
-        const transactionEntityId = transaction.eventId?.toString() || transaction.courseId?.toString();
-        if (transactionEntityId !== entityId) {
-          return apiErrorRes(
-            HTTP_STATUS.BAD_REQUEST,
-            res,
-            "This booking does not belong to the selected event/course",
-          );
+      } else {
+        // Parent booking ID (BNDY-531806) — original behaviour
+        transaction = await Transaction.findOne({ bookingId: ticketNumber });
+        if (!transaction) {
+          return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Booking not found");
         }
-      }
-
-      await ensureAttendeesExist(transaction);
-
-      if (transaction.bookingType === "EVENT" || !transaction.bookingType) {
-        const totalAttendeesCount = transaction.qty;
-        const checkedInCount = await Attendee.countDocuments({ transactionId: transaction._id, isCheckedIn: true });
-        if (checkedInCount >= totalAttendeesCount) {
-          return apiErrorRes(
-            HTTP_STATUS.BAD_REQUEST,
-            res,
-            "All tickets for this booking are already checked in",
-          );
+        if (transaction.status !== "PAID") {
+          return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Booking is not paid");
         }
-      }
 
-      attendee = await Attendee.findOne({ transactionId: transaction._id, isCheckedIn: false })
-        .populate("eventId")
-        .populate("courseId");
-      if (!attendee && transaction.bookingType === "COURSE") {
-        attendee = await Attendee.findOne({ transactionId: transaction._id })
+        if (entityId) {
+          const transactionEntityId = transaction.eventId?.toString() || transaction.courseId?.toString();
+          if (transactionEntityId !== entityId) {
+            return apiErrorRes(
+              HTTP_STATUS.BAD_REQUEST,
+              res,
+              "This booking does not belong to the selected event/course",
+            );
+          }
+        }
+
+        await ensureAttendeesExist(transaction);
+
+        if (transaction.bookingType === "EVENT" || !transaction.bookingType) {
+          const totalAttendeesCount = transaction.qty;
+          const checkedInCount = await Attendee.countDocuments({ transactionId: transaction._id, isCheckedIn: true });
+          if (checkedInCount >= totalAttendeesCount) {
+            return apiErrorRes(
+              HTTP_STATUS.BAD_REQUEST,
+              res,
+              "All tickets for this booking are already checked in",
+            );
+          }
+        }
+
+        attendee = await Attendee.findOne({ transactionId: transaction._id, isCheckedIn: false })
           .populate("eventId")
           .populate("courseId");
+        if (!attendee && transaction.bookingType === "COURSE") {
+          attendee = await Attendee.findOne({ transactionId: transaction._id })
+            .populate("eventId")
+            .populate("courseId");
+        }
       }
     }
     // Handle User ID Scan (Profile QR)
@@ -990,9 +1071,18 @@ const scanQRAndCheckIn = async (req, res) => {
     }
 
     if (qrCodeData.startsWith("TICKET-")) {
-      // Case 1: Transaction QR
+      // Case 1: Transaction QR or Per-ticket QR
       const parts = qrCodeData.split("-");
-      const transactionId = parts[1];
+      let transactionId;
+      let matchedSubBookingId = null;
+
+      // Per-ticket format: TICKET-BNDY-XXXXXX-N-transactionId-timestamp
+      if (parts[1] === "BNDY") {
+        matchedSubBookingId = `${parts[1]}-${parts[2]}-${parts[3]}`; // e.g. BNDY-531806-4
+        transactionId = parts[4];
+      } else {
+        transactionId = parts[1];
+      }
 
       transaction = await Transaction.findById(transactionId)
         .populate("eventId")
@@ -1008,6 +1098,30 @@ const scanQRAndCheckIn = async (req, res) => {
         endDate = event.endDate;
       } else {
         endDate = event.endDate || event.createdAt;
+      }
+
+      // If this is a per-ticket QR, narrow to a specific attendee by ticketId
+      if (matchedSubBookingId) {
+        const matchedTicket = transaction.tickets.find((t) => t.qrs && t.qrs.some(qr => qr.subBookingId === matchedSubBookingId));
+        if (matchedTicket) {
+          attendee = await Attendee.findOne({
+            transactionId: transaction._id,
+            ticketId: matchedTicket.ticketId,
+            isCheckedIn: false,
+          })
+            .populate("eventId")
+            .populate("courseId")
+            .populate("userId", "firstName lastName email profileImage");
+          if (!attendee) {
+            attendee = await Attendee.findOne({
+              transactionId: transaction._id,
+              ticketId: matchedTicket.ticketId,
+            })
+              .populate("eventId")
+              .populate("courseId")
+              .populate("userId", "firstName lastName email profileImage");
+          }
+        }
       }
     } else if (qrCodeData.startsWith("ATTENDEE-")) {
       // Case 2: Individual Attendee QR
