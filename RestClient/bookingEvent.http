@@ -216,7 +216,7 @@ Content-Type: application/json
     "tickets": [
         {
             "ticketId": "6a353153c1d17af49fd534ee",
-            "qty": 1
+            "qty": 3
         },
         {
             "ticketId": "6a353153c1d17af49fd534ed",
