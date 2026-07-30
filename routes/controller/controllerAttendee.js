@@ -1236,8 +1236,13 @@ const scanQRAndCheckIn = async (req, res) => {
           }
         }
       } else {
-        // Legacy format: TICKET-transactionId-userId-timestamp
+        // Legacy formats: 
+        // Parent QR: TICKET-transactionId-userId-timestamp (4 parts)
+        // Individual Ticket QR: TICKET-transactionId-ticketIndex-userId-timestamp (5 parts)
         const transactionId = parts[1];
+        const isIndividualTicket = parts.length === 5;
+        const ticketIndex = isIndividualTicket ? parseInt(parts[2], 10) : null;
+
         transaction = await Transaction.findById(transactionId)
           .populate("eventId")
           .populate("courseId")
@@ -1249,6 +1254,25 @@ const scanQRAndCheckIn = async (req, res) => {
         event = transaction.eventId || transaction.courseId;
         title = event ? event.eventTitle || event.courseTitle : "";
         endDate = transaction.bookingType === "EVENT" ? event?.endDate : (event?.endDate || event?.createdAt);
+        
+        await ensureAttendeesExist(transaction);
+
+        if (isIndividualTicket) {
+          attendee = await Attendee.findOne({ transactionId: transaction._id, ticketIndex: ticketIndex })
+            .populate("eventId")
+            .populate("courseId")
+            .populate("userId", "firstName lastName email profileImage");
+            
+          if (attendee && attendee.isCheckedIn) {
+            return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "This specific ticket has already been scanned and checked in");
+          }
+        } else {
+          // Parent QR logic: find the first available non-checked-in attendee
+          attendee = await Attendee.findOne({ transactionId: transaction._id, isCheckedIn: false })
+            .populate("eventId")
+            .populate("courseId")
+            .populate("userId", "firstName lastName email profileImage");
+        }
       }
     } else if (qrCodeData.startsWith("ATTENDEE-")) {
       // Case 2: Individual Attendee QR
@@ -1257,7 +1281,7 @@ const scanQRAndCheckIn = async (req, res) => {
         .populate("courseId")
         .populate("userId", "firstName lastName email profileImage")
         .populate("transactionId", "bookingId totalAmount status");
-
+      
       if (!attendee) {
         return apiErrorRes(
           HTTP_STATUS.NOT_FOUND,
