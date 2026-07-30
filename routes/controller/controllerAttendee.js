@@ -767,6 +767,18 @@ const executeAttendeeCheckIn = async (attendee, transaction, organizerId, select
         });
         attendee.checkedInAt = now;
         attendee.checkedInBy = organizerId;
+
+        // Sync check-in status to the exact ticket in the transaction's tickets array
+        if (transaction.tickets && transaction.tickets.length > 0) {
+          const targetSubBookingId = `${transaction.bookingId}-${attendee.ticketIndex}`;
+          const matchedTicket = transaction.tickets.find(t => t.subBookingId === targetSubBookingId);
+          if (matchedTicket) {
+            matchedTicket.isCheckedIn = attendee.isCheckedIn; // will be false as passes are recurring
+            matchedTicket.checkedInAt = attendee.checkedInAt;
+            matchedTicket.checkedInBy = attendee.checkedInBy;
+          }
+        }
+
         await attendee.save();
 
         return {

@@ -2709,6 +2709,11 @@ const getEventAttendeesList = async (req, res) => {
               qty: t.qty,
               price: t.qty ? roundToTwo(t.basePrice / t.qty) : 0,
               totalPrice: t.basePrice,
+              isCheckedIn: t.isCheckedIn || false,
+              checkedInAt: t.checkedInAt || null,
+              checkedInBy: t.checkedInBy || null,
+              subBookingId: t.subBookingId || null,
+              qrCodeData: t.qrCodeData || null,
             }))
             : [
               {
@@ -2717,6 +2722,9 @@ const getEventAttendeesList = async (req, res) => {
                 qty: transaction.qty,
                 price: transaction.qty ? roundToTwo(transaction.basePrice / transaction.qty) : 0,
                 totalPrice: transaction.basePrice,
+                isCheckedIn: transaction.isCheckedIn || false,
+                checkedInAt: transaction.checkedInAt || null,
+                checkedInBy: transaction.checkedInBy || null,
               },
             ],
         },

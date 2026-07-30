@@ -150,13 +150,26 @@ Content-Type: application/json
 
 ### 16. Staff Scans and Checks In QR Code
 # Staff scans a transaction QR code to perform actual check-in.
+#PAAAAAAAASSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
 POST {{baseUrl}}/booking/scan-qr
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTZhZTU5N2YyNzg1YzkzZmFjNDEzMDAiLCJyb2xlSWQiOjUsImlhdCI6MTc4NTM5MDc1OCwiZXhwIjoyNjQ5MzkwNzU4fQ.iNIbgkTDncGXFFLkQ8kE__AYJGz5odkGV0p3gnNReU4
 Content-Type: application/json
 
 {
-  "qrCodeData": "TICKET-BNDY-138143-2-6a6b4d6e77134e82ddc965a6-1785417071520"
+  "qrCodeData": "TICKET-6a6b4e52a02ff0649465d385-698072a07c409d5a242e3c54-1785417301268"
 }
+
+
+#######normal Ongoing walla
+
+POST {{baseUrl}}/booking/scan-qr
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTZhZTU5N2YyNzg1YzkzZmFjNDEzMDAiLCJyb2xlSWQiOjUsImlhdCI6MTc4NTM5MDc1OCwiZXhwIjoyNjQ5MzkwNzU4fQ.iNIbgkTDncGXFFLkQ8kE__AYJGz5odkGV0p3gnNReU4
+Content-Type: application/json
+
+{
+  "qrCodeData": "TICKET-6a6b4e52a02ff0649465d385-698072a07c409d5a242e3c54-1785417301268"
+}
+
 
 
 ### 17. Organizer Edits a Staff Member
