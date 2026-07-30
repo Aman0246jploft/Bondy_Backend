@@ -194,24 +194,24 @@ const createTicketsForBooking = async (transaction, userDoc, dbSession = null) =
   const slots = [];
 
   if (isEvent && transaction.tickets && transaction.tickets.length > 0) {
-    // Multi-ticket-type event booking (e.g. 2 VIP + 1 General)
+    // Multi-ticket-type event booking
     for (const t of transaction.tickets) {
       for (let j = 0; j < t.qty; j++) {
-        slots.push({ ticketId: t.ticketId, ticketName: t.ticketName, isPass: false });
+        slots.push({ ticketId: t.ticketId, ticketName: t.ticketName, isPass: false, qrCodeData: t.qrCodeData });
       }
     }
   } else if (isEvent) {
     // Single-ticket-type event booking
     for (let j = 0; j < transaction.qty; j++) {
-      slots.push({ ticketId: transaction.ticketId, ticketName: transaction.ticketName, isPass: false });
+      slots.push({ ticketId: transaction.ticketId, ticketName: transaction.ticketName, isPass: false, qrCodeData: transaction.qrCodeData });
     }
   } else if (isPass) {
     // Monthly/3-month pass — exactly 1 ticket regardless of qty
-    slots.push({ ticketId: null, ticketName: transaction.ticketName || transaction.passType, isPass: true });
+    slots.push({ ticketId: null, ticketName: transaction.ticketName || transaction.passType, isPass: true, qrCodeData: transaction.qrCodeData });
   } else {
     // Course session booking — one ticket per qty
     for (let j = 0; j < transaction.qty; j++) {
-      slots.push({ ticketId: null, ticketName: transaction.ticketName || "Course Enrollment", isPass: false });
+      slots.push({ ticketId: null, ticketName: transaction.ticketName || "Course Enrollment", isPass: false, qrCodeData: transaction.qrCodeData });
     }
   }
 
@@ -236,7 +236,7 @@ const createTicketsForBooking = async (transaction, userDoc, dbSession = null) =
     status: "ACTIVE",
     ticketIndex: i + 1,
     isPass: slot.isPass,
-    qrCodeData: "",  // set after insertion (need _id)
+    qrCodeData: slot.qrCodeData || transaction.qrCodeData || `ATTENDEE-TKT-${i}-${Date.now()}-${userId}`,
     isCheckedIn: false,
     checkInHistory: [],
     scanHistory: [],
@@ -245,24 +245,6 @@ const createTicketsForBooking = async (transaction, userDoc, dbSession = null) =
   // Insert all Attendee docs (with optional session for atomicity)
   const insertOptions = dbSession ? { session: dbSession } : {};
   const created = await Attendee.insertMany(attendeeDocs, { ...insertOptions, ordered: true });
-
-  // Generate signed QR for each, then save
-  for (let i = 0; i < created.length; i++) {
-    const att = created[i];
-    att.qrCodeData = generateSecureQRPayload(
-      {
-        attendeeId: att._id,
-        transactionId: transaction._id,
-        userId: userId,
-        refId: refId,
-        ticketType: att.ticketName || "General",
-        ticketIndex: att.ticketIndex,
-        isPass: att.isPass,
-      },
-      secretKey,
-    );
-    await att.save(dbSession ? { session: dbSession } : {});
-  }
 
   // Update Transaction.ticketIds[] to reference the generated tickets
   const ticketIdList = created.map((a) => a._id);
