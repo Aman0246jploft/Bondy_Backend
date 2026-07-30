@@ -1093,9 +1093,9 @@ const scanQRAndCheckIn = async (req, res) => {
         return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.ENTITY_NOT_FOUND);
       }
       const isCreatorSec = secureEvent.createdBy.toString() === organizerId;
-      const isStaffSec   = req.user.roleId === roleId.STAFF && secureEvent.assignedStaff &&
-                           secureEvent.assignedStaff.some(id => id.toString() === organizerId);
-      const isAdminSec   = req.user.roleId === roleId.SUPER_ADMIN;
+      const isStaffSec = req.user.roleId === roleId.STAFF && secureEvent.assignedStaff &&
+        secureEvent.assignedStaff.some(id => id.toString() === organizerId);
+      const isAdminSec = req.user.roleId === roleId.SUPER_ADMIN;
       if (!isCreatorSec && !isStaffSec && !isAdminSec) {
         return apiErrorRes(HTTP_STATUS.FORBIDDEN, res, "You are not authorized to check-in attendees for this event/course");
       }
@@ -1106,11 +1106,11 @@ const scanQRAndCheckIn = async (req, res) => {
         // Record successful scan in audit log
         await recordScanAudit(secureAttendee, organizerId, "SUCCESS", `Checked in ticket #${secureAttendee.ticketIndex}`);
         return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.CHECK_IN_SUCCESS, {
-          type:      "SECURE_TICKET",
-          attendee:  checkInResult.attendee,
-          event:     { eventTitle: secureEvent.eventTitle || secureEvent.courseTitle },
+          type: "SECURE_TICKET",
+          attendee: checkInResult.attendee,
+          event: { eventTitle: secureEvent.eventTitle || secureEvent.courseTitle },
           bookingId: secureTxn?.bookingId,
-          totalQty:  secureTxn?.qty,
+          totalQty: secureTxn?.qty,
           checkedInQty: secureTxn?.checkedInQty,
           validationStatus: "SUCCESS",
         });
@@ -1439,9 +1439,9 @@ const verifyTicket = async (req, res) => {
       const secureEvent = secureAtt.eventId || secureAtt.courseId;
       if (secureEvent) {
         const isCreator = secureEvent.createdBy.toString() === userId;
-        const isStaff   = req.user.roleId === roleId.STAFF && secureEvent.assignedStaff &&
-                          secureEvent.assignedStaff.some(id => id.toString() === userId);
-        const isAdmin   = req.user.roleId === roleId.SUPER_ADMIN;
+        const isStaff = req.user.roleId === roleId.STAFF && secureEvent.assignedStaff &&
+          secureEvent.assignedStaff.some(id => id.toString() === userId);
+        const isAdmin = req.user.roleId === roleId.SUPER_ADMIN;
         if (!isCreator && !isStaff && !isAdmin) {
           return apiErrorRes(HTTP_STATUS.FORBIDDEN, res, `You are not authorized to verify tickets for this ${secureAtt.eventId ? "event" : "course"}`);
         }
@@ -1513,40 +1513,42 @@ const verifyTicket = async (req, res) => {
         checkedInToday: (secureAtt.checkInHistory || []).some(e => e.sessionDate === todayStr),
         bookingType: secureTxn?.bookingType || (secureAtt.eventId ? "EVENT" : "COURSE"),
         event: secureEvent ? {
-          _id:         secureEvent._id,
-          title:       vTitle,
-          startDate:   secureEvent.startDate,
-          endDate:     actualEndDate,
+          _id: secureEvent._id,
+          title: vTitle,
+          startDate: secureEvent.startDate,
+          endDate: actualEndDate,
           posterImage: Array.isArray(secureEvent.posterImage) && secureEvent.posterImage.length > 0
             ? formatResponseUrl(secureEvent.posterImage[0])
             : (secureEvent.posterImage ? formatResponseUrl(secureEvent.posterImage) : null),
         } : null,
         booking: secureTxn ? {
-          bookingId:    secureTxn.bookingId,
-          totalQty:     secureTxn.qty,
-          totalAmount:  secureTxn.totalAmount,
-          status:       secureTxn.status,
+          bookingId: secureTxn.bookingId,
+          totalQty: secureTxn.qty,
+          totalAmount: secureTxn.totalAmount,
+          status: secureTxn.status,
           checkedInQty: secureTxn.checkedInQty || 0,
-          passType:     secureTxn.passType || null,
+          passType: secureTxn.passType || null,
           passExpiryDate: secureTxn.passExpiryDate || null,
         } : null,
         attendee: {
-          _id:             secureAtt._id,
-          firstName:       secureAtt.firstName,
-          lastName:        secureAtt.lastName,
-          email:           secureAtt.email,
-          ticketNumber:    secureAtt.ticketNumber,
-          ticketName:      secureAtt.ticketName,
-          ticketIndex:     secureAtt.ticketIndex,
-          isPass:          secureAtt.isPass,
-          status:          secureAtt.status,
-          isCheckedIn:     secureAtt.isCheckedIn,
-          checkInHistory:  secureAtt.checkInHistory || [],
+          _id: secureAtt._id,
+          firstName: secureAtt.firstName,
+          lastName: secureAtt.lastName,
+          email: secureAtt.email,
+          ticketNumber: secureAtt.ticketNumber,
+          ticketName: secureAtt.ticketName,
+          ticketIndex: secureAtt.ticketIndex,
+          isPass: secureAtt.isPass,
+          status: secureAtt.status,
+          isCheckedIn: secureAtt.isCheckedIn,
+          checkInHistory: secureAtt.checkInHistory || [],
           sessionsAttended: (secureAtt.checkInHistory || []).length,
           profileImage: secureAtt.userId?.profileImage ? formatResponseUrl(secureAtt.userId.profileImage) : null,
         },
       });
     }
+
+    let matchedQrEntry = null;
 
     if (code.startsWith("TICKET-")) {
       const parts = code.split("-");
@@ -1577,6 +1579,7 @@ const verifyTicket = async (req, res) => {
         // Find the specific ticket inside the tickets array matching our subBookingId via the qrs array
         const matchedTicket = transaction.tickets.find((t) => t.qrs && t.qrs.some(qr => qr.subBookingId === matchedSubBookingId));
         if (matchedTicket) {
+          matchedQrEntry = matchedTicket.qrs.find(qr => qr.subBookingId === matchedSubBookingId);
           attendee = await Attendee.findOne({
             transactionId: transaction._id,
             ticketId: matchedTicket.ticketId,
@@ -1670,6 +1673,7 @@ const verifyTicket = async (req, res) => {
         // Find the matched ticket type to pick the right attendee by ticketId
         const matchedTicket = transaction.tickets.find((t) => t.qrs && t.qrs.some(qr => qr.subBookingId === code));
         if (matchedTicket) {
+          matchedQrEntry = matchedTicket.qrs.find(qr => qr.subBookingId === code);
           attendee = await Attendee.findOne({
             transactionId: transaction._id,
             ticketId: matchedTicket.ticketId,
@@ -1837,8 +1841,13 @@ const verifyTicket = async (req, res) => {
     let checkedInAt = null;
 
     if (bookingType === "EVENT") {
-      isAlreadyCheckedIn = attendee ? attendee.isCheckedIn : (transaction ? transaction.isCheckedIn : false);
-      checkedInAt = attendee ? attendee.checkedInAt : (transaction ? transaction.checkedInAt : null);
+      if (matchedQrEntry) {
+        isAlreadyCheckedIn = matchedQrEntry.isCheckedIn;
+        checkedInAt = matchedQrEntry.checkedInAt;
+      } else {
+        isAlreadyCheckedIn = attendee ? attendee.isCheckedIn : (transaction ? transaction.isCheckedIn : false);
+        checkedInAt = attendee ? attendee.checkedInAt : (transaction ? transaction.checkedInAt : null);
+      }
       isValid = !isExpired && !isAlreadyCheckedIn;
       message = isValid ? "Ticket is valid for check-in" : (isExpired ? "Event has expired" : "Already checked in");
     } else {
@@ -1847,7 +1856,11 @@ const verifyTicket = async (req, res) => {
         const totalSessions = course.totalSessions || 1;
         const attended = attendee ? (attendee.checkInHistory ? attendee.checkInHistory.length : 0) : 0;
 
-        isAlreadyCheckedIn = attendee ? attendee.isCheckedIn : false;
+        if (matchedQrEntry) {
+          isAlreadyCheckedIn = matchedQrEntry.isCheckedIn;
+        } else {
+          isAlreadyCheckedIn = attendee ? attendee.isCheckedIn : false;
+        }
         checkedInAt = attendee ? attendee.checkedInAt : null;
         isValid = !isExpired && (attended < totalSessions) && !checkedInToday;
         message = isValid ? "Ticket is valid for check-in" : (isExpired ? "Course has expired" : (attended >= totalSessions ? "All sessions checked in" : "Already checked in today"));
