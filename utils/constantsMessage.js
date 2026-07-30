@@ -319,4 +319,14 @@ module.exports = Object.freeze({
   CANCELLATION_REASONS_FETCHED: "Cancellation reasons fetched successfully",
   INVALID_CANCELLATION_REASON: "Invalid cancellation reason",
   CANCELLATION_FEE_APPLIED: "Cancellation fee applied to refund",
+  // ── Individual Ticket System ─────────────────────────────────────────────
+  TAMPERED_QR: "QR code is invalid or has been tampered with",
+  TICKET_CANCELLED: "This ticket has been cancelled and cannot be used for entry",
+  TICKET_REFUNDED: "This ticket has been refunded and cannot be used for entry",
+  TICKET_EXPIRED: "This ticket has expired",
+  TICKETS_GENERATED: "Individual tickets generated successfully",
+  SCAN_AUDIT_RECORDED: "Scan recorded in audit trail",
+  TICKET_ALREADY_CHECKED_IN: "This ticket has already been checked in",
+  INDIVIDUAL_TICKET_FETCHED: "Individual ticket details fetched successfully",
+  MY_TICKETS_FETCHED: "My tickets fetched successfully",
 });

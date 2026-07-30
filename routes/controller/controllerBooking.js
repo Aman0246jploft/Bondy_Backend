@@ -1,5 +1,7 @@
 require("dotenv").config();
 const express = require("express");
+const mongoose = require("mongoose");
+const crypto = require("crypto");
 const router = express.Router();
 const {
   User,
@@ -20,6 +22,7 @@ const {
   apiErrorRes,
   apiSuccessRes,
   formatResponseUrl,
+  generateSecureQRPayload,
 } = require("../../utils/globalFunction");
 const { generateTicketPdf } = require("../../utils/pdfGenerator");
 const {
@@ -43,17 +46,157 @@ const {
   notifyOrganizerNewBooking,
 } = require("../services/serviceNotification");
 
-// ════════════════════════════════════════════════════════════════════════════
-// HELPERS
-// ════════════════════════════════════════════════════════════════════════════
+// ── HELPERS ───────────────────────────────────────────────────────────────────
 
 const roundToTwo = (num) => Math.round((num + Number.EPSILON) * 100) / 100;
 
+/** Legacy transaction-level QR (kept for backward compat with old bookings) */
 const generateQRData = (transactionId, userId) =>
   `TICKET-${transactionId}-${userId}-${Date.now()}`;
 
 const generateBookingId = () =>
   `BNDY-${Math.floor(100000 + Math.random() * 900000)}`;
+
+/**
+ * Generate a cryptographically random HMAC secret for a booking.
+ * Used to sign individual ticket QR payloads.
+ * Stored on Transaction.ticketSecretKey (excluded from API responses).
+ */
+const generateBookingSecretKey = () => crypto.randomBytes(32).toString("hex");
+
+/**
+ * Generate unique ticket number for an Attendee record.
+ * Format: TKT-{entityPrefix}-{timestamp}-{index}
+ */
+const buildTicketNumber = (entityId, index) => {
+  const ts = Date.now().toString().slice(-6);
+  const prefix = entityId.toString().slice(-4).toUpperCase();
+  return `TKT-${prefix}-${ts}-${index}`;
+};
+
+/**
+ * Core helper: Eagerly generate individual Attendee (ticket) records for a confirmed booking.
+ *
+ * Rules:
+ *   - EVENT booking     : create N=totalQty Attendee records, each with unique QR
+ *   - COURSE + passType : create exactly 1 Attendee record (isPass: true)
+ *   - COURSE (no pass)  : create N=qty Attendee records
+ *
+ * Each Attendee gets a HMAC-signed QR payload using the booking's ticketSecretKey.
+ *
+ * @param {object}  transaction  - Mongoose Transaction document (must have .ticketSecretKey)
+ * @param {object}  userDoc      - Populated User object (for firstName, lastName, email)
+ * @param {object}  [dbSession]  - Optional Mongoose session for atomic operations
+ * @returns {Promise<Attendee[]>} Array of created Attendee documents
+ */
+const createTicketsForBooking = async (transaction, userDoc, dbSession = null) => {
+  // Guard: if tickets already created, return existing ones
+  const existing = await Attendee.find({ transactionId: transaction._id }).lean();
+  if (existing.length > 0) {
+    console.log(`[Tickets] Already created ${existing.length} ticket(s) for txn ${transaction._id}`);
+    return existing;
+  }
+
+  const isEvent  = transaction.bookingType === "EVENT";
+  const isPass   = !isEvent && !!transaction.passType;
+  const refId    = isEvent
+    ? (transaction.eventId?._id || transaction.eventId)
+    : (transaction.courseId?._id || transaction.courseId);
+
+  const secretKey = transaction.ticketSecretKey;
+  if (!secretKey) {
+    throw new Error("[Tickets] transaction.ticketSecretKey is missing — cannot generate secure QR");
+  }
+
+  // Build the flat list of ticket slots to create
+  // For events: expand transaction.tickets[] array by qty
+  // For course pass: single slot
+  // For course sessions: qty slots
+  const slots = [];
+
+  if (isEvent && transaction.tickets && transaction.tickets.length > 0) {
+    // Multi-ticket-type event booking (e.g. 2 VIP + 1 General)
+    for (const t of transaction.tickets) {
+      for (let j = 0; j < t.qty; j++) {
+        slots.push({ ticketId: t.ticketId, ticketName: t.ticketName, isPass: false });
+      }
+    }
+  } else if (isEvent) {
+    // Single-ticket-type event booking
+    for (let j = 0; j < transaction.qty; j++) {
+      slots.push({ ticketId: transaction.ticketId, ticketName: transaction.ticketName, isPass: false });
+    }
+  } else if (isPass) {
+    // Monthly/3-month pass — exactly 1 ticket regardless of qty
+    slots.push({ ticketId: null, ticketName: transaction.ticketName || transaction.passType, isPass: true });
+  } else {
+    // Course session booking — one ticket per qty
+    for (let j = 0; j < transaction.qty; j++) {
+      slots.push({ ticketId: null, ticketName: transaction.ticketName || "Course Enrollment", isPass: false });
+    }
+  }
+
+  const firstName = userDoc?.firstName || "Guest";
+  const lastName  = userDoc?.lastName  || "";
+  const email     = userDoc?.email     || "guest@example.com";
+  const userId    = userDoc?._id || transaction.userId;
+
+  // Build Attendee documents
+  const attendeeDocs = slots.map((slot, i) => ({
+    transactionId: transaction._id,
+    eventId:  isEvent ? refId : null,
+    courseId: !isEvent ? refId : null,
+    batchId:  transaction.batchId || null,
+    userId,
+    firstName,
+    lastName,
+    email,
+    ticketNumber: buildTicketNumber(refId, i + 1),
+    ticketId:   slot.ticketId   || null,
+    ticketName: slot.ticketName || null,
+    status:     "ACTIVE",
+    ticketIndex: i + 1,
+    isPass:     slot.isPass,
+    qrCodeData: "",  // set after insertion (need _id)
+    isCheckedIn: false,
+    checkInHistory: [],
+    scanHistory: [],
+  }));
+
+  // Insert all Attendee docs (with optional session for atomicity)
+  const insertOptions = dbSession ? { session: dbSession } : {};
+  const created = await Attendee.insertMany(attendeeDocs, { ...insertOptions, ordered: true });
+
+  // Generate signed QR for each, then save
+  for (let i = 0; i < created.length; i++) {
+    const att = created[i];
+    att.qrCodeData = generateSecureQRPayload(
+      {
+        attendeeId:    att._id,
+        transactionId: transaction._id,
+        userId:        userId,
+        refId:         refId,
+        ticketType:    att.ticketName || "General",
+        ticketIndex:   att.ticketIndex,
+        isPass:        att.isPass,
+      },
+      secretKey,
+    );
+    await att.save(dbSession ? { session: dbSession } : {});
+  }
+
+  // Update Transaction.ticketIds[] to reference the generated tickets
+  const ticketIdList = created.map((a) => a._id);
+  await Transaction.findByIdAndUpdate(
+    transaction._id,
+    { $set: { ticketIds: ticketIdList } },
+    dbSession ? { session: dbSession, new: true } : { new: true },
+  );
+
+  console.log(`[Tickets] Generated ${created.length} ticket(s) for txn ${transaction._id} (${transaction.bookingType}${isPass ? " PASS" : ""})`);
+  return created;
+};
+
 
 /**
  * Count PAID tickets for a given event ticketId
@@ -962,6 +1105,8 @@ const initiateBooking = async (req, res) => {
         ticketId: ticketItems[0].ticketId,
         ticketName: ticketItems.map(t => `${t.ticketName} (x${t.qty})`).join(", "),
         tickets: ticketItems,
+        // Per-booking HMAC secret for individual ticket QR signing
+        ticketSecretKey: generateBookingSecretKey(),
       };
 
       const transaction = new Transaction(transactionData);
@@ -969,7 +1114,7 @@ const initiateBooking = async (req, res) => {
       if (totalFinalAmount === 0) {
         transaction.status = "PAID";
         transaction.paymentId = `FREE_BOOKING_${Date.now()}`;
-        transaction.qrCodeData = generateQRData(transaction._id, userId);
+        transaction.qrCodeData = generateQRData(transaction._id, userId); // legacy top-level QR
         transaction.commissionAmount = 0;
         transaction.organizerEarning = 0;
       }
@@ -981,6 +1126,18 @@ const initiateBooking = async (req, res) => {
         const organizerId = item.createdBy?._id || item.createdBy;
         const itemTitle = item.eventTitle || "Event";
 
+        // ── Eagerly generate individual ticket records ──
+        // Re-fetch transaction with ticketSecretKey (select: false field)
+        const txnWithSecret = await Transaction.findById(transaction._id).select("+ticketSecretKey");
+        const buyer = await User.findById(userId).select("firstName lastName email");
+        let generatedTickets = [];
+        try {
+          generatedTickets = await createTicketsForBooking(txnWithSecret, buyer);
+        } catch (ticketErr) {
+          console.error("[Tickets] Failed to generate tickets for free booking:", ticketErr);
+          // Non-fatal: booking is still confirmed, tickets can be generated lazily
+        }
+
         notifyBookingConfirmed(
           userId,
           bookingType,
@@ -989,8 +1146,8 @@ const initiateBooking = async (req, res) => {
         ).catch((e) => console.error("[Notification] notifyBookingConfirmed:", e));
 
         User.findById(userId).select("firstName lastName")
-          .then((buyer) => {
-            const buyerName = buyer ? `${buyer.firstName} ${buyer.lastName}` : "A customer";
+          .then((buyerNotif) => {
+            const buyerName = buyerNotif ? `${buyerNotif.firstName} ${buyerNotif.lastName}` : "A customer";
             notifyOrganizerNewBooking(
               String(organizerId),
               buyerName,
@@ -1014,6 +1171,16 @@ const initiateBooking = async (req, res) => {
           transactionId: transaction._id,
           bookingId: transaction.bookingId,
           transaction: transactionObj,
+          // Individual tickets (each with their own QR code)
+          tickets: generatedTickets.map((t) => ({
+            _id:         t._id,
+            ticketNumber: t.ticketNumber,
+            ticketName:  t.ticketName,
+            ticketIndex: t.ticketIndex,
+            isPass:      t.isPass,
+            status:      t.status,
+            qrCodeData:  t.qrCodeData,
+          })),
         });
       }
 
@@ -1058,6 +1225,8 @@ const initiateBooking = async (req, res) => {
         ongoingSlots: isOngoing ? cleanOngoingSlots : [],
         ticketName: ticketName || null,
         passType: passType || null,
+        // Per-booking HMAC secret for individual ticket QR signing
+        ticketSecretKey: generateBookingSecretKey(),
       };
 
       const transaction = new Transaction(transactionData);
@@ -1086,6 +1255,16 @@ const initiateBooking = async (req, res) => {
         const organizerId = item.createdBy?._id || item.createdBy;
         const itemTitle = item.courseTitle || "Course";
 
+        // ── Eagerly generate individual ticket records ──
+        const txnWithSecret = await Transaction.findById(transaction._id).select("+ticketSecretKey");
+        const buyer = await User.findById(userId).select("firstName lastName email");
+        let generatedTickets = [];
+        try {
+          generatedTickets = await createTicketsForBooking(txnWithSecret, buyer);
+        } catch (ticketErr) {
+          console.error("[Tickets] Failed to generate tickets for free course booking:", ticketErr);
+        }
+
         notifyBookingConfirmed(
           userId,
           bookingType,
@@ -1094,8 +1273,8 @@ const initiateBooking = async (req, res) => {
         ).catch((e) => console.error("[Notification] notifyBookingConfirmed:", e));
 
         User.findById(userId).select("firstName lastName")
-          .then((buyer) => {
-            const buyerName = buyer ? `${buyer.firstName} ${buyer.lastName}` : "A customer";
+          .then((buyerNotif) => {
+            const buyerName = buyerNotif ? `${buyerNotif.firstName} ${buyerNotif.lastName}` : "A customer";
             notifyOrganizerNewBooking(
               String(organizerId),
               buyerName,
@@ -1119,6 +1298,15 @@ const initiateBooking = async (req, res) => {
           transactionId: transaction._id,
           bookingId: transaction.bookingId,
           transaction: transactionObj,
+          tickets: generatedTickets.map((t) => ({
+            _id:         t._id,
+            ticketNumber: t.ticketNumber,
+            ticketName:  t.ticketName,
+            ticketIndex: t.ticketIndex,
+            isPass:      t.isPass,
+            status:      t.status,
+            qrCodeData:  t.qrCodeData,
+          })),
         });
       }
 
@@ -1167,8 +1355,13 @@ const confirmPayment = async (req, res) => {
       const transactionObj = transaction.toObject();
       await attachRefundPreview(transaction, transactionObj);
       formatItemMedia(transactionObj, transaction.bookingType);
+      // Include already-generated individual tickets in the repeat-call response
+      const existingTickets = await Attendee.find({ transactionId: transaction._id, status: "ACTIVE" })
+        .select("_id ticketNumber ticketName ticketIndex isPass status qrCodeData")
+        .lean();
       return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.BOOKING_CONFIRMED, {
         transaction: transactionObj,
+        tickets: existingTickets,
       });
     }
     if (["CANCELLED", "FAILED", "REFUNDED"].includes(transaction.status)) {
@@ -1259,6 +1452,18 @@ const confirmPayment = async (req, res) => {
 
     await transaction.save();
 
+    // ── Eagerly generate individual ticket records (NEW) ──────────────────────
+    // Re-fetch with ticketSecretKey (select: false field)
+    const txnWithSecret = await Transaction.findById(transaction._id).select("+ticketSecretKey");
+    const buyer = await User.findById(userId).select("firstName lastName email");
+    let generatedTickets = [];
+    try {
+      generatedTickets = await createTicketsForBooking(txnWithSecret, buyer);
+    } catch (ticketErr) {
+      // Non-fatal: booking is confirmed, tickets will fall back to lazy generation on first scan
+      console.error("[Tickets] Failed to generate tickets on confirmPayment:", ticketErr);
+    }
+
     // ── Credit Organizer ──
     const { item, organizerId, itemTitle } = resolveBookingItem(transaction);
     if (organizerEarning > 0) {
@@ -1273,8 +1478,8 @@ const confirmPayment = async (req, res) => {
       String(transaction._id),
     ).catch((e) => console.error("[Notification] notifyBookingConfirmed:", e));
 
-    const buyer = await User.findById(userId).select("firstName lastName");
-    const buyerName = buyer ? `${buyer.firstName} ${buyer.lastName}` : "A customer";
+    const buyer2 = buyer || await User.findById(userId).select("firstName lastName");
+    const buyerName = buyer2 ? `${buyer2.firstName} ${buyer2.lastName}` : "A customer";
     notifyOrganizerNewBooking(
       String(organizerId),
       buyerName,
@@ -1328,6 +1533,16 @@ const confirmPayment = async (req, res) => {
 
     return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.BOOKING_CONFIRMED, {
       transaction: transactionObj,
+      // Individual tickets — each has a unique QR code for gate scanning
+      tickets: generatedTickets.map((t) => ({
+        _id:          t._id,
+        ticketNumber: t.ticketNumber,
+        ticketName:   t.ticketName,
+        ticketIndex:  t.ticketIndex,
+        isPass:       t.isPass,
+        status:       t.status,
+        qrCodeData:   t.qrCodeData,
+      })),
     });
   } catch (error) {
     console.error("Error in confirmPayment:", error);
@@ -1507,6 +1722,14 @@ const cancelBooking = async (req, res) => {
     }
     await transaction.save();
 
+    // ── Sync individual ticket (Attendee) status ──────────────────────────────
+    // Keeps each individual ticket record in sync with the booking status
+    const attendeeStatus = refundAmount > 0 ? "REFUNDED" : "CANCELLED";
+    await Attendee.updateMany(
+      { transactionId: transaction._id },
+      { $set: { status: attendeeStatus } },
+    ).catch((e) => console.error("[Tickets] Failed to sync attendee status on cancel:", e));
+
     // If refund, deduct from organizer wallet
     if (refundAmount > 0 && transaction.organizerEarning > 0) {
       await deductOrganizerWallet(
@@ -1612,8 +1835,16 @@ const cancelEvent = async (req, res) => {
       }
     );
 
-    // Delete attendee records associated with the event
-    await Attendee.deleteMany({ eventId: event._id });
+    // Mark individual ticket records (Attendees) for PENDING bookings as CANCELLED
+    const pendingTxnIds = await Transaction.find(
+      { eventId: event._id, status: "CANCELLED", bookingType: "EVENT", cancelledBy: userId }
+    ).distinct("_id");
+    if (pendingTxnIds.length > 0) {
+      await Attendee.updateMany(
+        { transactionId: { $in: pendingTxnIds } },
+        { $set: { status: "CANCELLED" } },
+      ).catch((e) => console.error("[Tickets] Failed to cancel PENDING event attendees:", e));
+    }
 
     // Remove event from user wishlists
     await Wishlist.deleteMany({ entityId: event._id, entityModel: "Event" });
@@ -1639,6 +1870,12 @@ const cancelEvent = async (req, res) => {
       txn.cancelledBy = userId;
       txn.refundedAt = new Date();
       await txn.save();
+
+      // Mark individual ticket records for this txn as REFUNDED
+      await Attendee.updateMany(
+        { transactionId: txn._id },
+        { $set: { status: "REFUNDED" } },
+      ).catch((e) => console.error("[Tickets] Failed to update attendee status on event cancel:", e));
 
       // Deduct from organizer wallet
       if (txn.organizerEarning > 0) {
@@ -2161,8 +2398,52 @@ const getTicketDetail = async (req, res) => {
       transactionObj.past = past;
     }
 
+    // ── Fetch individual ticket records ────────────────────────────────────────
+    // For new bookings: tickets were generated at confirmPayment
+    // For legacy bookings: fallback via lazy ensureAttendeesExist
+    let individualTickets = await Attendee.find({ transactionId: transaction._id })
+      .select("_id ticketNumber ticketName ticketIndex ticketId isPass status qrCodeData isCheckedIn checkedInAt checkInHistory scanHistory")
+      .sort({ ticketIndex: 1 })
+      .lean();
+
+    // Legacy fallback: generate tickets if none exist (for old PAID bookings)
+    if (individualTickets.length === 0 && transaction.status === "PAID") {
+      try {
+        const txnWithSecret = await Transaction.findById(transaction._id).select("+ticketSecretKey");
+        const userDoc = await User.findById(userId).select("firstName lastName email");
+        if (txnWithSecret?.ticketSecretKey) {
+          individualTickets = await createTicketsForBooking(txnWithSecret, userDoc);
+        } else {
+          // Very old booking without ticketSecretKey — use legacy ensureAttendeesExist
+          const { ensureAttendeesExist: ensureLegacy } = require("../../utils/legacyTicket");
+          individualTickets = await ensureLegacy(transaction);
+        }
+      } catch (legacyErr) {
+        console.error("[Tickets] Legacy fallback failed in getTicketDetail:", legacyErr);
+      }
+    }
+
     return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.TICKET_DETAIL_FETCHED, {
       ticket: transactionObj,
+      // Individual ticket records — each with their own QR code for gate scanning
+      tickets: individualTickets.map ? individualTickets.map((t) => ({
+        _id:          t._id,
+        ticketNumber: t.ticketNumber,
+        ticketName:   t.ticketName,
+        ticketIndex:  t.ticketIndex,
+        ticketId:     t.ticketId,
+        isPass:       t.isPass,
+        status:       t.status,
+        qrCodeData:   t.qrCodeData,
+        isCheckedIn:  t.isCheckedIn,
+        checkedInAt:  t.checkedInAt,
+        sessionsAttended: t.checkInHistory ? t.checkInHistory.length : 0,
+      })) : [],
+      ticketSummary: {
+        total: Array.isArray(individualTickets) ? individualTickets.length : 0,
+        checkedIn: Array.isArray(individualTickets) ? individualTickets.filter(t => t.isCheckedIn).length : 0,
+        remaining: Array.isArray(individualTickets) ? individualTickets.filter(t => !t.isCheckedIn && t.status === "ACTIVE").length : 0,
+      },
     });
   } catch (error) {
     console.error("Error in getTicketDetail:", error);

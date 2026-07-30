@@ -5,7 +5,7 @@ const { Attendee, Event, Transaction, User, Course } = require("../../db");
 const CONSTANTS = require("../../utils/constants");
 const constantsMessage = require("../../utils/constantsMessage");
 const HTTP_STATUS = require("../../utils/statusCode");
-const { apiErrorRes, apiSuccessRes, formatResponseUrl } = require("../../utils/globalFunction");
+const { apiErrorRes, apiSuccessRes, formatResponseUrl, verifyQRPayload } = require("../../utils/globalFunction");
 const {
   createAttendeesSchema,
   checkInSchema,
@@ -26,6 +26,90 @@ const generateTicketNumber = (eventId, index) => {
 // Helper to generate QR data for attendee
 const generateAttendeeQRData = (ticketNumber, attendeeId) => {
   return `ATTENDEE-${ticketNumber}-${attendeeId}-${Date.now()}`;
+};
+
+/**
+ * Record a scan attempt in the attendee's scanHistory audit trail.
+ * Non-fatal — never blocks the main scan flow.
+ *
+ * @param {Attendee} attendee    - Mongoose Attendee document
+ * @param {string}   scannedBy   - User._id of the scanner
+ * @param {string}   scanResult  - "SUCCESS" | "ALREADY_CHECKED_IN" | "TAMPERED" | "EXPIRED" | "CANCELLED" | "INVALID"
+ * @param {string}   [notes]     - Optional extra context
+ */
+const recordScanAudit = async (attendee, scannedBy, scanResult, notes = null) => {
+  try {
+    attendee.scanHistory = attendee.scanHistory || [];
+    attendee.scanHistory.push({
+      scannedAt: new Date(),
+      scannedBy,
+      scanResult,
+      notes,
+    });
+    await attendee.save();
+  } catch (auditErr) {
+    console.error("[ScanAudit] Failed to record scan:", auditErr.message);
+  }
+};
+
+/**
+ * Resolve an Attendee from the new secure QR format (STKТ.*).
+ *
+ * 1. Detects the secure QR prefix
+ * 2. Fetches the transaction's HMAC secret (ticketSecretKey)
+ * 3. Verifies the HMAC signature
+ * 4. Returns the Attendee document if valid, or throws with a descriptive error
+ *
+ * @param {string} qrString  - The full QR code string
+ * @returns {{ attendee: Attendee, transaction: Transaction, verifyResult: object }|null}
+ *          Returns null if qrString is not the secure format (caller should handle legacy)
+ */
+const resolveAttendeeFromSecureQR = async (qrString) => {
+  if (!qrString || (!qrString.startsWith("STKТ.") && !qrString.startsWith("STKT."))) {
+    return null; // not secure format — let caller handle legacy
+  }
+
+  // Extract attendeeId from the payload (without verifying yet, for the DB fetch)
+  try {
+    const parts = qrString.split(".");
+    if (parts.length !== 3) throw new Error("Malformed QR");
+
+    // Decode payload (unverified at this point — only used to find the record)
+    const rawPayload = JSON.parse(Buffer.from(parts[1], "base64url").toString("utf8"));
+    const { attendeeId, transactionId } = rawPayload;
+
+    if (!attendeeId || !transactionId) throw new Error("Payload missing required fields");
+
+    // Fetch transaction WITH the secret key (select: false field)
+    const txnWithSecret = await Transaction.findById(transactionId).select("+ticketSecretKey");
+    if (!txnWithSecret || !txnWithSecret.ticketSecretKey) {
+      throw new Error("TAMPERED: Could not find transaction or secret key for this QR");
+    }
+
+    // Now verify the HMAC signature
+    const verifyResult = verifyQRPayload(qrString, txnWithSecret.ticketSecretKey);
+    if (!verifyResult.valid) {
+      throw new Error(`TAMPERED: ${verifyResult.error}`);
+    }
+
+    // Fetch the Attendee document
+    const attendee = await Attendee.findById(attendeeId)
+      .populate("eventId")
+      .populate("courseId")
+      .populate("userId", "firstName lastName email profileImage contactNumber");
+
+    if (!attendee) throw new Error("Ticket not found — may have been deleted");
+
+    // Re-fetch transaction with full data for check-in
+    const transaction = await Transaction.findById(transactionId)
+      .populate("eventId")
+      .populate("courseId")
+      .populate("userId", "firstName lastName email profileImage");
+
+    return { attendee, transaction, verifyResult };
+  } catch (err) {
+    throw err; // Re-throw for caller to handle
+  }
 };
 
 // Helper to auto-create attendees for a PAID transaction if none exist
@@ -834,7 +918,77 @@ const scanQRAndCheckIn = async (req, res) => {
     let endDate = null;
     let title = "";
 
-    // Determine if it's a Transaction QR, Attendee QR, or User ID QR
+    // Determine if it's a Secure QR, Transaction QR, Attendee QR, or User ID QR
+
+    // ── Case 0: NEW Secure QR format (STKТ.* / STKT.*) ───────────────────────
+    if (qrCodeData.startsWith("STKТ.") || qrCodeData.startsWith("STKT.")) {
+      let secureResolved;
+      try {
+        secureResolved = await resolveAttendeeFromSecureQR(qrCodeData);
+      } catch (secureErr) {
+        const isTampered = secureErr.message && secureErr.message.includes("TAMPERED");
+        return apiErrorRes(
+          HTTP_STATUS.BAD_REQUEST,
+          res,
+          isTampered ? constantsMessage.TAMPERED_QR : constantsMessage.TICKET_NOT_FOUND,
+        );
+      }
+
+      if (!secureResolved) {
+        return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.TAMPERED_QR);
+      }
+
+      const { attendee: secureAttendee, transaction: secureTxn } = secureResolved;
+
+      // Validate ticket status BEFORE check-in
+      if (secureAttendee.status === "CANCELLED") {
+        await recordScanAudit(secureAttendee, organizerId, "CANCELLED", "Ticket is cancelled");
+        return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.TICKET_CANCELLED);
+      }
+      if (secureAttendee.status === "REFUNDED") {
+        await recordScanAudit(secureAttendee, organizerId, "CANCELLED", "Ticket is refunded");
+        return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.TICKET_REFUNDED);
+      }
+
+      // Authorization: must be creator, assigned staff, or super admin
+      const secureEvent = secureAttendee.eventId || secureAttendee.courseId;
+      if (!secureEvent) {
+        return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.ENTITY_NOT_FOUND);
+      }
+      const isCreatorSec = secureEvent.createdBy.toString() === organizerId;
+      const isStaffSec   = req.user.roleId === roleId.STAFF && secureEvent.assignedStaff &&
+                           secureEvent.assignedStaff.some(id => id.toString() === organizerId);
+      const isAdminSec   = req.user.roleId === roleId.SUPER_ADMIN;
+      if (!isCreatorSec && !isStaffSec && !isAdminSec) {
+        return apiErrorRes(HTTP_STATUS.FORBIDDEN, res, "You are not authorized to check-in attendees for this event/course");
+      }
+
+      // Perform check-in
+      try {
+        const checkInResult = await executeAttendeeCheckIn(secureAttendee, secureTxn, organizerId, selectedDate, batchId);
+        // Record successful scan in audit log
+        await recordScanAudit(secureAttendee, organizerId, "SUCCESS", `Checked in ticket #${secureAttendee.ticketIndex}`);
+        return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.CHECK_IN_SUCCESS, {
+          type:      "SECURE_TICKET",
+          attendee:  checkInResult.attendee,
+          event:     { eventTitle: secureEvent.eventTitle || secureEvent.courseTitle },
+          bookingId: secureTxn?.bookingId,
+          totalQty:  secureTxn?.qty,
+          checkedInQty: secureTxn?.checkedInQty,
+          validationStatus: "SUCCESS",
+        });
+      } catch (checkInErr) {
+        const isAlreadyIn = checkInErr.message && checkInErr.message.toLowerCase().includes("already checked");
+        await recordScanAudit(
+          secureAttendee,
+          organizerId,
+          isAlreadyIn ? "ALREADY_CHECKED_IN" : "INVALID",
+          checkInErr.message,
+        );
+        return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, checkInErr.message);
+      }
+    }
+
     if (qrCodeData.startsWith("TICKET-")) {
       // Case 1: Transaction QR
       const parts = qrCodeData.split("-");
@@ -1084,6 +1238,150 @@ const verifyTicket = async (req, res) => {
     let bookingType = "EVENT";
 
     // 1. Resolve code
+
+    // ── Secure QR format (STKТ.* / STKT.*) — highest priority ───────────────
+    if (code.startsWith("STKТ.") || code.startsWith("STKT.")) {
+      let secureResolved;
+      try {
+        secureResolved = await resolveAttendeeFromSecureQR(code);
+      } catch (secureErr) {
+        const isTampered = secureErr.message && secureErr.message.includes("TAMPERED");
+        return apiSuccessRes(HTTP_STATUS.OK, res, "Ticket verification result", {
+          isValid: false,
+          validationStatus: isTampered ? "TAMPERED" : "INVALID",
+          message: isTampered ? constantsMessage.TAMPERED_QR : "Ticket not found or invalid",
+          isExpired: false,
+          isAlreadyCheckedIn: false,
+          event: null,
+          booking: null,
+          attendee: null,
+        });
+      }
+
+      if (!secureResolved) {
+        return apiSuccessRes(HTTP_STATUS.OK, res, "Ticket verification result", {
+          isValid: false,
+          validationStatus: "TAMPERED",
+          message: constantsMessage.TAMPERED_QR,
+          event: null, booking: null, attendee: null,
+        });
+      }
+
+      const { attendee: secureAtt, transaction: secureTxn } = secureResolved;
+
+      // ── Authorization check ──
+      const secureEvent = secureAtt.eventId || secureAtt.courseId;
+      if (secureEvent) {
+        const isCreator = secureEvent.createdBy.toString() === userId;
+        const isStaff   = req.user.roleId === roleId.STAFF && secureEvent.assignedStaff &&
+                          secureEvent.assignedStaff.some(id => id.toString() === userId);
+        const isAdmin   = req.user.roleId === roleId.SUPER_ADMIN;
+        if (!isCreator && !isStaff && !isAdmin) {
+          return apiErrorRes(HTTP_STATUS.FORBIDDEN, res, `You are not authorized to verify tickets for this ${secureAtt.eventId ? "event" : "course"}`);
+        }
+      }
+
+      // ── Status checks ──
+      const now = new Date();
+      const todayStr = now.toLocaleDateString("en-CA");
+
+      if (secureAtt.status === "CANCELLED") {
+        await recordScanAudit(secureAtt, userId, "CANCELLED", "Ticket is cancelled");
+        return apiSuccessRes(HTTP_STATUS.OK, res, "Ticket verification result", {
+          isValid: false,
+          validationStatus: "CANCELLED",
+          message: constantsMessage.TICKET_CANCELLED,
+          isExpired: false,
+          isAlreadyCheckedIn: false,
+          event: secureEvent ? { _id: secureEvent._id, title: secureEvent.eventTitle || secureEvent.courseTitle } : null,
+          booking: null,
+          attendee: { _id: secureAtt._id, ticketNumber: secureAtt.ticketNumber, status: secureAtt.status },
+        });
+      }
+      if (secureAtt.status === "REFUNDED") {
+        await recordScanAudit(secureAtt, userId, "CANCELLED", "Ticket is refunded");
+        return apiSuccessRes(HTTP_STATUS.OK, res, "Ticket verification result", {
+          isValid: false,
+          validationStatus: "CANCELLED",
+          message: constantsMessage.TICKET_REFUNDED,
+          isExpired: false,
+          isAlreadyCheckedIn: false,
+          event: secureEvent ? { _id: secureEvent._id, title: secureEvent.eventTitle || secureEvent.courseTitle } : null,
+          booking: null,
+          attendee: { _id: secureAtt._id, ticketNumber: secureAtt.ticketNumber, status: secureAtt.status },
+        });
+      }
+
+      // ── Expiry check ──
+      let isExpired = false;
+      let actualEndDate = secureEvent?.endDate;
+      if (secureTxn?.passExpiryDate) {
+        actualEndDate = secureTxn.passExpiryDate;
+        isExpired = now > new Date(secureTxn.passExpiryDate);
+      } else if (actualEndDate) {
+        isExpired = now > new Date(actualEndDate);
+      }
+
+      // ── Already checked in? ──
+      const isAlreadyCheckedIn = secureAtt.bookingType === "COURSE"
+        ? (secureAtt.checkInHistory || []).some(e => e.sessionDate === todayStr)
+        : secureAtt.isCheckedIn;
+
+      const isValid = !isExpired && !isAlreadyCheckedIn;
+      const scanResultCode = isExpired ? "EXPIRED" : (isAlreadyCheckedIn ? "ALREADY_CHECKED_IN" : "SUCCESS");
+
+      // Record scan in audit trail
+      await recordScanAudit(secureAtt, userId, scanResultCode, isValid ? "Verify-only scan" : null);
+
+      const vTitle = secureEvent?.eventTitle || secureEvent?.courseTitle || "";
+
+      return apiSuccessRes(HTTP_STATUS.OK, res, "Ticket verified successfully", {
+        isValid,
+        validationStatus: scanResultCode,
+        message: isValid
+          ? "Ticket is valid for check-in"
+          : (isExpired ? "Ticket has expired" : "This ticket has already been checked in"),
+        isExpired,
+        isAlreadyCheckedIn,
+        checkedInAt: secureAtt.checkedInAt || null,
+        checkedInToday: (secureAtt.checkInHistory || []).some(e => e.sessionDate === todayStr),
+        bookingType: secureTxn?.bookingType || (secureAtt.eventId ? "EVENT" : "COURSE"),
+        event: secureEvent ? {
+          _id:         secureEvent._id,
+          title:       vTitle,
+          startDate:   secureEvent.startDate,
+          endDate:     actualEndDate,
+          posterImage: Array.isArray(secureEvent.posterImage) && secureEvent.posterImage.length > 0
+            ? formatResponseUrl(secureEvent.posterImage[0])
+            : (secureEvent.posterImage ? formatResponseUrl(secureEvent.posterImage) : null),
+        } : null,
+        booking: secureTxn ? {
+          bookingId:    secureTxn.bookingId,
+          totalQty:     secureTxn.qty,
+          totalAmount:  secureTxn.totalAmount,
+          status:       secureTxn.status,
+          checkedInQty: secureTxn.checkedInQty || 0,
+          passType:     secureTxn.passType || null,
+          passExpiryDate: secureTxn.passExpiryDate || null,
+        } : null,
+        attendee: {
+          _id:             secureAtt._id,
+          firstName:       secureAtt.firstName,
+          lastName:        secureAtt.lastName,
+          email:           secureAtt.email,
+          ticketNumber:    secureAtt.ticketNumber,
+          ticketName:      secureAtt.ticketName,
+          ticketIndex:     secureAtt.ticketIndex,
+          isPass:          secureAtt.isPass,
+          status:          secureAtt.status,
+          isCheckedIn:     secureAtt.isCheckedIn,
+          checkInHistory:  secureAtt.checkInHistory || [],
+          sessionsAttended: (secureAtt.checkInHistory || []).length,
+          profileImage: secureAtt.userId?.profileImage ? formatResponseUrl(secureAtt.userId.profileImage) : null,
+        },
+      });
+    }
+
     if (code.startsWith("TICKET-")) {
       const parts = code.split("-");
       const transactionId = parts[1];
