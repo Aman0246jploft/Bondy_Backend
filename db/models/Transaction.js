@@ -35,12 +35,16 @@ const transactionSchema = new mongoose.Schema(
         // For Ongoing courses: array of selected batches and days
         ongoingSlots: [
             {
-                batchId: { type: String, required: true },
-                selectedDay: { type: String, required: true },
-                selectedDate: { type: String, default: null },
-                isCheckedIn: { type: Boolean, default: false },
-                checkedInAt: { type: Date, default: null },
-                checkedInBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null }
+                batchId:       { type: String, required: true },
+                selectedDay:   { type: String, required: true },
+                selectedDate:  { type: String, default: null },
+                // Per-slot unique identifier & scannable QR code (mirrors event tickets.qrs[])
+                subBookingId:  { type: String, default: null },
+                qrCodeData:    { type: String, default: null },
+                // Per-slot check-in tracking
+                isCheckedIn:   { type: Boolean, default: false },
+                checkedInAt:   { type: Date, default: null },
+                checkedInBy:   { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null }
             }
         ],
         passType: {
@@ -74,10 +78,10 @@ const transactionSchema = new mongoose.Schema(
                 qrs: [
                     {
                         subBookingId: { type: String },
-                        qrCodeData:   { type: String },
-                        isCheckedIn:  { type: Boolean, default: false },
-                        checkedInAt:  { type: Date,    default: null },
-                        checkedInBy:  { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+                        qrCodeData: { type: String },
+                        isCheckedIn: { type: Boolean, default: false },
+                        checkedInAt: { type: Date, default: null },
+                        checkedInBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
                     }
                 ]
             }

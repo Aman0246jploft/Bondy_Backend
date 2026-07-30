@@ -109,6 +109,35 @@ const stampPerTicketQR = (transaction) => {
 };
 
 
+/**
+ * For COURSE (Ongoing) bookings: stamp each ongoingSlots entry with its own
+ * unique subBookingId and qrCodeData, so every booked session is independently scannable.
+ *
+ * Example:
+ *   ongoingSlots = [
+ *     { batchId:"...", selectedDay:"Mon", subBookingId:"BNDY-554421-SLOT-1", qrCodeData:"TICKET-BNDY-554421-SLOT-1-..." },
+ *     { batchId:"...", selectedDay:"Mon", subBookingId:"BNDY-554421-SLOT-2", qrCodeData:"TICKET-BNDY-554421-SLOT-2-..." },
+ *   ]
+ *
+ * This mirrors stampPerTicketQR for events — no flow changes, purely additive.
+ */
+const stampPerSlotQR = (transaction) => {
+  if (
+    !transaction.ongoingSlots ||
+    transaction.ongoingSlots.length === 0
+  ) return;
+
+  transaction.ongoingSlots.forEach((slot, idx) => {
+    if (!slot.subBookingId) {
+      const subBookingId = `${transaction.bookingId}-SLOT-${idx + 1}`;
+      const ts = Date.now() + idx; // ensure unique even when called in tight loop
+      const payload = `TICKET-${subBookingId}-${transaction._id}-${ts}`;
+      slot.subBookingId = subBookingId;
+      slot.qrCodeData = payload;
+    }
+  });
+};
+
 const generateBookingId = () =>
   `BNDY-${Math.floor(100000 + Math.random() * 900000)}`;
 
@@ -1292,6 +1321,7 @@ const initiateBooking = async (req, res) => {
         transaction.paymentId = `FREE_BOOKING_${Date.now()}`;
         transaction.qrCodeData = generateQRData(transaction._id, userId);
         stampPerTicketQR(transaction);
+        stampPerSlotQR(transaction);   // stamp slot-level QRs for ongoing course bookings
         transaction.commissionAmount = 0;
         transaction.organizerEarning = 0;
 
@@ -1496,6 +1526,7 @@ const confirmPayment = async (req, res) => {
       : `MOCK_PAY_${Date.now()}`;
     transaction.qrCodeData = generateQRData(transaction._id, userId);
     stampPerTicketQR(transaction);
+    stampPerSlotQR(transaction);   // stamp slot-level QRs for ongoing course bookings
     transaction.commissionAmount = commissionAmount;
     transaction.organizerEarning = organizerEarning;
 
