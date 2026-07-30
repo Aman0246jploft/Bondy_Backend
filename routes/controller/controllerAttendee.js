@@ -1254,7 +1254,7 @@ const scanQRAndCheckIn = async (req, res) => {
         event = transaction.eventId || transaction.courseId;
         title = event ? event.eventTitle || event.courseTitle : "";
         endDate = transaction.bookingType === "EVENT" ? event?.endDate : (event?.endDate || event?.createdAt);
-        
+
         await ensureAttendeesExist(transaction);
 
         if (isIndividualTicket) {
@@ -1262,7 +1262,7 @@ const scanQRAndCheckIn = async (req, res) => {
             .populate("eventId")
             .populate("courseId")
             .populate("userId", "firstName lastName email profileImage");
-            
+
           if (attendee && attendee.isCheckedIn) {
             return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "This specific ticket has already been scanned and checked in");
           }
@@ -1281,7 +1281,7 @@ const scanQRAndCheckIn = async (req, res) => {
         .populate("courseId")
         .populate("userId", "firstName lastName email profileImage")
         .populate("transactionId", "bookingId totalAmount status");
-      
+
       if (!attendee) {
         return apiErrorRes(
           HTTP_STATUS.NOT_FOUND,
@@ -1596,7 +1596,17 @@ const verifyTicket = async (req, res) => {
       const scanResultCode = isExpired ? "EXPIRED" : (isAlreadyCheckedIn ? "ALREADY_CHECKED_IN" : "SUCCESS");
 
       // Record scan in audit trail
-      await recordScanAudit(secureAtt, userId, scanResultCode, isValid ? "Verify-only scan" : null);
+      await recordScanAudit(secureAtt, userId, scanResultCode, isValid ? (req.body.autoCheckIn ? "Auto checked in via verify" : "Verify-only scan") : null);
+
+      if (isValid && req.body.autoCheckIn) {
+        try {
+          const resObj = await executeAttendeeCheckIn(secureAtt, secureTxn, userId, req.body.selectedDate, req.body.batchId);
+          if (resObj.attendee) Object.assign(secureAtt, resObj.attendee);
+          if (secureTxn && resObj.booking) Object.assign(secureTxn, resObj.booking);
+        } catch (err) {
+          console.error("Auto check-in failed (Secure):", err);
+        }
+      }
 
       const vTitle = secureEvent?.eventTitle || secureEvent?.courseTitle || "";
 
@@ -1654,6 +1664,9 @@ const verifyTicket = async (req, res) => {
       let transactionId;
       let matchedSubBookingId = null;
 
+      let isIndividualTicket = false;
+      let ticketIndex = null;
+
       // Check if it matches the per-ticket format: TICKET-BNDY-XXXXXX-N-transactionId-timestamp
       // Or the slot format: TICKET-BNDY-XXXXXX-SLOT-N-transactionId-timestamp
       if (parts[1] === "BNDY") {
@@ -1666,7 +1679,12 @@ const verifyTicket = async (req, res) => {
           transactionId = parts[4];
         }
       } else {
+        // Legacy formats: 
+        // Parent QR: TICKET-transactionId-userId-timestamp (4 parts)
+        // Individual Ticket QR: TICKET-transactionId-ticketIndex-userId-timestamp (5 parts)
         transactionId = parts[1];
+        isIndividualTicket = parts.length === 5;
+        ticketIndex = isIndividualTicket ? parseInt(parts[2], 10) : null;
       }
 
       transaction = await Transaction.findById(transactionId)
@@ -1727,15 +1745,22 @@ const verifyTicket = async (req, res) => {
 
       // Fallback if no specific attendee is loaded yet
       if (!attendee) {
-        attendee = await Attendee.findOne({ transactionId: transaction._id, isCheckedIn: false })
-          .populate("eventId")
-          .populate("courseId")
-          .populate("userId", "firstName lastName email profileImage");
-        if (!attendee) {
-          attendee = await Attendee.findOne({ transactionId: transaction._id })
+        if (isIndividualTicket) {
+          attendee = await Attendee.findOne({ transactionId: transaction._id, ticketIndex: ticketIndex })
             .populate("eventId")
             .populate("courseId")
             .populate("userId", "firstName lastName email profileImage");
+        } else {
+          attendee = await Attendee.findOne({ transactionId: transaction._id, isCheckedIn: false })
+            .populate("eventId")
+            .populate("courseId")
+            .populate("userId", "firstName lastName email profileImage");
+          if (!attendee) {
+            attendee = await Attendee.findOne({ transactionId: transaction._id })
+              .populate("eventId")
+              .populate("courseId")
+              .populate("userId", "firstName lastName email profileImage");
+          }
         }
       }
     } else if (code.startsWith("ATTENDEE-")) {
@@ -2072,6 +2097,17 @@ const verifyTicket = async (req, res) => {
       }
       : null;
 
+    if (isValid && req.body.autoCheckIn && attendee) {
+      try {
+        const resObj = await executeAttendeeCheckIn(attendee, transaction, userId, req.body.selectedDate, req.body.batchId);
+        if (resObj.attendee) Object.assign(attendee, resObj.attendee);
+        if (transaction && resObj.booking) Object.assign(transaction, resObj.booking);
+        if (matchedQrEntry) matchedQrEntry.isCheckedIn = true;
+      } catch (err) {
+        console.error("Auto check-in failed (Legacy):", err);
+      }
+    }
+
     return apiSuccessRes(HTTP_STATUS.OK, res, "Ticket verified successfully", {
       isValid,
       message,
@@ -2181,6 +2217,7 @@ router.post(
 );
 
 router.verifyTicket = verifyTicket;
+router.scanQRAndCheckIn = scanQRAndCheckIn;
 
 module.exports = router;
 

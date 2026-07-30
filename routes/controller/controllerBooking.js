@@ -2599,6 +2599,8 @@ const scanQRCode = async (req, res) => {
   try {
     const { qrCodeData } = req.body;
     req.body.code = qrCodeData;
+    // Pass autoCheckIn flag so verifyTicket will perform the check-in but keep the same response structure
+    req.body.autoCheckIn = true;
     const attendeeRouter = require("./controllerAttendee");
     return attendeeRouter.verifyTicket(req, res);
   } catch (error) {
