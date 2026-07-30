@@ -70,6 +70,10 @@ const transactionSchema = new mongoose.Schema(
                 ticketName: { type: String, required: true },
                 qty: { type: Number, required: true, min: 1 },
                 basePrice: { type: Number, required: true },
+                // Per-ticket sub-booking ID derived from parent bookingId (e.g. BNDY-455300-1)
+                subBookingId: { type: String, default: null },
+                // Per-ticket QR code payload for individual scanning
+                qrCodeData: { type: String, default: null },
             }
         ],
         bookingType: {

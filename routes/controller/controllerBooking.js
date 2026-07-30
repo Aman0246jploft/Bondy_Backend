@@ -52,6 +52,41 @@ const roundToTwo = (num) => Math.round((num + Number.EPSILON) * 100) / 100;
 const generateQRData = (transactionId, userId) =>
   `TICKET-${transactionId}-${userId}-${Date.now()}`;
 
+/**
+ * Generate a per-ticket QR payload.
+ * subBookingId format: BNDY-XXXXXX-<index+1>  (e.g. BNDY-455300-1)
+ * qrCodeData format  : TICKET-<subBookingId>-<transactionId>-<timestamp>
+ */
+const generatePerTicketQR = (bookingId, transactionId, index) => {
+  const subBookingId = `${bookingId}-${index + 1}`;
+  const qrCodeData = `TICKET-${subBookingId}-${transactionId}-${Date.now()}`;
+  return { subBookingId, qrCodeData };
+};
+
+/**
+ * Stamp subBookingId + qrCodeData onto every ticket in transaction.tickets[]
+ * Called once, right before saving after status -> PAID.
+ */
+const stampPerTicketQR = (transaction) => {
+  if (!transaction.tickets || transaction.tickets.length === 0) return;
+  let counter = 0;
+  for (const ticket of transaction.tickets) {
+    for (let q = 0; q < ticket.qty; q++) {
+      if (!ticket.subBookingId) {
+        // assign subBookingId once per ticket-type (first pass)
+        const { subBookingId, qrCodeData } = generatePerTicketQR(
+          transaction.bookingId,
+          transaction._id,
+          counter,
+        );
+        ticket.subBookingId = subBookingId;
+        ticket.qrCodeData   = qrCodeData;
+      }
+      counter++;
+    }
+  }
+};
+
 const generateBookingId = () =>
   `BNDY-${Math.floor(100000 + Math.random() * 900000)}`;
 
@@ -970,6 +1005,7 @@ const initiateBooking = async (req, res) => {
         transaction.status = "PAID";
         transaction.paymentId = `FREE_BOOKING_${Date.now()}`;
         transaction.qrCodeData = generateQRData(transaction._id, userId);
+        stampPerTicketQR(transaction);
         transaction.commissionAmount = 0;
         transaction.organizerEarning = 0;
       }
@@ -1066,6 +1102,7 @@ const initiateBooking = async (req, res) => {
         transaction.status = "PAID";
         transaction.paymentId = `FREE_BOOKING_${Date.now()}`;
         transaction.qrCodeData = generateQRData(transaction._id, userId);
+        stampPerTicketQR(transaction);
         transaction.commissionAmount = 0;
         transaction.organizerEarning = 0;
 
@@ -1245,6 +1282,7 @@ const confirmPayment = async (req, res) => {
       ? `FREE_BOOKING_${Date.now()}`
       : `MOCK_PAY_${Date.now()}`;
     transaction.qrCodeData = generateQRData(transaction._id, userId);
+    stampPerTicketQR(transaction);
     transaction.commissionAmount = commissionAmount;
     transaction.organizerEarning = organizerEarning;
 

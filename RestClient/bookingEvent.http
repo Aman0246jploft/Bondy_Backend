@@ -1,7 +1,7 @@
 ### Environment Variables
 @baseUrl = http://localhost:8080/api/v1
-@authToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTRiOGEwN2IwMWFlZDAxZjBlY2NkMWYiLCJyb2xlSWQiOjIsImlhdCI6MTc4MzQwMjQwMiwiZXhwIjoyNjQ3NDAyNDAyfQ.JPurkxaY4oqMPOVwqZMYfDM1AOho1mQXm_0vgxnuZ2I
-@customerToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTFlODA2NjU5NzliZWVlNDFjZjVmNGIiLCJyb2xlSWQiOjIsImlhdCI6MTc4MTUwOTMwMSwiZXhwIjoyNjQ1NTA5MzAxfQ.ue0erSH-EI_LQispI_VVYh9QZlu4xsvIS6F0A8s8xOc
+@authToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTNlMGFlYjNiYzFlZDg1NTAxYzUxOWEiLCJyb2xlSWQiOjMsImlhdCI6MTc4NTM4OTk2NiwiZXhwIjoyNjQ5Mzg5OTY2fQ.b-eabkPa8NCjDRmEdktuZEbOuzdZYAC4wygPp_Ve7ZY
+@customerToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTNlMGFlYjNiYzFlZDg1NTAxYzUxOWEiLCJyb2xlSWQiOjMsImlhdCI6MTc4NTM4OTk2NiwiZXhwIjoyNjQ5Mzg5OTY2fQ.b-eabkPa8NCjDRmEdktuZEbOuzdZYAC4wygPp_Ve7ZY
 
 ### ─── Replace these with actual IDs after creating an event ───
 @eventId = 6a1ffb91a4cf079984219dcd
@@ -54,11 +54,19 @@ Authorization: Bearer {{customerToken}}
 Content-Type: application/json
 
 {
-  "eventId": "{{eventId}}",
-  "discountCode": "",
- "tickets": [
-   { "ticketId": "{{ticketId}}", "qty": 2 }
-  ]
+    "tickets": [
+        {
+            "ticketId": "6a6ae458f2785c93fac40d28",
+            "qty": 1
+        },
+        {
+            "ticketId": "6a6ae458f2785c93fac40d29",
+            "qty": 1
+        }
+    ],
+    "discountCode": "",
+    "bookingType": "EVENT",
+    "eventId": "6a6ae458f2785c93fac40d27"
 }
 
 ### 4. Confirm Payment (Mock — transitions PENDING → PAID)
@@ -68,7 +76,7 @@ Authorization: Bearer {{customerToken}}
 Content-Type: application/json
 
 {
-  "transactionId": "{{transactionId}}"
+  "transactionId": "6a6aeeb2b070281de25fcf66"
 }
 
 ### 5. Get My Event Tickets (Upcoming) — Paginated
