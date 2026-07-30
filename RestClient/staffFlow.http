@@ -155,7 +155,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTZhZ
 Content-Type: application/json
 
 {
-  "qrCodeData": "TICKET-BNDY-656580-1-6a6b44c180a0d1971cbea5f0-1785414852190"
+  "qrCodeData": "TICKET-BNDY-138143-2-6a6b4d6e77134e82ddc965a6-1785417071520"
 }
 
 

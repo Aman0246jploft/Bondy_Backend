@@ -546,6 +546,17 @@ const executeAttendeeCheckIn = async (attendee, transaction, organizerId, select
     });
     await attendee.save();
 
+    // Sync check-in status to the exact ticket in the transaction's tickets array
+    if (transaction && transaction.tickets && transaction.tickets.length > 0) {
+      const targetSubBookingId = `${transaction.bookingId}-${attendee.ticketIndex}`;
+      const matchedTicket = transaction.tickets.find(t => t.subBookingId === targetSubBookingId);
+      if (matchedTicket) {
+        matchedTicket.isCheckedIn = true;
+        matchedTicket.checkedInAt = now;
+        matchedTicket.checkedInBy = organizerId;
+      }
+    }
+
     const checkedInCount = await Attendee.countDocuments({
       transactionId: transaction._id,
       isCheckedIn: true,
@@ -627,6 +638,18 @@ const executeAttendeeCheckIn = async (attendee, transaction, organizerId, select
       transaction.isCheckedIn = fullyCheckedInCount >= transaction.qty;
       if (fullyCheckedInCount === 1) transaction.checkedInAt = now;
       transaction.checkedInBy = organizerId;
+
+      // Sync check-in status to the exact ticket in the transaction's tickets array
+      if (transaction.tickets && transaction.tickets.length > 0) {
+        const targetSubBookingId = `${transaction.bookingId}-${attendee.ticketIndex}`;
+        const matchedTicket = transaction.tickets.find(t => t.subBookingId === targetSubBookingId);
+        if (matchedTicket) {
+          matchedTicket.isCheckedIn = attendee.isCheckedIn; // will be true if all sessions attended
+          matchedTicket.checkedInAt = attendee.checkedInAt;
+          matchedTicket.checkedInBy = attendee.checkedInBy;
+        }
+      }
+
       await transaction.save();
 
       return {
@@ -695,6 +718,17 @@ const executeAttendeeCheckIn = async (attendee, transaction, organizerId, select
           // Intentionally NOT setting slotInTx.isCheckedIn = true to keep it recurring forever
           slotInTx.checkedInAt = now;
           slotInTx.checkedInBy = organizerId;
+        }
+
+        // Sync check-in status to the exact ticket in the transaction's tickets array
+        if (transaction.tickets && transaction.tickets.length > 0) {
+          const targetSubBookingId = `${transaction.bookingId}-${attendee.ticketIndex}`;
+          const matchedTicket = transaction.tickets.find(t => t.subBookingId === targetSubBookingId);
+          if (matchedTicket) {
+            matchedTicket.isCheckedIn = attendee.isCheckedIn;
+            matchedTicket.checkedInAt = attendee.checkedInAt;
+            matchedTicket.checkedInBy = attendee.checkedInBy;
+          }
         }
 
         const fullyCheckedInCount = await Attendee.countDocuments({
@@ -1677,6 +1711,8 @@ const verifyTicket = async (req, res) => {
         } else {
           matchedSubBookingId = `${parts[1]}-${parts[2]}-${parts[3]}`; // e.g. BNDY-455300-1
           transactionId = parts[4];
+          isIndividualTicket = true;
+          ticketIndex = parseInt(parts[3], 10);
         }
       } else {
         // Legacy formats: 
@@ -1722,22 +1758,33 @@ const verifyTicket = async (req, res) => {
           const matchedTicket = transaction.tickets.find((t) => t.subBookingId === matchedSubBookingId);
           if (matchedTicket) {
             matchedQrEntry = matchedTicket;
-            attendee = await Attendee.findOne({
-              transactionId: transaction._id,
-              ticketId: matchedTicket.ticketId,
-              isCheckedIn: false,
-            })
-              .populate("eventId")
-              .populate("courseId")
-              .populate("userId", "firstName lastName email profileImage");
-            if (!attendee) {
+            if (isIndividualTicket && ticketIndex) {
               attendee = await Attendee.findOne({
                 transactionId: transaction._id,
-                ticketId: matchedTicket.ticketId,
+                ticketIndex: ticketIndex,
               })
                 .populate("eventId")
                 .populate("courseId")
                 .populate("userId", "firstName lastName email profileImage");
+            } else {
+              // Fallback for very old tickets that don't have ticketIndex encoded
+              attendee = await Attendee.findOne({
+                transactionId: transaction._id,
+                ticketId: matchedTicket.ticketId,
+                isCheckedIn: false,
+              })
+                .populate("eventId")
+                .populate("courseId")
+                .populate("userId", "firstName lastName email profileImage");
+              if (!attendee) {
+                attendee = await Attendee.findOne({
+                  transactionId: transaction._id,
+                  ticketId: matchedTicket.ticketId,
+                })
+                  .populate("eventId")
+                  .populate("courseId")
+                  .populate("userId", "firstName lastName email profileImage");
+              }
             }
           }
         }
@@ -1999,13 +2046,8 @@ const verifyTicket = async (req, res) => {
     let checkedInAt = null;
 
     if (bookingType === "EVENT") {
-      if (matchedQrEntry) {
-        isAlreadyCheckedIn = matchedQrEntry.isCheckedIn;
-        checkedInAt = matchedQrEntry.checkedInAt;
-      } else {
-        isAlreadyCheckedIn = attendee ? attendee.isCheckedIn : (transaction ? transaction.isCheckedIn : false);
-        checkedInAt = attendee ? attendee.checkedInAt : (transaction ? transaction.checkedInAt : null);
-      }
+      isAlreadyCheckedIn = attendee ? attendee.isCheckedIn : (transaction ? transaction.isCheckedIn : false);
+      checkedInAt = attendee ? attendee.checkedInAt : (transaction ? transaction.checkedInAt : null);
       isValid = !isExpired && !isAlreadyCheckedIn;
       message = isValid ? "Ticket is valid for check-in" : (isExpired ? "Event has expired" : "Already checked in");
     } else {
@@ -2014,11 +2056,7 @@ const verifyTicket = async (req, res) => {
         const totalSessions = course.totalSessions || 1;
         const attended = attendee ? (attendee.checkInHistory ? attendee.checkInHistory.length : 0) : 0;
 
-        if (matchedQrEntry) {
-          isAlreadyCheckedIn = matchedQrEntry.isCheckedIn;
-        } else {
-          isAlreadyCheckedIn = attendee ? attendee.isCheckedIn : false;
-        }
+        isAlreadyCheckedIn = attendee ? attendee.isCheckedIn : false;
         checkedInAt = attendee ? attendee.checkedInAt : null;
         isValid = !isExpired && (attended < totalSessions) && !checkedInToday;
         message = isValid ? "Ticket is valid for check-in" : (isExpired ? "Course has expired" : (attended >= totalSessions ? "All sessions checked in" : "Already checked in today"));
