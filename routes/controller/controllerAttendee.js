@@ -1665,7 +1665,7 @@ const verifyTicket = async (req, res) => {
           // Find the specific slot in ongoingSlots
           const slot = transaction.ongoingSlots?.find(s => s.subBookingId === matchedSubBookingId);
           if (slot) matchedQrEntry = slot;
-          
+
           attendee = await Attendee.findOne({
             transactionId: transaction._id,
             isCheckedIn: false,
