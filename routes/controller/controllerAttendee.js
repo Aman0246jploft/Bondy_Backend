@@ -165,7 +165,7 @@ const resolveSubBookingQR = async (subBookingId, scannedBy) => {
 
   // 2. Extract the matched ticket
   const matchedTicket = transaction.tickets.find(t => t.subBookingId === subBookingId);
-  
+
   return { transaction, ticketId: matchedTicket?.ticketId, qrEntry: matchedTicket };
 };
 
