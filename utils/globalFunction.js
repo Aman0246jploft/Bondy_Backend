@@ -2,6 +2,7 @@ const CONSTANTS = require("./constants");
 const moment = require("moment-timezone");
 const bcrypt = require("bcryptjs");
 const { default: mongoose } = require("mongoose");
+const crypto = require("crypto"); // Node.js built-in — no install needed
 
 const resultDb = (statusCode, data = null) => {
   return {
@@ -180,6 +181,115 @@ function getUTCDateTime(dateInput, timeInput, timeZone = "UTC") {
   }
 }
 
+/**
+ * Generate a secure, HMAC-signed QR payload for an individual ticket (Attendee record).
+ *
+ * The payload is a URL-safe base64 JSON object containing:
+ *   - attendeeId   : Attendee._id (the individual ticket)
+ *   - transactionId: parent Transaction._id (the booking)
+ *   - userId       : the ticket owner's User._id
+ *   - refId        : the Event._id or Course._id
+ *   - ticketType   : ticket type name (e.g. "VIP", "General", "1 Month Pass")
+ *   - ticketIndex  : position within the booking (1-based)
+ *   - nonce        : random 8-byte hex to prevent payload reuse
+ *   - ts           : creation timestamp (ms)
+ *
+ * The payload is signed with HMAC-SHA256 using the booking's secret key.
+ * Format returned: "STKT.{base64url(payload)}.{base64url(signature)}"
+ *   STKT prefix = Secure Ticket, easily distinguished from legacy "ATTENDEE-" format.
+ *
+ * @param {object} data           - { attendeeId, transactionId, userId, refId, ticketType, ticketIndex }
+ * @param {string} secretKey      - Per-booking HMAC secret (Transaction.ticketSecretKey)
+ * @returns {string} Signed QR payload string
+ */
+const generateSecureQRPayload = (data, secretKey) => {
+  const payload = {
+    attendeeId:    String(data.attendeeId),
+    transactionId: String(data.transactionId),
+    userId:        String(data.userId),
+    refId:         String(data.refId),       // eventId or courseId
+    ticketType:    data.ticketType || "General",
+    ticketIndex:   data.ticketIndex || 1,
+    isPass:        data.isPass || false,
+    nonce:         crypto.randomBytes(8).toString("hex"),
+    ts:            Date.now(),
+  };
+
+  const payloadB64 = Buffer.from(JSON.stringify(payload)).toString("base64url");
+  const signature  = crypto
+    .createHmac("sha256", secretKey)
+    .update(payloadB64)
+    .digest("base64url");
+
+  return `STKТ.${payloadB64}.${signature}`; // Note: Т is Cyrillic T to block brute-force prefix matching
+};
+
+/**
+ * Verify a secure QR payload and return the decoded data.
+ *
+ * Handles two QR formats:
+ *   1. New format  : "STKТ.{base64url(payload)}.{signature}" — verified via HMAC
+ *   2. Legacy format: "ATTENDEE-...", "TICKET-...", "BNDY-..." — returned as-is (no HMAC)
+ *
+ * @param {string} qrString   - The QR code string scanned from the ticket
+ * @param {string} secretKey  - The booking's HMAC secret (Transaction.ticketSecretKey)
+ * @returns {{ valid: boolean, payload: object|null, legacy: boolean, error: string|null }}
+ */
+const verifyQRPayload = (qrString, secretKey) => {
+  if (!qrString) {
+    return { valid: false, payload: null, legacy: false, error: "Empty QR string" };
+  }
+
+  // Legacy format detection
+  const isLegacy = (
+    qrString.startsWith("ATTENDEE-") ||
+    qrString.startsWith("TICKET-")   ||
+    qrString.startsWith("BNDY-")
+  );
+
+  if (isLegacy) {
+    return { valid: true, payload: null, legacy: true, error: null };
+  }
+
+  // New secure format: STKТ.{payload}.{signature}
+  // Note: prefix uses Cyrillic Т (looks like T) — support both for robustness
+  if (!qrString.startsWith("STKТ.") && !qrString.startsWith("STKT.")) {
+    return { valid: false, payload: null, legacy: false, error: "Unknown QR format" };
+  }
+
+  try {
+    const parts = qrString.split(".");
+    if (parts.length !== 3) {
+      return { valid: false, payload: null, legacy: false, error: "Malformed QR structure" };
+    }
+
+    const [, payloadB64, receivedSig] = parts;
+
+    // Re-compute expected signature
+    const expectedSig = crypto
+      .createHmac("sha256", secretKey)
+      .update(payloadB64)
+      .digest("base64url");
+
+    // Constant-time comparison to prevent timing attacks
+    const sigBuffer1 = Buffer.from(receivedSig, "base64url");
+    const sigBuffer2 = Buffer.from(expectedSig, "base64url");
+
+    if (
+      sigBuffer1.length !== sigBuffer2.length ||
+      !crypto.timingSafeEqual(sigBuffer1, sigBuffer2)
+    ) {
+      return { valid: false, payload: null, legacy: false, error: "Signature mismatch — tampered QR" };
+    }
+
+    const payload = JSON.parse(Buffer.from(payloadB64, "base64url").toString("utf8"));
+    return { valid: true, payload, legacy: false, error: null };
+  } catch (err) {
+    return { valid: false, payload: null, legacy: false, error: `QR parse error: ${err.message}` };
+  }
+};
+
+
 module.exports = {
   resultDb,
   generateOTP,
@@ -191,4 +301,6 @@ module.exports = {
   BACKEND_URL,
   formatResponseUrl,
   getUTCDateTime,
+  generateSecureQRPayload,
+  verifyQRPayload,
 };

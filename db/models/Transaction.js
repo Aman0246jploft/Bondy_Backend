@@ -142,7 +142,23 @@ const transactionSchema = new mongoose.Schema(
             type: String, // from payment gateway
         },
         qrCodeData: {
-            type: String, // Unique string/payload for QR
+            type: String, // Unique string/payload for QR (legacy — individual tickets now use Attendee.qrCodeData)
+        },
+        // References to the individual Attendee (ticket) records created for this booking.
+        // Populated eagerly at confirmPayment / free-booking time.
+        // Length == qty for events/course sessions; == 1 for pass bookings.
+        ticketIds: [
+            {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: "Attendee",
+            }
+        ],
+        // HMAC-SHA256 secret used to sign and verify individual ticket QR payloads.
+        // Never exposed to clients — server-side only.
+        ticketSecretKey: {
+            type: String,
+            default: null,
+            select: false, // excluded from all queries by default for security
         },
         isCheckedIn: {
             type: Boolean,
@@ -202,8 +218,16 @@ const transactionSchema = new mongoose.Schema(
 transactionSchema.set("toJSON", {
     transform: (doc, ret) => {
         delete ret.__v;
+        // Never expose the HMAC secret key in API responses
+        delete ret.ticketSecretKey;
         return ret;
     },
 });
+
+// ── Indexes ───────────────────────────────────────────────────────────────────
+transactionSchema.index({ userId: 1, status: 1, createdAt: -1 });
+transactionSchema.index({ eventId: 1, status: 1 });
+transactionSchema.index({ courseId: 1, status: 1 });
+// Note: bookingId unique index is declared in the field definition (unique: true), no need to repeat here
 
 module.exports = mongoose.model("Transaction", transactionSchema);
