@@ -680,7 +680,9 @@ const executeAttendeeCheckIn = async (attendee, transaction, organizerId, select
       }
 
       if (targetSlot) {
-        const slotDate = targetSlot.selectedDate || todayStr;
+        // Always use the actual check-in date (or manually passed selectedDate) for history logging,
+        // ignoring targetSlot.selectedDate so that recurring scans log the correct day.
+        const slotDate = selectedDate || todayStr;
         const alreadyCheckedIn = attendee.checkInHistory.some(entry =>
           entry.batchId === targetSlot.batchId && entry.sessionDate === slotDate
         );
@@ -699,23 +701,14 @@ const executeAttendeeCheckIn = async (attendee, transaction, organizerId, select
         attendee.checkedInAt = now;
         attendee.checkedInBy = organizerId;
 
-        const allSlotsChecked = slots.every(s =>
-          attendee.checkInHistory.some(entry => entry.batchId === s.batchId && (entry.sessionDate === s.selectedDate || entry.sessionDate !== null))
-        );
-
-        if (allSlotsChecked || attendee.checkInHistory.length >= slots.length) {
-          attendee.isCheckedIn = true;
-        }
+        // Note: For recurring ongoing courses, we intentionally do NOT set attendee.isCheckedIn = true
+        // so they can keep scanning every week.
         await attendee.save();
 
-        // Update check-in status on transaction's ongoingSlot subdocument
+        // Update check-in timestamps on transaction's ongoingSlot subdocument
         const slotInTx = transaction.ongoingSlots.id(targetSlot._id);
         if (slotInTx) {
-          // Only permanently check in the slot if it's a one-time date.
-          // For recurring slots (selectedDate is null), leave it false so it stays "active".
-          if (slotInTx.selectedDate) {
-            slotInTx.isCheckedIn = true;
-          }
+          // Intentionally NOT setting slotInTx.isCheckedIn = true to keep it recurring forever
           slotInTx.checkedInAt = now;
           slotInTx.checkedInBy = organizerId;
         }
