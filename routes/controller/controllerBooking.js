@@ -66,48 +66,46 @@ const generatePerTicketQR = (bookingId, transactionId, index) => {
 };
 
 /**
- * Expand transaction.tickets[] so every INDIVIDUAL ticket has its own
- * subBookingId and qrCodeData — regardless of qty.
+ * Populate qrs[] on each ticket in transaction.tickets[]
+ * so every INDIVIDUAL ticket has its own subBookingId and qrCodeData,
+ * while keeping the tickets array grouped by ticket type.
  *
- * Before (qty=4 VIP + qty=1 VVVIP):
- *   tickets = [{ ticketId, ticketName:"vip", qty:4, ... }, { ticketId, ticketName:"VVVIP", qty:1, ... }]
- *
- * After:
+ * Example:
  *   tickets = [
- *     { ticketId, ticketName:"vip",   qty:1, subBookingId:"BNDY-531806-1", qrCodeData:"TICKET-BNDY-531806-1-..." },
- *     { ticketId, ticketName:"vip",   qty:1, subBookingId:"BNDY-531806-2", qrCodeData:"TICKET-BNDY-531806-2-..." },
- *     { ticketId, ticketName:"vip",   qty:1, subBookingId:"BNDY-531806-3", qrCodeData:"TICKET-BNDY-531806-3-..." },
- *     { ticketId, ticketName:"vip",   qty:1, subBookingId:"BNDY-531806-4", qrCodeData:"TICKET-BNDY-531806-4-..." },
- *     { ticketId, ticketName:"VVVIP", qty:1, subBookingId:"BNDY-531806-5", qrCodeData:"TICKET-BNDY-531806-5-..." },
+ *     { 
+ *       ticketId, ticketName:"vip", qty:4, 
+ *       qrs: [
+ *         { subBookingId:"BNDY-531806-1", qrCodeData:"TICKET-BNDY-531806-1-..." },
+ *         { subBookingId:"BNDY-531806-2", qrCodeData:"TICKET-BNDY-531806-2-..." },
+ *         ...
+ *       ] 
+ *     }
  *   ]
  */
 const stampPerTicketQR = (transaction) => {
   if (!transaction.tickets || transaction.tickets.length === 0) return;
 
-  const expanded = [];
   let counter = 0;
 
   for (const ticket of transaction.tickets) {
-    for (let q = 0; q < ticket.qty; q++) {
-      const { subBookingId, qrCodeData } = generatePerTicketQR(
-        transaction.bookingId,
-        transaction._id,
-        counter,
-      );
-      expanded.push({
-        ticketId:     ticket.ticketId,
-        ticketName:   ticket.ticketName,
-        basePrice:    ticket.basePrice,
-        qty:          1,              // each entry = 1 individual ticket
-        subBookingId,
-        qrCodeData,
-      });
-      counter++;
+    if (!ticket.qrs) {
+      ticket.qrs = [];
+    }
+    // Only generate if we haven't already generated the right amount
+    if (ticket.qrs.length === 0) {
+      for (let q = 0; q < ticket.qty; q++) {
+        const { subBookingId, qrCodeData } = generatePerTicketQR(
+          transaction.bookingId,
+          transaction._id,
+          counter,
+        );
+        ticket.qrs.push({ subBookingId, qrCodeData });
+        counter++;
+      }
+    } else {
+       counter += ticket.qty;
     }
   }
-
-  // Replace the tickets array with the fully expanded, individual-ticket list
-  transaction.tickets = expanded;
 };
 
 

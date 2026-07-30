@@ -1408,8 +1408,8 @@ const verifyTicket = async (req, res) => {
       bookingType = transaction.bookingType;
 
       if (matchedSubBookingId) {
-        // Find the specific ticket inside the tickets array matching our subBookingId
-        const matchedTicket = transaction.tickets.find((t) => t.subBookingId === matchedSubBookingId);
+        // Find the specific ticket inside the tickets array matching our subBookingId via the qrs array
+        const matchedTicket = transaction.tickets.find((t) => t.qrs && t.qrs.some(qr => qr.subBookingId === matchedSubBookingId));
         if (matchedTicket) {
           attendee = await Attendee.findOne({
             transactionId: transaction._id,
@@ -1484,11 +1484,11 @@ const verifyTicket = async (req, res) => {
       const isSubBooking = bndyParts.length === 3; // e.g. ["BNDY", "455300", "1"]
 
       if (isSubBooking) {
-        // Find the transaction that contains this subBookingId in its tickets[]
+        // Find the transaction that contains this subBookingId in its tickets[].qrs
         const parentBookingId = `${bndyParts[0]}-${bndyParts[1]}`; // BNDY-455300
         transaction = await Transaction.findOne({
           bookingId: parentBookingId,
-          "tickets.subBookingId": code,
+          "tickets.qrs.subBookingId": code,
         })
           .populate({ path: "eventId", populate: { path: "eventCategory", select: "name" } })
           .populate({ path: "courseId", populate: { path: "courseCategory", select: "name" } })
@@ -1502,7 +1502,7 @@ const verifyTicket = async (req, res) => {
         bookingType = transaction.bookingType;
 
         // Find the matched ticket type to pick the right attendee by ticketId
-        const matchedTicket = transaction.tickets.find((t) => t.subBookingId === code);
+        const matchedTicket = transaction.tickets.find((t) => t.qrs && t.qrs.some(qr => qr.subBookingId === code));
         if (matchedTicket) {
           attendee = await Attendee.findOne({
             transactionId: transaction._id,
