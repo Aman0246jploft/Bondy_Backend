@@ -125,13 +125,17 @@ const resolveAttendeeFromSecureQR = async (qrString) => {
  * @returns {{ transaction, ticketId, qrEntry }} or throws with a descriptive error
  */
 const resolveSubBookingQR = async (subBookingId, scannedBy) => {
-  // 1. Find transaction atomically — only match if that QR is NOT yet checked in
+  // 1. Find transaction atomically — only match if that specific QR is NOT yet checked in.
+  // We use nested $elemMatch because tickets and qrs are both arrays (nested array structure).
   const transaction = await Transaction.findOneAndUpdate(
     {
-      "tickets.qrs.subBookingId": subBookingId,
-      "tickets.qrs": {
-        $elemMatch: { subBookingId, isCheckedIn: false },
-      },
+      tickets: {
+        $elemMatch: {
+          qrs: {
+            $elemMatch: { subBookingId, isCheckedIn: false }
+          }
+        }
+      }
     },
     {
       $set: {
