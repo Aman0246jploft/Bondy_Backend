@@ -112,6 +112,75 @@ const resolveAttendeeFromSecureQR = async (qrString) => {
   }
 };
 
+/**
+ * Resolve and consume a subBookingId QR code in one atomic step.
+ *
+ * - Finds the transaction whose tickets[].qrs[] has the matching subBookingId
+ * - Rejects immediately if that specific QR is already checked in
+ * - Stamps isCheckedIn=true / checkedInAt / checkedInBy on that QR entry (arrayFilters)
+ * - Returns { transaction, ticketId } so the caller can find the right Attendee
+ *
+ * @param {string} subBookingId  e.g. "BNDY-133947-2"
+ * @param {string} scannedBy     userId of the organizer/staff doing the scan
+ * @returns {{ transaction, ticketId, qrEntry }} or throws with a descriptive error
+ */
+const resolveSubBookingQR = async (subBookingId, scannedBy) => {
+  // 1. Find transaction atomically — only match if that QR is NOT yet checked in
+  const transaction = await Transaction.findOneAndUpdate(
+    {
+      "tickets.qrs.subBookingId": subBookingId,
+      "tickets.qrs": {
+        $elemMatch: { subBookingId, isCheckedIn: false },
+      },
+    },
+    {
+      $set: {
+        "tickets.$[ticket].qrs.$[qr].isCheckedIn": true,
+        "tickets.$[ticket].qrs.$[qr].checkedInAt": new Date(),
+        "tickets.$[ticket].qrs.$[qr].checkedInBy": scannedBy,
+      },
+    },
+    {
+      arrayFilters: [
+        { "ticket.qrs.subBookingId": subBookingId },
+        { "qr.subBookingId": subBookingId },
+      ],
+      new: true,
+    },
+  )
+    .populate({ path: "eventId", populate: { path: "eventCategory", select: "name" } })
+    .populate({ path: "courseId", populate: { path: "courseCategory", select: "name" } })
+    .populate("userId", "firstName lastName email profileImage");
+
+  if (!transaction) {
+    // Either the QR doesn't exist at all, or it's already been checked in
+    // Do a read-only lookup to distinguish the two cases
+    const existing = await Transaction.findOne({
+      "tickets.qrs.subBookingId": subBookingId,
+    });
+    if (!existing) {
+      throw new Error("TICKET_NOT_FOUND: No ticket found for this QR code");
+    }
+    throw new Error("ALREADY_CHECKED_IN: This QR code has already been scanned and checked in");
+  }
+
+  // Find which ticket type this QR belongs to
+  let foundTicket = null;
+  let foundQREntry = null;
+  for (const t of transaction.tickets) {
+    if (t.qrs) {
+      const qr = t.qrs.find((q) => q.subBookingId === subBookingId);
+      if (qr) {
+        foundTicket = t;
+        foundQREntry = qr;
+        break;
+      }
+    }
+  }
+
+  return { transaction, ticketId: foundTicket?.ticketId, qrEntry: foundQREntry };
+};
+
 // Helper to auto-create attendees for a PAID transaction if none exist
 const ensureAttendeesExist = async (transaction) => {
   const currentAttendees = await Attendee.find({ transactionId: transaction._id });
@@ -699,40 +768,37 @@ const checkInAttendee = async (req, res) => {
         let matchedSubBookingId = null;
 
         if (parts[1] === "BNDY") {
-          matchedSubBookingId = `${parts[1]}-${parts[2]}-${parts[3]}`; // e.g. BNDY-531806-4
-          transactionId = parts[4];
-        } else {
-          transactionId = parts[1];
-        }
-
-        transaction = await Transaction.findById(transactionId);
-        if (transaction) {
-          await ensureAttendeesExist(transaction);
-          if (matchedSubBookingId) {
-            // Resolve specific attendee by ticket type from qrs[]
-            const matchedTicket = transaction.tickets.find(
-              (t) => t.qrs && t.qrs.some((qr) => qr.subBookingId === matchedSubBookingId),
-            );
-            if (matchedTicket) {
+          // Per-ticket QR: TICKET-BNDY-XXXXXX-N-txnId-ts
+          const matchedSubBookingId = `${parts[1]}-${parts[2]}-${parts[3]}`;
+          try {
+            const resolved = await resolveSubBookingQR(matchedSubBookingId, userId);
+            transaction = resolved.transaction;
+            await ensureAttendeesExist(transaction);
+            // Find the specific attendee for this ticket type
+            attendee = await Attendee.findOne({
+              transactionId: transaction._id,
+              ticketId: resolved.ticketId,
+              isCheckedIn: false,
+            }).populate("eventId").populate("courseId");
+            if (!attendee) {
               attendee = await Attendee.findOne({
                 transactionId: transaction._id,
-                ticketId: matchedTicket.ticketId,
-                isCheckedIn: false,
-              })
-                .populate("eventId")
-                .populate("courseId");
-              if (!attendee) {
-                // Fallback — return already-checked-in attendee for this ticket type
-                attendee = await Attendee.findOne({
-                  transactionId: transaction._id,
-                  ticketId: matchedTicket.ticketId,
-                })
-                  .populate("eventId")
-                  .populate("courseId");
-              }
+                ticketId: resolved.ticketId,
+              }).populate("eventId").populate("courseId");
             }
+          } catch (qrErr) {
+            const isAlready = qrErr.message && qrErr.message.startsWith("ALREADY_CHECKED_IN");
+            return apiErrorRes(
+              isAlready ? HTTP_STATUS.BAD_REQUEST : HTTP_STATUS.NOT_FOUND,
+              res,
+              isAlready ? "This QR code has already been scanned and checked in" : "Ticket not found for this QR code",
+            );
           }
-          if (!attendee) {
+        } else {
+          transactionId = parts[1];
+          transaction = await Transaction.findById(transactionId);
+          if (transaction) {
+            await ensureAttendeesExist(transaction);
             attendee = await Attendee.findOne({ transactionId: transaction._id, isCheckedIn: false })
               .populate("eventId")
               .populate("courseId");
@@ -746,43 +812,29 @@ const checkInAttendee = async (req, res) => {
       const isSubBooking = bndyParts.length === 3; // BNDY-531806-1 has 3 parts
 
       if (isSubBooking) {
-        const parentBookingId = `${bndyParts[0]}-${bndyParts[1]}`;
-        transaction = await Transaction.findOne({
-          bookingId: parentBookingId,
-          "tickets.qrs.subBookingId": ticketNumber,
-        });
-        if (!transaction) {
-          return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Ticket not found for this sub-booking ID");
-        }
-        if (transaction.status !== "PAID") {
-          return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Booking is not paid");
-        }
-        await ensureAttendeesExist(transaction);
-
-        const matchedTicket = transaction.tickets.find(
-          (t) => t.qrs && t.qrs.some((qr) => qr.subBookingId === ticketNumber),
-        );
-        if (matchedTicket) {
+        // Sub-booking ID (BNDY-531806-1) — resolve atomically via resolveSubBookingQR
+        try {
+          const resolved = await resolveSubBookingQR(ticketNumber, userId);
+          transaction = resolved.transaction;
+          await ensureAttendeesExist(transaction);
           attendee = await Attendee.findOne({
             transactionId: transaction._id,
-            ticketId: matchedTicket.ticketId,
+            ticketId: resolved.ticketId,
             isCheckedIn: false,
-          })
-            .populate("eventId")
-            .populate("courseId");
+          }).populate("eventId").populate("courseId");
           if (!attendee) {
             attendee = await Attendee.findOne({
               transactionId: transaction._id,
-              ticketId: matchedTicket.ticketId,
-            })
-              .populate("eventId")
-              .populate("courseId");
+              ticketId: resolved.ticketId,
+            }).populate("eventId").populate("courseId");
           }
-        }
-        if (!attendee) {
-          attendee = await Attendee.findOne({ transactionId: transaction._id, isCheckedIn: false })
-            .populate("eventId")
-            .populate("courseId");
+        } catch (qrErr) {
+          const isAlready = qrErr.message && qrErr.message.startsWith("ALREADY_CHECKED_IN");
+          return apiErrorRes(
+            isAlready ? HTTP_STATUS.BAD_REQUEST : HTTP_STATUS.NOT_FOUND,
+            res,
+            isAlready ? "This QR code has already been scanned and checked in" : "Ticket not found for this sub-booking ID",
+          );
         }
       } else {
         // Parent booking ID (BNDY-531806) — original behaviour
@@ -1073,55 +1125,51 @@ const scanQRAndCheckIn = async (req, res) => {
     if (qrCodeData.startsWith("TICKET-")) {
       // Case 1: Transaction QR or Per-ticket QR
       const parts = qrCodeData.split("-");
-      let transactionId;
-      let matchedSubBookingId = null;
 
-      // Per-ticket format: TICKET-BNDY-XXXXXX-N-transactionId-timestamp
       if (parts[1] === "BNDY") {
-        matchedSubBookingId = `${parts[1]}-${parts[2]}-${parts[3]}`; // e.g. BNDY-531806-4
-        transactionId = parts[4];
-      } else {
-        transactionId = parts[1];
-      }
+        // Per-ticket format: TICKET-BNDY-XXXXXX-N-transactionId-timestamp
+        const matchedSubBookingId = `${parts[1]}-${parts[2]}-${parts[3]}`;
+        try {
+          const resolved = await resolveSubBookingQR(matchedSubBookingId, organizerId);
+          transaction = resolved.transaction;
+          await ensureAttendeesExist(transaction);
+          event = transaction.eventId || transaction.courseId;
+          title = event ? event.eventTitle || event.courseTitle : "";
+          endDate = transaction.bookingType === "EVENT" ? event?.endDate : (event?.endDate || event?.createdAt);
 
-      transaction = await Transaction.findById(transactionId)
-        .populate("eventId")
-        .populate("courseId")
-        .populate("userId", "firstName lastName email profileImage");
-
-      if (!transaction) {
-        return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.TRANSACTION_NOT_FOUND);
-      }
-      event = transaction.eventId || transaction.courseId;
-      title = event ? event.eventTitle || event.courseTitle : "";
-      if (transaction.bookingType === "EVENT") {
-        endDate = event.endDate;
-      } else {
-        endDate = event.endDate || event.createdAt;
-      }
-
-      // If this is a per-ticket QR, narrow to a specific attendee by ticketId
-      if (matchedSubBookingId) {
-        const matchedTicket = transaction.tickets.find((t) => t.qrs && t.qrs.some(qr => qr.subBookingId === matchedSubBookingId));
-        if (matchedTicket) {
           attendee = await Attendee.findOne({
             transactionId: transaction._id,
-            ticketId: matchedTicket.ticketId,
+            ticketId: resolved.ticketId,
             isCheckedIn: false,
-          })
-            .populate("eventId")
-            .populate("courseId")
-            .populate("userId", "firstName lastName email profileImage");
+          }).populate("eventId").populate("courseId").populate("userId", "firstName lastName email profileImage");
           if (!attendee) {
             attendee = await Attendee.findOne({
               transactionId: transaction._id,
-              ticketId: matchedTicket.ticketId,
-            })
-              .populate("eventId")
-              .populate("courseId")
-              .populate("userId", "firstName lastName email profileImage");
+              ticketId: resolved.ticketId,
+            }).populate("eventId").populate("courseId").populate("userId", "firstName lastName email profileImage");
           }
+        } catch (qrErr) {
+          const isAlready = qrErr.message && qrErr.message.startsWith("ALREADY_CHECKED_IN");
+          return apiErrorRes(
+            isAlready ? HTTP_STATUS.BAD_REQUEST : HTTP_STATUS.NOT_FOUND,
+            res,
+            isAlready ? "This QR code has already been scanned and checked in" : "Ticket not found for this QR code",
+          );
         }
+      } else {
+        // Legacy format: TICKET-transactionId-userId-timestamp
+        const transactionId = parts[1];
+        transaction = await Transaction.findById(transactionId)
+          .populate("eventId")
+          .populate("courseId")
+          .populate("userId", "firstName lastName email profileImage");
+
+        if (!transaction) {
+          return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.TRANSACTION_NOT_FOUND);
+        }
+        event = transaction.eventId || transaction.courseId;
+        title = event ? event.eventTitle || event.courseTitle : "";
+        endDate = transaction.bookingType === "EVENT" ? event?.endDate : (event?.endDate || event?.createdAt);
       }
     } else if (qrCodeData.startsWith("ATTENDEE-")) {
       // Case 2: Individual Attendee QR

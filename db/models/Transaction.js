@@ -74,7 +74,10 @@ const transactionSchema = new mongoose.Schema(
                 qrs: [
                     {
                         subBookingId: { type: String },
-                        qrCodeData: { type: String }
+                        qrCodeData:   { type: String },
+                        isCheckedIn:  { type: Boolean, default: false },
+                        checkedInAt:  { type: Date,    default: null },
+                        checkedInBy:  { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
                     }
                 ]
             }
