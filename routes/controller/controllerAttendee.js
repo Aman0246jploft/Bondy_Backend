@@ -186,46 +186,24 @@ const resolveSubBookingQR = async (subBookingId, scannedBy) => {
 };
 
 /**
- * Resolve and consume a per-slot QR code (ongoing course session) atomically.
+ * Resolve a per-slot QR code (ongoing course session).
  *
  * - Finds the transaction whose ongoingSlots[].subBookingId matches
- * - Rejects if that specific slot is already checked-in
- * - Atomically stamps isCheckedIn=true / checkedInAt / checkedInBy on that slot
- * - Returns { transaction, slot } so the caller can proceed with the attendee check-in
+ * - Returns { transaction, slot } so the caller can proceed with the attendee check-in.
+ * - Validation (day matching, daily double-scan prevention) is handled by executeAttendeeCheckIn.
  *
  * @param {string} subBookingId  e.g. "BNDY-554421-SLOT-1"
  * @param {string} scannedBy     userId of the scanner
  */
 const resolveSlotQR = async (subBookingId, scannedBy) => {
-  // Atomically match ONLY if the slot exists AND is NOT yet checked in
-  const transaction = await Transaction.findOneAndUpdate(
-    {
-      ongoingSlots: {
-        $elemMatch: { subBookingId, isCheckedIn: false },
-      },
-    },
-    {
-      $set: {
-        "ongoingSlots.$[slot].isCheckedIn": true,
-        "ongoingSlots.$[slot].checkedInAt": new Date(),
-        "ongoingSlots.$[slot].checkedInBy": scannedBy,
-      },
-    },
-    {
-      arrayFilters: [{ "slot.subBookingId": subBookingId }],
-      new: true,
-    },
-  )
+  const transaction = await Transaction.findOne({
+    "ongoingSlots.subBookingId": subBookingId,
+  })
     .populate({ path: "courseId", populate: { path: "courseCategory", select: "name" } })
     .populate("userId", "firstName lastName email profileImage");
 
   if (!transaction) {
-    // Distinguish "never existed" from "already checked in"
-    const existing = await Transaction.findOne({ "ongoingSlots.subBookingId": subBookingId });
-    if (!existing) {
-      throw new Error("TICKET_NOT_FOUND: No session found for this QR code");
-    }
-    throw new Error("ALREADY_CHECKED_IN: This session QR code has already been scanned");
+    throw new Error("TICKET_NOT_FOUND: No session found for this QR code");
   }
 
   const slot = transaction.ongoingSlots.find((s) => s.subBookingId === subBookingId);
@@ -733,7 +711,11 @@ const executeAttendeeCheckIn = async (attendee, transaction, organizerId, select
         // Update check-in status on transaction's ongoingSlot subdocument
         const slotInTx = transaction.ongoingSlots.id(targetSlot._id);
         if (slotInTx) {
-          slotInTx.isCheckedIn = true;
+          // Only permanently check in the slot if it's a one-time date.
+          // For recurring slots (selectedDate is null), leave it false so it stays "active".
+          if (slotInTx.selectedDate) {
+            slotInTx.isCheckedIn = true;
+          }
           slotInTx.checkedInAt = now;
           slotInTx.checkedInBy = organizerId;
         }
