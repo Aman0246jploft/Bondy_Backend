@@ -1633,9 +1633,16 @@ const verifyTicket = async (req, res) => {
       let matchedSubBookingId = null;
 
       // Check if it matches the per-ticket format: TICKET-BNDY-XXXXXX-N-transactionId-timestamp
+      // Or the slot format: TICKET-BNDY-XXXXXX-SLOT-N-transactionId-timestamp
       if (parts[1] === "BNDY") {
-        matchedSubBookingId = `${parts[1]}-${parts[2]}-${parts[3]}`; // e.g. BNDY-455300-1
-        transactionId = parts[4];
+        const isSlotQR = parts[3] === "SLOT";
+        if (isSlotQR) {
+          matchedSubBookingId = `${parts[1]}-${parts[2]}-SLOT-${parts[4]}`; // e.g. BNDY-455300-SLOT-1
+          transactionId = parts[5];
+        } else {
+          matchedSubBookingId = `${parts[1]}-${parts[2]}-${parts[3]}`; // e.g. BNDY-455300-1
+          transactionId = parts[4];
+        }
       } else {
         transactionId = parts[1];
       }
@@ -1653,26 +1660,45 @@ const verifyTicket = async (req, res) => {
       bookingType = transaction.bookingType;
 
       if (matchedSubBookingId) {
-        // Find the specific ticket inside the tickets array matching our subBookingId via the qrs array
-        const matchedTicket = transaction.tickets.find((t) => t.qrs && t.qrs.some(qr => qr.subBookingId === matchedSubBookingId));
-        if (matchedTicket) {
-          matchedQrEntry = matchedTicket.qrs.find(qr => qr.subBookingId === matchedSubBookingId);
+        const isSlotQR = parts[3] === "SLOT";
+        if (isSlotQR) {
+          // Find the specific slot in ongoingSlots
+          const slot = transaction.ongoingSlots?.find(s => s.subBookingId === matchedSubBookingId);
+          if (slot) matchedQrEntry = slot;
+          
           attendee = await Attendee.findOne({
             transactionId: transaction._id,
-            ticketId: matchedTicket.ticketId,
             isCheckedIn: false,
           })
-            .populate("eventId")
             .populate("courseId")
             .populate("userId", "firstName lastName email profileImage");
           if (!attendee) {
+            attendee = await Attendee.findOne({ transactionId: transaction._id })
+              .populate("courseId")
+              .populate("userId", "firstName lastName email profileImage");
+          }
+        } else {
+          // Find the specific ticket inside the tickets array matching our subBookingId via the qrs array
+          const matchedTicket = transaction.tickets.find((t) => t.qrs && t.qrs.some(qr => qr.subBookingId === matchedSubBookingId));
+          if (matchedTicket) {
+            matchedQrEntry = matchedTicket.qrs.find(qr => qr.subBookingId === matchedSubBookingId);
             attendee = await Attendee.findOne({
               transactionId: transaction._id,
               ticketId: matchedTicket.ticketId,
+              isCheckedIn: false,
             })
               .populate("eventId")
               .populate("courseId")
               .populate("userId", "firstName lastName email profileImage");
+            if (!attendee) {
+              attendee = await Attendee.findOne({
+                transactionId: transaction._id,
+                ticketId: matchedTicket.ticketId,
+              })
+                .populate("eventId")
+                .populate("courseId")
+                .populate("userId", "firstName lastName email profileImage");
+            }
           }
         }
       }
