@@ -2388,6 +2388,8 @@ const getTicketDetail = async (req, res) => {
                 date: formattedDate,
                 timing,
                 venueAddress: course.venueAddress || null,
+                subBookingId: transaction.bookingId,
+                qrCodeData: transaction.qrCodeData || null,
               };
 
               const compareDate = new Date(sessionDate);
@@ -2443,6 +2445,8 @@ const getTicketDetail = async (req, res) => {
             date: formattedDate,
             timing,
             venueAddress: course.venueAddress || null,
+            subBookingId: slot.subBookingId || transaction.bookingId,
+            qrCodeData: slot.qrCodeData || transaction.qrCodeData || null,
           };
 
           const startOfToday = new Date(now);
