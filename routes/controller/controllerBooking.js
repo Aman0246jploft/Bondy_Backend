@@ -2976,7 +2976,6 @@ const getCourseAttendeesList = async (req, res) => {
       const paginated = uniqueUsers.slice(skip, skip + limitNum);
 
       const allTxnIds = uniqueUsers.flatMap(u => u.allTxns.map(t => t._id));
-      const Attendee = require("../../models/attendee.model"); // ensure model is available
       const allAttendees = await Attendee.find({ transactionId: { $in: allTxnIds } }).select("transactionId checkInHistory isCheckedIn").lean();
 
       const attendeesByTxn = new Map();
