@@ -2997,6 +2997,7 @@ const getCourseAttendeesList = async (req, res) => {
                 endTime: found.endTime,
                 days: found.days,
                 bookingId: t.bookingId,
+                isCheckedIn: t.checkedInQty > 0 || t.checkedInQty >= t.qty
               });
             }
           }
@@ -3012,6 +3013,8 @@ const getCourseAttendeesList = async (req, res) => {
                   endTime: found.endTime,
                   days: found.days,
                   bookingId: t.bookingId,
+                  isCheckedIn: slot.isCheckedIn || false,
+                  qrCodeData: slot.qrCodeData
                 });
               }
             }
