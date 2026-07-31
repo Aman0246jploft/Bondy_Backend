@@ -1678,13 +1678,21 @@ const verifyTicket = async (req, res) => {
       // Record scan in audit trail
       await recordScanAudit(secureAtt, userId, scanResultCode, isValid ? (req.body.autoCheckIn ? "Auto checked in via verify" : "Verify-only scan") : null);
 
+      let finalMessage = isValid 
+        ? "Ticket is valid for check-in" 
+        : (isExpired ? "Ticket has expired" : "This ticket has already been checked in");
+
       if (isValid && req.body.autoCheckIn) {
         try {
           const resObj = await executeAttendeeCheckIn(secureAtt, secureTxn, userId, req.body.selectedDate, req.body.batchId);
           if (resObj.attendee) Object.assign(secureAtt, resObj.attendee);
           if (secureTxn && resObj.booking) Object.assign(secureTxn, resObj.booking);
+          finalMessage = resObj.message || "Checked In Successfully";
+          isAlreadyCheckedIn = true;
         } catch (err) {
           console.error("Auto check-in failed (Secure):", err);
+          isValid = false;
+          finalMessage = err.message || "Auto check-in failed";
         }
       }
 
@@ -1693,9 +1701,7 @@ const verifyTicket = async (req, res) => {
       return apiSuccessRes(HTTP_STATUS.OK, res, "Ticket verified successfully", {
         isValid,
         validationStatus: scanResultCode,
-        message: isValid
-          ? "Ticket is valid for check-in"
-          : (isExpired ? "Ticket has expired" : "This ticket has already been checked in"),
+        message: finalMessage,
         isExpired,
         isAlreadyCheckedIn,
         checkedInAt: secureAtt.checkedInAt || null,
@@ -2191,20 +2197,25 @@ const verifyTicket = async (req, res) => {
       }
       : null;
 
+    let finalMessage = message;
     if (isValid && req.body.autoCheckIn && attendee) {
       try {
         const resObj = await executeAttendeeCheckIn(attendee, transaction, userId, req.body.selectedDate, req.body.batchId);
         if (resObj.attendee) Object.assign(attendee, resObj.attendee);
         if (transaction && resObj.booking) Object.assign(transaction, resObj.booking);
         if (matchedQrEntry) matchedQrEntry.isCheckedIn = true;
+        finalMessage = resObj.message || "Checked In Successfully";
+        isAlreadyCheckedIn = true; // Mark as checked in since we just did it
       } catch (err) {
         console.error("Auto check-in failed (Legacy):", err);
+        isValid = false;
+        finalMessage = err.message || "Auto check-in failed";
       }
     }
 
     return apiSuccessRes(HTTP_STATUS.OK, res, "Ticket verified successfully", {
       isValid,
-      message,
+      message: finalMessage,
       isExpired,
       isAlreadyCheckedIn,
       checkedInAt,
