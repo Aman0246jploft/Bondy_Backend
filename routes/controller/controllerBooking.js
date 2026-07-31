@@ -2975,6 +2975,19 @@ const getCourseAttendeesList = async (req, res) => {
       const totalUnique = uniqueUsers.length;
       const paginated = uniqueUsers.slice(skip, skip + limitNum);
 
+      const allTxnIds = uniqueUsers.flatMap(u => u.allTxns.map(t => t._id));
+      const Attendee = require("../../models/attendee.model"); // ensure model is available
+      const allAttendees = await Attendee.find({ transactionId: { $in: allTxnIds } }).select("transactionId checkInHistory isCheckedIn").lean();
+
+      const attendeesByTxn = new Map();
+      allAttendees.forEach(a => {
+        const tId = a.transactionId.toString();
+        if (!attendeesByTxn.has(tId)) attendeesByTxn.set(tId, []);
+        attendeesByTxn.get(tId).push(a);
+      });
+
+      const todayStr = new Date().toLocaleDateString("en-CA");
+
       const attendees = paginated.map(({ txn, allTxns }) => {
         const user = txn.userId;
 
@@ -2990,6 +3003,11 @@ const getCourseAttendeesList = async (req, res) => {
           if (t.batchId && course.batches && Array.isArray(course.batches)) {
             const found = course.batches.find((b) => b._id.toString() === t.batchId.toString());
             if (found) {
+              const txAttendees = attendeesByTxn.get(t._id.toString()) || [];
+              const checkedInToday = txAttendees.some(a =>
+                a.checkInHistory && a.checkInHistory.some(entry => entry.sessionDate === todayStr && entry.batchId?.toString() === found._id.toString())
+              );
+
               enrolledBatches.push({
                 batchId: found._id,
                 batchName: found.batchName,
@@ -2997,7 +3015,7 @@ const getCourseAttendeesList = async (req, res) => {
                 endTime: found.endTime,
                 days: found.days,
                 bookingId: t.bookingId,
-                isCheckedIn: t.checkedInQty > 0 || t.checkedInQty >= t.qty
+                isCheckedIn: checkedInToday || t.checkedInQty > 0 || t.checkedInQty >= t.qty
               });
             }
           }
