@@ -3605,6 +3605,7 @@ router.get("/public/generate-urls/:transactionId", generateTicketUrls);
 const downloadTicketPdf = async (req, res) => {
   try {
     const { transactionId } = req.params;
+    const { ticketNumber, subBookingId, qrCodeData } = req.query;
 
     const transaction = await Transaction.findById(transactionId)
       .populate({ path: "userId", select: "firstName lastName email profileImage" })
@@ -3628,10 +3629,13 @@ const downloadTicketPdf = async (req, res) => {
     }
 
     res.setHeader("Content-Type", "application/pdf");
-    res.setHeader("Content-Disposition", `attachment; filename="Ticket-${transaction.bookingId}.pdf"`);
+    let filename = `Ticket-${transaction.bookingId}`;
+    if (ticketNumber) filename = `Ticket-${ticketNumber}`;
+    else if (subBookingId) filename = `Session-${subBookingId}`;
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}.pdf"`);
 
     const transactionObj = transaction.toObject();
-    await generateTicketPdf(transactionObj, res);
+    await generateTicketPdf(transactionObj, res, { ticketNumber, subBookingId, qrCodeData });
   } catch (error) {
     console.error("Error generating PDF:", error);
     res.status(500).send("Error generating PDF");

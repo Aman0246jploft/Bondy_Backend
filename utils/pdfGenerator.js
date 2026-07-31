@@ -52,8 +52,9 @@ function drawLabelValue(doc, label, value, x, y, opts = {}) {
   doc.text(stripEmoji(value || "N/A"), x, y + labelSize + 4, { width: maxWidth, ellipsis: true, height: valueSize + 6 });
 }
 
-const generateTicketPdf = async (ticketData, res) => {
+const generateTicketPdf = async (ticketData, res, options = {}) => {
   return new Promise(async (resolve, reject) => {
+    const { qrCodeData, ticketNumber, subBookingId } = options;
     try {
       const doc = new PDFDocument({ margin: 0, size: "A4" });
       doc.pipe(res);
@@ -291,13 +292,24 @@ const generateTicketPdf = async (ticketData, res) => {
       }
 
       // Booking ID repeat
+      let displayIdLabel = "BOOKING ID";
+      let displayIdValue = ticketData.bookingId || "N/A";
+      
+      if (ticketNumber) {
+        displayIdLabel = "TICKET NUMBER";
+        displayIdValue = ticketNumber;
+      } else if (subBookingId) {
+        displayIdLabel = "SESSION ID";
+        displayIdValue = subBookingId;
+      }
+
       doc.fillColor("#888888").fontSize(8).font("Helvetica-Bold");
-      doc.text("BOOKING ID", M, Y + 48);
+      doc.text(displayIdLabel, M, Y + 48);
       doc.fillColor("#23ada4").fontSize(10).font("Helvetica-Bold");
-      doc.text(ticketData.bookingId || "N/A", M, Y + 60);
+      doc.text(displayIdValue, M, Y + 60);
 
       // QR Code (Right)
-      const qrData = ticketData.qrCodeString || ticketData.qrCodeData;
+      const qrData = qrCodeData || ticketData.qrCodeString || ticketData.qrCodeData;
       if (qrData) {
         try {
           const qrSize = 100;
