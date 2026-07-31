@@ -137,11 +137,11 @@ Authorization: Bearer {{authToken}}
 
 ### 15. Scan QR Code (Gate Keeper Check-in)
 POST {{baseUrl}}/booking/scan-qr
-Authorization: Bearer {{authToken}}
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTZhZTU5N2YyNzg1YzkzZmFjNDEzMDAiLCJyb2xlSWQiOjUsImlhdCI6MTc4NTQ3MjQ1MiwiZXhwIjoyNjQ5NDcyNDUyfQ.fmnEpEbZnXPwBQhxgCbO-N3E3RGvIfFDFe5b3DYksK0
 Content-Type: application/json
 
 {
-  "qrCodeData": "TICKET-REPLACE_TXN_ID-REPLACE_USER_ID-1234567890"
+  "qrCodeData": "BNDY-839656-1"
 }
 
 ### 15b. Refund Preview (Check policy & refund amount before cancelling)
@@ -263,3 +263,29 @@ Content-Type: application/json
 }
 
 
+
+
+
+
+
+
+
+
+
+### 15. Scan QR Code (Gate Keeper Check-in)
+POST {{baseUrl}}/booking/scan-qr
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTZhZTU5N2YyNzg1YzkzZmFjNDEzMDAiLCJyb2xlSWQiOjUsImlhdCI6MTc4NTQ3MjQ1MiwiZXhwIjoyNjQ5NDcyNDUyfQ.fmnEpEbZnXPwBQhxgCbO-N3E3RGvIfFDFe5b3DYksK0
+Content-Type: application/json
+
+{
+  "qrCodeData": "BNDY-839656-1"
+}
+
+
+
+
+
+
+### 11. Get Event Attendees List
+GET {{baseUrl}}/booking/event/6a6ae458f2785c93fac40d27/attendees
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTZhZTU5N2YyNzg1YzkzZmFjNDEzMDAiLCJyb2xlSWQiOjUsImlhdCI6MTc4NTQ3MjQ1MiwiZXhwIjoyNjQ5NDcyNDUyfQ.fmnEpEbZnXPwBQhxgCbO-N3E3RGvIfFDFe5b3DYksK0
