@@ -452,11 +452,18 @@ const calculateCommission = async (transaction) => {
  * Credit organizer wallet + create wallet history entry
  */
 const creditOrganizerWallet = async (organizerId, earning, transaction, itemTitle) => {
+  if (!organizerId) return;
+
   await User.findByIdAndUpdate(organizerId, {
     $inc: { totalEarnings: earning, payoutBalance: earning },
   });
 
   const freshOrganizer = await User.findById(organizerId);
+  if (!freshOrganizer) {
+    console.warn(`[Wallet] Organizer ${organizerId} not found, skipping wallet history.`);
+    return;
+  }
+
   const walletEntry = new WalletHistory({
     userId: organizerId,
     amount: earning,
@@ -472,11 +479,18 @@ const creditOrganizerWallet = async (organizerId, earning, transaction, itemTitl
  * Deduct organizer wallet on refund + create wallet history entry
  */
 const deductOrganizerWallet = async (organizerId, amount, transaction, reason) => {
+  if (!organizerId) return;
+
   await User.findByIdAndUpdate(organizerId, {
     $inc: { totalEarnings: -amount, payoutBalance: -amount },
   });
 
   const freshOrganizer = await User.findById(organizerId);
+  if (!freshOrganizer) {
+    console.warn(`[Wallet] Organizer ${organizerId} not found, skipping wallet history.`);
+    return;
+  }
+
   const walletEntry = new WalletHistory({
     userId: organizerId,
     amount: -amount,
