@@ -3006,6 +3006,10 @@ const getCourseAttendeesList = async (req, res) => {
             for (const slot of t.ongoingSlots) {
               const found = course.batches.find((b) => b._id.toString() === slot.batchId.toString());
               if (found && !enrolledBatches.find((eb) => eb.batchId.toString() === found._id.toString())) {
+                const checkedInToday = slot.checkedInAt
+                  ? new Date(slot.checkedInAt).toLocaleDateString("en-CA") === new Date().toLocaleDateString("en-CA")
+                  : false;
+
                 enrolledBatches.push({
                   batchId: found._id,
                   batchName: found.batchName,
@@ -3013,7 +3017,7 @@ const getCourseAttendeesList = async (req, res) => {
                   endTime: found.endTime,
                   days: found.days,
                   bookingId: t.bookingId,
-                  isCheckedIn: slot.isCheckedIn || false,
+                  isCheckedIn: checkedInToday,
                   qrCodeData: slot.qrCodeData
                 });
               }

@@ -2131,7 +2131,9 @@ const verifyTicket = async (req, res) => {
           const daysOfWeekMap = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
           const currentDayOfWeek = daysOfWeekMap[now.getDay()];
 
-          const slots = transaction ? (transaction.ongoingSlots || []) : [];
+          const slots = (matchedQrEntry && matchedQrEntry.batchId) 
+            ? [matchedQrEntry] 
+            : (transaction ? (transaction.ongoingSlots || []) : []);
           const allSlotsCheckedIn = slots.length > 0 && slots.every(s => s.isCheckedIn);
           const matchingSlots = slots.filter(s => s.selectedDate === todayStr || s.selectedDay === currentDayOfWeek);
 
@@ -2200,7 +2202,8 @@ const verifyTicket = async (req, res) => {
     let finalMessage = message;
     if (isValid && req.body.autoCheckIn && attendee) {
       try {
-        const resObj = await executeAttendeeCheckIn(attendee, transaction, userId, req.body.selectedDate, req.body.batchId);
+        const checkInBatchId = req.body.batchId || (matchedQrEntry ? matchedQrEntry.batchId : null);
+        const resObj = await executeAttendeeCheckIn(attendee, transaction, userId, req.body.selectedDate, checkInBatchId);
         if (resObj.attendee) Object.assign(attendee, resObj.attendee);
         if (transaction && resObj.booking) Object.assign(transaction, resObj.booking);
         if (matchedQrEntry) matchedQrEntry.isCheckedIn = true;
