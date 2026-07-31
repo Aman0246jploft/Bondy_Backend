@@ -590,13 +590,21 @@ const executeAttendeeCheckIn = async (attendee, transaction, organizerId, select
     }
 
     let isExpired = false;
-    let actualEndDate = course.endDate || course.createdAt;
+    let actualEndDate = null;
     if (transaction.passExpiryDate) {
+      // Pass bookings always have an explicit expiry date
       actualEndDate = transaction.passExpiryDate;
       isExpired = now > new Date(transaction.passExpiryDate);
-    } else {
-      isExpired = now > new Date(actualEndDate);
+    } else if (course.endDate) {
+      // fixedStart courses have an endDate; Ongoing courses may not
+      actualEndDate = course.endDate;
+      isExpired = now > new Date(course.endDate);
+    } else if (course.enrollmentType === "fixedStart") {
+      // fixedStart without endDate — fall back to createdAt as safety net
+      actualEndDate = course.createdAt;
+      isExpired = now > new Date(course.createdAt);
     }
+    // Ongoing courses with no endDate and no pass → never expired (perpetual)
 
     if (isExpired) {
       throw new Error(`${transaction.passType ? "Pass" : "Course"} has expired - Check-in not allowed`);
@@ -612,6 +620,21 @@ const executeAttendeeCheckIn = async (attendee, transaction, organizerId, select
 
       if (attendee.checkInHistory.some(entry => entry.sessionDate === todayStr)) {
         throw new Error("Attendee already checked in for today's session");
+      }
+
+      // Validate that today's day-of-week is one of the scheduled batch days
+      const daysOfWeekMap = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+      const currentDayOfWeek = daysOfWeekMap[now.getDay()];
+      const attendeeBatch = transaction.batchId
+        ? course.batches.find(b => b._id.toString() === transaction.batchId.toString())
+        : null;
+      if (attendeeBatch && attendeeBatch.days && attendeeBatch.days.length > 0) {
+        if (!attendeeBatch.days.includes(currentDayOfWeek)) {
+          throw new Error(
+            `No session scheduled for today (${currentDayOfWeek}). ` +
+            `This course runs on: ${attendeeBatch.days.join(", ")}`
+          );
+        }
       }
 
       const sessionIndex = attendee.checkInHistory.length + 1;
@@ -793,7 +816,13 @@ const executeAttendeeCheckIn = async (attendee, transaction, organizerId, select
           },
         };
       } else {
-        throw new Error(`No booked session matches today (${currentDayOfWeek}, ${todayStr})`);
+        // Gather what days ARE booked for a better error message
+        const bookedDays = [...new Set((transaction.ongoingSlots || []).map(s => s.selectedDay).filter(Boolean))];
+        const bookedDaysStr = bookedDays.length > 0 ? bookedDays.join(", ") : "none";
+        throw new Error(
+          `No booked session matches today (${currentDayOfWeek}, ${todayStr}). ` +
+          `Booked session days: ${bookedDaysStr}`
+        );
       }
     }
   }
@@ -1448,10 +1477,15 @@ const scanQRAndCheckIn = async (req, res) => {
     let isExpired = false;
     let actualEndDate = endDate;
     if (transaction && transaction.bookingType === "COURSE" && transaction.passExpiryDate) {
+      // Pass: use the explicit pass expiry date
       actualEndDate = transaction.passExpiryDate;
       isExpired = now > new Date(transaction.passExpiryDate);
+    } else if (transaction && transaction.bookingType === "COURSE" && !endDate) {
+      // Ongoing course with no explicit endDate → never expired (perpetual)
+      isExpired = false;
+      actualEndDate = null;
     } else {
-      isExpired = now > new Date(endDate);
+      isExpired = endDate ? now > new Date(endDate) : false;
     }
 
     if (isExpired) {
@@ -2038,17 +2072,27 @@ const verifyTicket = async (req, res) => {
     title = event.eventTitle || event.courseTitle;
     if (bookingType === "EVENT") {
       endDate = event.endDate;
+    } else if (event.endDate) {
+      endDate = event.endDate;
+    } else if (event.enrollmentType === "fixedStart") {
+      // fixedStart without endDate — fall back to createdAt
+      endDate = event.createdAt;
     } else {
-      endDate = event.endDate || event.createdAt;
+      // Ongoing course with no explicit endDate — perpetual, never expired
+      endDate = null;
     }
     const now = new Date();
     const todayStr = now.toLocaleDateString("en-CA");
     let actualEndDate = endDate;
-    let isExpired = now > new Date(endDate);
+    let isExpired = false;
     if (transaction && transaction.bookingType === "COURSE" && transaction.passExpiryDate) {
+      // Pass: always use explicit pass expiry
       actualEndDate = transaction.passExpiryDate;
       isExpired = now > new Date(transaction.passExpiryDate);
+    } else if (endDate) {
+      isExpired = now > new Date(endDate);
     }
+    // If endDate is null (Ongoing non-pass) → isExpired stays false
 
     const checkedInToday = !!(attendee && attendee.checkInHistory && attendee.checkInHistory.some(entry => entry.sessionDate === todayStr));
 
