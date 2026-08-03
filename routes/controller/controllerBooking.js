@@ -3032,7 +3032,8 @@ const getCourseAttendeesList = async (req, res) => {
                 endTime: found.endTime,
                 days: found.days,
                 bookingId: t.bookingId,
-                isCheckedIn: checkedInToday || t.checkedInQty > 0 || t.checkedInQty >= t.qty
+                isCheckedIn: checkedInToday || t.checkedInQty > 0 || t.checkedInQty >= t.qty,
+                qrCodeData: t.qrCodeData
               });
             }
           }
@@ -3140,6 +3141,7 @@ const getCourseAttendeesList = async (req, res) => {
             batchName: found.batchName,
             startTime: found.startTime,
             endTime: found.endTime,
+            qrCodeData: transaction.qrCodeData
           };
         }
       }
