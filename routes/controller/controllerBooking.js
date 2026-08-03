@@ -3063,6 +3063,9 @@ const getCourseAttendeesList = async (req, res) => {
         return {
           transactionId: txn._id,
           bookingId: txn.bookingId,
+          ticketName: txn.ticketName,
+          qrCodeData: txn.qrCodeData,
+          ongoingSlots: txn.ongoingSlots || [],
           totalAmount: txn.totalAmount || 0,
           enrolledBatches,
           user: {
@@ -3146,6 +3149,7 @@ const getCourseAttendeesList = async (req, res) => {
             batchName: found ? found.batchName : null,
             startTime: found ? found.startTime : null,
             endTime: found ? found.endTime : null,
+            qrCodeData: slot.qrCodeData,
           };
         });
       }
@@ -3153,6 +3157,8 @@ const getCourseAttendeesList = async (req, res) => {
       return {
         transactionId: transaction._id,
         bookingId: transaction.bookingId,
+        ticketName: transaction.ticketName,
+        qrCodeData: transaction.qrCodeData,
         totalAmount: transaction.totalAmount || 0,
         batchDetails,
         ongoingSlots: slotsWithDetails,
