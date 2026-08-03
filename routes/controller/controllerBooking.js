@@ -3066,7 +3066,13 @@ const getCourseAttendeesList = async (req, res) => {
           bookingId: txn.bookingId,
           ticketName: txn.ticketName,
           qrCodeData: txn.qrCodeData,
-          ongoingSlots: txn.ongoingSlots || [],
+          ongoingSlots: (txn.ongoingSlots || []).map(slot => {
+            const slotObj = slot.toObject ? slot.toObject() : { ...slot };
+            if (slotObj.checkedInAt && new Date(slotObj.checkedInAt).toLocaleDateString("en-CA") === todayStr) {
+              slotObj.isCheckedIn = true;
+            }
+            return slotObj;
+          }),
           totalAmount: txn.totalAmount || 0,
           basePrice: txn.basePrice || 0,
           taxAmount: txn.taxAmount || 0,
@@ -3158,6 +3164,8 @@ const getCourseAttendeesList = async (req, res) => {
             startTime: found ? found.startTime : null,
             endTime: found ? found.endTime : null,
             qrCodeData: slot.qrCodeData,
+            checkedInAt: slot.checkedInAt,
+            isCheckedIn: slot.checkedInAt && new Date(slot.checkedInAt).toLocaleDateString("en-CA") === new Date().toLocaleDateString("en-CA") ? true : slot.isCheckedIn
           };
         });
       }

@@ -1668,7 +1668,7 @@ const verifyTicket = async (req, res) => {
       }
 
       // ── Already checked in? ──
-      const isAlreadyCheckedIn = secureAtt.bookingType === "COURSE"
+      let isAlreadyCheckedIn = secureAtt.bookingType === "COURSE"
         ? (secureAtt.checkInHistory || []).some(e => e.sessionDate === todayStr)
         : secureAtt.isCheckedIn;
 
@@ -1724,6 +1724,13 @@ const verifyTicket = async (req, res) => {
           checkedInQty: secureTxn.checkedInQty || 0,
           passType: secureTxn.passType || null,
           passExpiryDate: secureTxn.passExpiryDate || null,
+          ongoingSlots: (secureTxn.ongoingSlots || []).map(slot => {
+            const slotObj = slot.toObject ? slot.toObject() : { ...slot };
+            if (slotObj.checkedInAt && new Date(slotObj.checkedInAt).toLocaleDateString("en-CA") === new Date().toLocaleDateString("en-CA")) {
+              slotObj.isCheckedIn = true;
+            }
+            return slotObj;
+          }),
         } : null,
         attendee: {
           _id: secureAtt._id,
@@ -2100,7 +2107,7 @@ const verifyTicket = async (req, res) => {
     }
     // If endDate is null (Ongoing non-pass) → isExpired stays false
 
-    const checkedInToday = !!(attendee && attendee.checkInHistory && attendee.checkInHistory.some(entry => entry.sessionDate === todayStr));
+    let checkedInToday = !!(attendee && attendee.checkInHistory && attendee.checkInHistory.some(entry => entry.sessionDate === todayStr));
 
     let isValid = false;
     let message = "";
@@ -2209,6 +2216,8 @@ const verifyTicket = async (req, res) => {
         if (matchedQrEntry) matchedQrEntry.isCheckedIn = true;
         finalMessage = resObj.message || "Checked In Successfully";
         isAlreadyCheckedIn = true; // Mark as checked in since we just did it
+        checkedInAt = new Date();
+        checkedInToday = true;
       } catch (err) {
         console.error("Auto check-in failed (Legacy):", err);
         isValid = false;
@@ -2253,7 +2262,13 @@ const verifyTicket = async (req, res) => {
         isCheckedIn: transaction.isCheckedIn,
         qrCodeData: transaction.qrCodeData || "",
         batchId: transaction.batchId || null,
-        ongoingSlots: transaction.ongoingSlots || [],
+        ongoingSlots: (transaction.ongoingSlots || []).map(slot => {
+          const slotObj = slot.toObject ? slot.toObject() : { ...slot };
+          if (slotObj.checkedInAt && new Date(slotObj.checkedInAt).toLocaleDateString("en-CA") === new Date().toLocaleDateString("en-CA")) {
+            slotObj.isCheckedIn = true;
+          }
+          return slotObj;
+        }),
         user: transaction.userId ? {
           _id: transaction.userId._id,
           firstName: transaction.userId.firstName,
