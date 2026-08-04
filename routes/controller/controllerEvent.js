@@ -1665,7 +1665,17 @@ const getEventDetails = async (req, res) => {
   try {
     const { eventId } = req.params;
 
-    const loggedInUserId = req.user?.userId || null;
+    let loggedInUserId = req.user?.userId || null;
+    if (!loggedInUserId) {
+      const authHeader = req.headers.authorization;
+      if (authHeader && authHeader.startsWith("Bearer ")) {
+        try {
+          const token = authHeader.split(" ")[1];
+          const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY);
+          loggedInUserId = decoded.userId;
+        } catch (err) { }
+      }
+    }
     let userTimeZone = null;
     if (loggedInUserId) {
       const u = await User.findById(loggedInUserId).select("timeZone");
@@ -2056,7 +2066,7 @@ const getEventDetails = async (req, res) => {
       }
     }
 
-    const userLang = await getUserLanguage(req, loginUser);
+    const userLang = await getUserLanguage(req, loggedInUserId);
     if (event.refundPolicy) {
       event.refundPolicy = translateRefundPolicy(event.refundPolicy, userLang);
     }
