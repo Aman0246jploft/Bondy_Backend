@@ -294,7 +294,7 @@ const generateTicketPdf = async (ticketData, res, options = {}) => {
       // Booking ID repeat
       let displayIdLabel = "BOOKING ID";
       let displayIdValue = ticketData.bookingId || "N/A";
-      
+
       if (ticketNumber) {
         displayIdLabel = "TICKET NUMBER";
         displayIdValue = ticketNumber;

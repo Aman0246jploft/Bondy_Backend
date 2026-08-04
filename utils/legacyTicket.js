@@ -72,31 +72,31 @@ const ensureAttendeesExist = async (transaction) => {
 
   const userId = transaction.userId?._id || transaction.userId;
   const firstName = transaction.userId?.firstName || "Guest";
-  const lastName  = transaction.userId?.lastName  || "";
-  const email     = transaction.userId?.email     || "guest@example.com";
+  const lastName = transaction.userId?.lastName || "";
+  const email = transaction.userId?.email || "guest@example.com";
 
   const attendeeDocs = [];
   for (let i = 0; i < transaction.qty; i++) {
     const ticketInfo = ticketQueue[i] || { ticketId: transaction.ticketId, ticketName: transaction.ticketName };
     attendeeDocs.push({
       transactionId: transaction._id,
-      eventId:  isEvent ? refId : null,
+      eventId: isEvent ? refId : null,
       courseId: !isEvent ? refId : null,
-      batchId:  transaction.batchId || null,
+      batchId: transaction.batchId || null,
       userId,
       firstName,
       lastName,
       email,
       ticketNumber: generateLegacyTicketNumber(refId, i + 1),
-      qrCodeData:   "",   // set after insertion
-      ticketId:     ticketInfo.ticketId,
-      ticketName:   ticketInfo.ticketName,
-      status:       "ACTIVE",
-      ticketIndex:  i + 1,
-      isPass:       !!transaction.passType && i === 0,
-      isCheckedIn:  false,
+      qrCodeData: "",   // set after insertion
+      ticketId: ticketInfo.ticketId,
+      ticketName: ticketInfo.ticketName,
+      status: "ACTIVE",
+      ticketIndex: i + 1,
+      isPass: !!transaction.passType && i === 0,
+      isCheckedIn: false,
       checkInHistory: [],
-      scanHistory:    [],
+      scanHistory: [],
     });
   }
 
