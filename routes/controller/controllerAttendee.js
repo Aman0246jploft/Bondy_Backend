@@ -1678,8 +1678,8 @@ const verifyTicket = async (req, res) => {
       // Record scan in audit trail
       await recordScanAudit(secureAtt, userId, scanResultCode, isValid ? (req.body.autoCheckIn ? "Auto checked in via verify" : "Verify-only scan") : null);
 
-      let finalMessage = isValid 
-        ? "Ticket is valid for check-in" 
+      let finalMessage = isValid
+        ? "Ticket is valid for check-in"
         : (isExpired ? "Ticket has expired" : "This ticket has already been checked in");
 
       if (isValid && req.body.autoCheckIn) {
@@ -2138,8 +2138,8 @@ const verifyTicket = async (req, res) => {
           const daysOfWeekMap = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
           const currentDayOfWeek = daysOfWeekMap[now.getDay()];
 
-          const slots = (matchedQrEntry && matchedQrEntry.batchId) 
-            ? [matchedQrEntry] 
+          const slots = (matchedQrEntry && matchedQrEntry.batchId)
+            ? [matchedQrEntry]
             : (transaction ? (transaction.ongoingSlots || []) : []);
           const allSlotsCheckedIn = slots.length > 0 && slots.every(s => s.isCheckedIn);
           const matchingSlots = slots.filter(s => s.selectedDate === todayStr || s.selectedDay === currentDayOfWeek);

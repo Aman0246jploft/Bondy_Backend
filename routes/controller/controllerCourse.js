@@ -7,6 +7,7 @@ const HTTP_STATUS = require("../../utils/statusCode");
 const {
   apiErrorRes,
   apiSuccessRes,
+  translateMessage,
   formatResponseUrl,
 } = require("../../utils/globalFunction");
 const moment = require("moment-timezone");
@@ -2973,14 +2974,24 @@ const getCourseAnalytics = async (req, res) => {
 const getBookingCutOffs = async (req, res) => {
   try {
     const setting = await GlobalSetting.findOne({ key: "BOOKING_CUT_OFF_CONFIG" });
-    const options = setting?.value || [
+    const rawOptions = setting?.value || [
       { key: "1h", label: "1 hour before session" },
       { key: "2h", label: "2 hours before session" },
       { key: "4h", label: "4 hours before session" },
       { key: "12h", label: "12 hours before session" },
       { key: "24h", label: "24 hours before session" },
-      { key: "48h", label: "48 hours before session" }
+      { key: "48h", label: "48 hours before session" },
     ];
+
+    // Translate each option label based on the user's language preference
+    const userId = req?.user?.userId || null;
+    const options = await Promise.all(
+      rawOptions.map(async (opt) => ({
+        ...opt,
+        label: await translateMessage(opt.label, userId),
+      }))
+    );
+
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
