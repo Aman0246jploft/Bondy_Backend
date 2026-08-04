@@ -3,6 +3,7 @@ const moment = require("moment-timezone");
 const bcrypt = require("bcryptjs");
 const { default: mongoose } = require("mongoose");
 const crypto = require("crypto"); // Node.js built-in — no install needed
+const MONGOLIAN = require("./translations/mongolian");
 
 const resultDb = (statusCode, data = null) => {
   return {
@@ -11,7 +12,32 @@ const resultDb = (statusCode, data = null) => {
   };
 };
 
-const apiSuccessRes = (
+/**
+ * Translates an API response message based on the user's language preference.
+ * Language is read from the UserSetting collection ("English" | "Mongolian").
+ * Falls back to the original message if:
+ *   - No userId provided
+ *   - UserSetting not found
+ *   - Language is "English" (default)
+ *   - No translation exists for the message
+ *
+ * @param {string} message  - Original English message string
+ * @param {string|null} userId - The logged-in user's _id (from req.user.userId)
+ * @returns {Promise<string>} Translated (or original) message
+ */
+const translateMessage = async (message, userId) => {
+  if (!message || !userId) return message;
+  try {
+    const UserSetting = mongoose.model("UserSetting");
+    const setting = await UserSetting.findOne({ userId }).select("language").lean();
+    if (!setting || setting.language !== "Mongolian") return message;
+    return MONGOLIAN[message] || message;
+  } catch (_) {
+    return message;
+  }
+};
+
+const apiSuccessRes = async (
   statusCode = 200,
   res,
   message = CONSTANTS.DATA_NULL,
@@ -21,8 +47,10 @@ const apiSuccessRes = (
   token,
   currentDate,
 ) => {
+  const userId = res?.req?.user?.userId || null;
+  const translatedMessage = await translateMessage(message, userId);
   return res.status(200).json({
-    message: message,
+    message: translatedMessage,
     // code: code,
     status: !error,
     data: data,
@@ -31,7 +59,7 @@ const apiSuccessRes = (
   });
 };
 
-const apiErrorRes = (
+const apiErrorRes = async (
   statusCode = 200,
   res,
   message = CONSTANTS.DATA_NULL,
@@ -39,8 +67,10 @@ const apiErrorRes = (
   code = CONSTANTS.ERROR_CODE_ONE,
   error = CONSTANTS.ERROR_TRUE,
 ) => {
+  const userId = res?.req?.user?.userId || null;
+  const translatedMessage = await translateMessage(message, userId);
   return res.status(200).json({
-    message: message,
+    message: translatedMessage,
     // code: code,
     status: !error,
     data: data,
@@ -204,19 +234,19 @@ function getUTCDateTime(dateInput, timeInput, timeZone = "UTC") {
  */
 const generateSecureQRPayload = (data, secretKey) => {
   const payload = {
-    attendeeId:    String(data.attendeeId),
+    attendeeId: String(data.attendeeId),
     transactionId: String(data.transactionId),
-    userId:        String(data.userId),
-    refId:         String(data.refId),       // eventId or courseId
-    ticketType:    data.ticketType || "General",
-    ticketIndex:   data.ticketIndex || 1,
-    isPass:        data.isPass || false,
-    nonce:         crypto.randomBytes(8).toString("hex"),
-    ts:            Date.now(),
+    userId: String(data.userId),
+    refId: String(data.refId),       // eventId or courseId
+    ticketType: data.ticketType || "General",
+    ticketIndex: data.ticketIndex || 1,
+    isPass: data.isPass || false,
+    nonce: crypto.randomBytes(8).toString("hex"),
+    ts: Date.now(),
   };
 
   const payloadB64 = Buffer.from(JSON.stringify(payload)).toString("base64url");
-  const signature  = crypto
+  const signature = crypto
     .createHmac("sha256", secretKey)
     .update(payloadB64)
     .digest("base64url");
@@ -243,7 +273,7 @@ const verifyQRPayload = (qrString, secretKey) => {
   // Legacy format detection
   const isLegacy = (
     qrString.startsWith("ATTENDEE-") ||
-    qrString.startsWith("TICKET-")   ||
+    qrString.startsWith("TICKET-") ||
     qrString.startsWith("BNDY-")
   );
 
@@ -295,6 +325,7 @@ module.exports = {
   generateOTP,
   apiSuccessRes,
   apiErrorRes,
+  translateMessage,
   generateKey,
   verifyPassword,
   toObjectId,
