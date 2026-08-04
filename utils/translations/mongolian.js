@@ -518,4 +518,11 @@ module.exports = Object.freeze({
   "OTP sent successfully to your email address.": "OTP таны и-мэйл хаяг руу амжилттай илгээгдлээ.",
   "OTP sent successfully to your phone number.": "OTP таны утасны дугаар руу амжилттай илгээгдлээ.",
   "Phone number verified successfully.": "Утасны дугаар амжилттай баталгаажлаа.",
+
+  // ── Refund Policies ────────────────────────────────────────────────────────
+  "No Refund": "Буцаан олголтгүй",
+  "1 Day Before": "1 хоногийн өмнө",
+  "7 Days Before": "7 хоногийн өмнө",
+  "Refund policies retrieved successfully": "Буцаан олголтын бодлогууд амжилттай татагдлаа.",
+  "Refund policies fetched successfully": "Буцаан олголтын бодлогууд амжилттай татагдлаа.",
 });

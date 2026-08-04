@@ -22,6 +22,81 @@ const refundPolicy = {
     SEVEN_DAYS_BEFORE: "7 Days Before"
 }
 
+const REFUND_POLICY_TRANSLATIONS = {
+    Mongolian: {
+        "No Refund": "Буцаан олголтгүй",
+        "1 Day Before": "1 хоногийн өмнө",
+        "7 Days Before": "7 хоногийн өмнө",
+    },
+    English: {
+        "No Refund": "No Refund",
+        "1 Day Before": "1 Day Before",
+        "7 Days Before": "7 Days Before",
+    },
+};
+
+const REFUND_POLICY_TO_ENGLISH = {
+    "no refund": "No Refund",
+    "1 day before": "1 Day Before",
+    "7 days before": "7 Days Before",
+    "буцаан олголтгүй": "No Refund",
+    "1 хоногийн өмнө": "1 Day Before",
+    "7 хоногийн өмнө": "7 Days Before",
+    "буцаалтгүй": "No Refund",
+    "буцаалт байхгүй": "No Refund",
+    "буцаан олголт байхгүй": "No Refund",
+    "1 өдрийн өмнө": "1 Day Before",
+    "7 өдрийн өмнө": "7 Days Before",
+};
+
+/**
+ * Get all allowed refund policy string values (English + Mongolian + common aliases)
+ * Useful for Joi validation schemas.
+ */
+const getAllAllowedRefundPolicies = () => {
+    return [
+        ...Object.values(refundPolicy),
+        ...Object.values(REFUND_POLICY_TRANSLATIONS.Mongolian),
+        "буцаалтгүй",
+        "буцаалт байхгүй",
+        "буцаан олголт байхгүй",
+        "1 өдрийн өмнө",
+        "7 өдрийн өмнө",
+    ];
+};
+
+/**
+ * Translates a given refund policy string to the specified language ("Mongolian" or "English")
+ */
+const translateRefundPolicy = (policy, language = "English") => {
+    if (!policy) return policy;
+    const normalized = REFUND_POLICY_TO_ENGLISH[policy.toString().trim().toLowerCase()] || policy;
+    if (language === "Mongolian") {
+        return REFUND_POLICY_TRANSLATIONS.Mongolian[normalized] || normalized;
+    }
+    return REFUND_POLICY_TRANSLATIONS.English[normalized] || normalized;
+};
+
+/**
+ * Normalizes any valid English or Mongolian refund policy string back to the canonical English enum
+ */
+const normalizeRefundPolicyToEnglish = (policy) => {
+    if (!policy) return null;
+    const trimmed = policy.toString().trim();
+    if (!trimmed) return null;
+    return REFUND_POLICY_TO_ENGLISH[trimmed.toLowerCase()] || trimmed;
+};
+
+/**
+ * Returns all refund policy options for a given language
+ */
+const getAllRefundPoliciesForLang = (language = "English") => {
+    if (language === "Mongolian") {
+        return Object.values(REFUND_POLICY_TRANSLATIONS.Mongolian);
+    }
+    return Object.values(REFUND_POLICY_TRANSLATIONS.English);
+};
+
 const visibility = {
     PUBLIC: "PUBLIC",
     PRIVATE: "PRIVATE"
@@ -54,6 +129,12 @@ module.exports = {
     roleId,
     userRole,
     refundPolicy,
+    REFUND_POLICY_TRANSLATIONS,
+    REFUND_POLICY_TO_ENGLISH,
+    getAllAllowedRefundPolicies,
+    translateRefundPolicy,
+    normalizeRefundPolicyToEnglish,
+    getAllRefundPoliciesForLang,
     visibility,
     ageRestriction,
     eventStatus,

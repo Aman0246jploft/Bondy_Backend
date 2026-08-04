@@ -13,24 +13,62 @@ const resultDb = (statusCode, data = null) => {
 };
 
 /**
+ * Resolves the language preference ("Mongolian" or "English") by checking:
+ * 1. Request headers (`language`, `accept-language`)
+ * 2. Request query parameters (`language`, `lang`)
+ * 3. UserSetting collection for the user (if userId provided or present on req.user)
+ * 4. Defaults to "English"
+ *
+ * @param {object|null} req - Express request object
+ * @param {string|null} userId - The user's _id
+ * @returns {Promise<string>} "Mongolian" | "English"
+ */
+const getUserLanguage = async (req = null, userId = null) => {
+  try {
+    // 1. Check req headers if available
+    if (req) {
+      const headerLang = req.headers?.language || req.headers?.['accept-language'];
+      if (headerLang && typeof headerLang === "string") {
+        const lower = headerLang.toLowerCase();
+        if (lower.includes("mongolian") || lower.startsWith("mn")) return "Mongolian";
+        if (lower.includes("english") || lower.startsWith("en")) return "English";
+      }
+      const queryLang = req.query?.language || req.query?.lang;
+      if (queryLang && typeof queryLang === "string") {
+        const lower = queryLang.toLowerCase();
+        if (lower.includes("mongolian") || lower.startsWith("mn")) return "Mongolian";
+        if (lower.includes("english") || lower.startsWith("en")) return "English";
+      }
+    }
+
+    // 2. Check userId (from param or req.user.userId)
+    const effectiveUserId = userId || req?.user?.userId;
+    if (effectiveUserId) {
+      const UserSetting = mongoose.model("UserSetting");
+      const setting = await UserSetting.findOne({ userId: effectiveUserId }).select("language").lean();
+      if (setting && setting.language === "Mongolian") return "Mongolian";
+      if (setting && setting.language === "English") return "English";
+    }
+
+    return "English";
+  } catch (_) {
+    return "English";
+  }
+};
+
+/**
  * Translates an API response message based on the user's language preference.
- * Language is read from the UserSetting collection ("English" | "Mongolian").
- * Falls back to the original message if:
- *   - No userId provided
- *   - UserSetting not found
- *   - Language is "English" (default)
- *   - No translation exists for the message
  *
  * @param {string} message  - Original English message string
  * @param {string|null} userId - The logged-in user's _id (from req.user.userId)
+ * @param {object|null} req - Express request object
  * @returns {Promise<string>} Translated (or original) message
  */
-const translateMessage = async (message, userId) => {
-  if (!message || !userId) return message;
+const translateMessage = async (message, userId = null, req = null) => {
+  if (!message) return message;
   try {
-    const UserSetting = mongoose.model("UserSetting");
-    const setting = await UserSetting.findOne({ userId }).select("language").lean();
-    if (!setting || setting.language !== "Mongolian") return message;
+    const lang = await getUserLanguage(req, userId);
+    if (lang !== "Mongolian") return message;
     return MONGOLIAN[message] || message;
   } catch (_) {
     return message;
@@ -48,7 +86,7 @@ const apiSuccessRes = async (
   currentDate,
 ) => {
   const userId = res?.req?.user?.userId || null;
-  const translatedMessage = await translateMessage(message, userId);
+  const translatedMessage = await translateMessage(message, userId, res?.req);
   return res.status(200).json({
     message: translatedMessage,
     // code: code,
@@ -68,7 +106,7 @@ const apiErrorRes = async (
   error = CONSTANTS.ERROR_TRUE,
 ) => {
   const userId = res?.req?.user?.userId || null;
-  const translatedMessage = await translateMessage(message, userId);
+  const translatedMessage = await translateMessage(message, userId, res?.req);
   return res.status(200).json({
     message: translatedMessage,
     // code: code,
@@ -325,6 +363,7 @@ module.exports = {
   generateOTP,
   apiSuccessRes,
   apiErrorRes,
+  getUserLanguage,
   translateMessage,
   generateKey,
   verifyPassword,

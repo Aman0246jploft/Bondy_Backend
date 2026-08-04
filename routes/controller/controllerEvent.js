@@ -21,6 +21,7 @@ const {
   apiSuccessRes,
   formatResponseUrl,
   toObjectId,
+  getUserLanguage,
 } = require("../../utils/globalFunction");
 const moment = require("moment-timezone");
 const { formatDateTimeByTimezone, adjustEventDateTime, getMappedTimeZone } = require("../../utils/timezoneHelper");
@@ -36,7 +37,15 @@ const validateRequest = require("../../middlewares/validateRequest");
 const { assignStaffSchema } = require("../services/validations/userValidation");
 const perApiLimiter = require("../../middlewares/rateLimiter");
 const checkRole = require("../../middlewares/checkRole");
-const { roleId, userRole, eventStatus } = require("../../utils/Role");
+const {
+  roleId,
+  userRole,
+  eventStatus,
+  refundPolicy,
+  translateRefundPolicy,
+  normalizeRefundPolicyToEnglish,
+  getAllRefundPoliciesForLang,
+} = require("../../utils/Role");
 const { notifyEventChange } = require("../services/serviceNotification");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
@@ -50,12 +59,16 @@ const createEvent = async (req, res) => {
     const { id, venueAddress, isDraft: isDraftBody, ...eventData } = req.body;
     const userId = req.user.userId;
 
-    // Sanitize empty strings for optional fields to avoid Cast/Enum validation errors in Mongoose
+    // Sanitize empty strings and normalize refundPolicy
     if (eventData.eventCategory === "") {
       eventData.eventCategory = null;
     }
-    if (eventData.refundPolicy === "") {
-      eventData.refundPolicy = null;
+    if (eventData.refundPolicy !== undefined) {
+      if (eventData.refundPolicy === "") {
+        eventData.refundPolicy = null;
+      } else {
+        eventData.refundPolicy = normalizeRefundPolicyToEnglish(eventData.refundPolicy);
+      }
     }
 
     let event;
@@ -282,6 +295,11 @@ const createEvent = async (req, res) => {
         ? constantsMessage.DRAFT_SAVED
         : constantsMessage.EVENT_CREATED;
 
+    const userLang = await getUserLanguage(req, userId);
+    if (eventObj.refundPolicy) {
+      eventObj.refundPolicy = translateRefundPolicy(eventObj.refundPolicy, userLang);
+    }
+
     return apiSuccessRes(HTTP_STATUS.OK, res, message, {
       event: eventObj,
     });
@@ -298,7 +316,10 @@ const checkFewSeatsAvailable = (available, total, percent = 10) => {
   if (!total || total <= 0) return false;
   return available <= (percent / 100) * total;
 };
-const formatEvent = (event, bookedEventIds = new Set(), bookedQty = 0, pendingQty = 0, userTimeZone = null, placement = null) => {
+const formatEvent = (event, bookedEventIds = new Set(), bookedQty = 0, pendingQty = 0, userTimeZone = null, placement = null, language = "English") => {
+  if (event.refundPolicy) {
+    event.refundPolicy = translateRefundPolicy(event.refundPolicy, language);
+  }
   // Manage isFeatured based on activePromotionPackage placements
   const promoPkg = event.activePromotionPackage || event.promoPkg;
   const isPopulated = promoPkg && typeof promoPkg === "object" && Array.isArray(promoPkg.placements);
@@ -433,6 +454,7 @@ const getEvents = async (req, res) => {
       const u = await User.findById(loginUser).select("timeZone");
       if (u && u.timeZone) userTimeZone = u.timeZone;
     }
+    const userLang = await getUserLanguage(req, loginUser);
     const mappedTz = getMappedTimeZone(userTimeZone);
 
     // // Redis Cache Check
@@ -578,7 +600,7 @@ const getEvents = async (req, res) => {
         const eventIdStr = event._id.toString();
         const bookedQty = bookedMap.get(eventIdStr) || 0;
         const pendingQty = pendingMap.get(eventIdStr) || 0;
-        return formatEvent(event, bookedEventIds, bookedQty, pendingQty, userTimeZone, placement);
+        return formatEvent(event, bookedEventIds, bookedQty, pendingQty, userTimeZone, placement, userLang);
       });
 
       const responseData = {
@@ -1563,7 +1585,7 @@ const getEvents = async (req, res) => {
       const eventIdStr = event._id.toString();
       const bookedQty = bookedMap.get(eventIdStr) || 0;
       const pendingQty = pendingMap.get(eventIdStr) || 0;
-      const formatted = formatEvent(event, bookedEventIds, bookedQty, pendingQty, userTimeZone, placement);
+      const formatted = formatEvent(event, bookedEventIds, bookedQty, pendingQty, userTimeZone, placement, userLang);
       formatted.totalRevenue = revenueMap.get(eventIdStr) || 0;
       return formatted;
     });
@@ -2034,7 +2056,11 @@ const getEventDetails = async (req, res) => {
       }
     }
 
-    const similarEvents = (rawSimilarEvents || []).map(e => formatEvent(e, new Set(), 0, 0, userTimeZone));
+    const userLang = await getUserLanguage(req, loginUser);
+    if (event.refundPolicy) {
+      event.refundPolicy = translateRefundPolicy(event.refundPolicy, userLang);
+    }
+    const similarEvents = (rawSimilarEvents || []).map(e => formatEvent(e, new Set(), 0, 0, userTimeZone, null, userLang));
 
     return apiSuccessRes(
       HTTP_STATUS.OK,
@@ -2286,6 +2312,11 @@ const getEventsAdmin = async (req, res) => {
         else event.status = "Past";
       }
       event.addToSlider = Boolean(event.addToSlider);
+
+      const userLang = req.user?.language || "English";
+      if (event.refundPolicy) {
+        event.refundPolicy = translateRefundPolicy(event.refundPolicy, userLang);
+      }
 
       return event;
     });
@@ -2614,8 +2645,12 @@ const updateEvent = async (req, res) => {
     if (updateData.eventCategory === "") {
       updateData.eventCategory = null;
     }
-    if (updateData.refundPolicy === "") {
-      updateData.refundPolicy = null;
+    if (updateData.refundPolicy !== undefined) {
+      if (updateData.refundPolicy === "") {
+        updateData.refundPolicy = null;
+      } else {
+        updateData.refundPolicy = normalizeRefundPolicyToEnglish(updateData.refundPolicy);
+      }
     }
     // 1. Check if event exists
     const existingEvent = await Event.findById(eventId);
@@ -3044,6 +3079,11 @@ const updateEvent = async (req, res) => {
     }
     // ────────────────────────────────────────────────────────────────────────
 
+    const userLang = await getUserLanguage(req, userId);
+    if (updatedEvent.refundPolicy) {
+      updatedEvent.refundPolicy = translateRefundPolicy(updatedEvent.refundPolicy, userLang);
+    }
+
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
@@ -3100,12 +3140,13 @@ router.post(
 
 const getRefundPolicies = async (req, res) => {
   try {
-    const { refundPolicy } = require("../../utils/Role");
+    const lang = await getUserLanguage(req);
+    const policies = getAllRefundPoliciesForLang(lang);
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
       "Refund policies retrieved successfully",
-      Object.values(refundPolicy),
+      policies,
     );
   } catch (error) {
     console.error("Error in getRefundPolicies:", error);

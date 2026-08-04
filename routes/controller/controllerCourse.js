@@ -9,6 +9,7 @@ const {
   apiSuccessRes,
   translateMessage,
   formatResponseUrl,
+  getUserLanguage,
 } = require("../../utils/globalFunction");
 const moment = require("moment-timezone");
 const { formatDateTimeByTimezone, adjustEventDateTime, getMappedTimeZone } = require("../../utils/timezoneHelper");
@@ -22,7 +23,14 @@ const validateRequest = require("../../middlewares/validateRequest");
 const { assignStaffSchema } = require("../services/validations/userValidation");
 const perApiLimiter = require("../../middlewares/rateLimiter");
 const checkRole = require("../../middlewares/checkRole");
-const { roleId, eventStatus, daysOfWeek } = require("../../utils/Role");
+const {
+  roleId,
+  eventStatus,
+  daysOfWeek,
+  refundPolicy,
+  translateRefundPolicy,
+  normalizeRefundPolicyToEnglish,
+} = require("../../utils/Role");
 const { notifyCourseChange } = require("../services/serviceNotification");
 const { default: mongoose } = require("mongoose");
 const crypto = require("crypto");
@@ -35,12 +43,16 @@ const createCourse = async (req, res) => {
     const { venueAddress, isDraft: isDraftBody, ...courseData } = req.body;
     const userId = req.user.userId;
 
-    // Sanitize empty strings for optional fields to avoid Cast/Enum validation errors in Mongoose
+    // Sanitize empty strings and normalize refundPolicy
     if (courseData.courseCategory === "") {
       courseData.courseCategory = null;
     }
-    if (courseData.refundPolicy === "") {
-      courseData.refundPolicy = null;
+    if (courseData.refundPolicy !== undefined) {
+      if (courseData.refundPolicy === "") {
+        courseData.refundPolicy = null;
+      } else {
+        courseData.refundPolicy = normalizeRefundPolicyToEnglish(courseData.refundPolicy);
+      }
     }
     if (courseData.oneMonthPassPrice === "" || courseData.oneMonthPassPrice === null) {
       courseData.oneMonthPassPrice = null;
@@ -101,6 +113,11 @@ const createCourse = async (req, res) => {
     const message = isDraftValue
       ? constantsMessage.DRAFT_SAVED
       : constantsMessage.COURSE_CREATED_SUCCESS;
+
+    const userLang = await getUserLanguage(req, userId);
+    if (courseObj.refundPolicy) {
+      courseObj.refundPolicy = translateRefundPolicy(courseObj.refundPolicy, userLang);
+    }
 
     return apiSuccessRes(HTTP_STATUS.OK, res, message, {
       course: courseObj,
@@ -217,6 +234,7 @@ const getCourses = async (req, res) => {
       const u = await User.findById(loginUser).select("timeZone");
       if (u && u.timeZone) userTimeZone = u.timeZone;
     }
+    const userLang = await getUserLanguage(req, loginUser);
     const mappedTz = getMappedTimeZone(userTimeZone);
 
     // // Redis Cache Check
@@ -1421,6 +1439,7 @@ const getCourses = async (req, res) => {
 
       return {
         ...course,
+        refundPolicy: course.refundPolicy ? translateRefundPolicy(course.refundPolicy, userLang) : course.refundPolicy,
         isFeatured: dynamicIsFeatured,
         totalSeats: courseTotalSeatsVal,
         acquiredSeats: courseAcquiredSeatsVal,
@@ -1563,6 +1582,11 @@ const getCoursesAdmin = async (req, res) => {
         : Math.max(0, totalSeats - actualBooked - totalReserved);
       course.capacitypersession = course.batches && course.batches.length > 0 ? (course.batches[0].seats || 0) : 0;
 
+      const adminLang = req.user?.language || "English";
+      if (course.refundPolicy) {
+        course.refundPolicy = translateRefundPolicy(course.refundPolicy, adminLang);
+      }
+
       return course;
     });
 
@@ -1586,12 +1610,16 @@ const updateCourse = async (req, res) => {
     const userId = req.user.userId;
     const updateData = req.body;
 
-    // Sanitize empty strings for optional fields to avoid Cast/Enum validation errors in Mongoose
+    // Sanitize empty strings and normalize refundPolicy
     if (updateData.courseCategory === "") {
       updateData.courseCategory = null;
     }
-    if (updateData.refundPolicy === "") {
-      updateData.refundPolicy = null;
+    if (updateData.refundPolicy !== undefined) {
+      if (updateData.refundPolicy === "") {
+        updateData.refundPolicy = null;
+      } else {
+        updateData.refundPolicy = normalizeRefundPolicyToEnglish(updateData.refundPolicy);
+      }
     }
     if (updateData.oneMonthPassPrice === "" || updateData.oneMonthPassPrice === null) {
       updateData.oneMonthPassPrice = null;
@@ -2002,6 +2030,11 @@ const updateCourse = async (req, res) => {
     const message = existingCourse.isDraft
       ? constantsMessage.DRAFT_UPDATED
       : constantsMessage.COURSE_UPDATED_SUCCESS;
+
+    const userLang = await getUserLanguage(req, userId);
+    if (updatedCourse.refundPolicy) {
+      updatedCourse.refundPolicy = translateRefundPolicy(updatedCourse.refundPolicy, userLang);
+    }
 
     return apiSuccessRes(
       HTTP_STATUS.OK,
@@ -2700,6 +2733,11 @@ const getCourseDetails = async (req, res) => {
         });
       }
       formattedCourse.timeZone = displayTimeZone;
+    }
+
+    const userLang = await getUserLanguage(req, viewUserId);
+    if (formattedCourse.refundPolicy) {
+      formattedCourse.refundPolicy = translateRefundPolicy(formattedCourse.refundPolicy, userLang);
     }
 
     return apiSuccessRes(

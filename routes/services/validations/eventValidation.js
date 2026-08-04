@@ -1,5 +1,5 @@
 const Joi = require("joi");
-const { refundPolicy, visibility, ageRestriction } = require("../../../utils/Role");
+const { refundPolicy, getAllAllowedRefundPolicies, visibility, ageRestriction } = require("../../../utils/Role");
 
 const createEventSchema = Joi.object({
     id: Joi.string().hex().length(24).optional(),
@@ -68,7 +68,7 @@ const createEventSchema = Joi.object({
         salesStart: Joi.date().optional(),
         salesEnd: Joi.date().optional(),
     })).optional(),
-    refundPolicy: Joi.string().valid(...Object.values(refundPolicy)).allow('', null).optional(),
+    refundPolicy: Joi.string().valid(...getAllAllowedRefundPolicies()).allow('', null).optional(),
     addOns: Joi.string().allow('', null).optional(),
     mediaLinks: Joi.array().items(Joi.string().allow('', null)).optional(),
     shortTeaserVideo: Joi.array().items(Joi.string().allow('', null)).optional(),
@@ -154,7 +154,7 @@ const updateEventSchema = Joi.object({
         salesStart: Joi.date().optional(),
         salesEnd: Joi.date().optional(),
     })).optional(),
-    refundPolicy: Joi.string().valid(...Object.values(refundPolicy)).allow('', null).optional(),
+    refundPolicy: Joi.string().valid(...getAllAllowedRefundPolicies()).allow('', null).optional(),
     addOns: Joi.string().allow('', null).optional(),
     mediaLinks: Joi.array().items(Joi.string().allow('', null)).optional(),
     shortTeaserVideo: Joi.array().items(Joi.string().allow('', null)).optional(),

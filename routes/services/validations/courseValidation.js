@@ -1,5 +1,5 @@
 const Joi = require("joi");
-const { refundPolicy, daysOfWeek } = require("../../../utils/Role");
+const { refundPolicy, getAllAllowedRefundPolicies, daysOfWeek } = require("../../../utils/Role");
 
 const batchSchema = Joi.object({
     _id: Joi.string().hex().length(24).optional(),
@@ -90,7 +90,7 @@ const createCourseSchema = Joi.object({
         then: Joi.optional(),
         otherwise: Joi.required(),
     }),
-    refundPolicy: Joi.string().valid(...Object.values(refundPolicy)).optional().allow(null, ""),
+    refundPolicy: Joi.string().valid(...getAllAllowedRefundPolicies()).optional().allow(null, ""),
     oneMonthPassPrice: Joi.number().min(0).optional().allow(null, ""),
     oneMonthPassEnabled: Joi.boolean().optional(),
     threeMonthPassPrice: Joi.number().min(0).optional().allow(null, ""),
@@ -176,7 +176,7 @@ const updateCourseSchema = Joi.object({
     }).optional(),
     batches: Joi.array().items(batchSchema).optional(),
     price: Joi.number().min(0).optional(),
-    refundPolicy: Joi.string().valid(...Object.values(refundPolicy)).optional().allow(null, ""),
+    refundPolicy: Joi.string().valid(...getAllAllowedRefundPolicies()).optional().allow(null, ""),
     oneMonthPassPrice: Joi.number().min(0).optional().allow(null, ""),
     oneMonthPassEnabled: Joi.boolean().optional(),
     threeMonthPassPrice: Joi.number().min(0).optional().allow(null, ""),

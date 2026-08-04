@@ -23,6 +23,7 @@ const {
   apiSuccessRes,
   formatResponseUrl,
   generateSecureQRPayload,
+  getUserLanguage,
 } = require("../../utils/globalFunction");
 const { generateTicketPdf } = require("../../utils/pdfGenerator");
 const {
@@ -38,7 +39,13 @@ const {
 const validateRequest = require("../../middlewares/validateRequest");
 const perApiLimiter = require("../../middlewares/rateLimiter");
 const checkRole = require("../../middlewares/checkRole");
-const { roleId, userRole, refundPolicy: refundPolicyEnum } = require("../../utils/Role");
+const {
+  roleId,
+  userRole,
+  refundPolicy: refundPolicyEnum,
+  translateRefundPolicy,
+  normalizeRefundPolicyToEnglish,
+} = require("../../utils/Role");
 const constantsMessage = require("../../utils/constantsMessage");
 const {
   notifyBookingConfirmed,
@@ -506,19 +513,20 @@ const deductOrganizerWallet = async (organizerId, amount, transaction, reason) =
  * Check refund eligibility based on refund policy and event/course start date
  */
 const checkRefundEligibility = (refundPolicyValue, startDate) => {
+  const normalizedPolicy = normalizeRefundPolicyToEnglish(refundPolicyValue);
   const now = new Date();
   const start = new Date(startDate);
   const hoursUntilStart = (start - now) / (1000 * 60 * 60);
 
-  if (refundPolicyValue === refundPolicyEnum.NO_REFUND) {
+  if (normalizedPolicy === refundPolicyEnum.NO_REFUND) {
     return { eligible: false, refundPercentage: 0 };
   }
-  if (refundPolicyValue === refundPolicyEnum.ONE_DAY_BEFORE) {
+  if (normalizedPolicy === refundPolicyEnum.ONE_DAY_BEFORE) {
     return hoursUntilStart >= 24
       ? { eligible: true, refundPercentage: 100 }
       : { eligible: false, refundPercentage: 0 };
   }
-  if (refundPolicyValue === refundPolicyEnum.SEVEN_DAYS_BEFORE) {
+  if (normalizedPolicy === refundPolicyEnum.SEVEN_DAYS_BEFORE) {
     return hoursUntilStart >= 168 // 7 * 24
       ? { eligible: true, refundPercentage: 100 }
       : { eligible: false, refundPercentage: 0 };
@@ -580,7 +588,8 @@ const attachRefundPreview = async (transaction, transactionObj) => {
         }
       }
 
-      transactionObj.refundPolicy = policyValue;
+      const userLang = await getUserLanguage(null, transaction.userId);
+      transactionObj.refundPolicy = translateRefundPolicy(policyValue, userLang);
       transactionObj.isRefundEligible = eligible;
       transactionObj.refundPercentage = refundPercentage;
       transactionObj.estimatedRefundAmount = estimatedRefundAmount;
@@ -1700,11 +1709,12 @@ const previewRefund = async (req, res) => {
       }
     }
 
+    const userLang = await getUserLanguage(req, userId);
     return apiSuccessRes(HTTP_STATUS.OK, res, "Refund preview calculated successfully", {
       transactionId: transaction._id,
       bookingId: transaction.bookingId,
       totalAmount: transaction.totalAmount,
-      refundPolicy: policyValue,
+      refundPolicy: translateRefundPolicy(policyValue, userLang),
       eligible,
       refundPercentage,
       cancellationFeePercent,
@@ -1841,6 +1851,7 @@ const cancelBooking = async (req, res) => {
       console.error("[REFERRAL] Error rolling back referral on cancel:", refErr);
     }
 
+    const userLang = await getUserLanguage(req, userId);
     return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.BOOKING_CANCELLED, {
       transactionId: transaction._id,
       bookingId: transaction.bookingId,
@@ -1848,7 +1859,7 @@ const cancelBooking = async (req, res) => {
       refundAmount,
       cancellationFeePercent,
       cancellationFeeAmount,
-      refundPolicy: policyValue,
+      refundPolicy: translateRefundPolicy(policyValue, userLang),
       refundEligible: eligible,
     });
   } catch (error) {
