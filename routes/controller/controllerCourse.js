@@ -2735,7 +2735,8 @@ const getCourseDetails = async (req, res) => {
       formattedCourse.timeZone = displayTimeZone;
     }
 
-    const userLang = await getUserLanguage(req, viewUserId);
+    const effectiveUserId = viewerId || viewUserId || req.user?.userId || null;
+    const userLang = await getUserLanguage(req, effectiveUserId);
     if (formattedCourse.refundPolicy) {
       formattedCourse.refundPolicy = translateRefundPolicy(formattedCourse.refundPolicy, userLang);
     }
