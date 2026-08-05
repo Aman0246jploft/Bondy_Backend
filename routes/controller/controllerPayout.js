@@ -21,7 +21,7 @@ const getOrganizerEarnings = async (req, res) => {
   try {
     const userId = req.user.userId;
     const user = await User.findById(userId).select(
-      "totalEarnings payoutBalance bankDetails roleId verifications",
+      "totalEarnings payoutBalance bankDetails roleId verifications bankAccounts",
     );
 
     if (!user) {
@@ -94,6 +94,8 @@ const getOrganizerEarnings = async (req, res) => {
       payoutBalance: user.payoutBalance ? Number(user.payoutBalance.toFixed(2)) : 0,
       bankDetails: user.bankDetails,
       addedBank: user.verifications?.bankVerification || null,
+      bankAccounts: user.bankAccounts || [],
+      primaryBank: (user.bankAccounts || []).find(b => b.isPrimary) || null,
       payoutHistory,
       walletHistory: formattedWalletHistory,
       minPayout,
@@ -104,7 +106,7 @@ const getOrganizerEarnings = async (req, res) => {
   }
 };
 
-// 2. Update Bank Details (Organizer)
+// 2. Update Bank Details (Organizer) - Legacy
 const updateBankDetails = async (req, res) => {
   try {
     const userId = req.user.userId;
@@ -136,11 +138,117 @@ const updateBankDetails = async (req, res) => {
   }
 };
 
+// 2.1 Add Bank Account (Organizer)
+const addBankAccount = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { bankName, bankHolderName, accountNumber, otherDetails } = req.body;
+
+    if (!bankName || !bankHolderName || !accountNumber) {
+      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Bank Name, Holder Name, and Account Number are required.");
+    }
+
+    const user = await User.findById(userId);
+    if (!user) return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.USER_NOT_FOUND);
+
+    const isFirstBank = !user.bankAccounts || user.bankAccounts.length === 0;
+    if (!user.bankAccounts) user.bankAccounts = [];
+
+    user.bankAccounts.push({
+      bankName,
+      bankHolderName,
+      accountNumber,
+      otherDetails: otherDetails || null,
+      isVerified: false,
+      status: "pending",
+      isPrimary: isFirstBank
+    });
+
+    await user.save();
+
+    return apiSuccessRes(HTTP_STATUS.OK, res, "Bank account added successfully. Waiting for admin approval.", {
+      bankAccounts: user.bankAccounts
+    });
+  } catch (error) {
+    console.error("Error in addBankAccount:", error);
+    return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
+  }
+};
+
+// 2.2 Set Primary Bank Account (Organizer)
+const setPrimaryBankAccount = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { accountId } = req.params;
+
+    const user = await User.findById(userId);
+    if (!user) return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.USER_NOT_FOUND);
+
+    const accountToSet = user.bankAccounts.find(acc => acc._id.toString() === accountId);
+    if (!accountToSet) {
+      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Bank account not found.");
+    }
+
+    if (accountToSet.status !== "approved") {
+      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Only approved bank accounts can be set as primary.");
+    }
+
+    user.bankAccounts.forEach(acc => {
+      acc.isPrimary = (acc._id.toString() === accountId);
+    });
+
+    await user.save();
+
+    return apiSuccessRes(HTTP_STATUS.OK, res, "Primary bank account updated successfully.", {
+      bankAccounts: user.bankAccounts
+    });
+  } catch (error) {
+    console.error("Error in setPrimaryBankAccount:", error);
+    return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
+  }
+};
+
+// 2.3 Remove Bank Account (Organizer)
+const removeBankAccount = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { accountId } = req.params;
+
+    const user = await User.findById(userId);
+    if (!user) return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.USER_NOT_FOUND);
+
+    const accountIndex = user.bankAccounts.findIndex(acc => acc._id.toString() === accountId);
+    if (accountIndex === -1) {
+      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Bank account not found.");
+    }
+
+    const accountToRemove = user.bankAccounts[accountIndex];
+    user.bankAccounts.splice(accountIndex, 1);
+
+    // If the removed account was primary, set the first approved one as primary
+    if (accountToRemove.isPrimary && user.bankAccounts.length > 0) {
+      const approvedAccount = user.bankAccounts.find(acc => acc.status === "approved");
+      if (approvedAccount) {
+        approvedAccount.isPrimary = true;
+      }
+    }
+
+    await user.save();
+
+    return apiSuccessRes(HTTP_STATUS.OK, res, "Bank account removed successfully.", {
+      bankAccounts: user.bankAccounts
+    });
+  } catch (error) {
+    console.error("Error in removeBankAccount:", error);
+    return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
+  }
+};
+
 // 2.5 Request Payout (Organizer)
 const requestPayout = async (req, res) => {
   try {
     const userId = req.user.userId;
-    const { amount, paymentReference } = req.body; // paymentReference could be bank details hint or updated info
+    const { amount, paymentReference, accountId } = req.body; // accountId to select specific bank
 
     if (!amount || amount <= 0) {
       return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.INVALID_AMOUNT);
@@ -168,12 +276,41 @@ const requestPayout = async (req, res) => {
       return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.INSUFFICIENT_BALANCE);
     }
 
+    let selectedBank = null;
+    if (accountId) {
+      selectedBank = user.bankAccounts?.find(b => b._id.toString() === accountId);
+      if (!selectedBank) {
+        return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Selected bank account not found.");
+      }
+      if (selectedBank.status !== "approved") {
+        return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Selected bank account is not approved.");
+      }
+    } else {
+      // Fallback to primary or any approved bank
+      selectedBank = user.bankAccounts?.find(b => b.isPrimary && b.status === "approved") ||
+        user.bankAccounts?.find(b => b.status === "approved");
+    }
+
+    if (!selectedBank) {
+      // Fallback to legacy bank verification check just in case
+      if (user.verifications?.bankVerification?.status !== "approved") {
+        return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "No approved bank account found for payout.");
+      }
+    }
+
+    let finalPaymentReference = paymentReference || "Requested by user";
+    if (selectedBank) {
+      finalPaymentReference = `${finalPaymentReference} (Bank: ${selectedBank.bankName}, Acc: ${selectedBank.accountNumber})`;
+    } else if (user.verifications?.bankVerification?.bankName) {
+      finalPaymentReference = `${finalPaymentReference} (Bank: ${user.verifications.bankVerification.bankName}, Acc: ${user.verifications.bankVerification.accountNumber})`;
+    }
+
     // 1. Create Payout Request
     const newPayout = new Payout({
       organizerId: userId,
       amount: amount,
       status: "PENDING",
-      paymentReference: paymentReference || "Requested by user",
+      paymentReference: finalPaymentReference,
     });
     await newPayout.save();
 
@@ -595,7 +732,10 @@ const getAllTransactions = async (req, res) => {
 
 // Organizer Routes
 router.get("/earnings", getOrganizerEarnings);
-router.put("/bank-details", checkRole([roleId.ORGANIZER]), updateBankDetails);
+router.post("/bank-details", checkRole([roleId.ORGANIZER]), updateBankDetails); // Legacy (Changed from PUT to POST)
+router.post("/bank-accounts", checkRole([roleId.ORGANIZER]), addBankAccount);
+router.post("/bank-accounts/set-primary/:accountId", checkRole([roleId.ORGANIZER]), setPrimaryBankAccount); // Changed from PUT to POST
+router.post("/bank-accounts/delete/:accountId", checkRole([roleId.ORGANIZER]), removeBankAccount); // Changed from DELETE to POST
 router.post("/request-payout", checkRole([roleId.ORGANIZER]), requestPayout);
 
 // Admin Routes

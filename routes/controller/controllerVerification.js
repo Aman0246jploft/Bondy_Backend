@@ -177,21 +177,22 @@ const submitVerification = async (req, res) => {
         );
       }
 
-      // If pre-existing submission, push to history
-      if (user.verifications.bankVerification.bankName) {
-        user.verifications.history.push({
-          type: "bankVerification",
-          bankName: user.verifications.bankVerification.bankName,
-          bankHolderName: user.verifications.bankVerification.bankHolderName,
-          accountNumber: user.verifications.bankVerification.accountNumber,
-          otherDetails: user.verifications.bankVerification.otherDetails,
-          status: user.verifications.bankVerification.status,
-          rejectionReason: user.verifications.bankVerification.rejectionReason,
-          actionBy: user._id,
-          createdAt: user.verifications.bankVerification.verifiedAt || new Date(),
-        });
-      }
+      const isFirstBank = !user.bankAccounts || user.bankAccounts.length === 0;
+      if (!user.bankAccounts) user.bankAccounts = [];
 
+      user.bankAccounts.push({
+        bankName,
+        bankHolderName,
+        accountNumber,
+        otherDetails: otherDetails || null,
+        isVerified: false,
+        rejectionReason: null,
+        verifiedAt: null,
+        status: "pending",
+        isPrimary: isFirstBank
+      });
+
+      // Update legacy bankVerification for backwards compatibility
       user.verifications.bankVerification = {
         bankName,
         bankHolderName,
@@ -202,6 +203,7 @@ const submitVerification = async (req, res) => {
         verifiedAt: null,
         status: "pending",
       };
+
       updated = true;
     }
 
@@ -348,8 +350,8 @@ const getVerificationRequests = async (req, res) => {
 // Approve/Reject Individual Document (Admin)
 const verifyOrganizer = async (req, res) => {
   try {
-    const { userId, type, action, reason, reasonTitle } = req.body;
-    // type: "nationalId" | "drivingLicence" | "bankVerification"
+    const { userId, type, action, reason, reasonTitle, accountId } = req.body;
+    // type: "nationalId" | "drivingLicence" | "bankVerification" | "businessVerification"
     // action: "approve" | "reject"
 
     if (!["approve", "reject"].includes(action)) {
@@ -418,22 +420,31 @@ const verifyOrganizer = async (req, res) => {
         createdAt: new Date(),
       });
     } else if (type === "bankVerification") {
-      if (user.verifications.bankVerification.status === "unverified") {
-        return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Bank details have not been submitted yet.");
+      let bankAccount = null;
+      if (accountId) {
+        bankAccount = user.bankAccounts.find(b => b._id.toString() === accountId);
+      } else {
+        // Fallback for old frontend sending no accountId
+        bankAccount = user.bankAccounts.find(b => b.status === "pending") || user.bankAccounts[user.bankAccounts.length - 1];
       }
-      user.verifications.bankVerification.isVerified = isApprove;
-      user.verifications.bankVerification.status = isApprove ? "approved" : "rejected";
-      user.verifications.bankVerification.rejectionReason = isApprove ? null : reason;
-      user.verifications.bankVerification.rejectionReasonTitle = isApprove ? null : reasonTitle;
-      user.verifications.bankVerification.verifiedAt = new Date();
+
+      if (!bankAccount) {
+        return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Bank details not found.");
+      }
+
+      bankAccount.isVerified = isApprove;
+      bankAccount.status = isApprove ? "approved" : "rejected";
+      bankAccount.rejectionReason = isApprove ? null : reason;
+      bankAccount.rejectionReasonTitle = isApprove ? null : reasonTitle;
+      bankAccount.verifiedAt = new Date();
 
       // Log history
       user.verifications.history.push({
         type: "bankVerification",
-        bankName: user.verifications.bankVerification.bankName,
-        bankHolderName: user.verifications.bankVerification.bankHolderName,
-        accountNumber: user.verifications.bankVerification.accountNumber,
-        otherDetails: user.verifications.bankVerification.otherDetails,
+        bankName: bankAccount.bankName,
+        bankHolderName: bankAccount.bankHolderName,
+        accountNumber: bankAccount.accountNumber,
+        otherDetails: bankAccount.otherDetails,
         status: isApprove ? "approved" : "rejected",
         rejectionReason: isApprove ? null : reason,
         rejectionReasonTitle: isApprove ? null : reasonTitle,
@@ -444,12 +455,20 @@ const verifyOrganizer = async (req, res) => {
       // Synchronize with classic bankDetails for payout compatibility
       if (isApprove) {
         user.bankDetails = {
-          accountName: user.verifications.bankVerification.bankHolderName,
-          accountNumber: user.verifications.bankVerification.accountNumber,
-          bankName: user.verifications.bankVerification.bankName,
-          ifscCode: user.verifications.bankVerification.otherDetails || "",
+          accountName: bankAccount.bankHolderName,
+          accountNumber: bankAccount.accountNumber,
+          bankName: bankAccount.bankName,
+          ifscCode: bankAccount.otherDetails || "",
           swiftCode: "",
         };
+        if (user.verifications.bankVerification) {
+          user.verifications.bankVerification.isVerified = true;
+          user.verifications.bankVerification.status = "approved";
+        }
+      } else {
+        if (user.verifications.bankVerification) {
+          user.verifications.bankVerification.status = "rejected";
+        }
       }
     } else if (type === "businessVerification") {
       if (user.businessVerificationStatus === "unverified") {

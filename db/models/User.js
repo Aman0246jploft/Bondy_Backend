@@ -283,13 +283,25 @@ const UserSchema = new Schema(
       type: Date,
       default: null,
     },
-    // bankDetails: {
-    //   accountName: { type: String, default: null },
-    //   accountNumber: { type: String, default: null },
-    //   bankName: { type: String, default: null },
-    //   ifscCode: { type: String, default: null },
-    //   swiftCode: { type: String, default: null },
-    // },
+    bankAccounts: [
+      {
+        bankName: { type: String, required: true },
+        bankHolderName: { type: String, required: true },
+        accountNumber: { type: String, required: true },
+        otherDetails: { type: String, default: null },
+        isVerified: { type: Boolean, default: false },
+        status: {
+          type: String,
+          enum: ["pending", "approved", "rejected"],
+          default: "pending",
+        },
+        rejectionReason: { type: String, default: null },
+        rejectionReasonTitle: { type: String, default: null },
+        verifiedAt: { type: Date, default: null },
+        isPrimary: { type: Boolean, default: false },
+        createdAt: { type: Date, default: Date.now },
+      },
+    ],
     totalEarnings: {
       type: Number,
       default: 0,
@@ -347,14 +359,24 @@ UserSchema.pre("save", function (next) {
       // isAllVerified is true ONLY if Phone, Email, at least one ID, and Bank are all verified
       const isPhoneVerified = this.verifications?.phone?.isVerified || false;
       const isEmailVerified = this.verifications?.email?.isVerified || false;
-      const isBankApproved = this.verifications?.bankVerification?.isVerified || false;
+      const isBankApproved = this.bankAccounts && this.bankAccounts.some(b => b.isVerified);
 
       this.isAllVerified = isPhoneVerified && isEmailVerified && isIdApproved && isBankApproved;
 
       // Keep organizerVerificationStatus in sync
       const nationalIdStatus = this.verifications?.idVerification?.nationalId?.status || "unverified";
       const drivingLicenceStatus = this.verifications?.idVerification?.drivingLicence?.status || "unverified";
-      const bankStatus = this.verifications?.bankVerification?.status || "unverified";
+
+      let bankStatus = "unverified";
+      if (this.bankAccounts && this.bankAccounts.length > 0) {
+        if (this.bankAccounts.some(b => b.status === "approved")) {
+          bankStatus = "approved";
+        } else if (this.bankAccounts.some(b => b.status === "pending")) {
+          bankStatus = "pending";
+        } else if (this.bankAccounts.every(b => b.status === "rejected")) {
+          bankStatus = "rejected";
+        }
+      }
 
       if (
         (nationalIdStatus === "approved" || drivingLicenceStatus === "approved") &&
