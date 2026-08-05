@@ -35,6 +35,17 @@ const REFUND_POLICY_TRANSLATIONS = {
     },
 };
 
+const CANCELLATION_REASONS_TRANSLATIONS = {
+    Mongolian: {
+        "Schedule conflict": "Цагийн хуваарь давхацсан",
+        "Event no longer relevant": "Үйл ажиллагаа шаардлагагүй болсон",
+        "Found a better alternative": "Илүү дээр сонголт олсон",
+        "Booked by mistake": "Санамсаргүй захиалсан",
+        "Financial reasons": "Санхүүгийн шалтгаан",
+        "Other": "Бусад"
+    }
+};
+
 const REFUND_POLICY_TO_ENGLISH = {
     "no refund": "No Refund",
     "1 day before": "1 Day Before",
@@ -131,6 +142,7 @@ module.exports = {
     refundPolicy,
     REFUND_POLICY_TRANSLATIONS,
     REFUND_POLICY_TO_ENGLISH,
+    CANCELLATION_REASONS_TRANSLATIONS,
     getAllAllowedRefundPolicies,
     translateRefundPolicy,
     normalizeRefundPolicyToEnglish,
