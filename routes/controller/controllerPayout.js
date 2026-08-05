@@ -20,6 +20,8 @@ const { notifyPayoutResult } = require("../services/serviceNotification");
 const getOrganizerEarnings = async (req, res) => {
   try {
     const userId = req.user.userId;
+    const { filterType, startDate, endDate } = req.query;
+
     const user = await User.findById(userId).select(
       "totalEarnings payoutBalance bankDetails roleId verifications bankAccounts",
     );
@@ -28,16 +30,41 @@ const getOrganizerEarnings = async (req, res) => {
       return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.USER_NOT_FOUND);
     }
 
-    const payoutHistory = await Payout.find({ organizerId: userId }).sort({
+    // Construct date filter query
+    let dateFilter = {};
+    const now = new Date();
+
+    if (filterType === 'this_month') {
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      dateFilter.createdAt = { $gte: startOfMonth };
+    } else if (filterType === 'this_year') {
+      const startOfYear = new Date(now.getFullYear(), 0, 1);
+      dateFilter.createdAt = { $gte: startOfYear };
+    } else if (startDate && endDate) {
+      dateFilter.createdAt = {
+        $gte: new Date(startDate),
+        $lte: new Date(new Date(endDate).setHours(23, 59, 59, 999))
+      };
+    } else if (startDate) {
+      dateFilter.createdAt = { $gte: new Date(startDate) };
+    } else if (endDate) {
+      dateFilter.createdAt = { $lte: new Date(new Date(endDate).setHours(23, 59, 59, 999)) };
+    }
+
+    const payoutQuery = { organizerId: userId, ...dateFilter };
+    const walletHistoryQuery = { userId, ...dateFilter };
+    const transactionQuery = { userId, status: "PAID", ...dateFilter };
+
+    const payoutHistory = await Payout.find(payoutQuery).sort({
       createdAt: -1,
     });
 
-    const walletHistory = await WalletHistory.find({ userId })
+    const walletHistory = await WalletHistory.find(walletHistoryQuery)
       .sort({ createdAt: -1 })
       .limit(50); // Limit to last 50 transactions
 
     // Fetch user's own ticket/course purchases (Transaction model)
-    const userTransactions = await Transaction.find({ userId, status: "PAID" })
+    const userTransactions = await Transaction.find(transactionQuery)
       .populate("eventId", "eventTitle")
       .populate("courseId", "courseTitle")
       .sort({ createdAt: -1 })
