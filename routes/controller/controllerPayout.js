@@ -21,7 +21,7 @@ const getOrganizerEarnings = async (req, res) => {
   try {
     const userId = req.user.userId;
     const user = await User.findById(userId).select(
-      "totalEarnings payoutBalance bankDetails roleId",
+      "totalEarnings payoutBalance bankDetails roleId verifications",
     );
 
     if (!user) {
@@ -93,6 +93,7 @@ const getOrganizerEarnings = async (req, res) => {
       totalEarnings: user.totalEarnings ? Number(user.totalEarnings.toFixed(2)) : 0,
       payoutBalance: user.payoutBalance ? Number(user.payoutBalance.toFixed(2)) : 0,
       bankDetails: user.bankDetails,
+      addedBank: user.verifications?.bankVerification || null,
       payoutHistory,
       walletHistory: formattedWalletHistory,
       minPayout,
