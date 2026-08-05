@@ -1873,21 +1873,21 @@ const getCancellationReasons = async (req, res) => {
   try {
     const userLang = await getUserLanguage(null, req.user?.userId);
     const reasons = await CancellationReason.find({ isActive: true });
-    
+
     // Attempt translation if possible
     const { CANCELLATION_REASONS_TRANSLATIONS } = require("../../utils/Role");
-    
+
     const formattedReasons = reasons.map((item) => {
       let translatedReason = item.reason;
       if (userLang === "Mongolian" && CANCELLATION_REASONS_TRANSLATIONS?.Mongolian) {
-         translatedReason = CANCELLATION_REASONS_TRANSLATIONS.Mongolian[item.reason] || item.reason;
+        translatedReason = CANCELLATION_REASONS_TRANSLATIONS.Mongolian[item.reason] || item.reason;
       }
       return {
         id: item._id,
         reason: translatedReason,
       };
     });
-    
+
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
