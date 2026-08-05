@@ -89,13 +89,12 @@ const getOrganizerEarnings = async (req, res) => {
       return doc;
     });
 
+    const approvedBankAccounts = (user.bankAccounts || []).filter(b => b.status === "approved" || b.isVerified === true);
+
     return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.EARNINGS_FETCHED, {
       totalEarnings: user.totalEarnings ? Number(user.totalEarnings.toFixed(2)) : 0,
       payoutBalance: user.payoutBalance ? Number(user.payoutBalance.toFixed(2)) : 0,
-      bankDetails: user.bankDetails,
-      addedBank: user.verifications?.bankVerification || null,
-      bankAccounts: user.bankAccounts || [],
-      primaryBank: (user.bankAccounts || []).find(b => b.isPrimary) || null,
+      bankAccounts: approvedBankAccounts,
       payoutHistory,
       walletHistory: formattedWalletHistory,
       minPayout,
@@ -240,6 +239,23 @@ const removeBankAccount = async (req, res) => {
     });
   } catch (error) {
     console.error("Error in removeBankAccount:", error);
+    return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
+  }
+};
+
+// 2.4 Get Bank Accounts (Organizer)
+const getOrganizerBankAccounts = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const user = await User.findById(userId).select("bankAccounts");
+    if (!user) {
+      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.USER_NOT_FOUND);
+    }
+    return apiSuccessRes(HTTP_STATUS.OK, res, "Bank accounts fetched successfully.", {
+      bankAccounts: user.bankAccounts || []
+    });
+  } catch (error) {
+    console.error("Error in getOrganizerBankAccounts:", error);
     return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
   }
 };
@@ -733,6 +749,7 @@ const getAllTransactions = async (req, res) => {
 // Organizer Routes
 router.get("/earnings", getOrganizerEarnings);
 router.post("/bank-details", checkRole([roleId.ORGANIZER]), updateBankDetails); // Legacy (Changed from PUT to POST)
+router.get("/bank-accounts", checkRole([roleId.ORGANIZER]), getOrganizerBankAccounts);
 router.post("/bank-accounts", checkRole([roleId.ORGANIZER]), addBankAccount);
 router.post("/bank-accounts/set-primary/:accountId", checkRole([roleId.ORGANIZER]), setPrimaryBankAccount); // Changed from PUT to POST
 router.post("/bank-accounts/delete/:accountId", checkRole([roleId.ORGANIZER]), removeBankAccount); // Changed from DELETE to POST
