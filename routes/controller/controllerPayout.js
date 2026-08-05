@@ -40,6 +40,14 @@ const getOrganizerEarnings = async (req, res) => {
     } else if (filterType === 'this_year') {
       const startOfYear = new Date(now.getFullYear(), 0, 1);
       dateFilter.createdAt = { $gte: startOfYear };
+    } else if (filterType === 'last_7_days') {
+      const last7Days = new Date(now);
+      last7Days.setDate(last7Days.getDate() - 7);
+      dateFilter.createdAt = { $gte: last7Days };
+    } else if (filterType === 'last_30_days') {
+      const last30Days = new Date(now);
+      last30Days.setDate(last30Days.getDate() - 30);
+      dateFilter.createdAt = { $gte: last30Days };
     } else if (startDate && endDate) {
       dateFilter.createdAt = {
         $gte: new Date(startDate),
@@ -118,13 +126,51 @@ const getOrganizerEarnings = async (req, res) => {
 
     const approvedBankAccounts = (user.bankAccounts || []).filter(b => b.status === "approved" || b.isVerified === true);
 
+    // --- Analytics: Compute summary for the filtered period ---
+    // Earnings = sum of TICKET_SALE + COURSE_SALE in the filtered walletHistory
+    const earningTypes = ["TICKET_SALE", "COURSE_SALE"];
+    const deductionTypes = ["REFUND", "CANCELLATION_DEDUCTION"];
+
+    // Use the full (unsliced) walletHistory for accurate period stats
+    const allWalletInPeriod = await WalletHistory.find(walletHistoryQuery).lean();
+
+    const periodEarnings = allWalletInPeriod
+      .filter(w => earningTypes.includes(w.type))
+      .reduce((sum, w) => sum + (w.amount || 0), 0);
+
+    const periodDeductions = allWalletInPeriod
+      .filter(w => deductionTypes.includes(w.type))
+      .reduce((sum, w) => sum + Math.abs(w.amount || 0), 0);
+
+    const periodNetEarnings = periodEarnings - periodDeductions;
+
+    // Pending = total amount in PENDING payout requests (no date filter, reflects current state)
+    const pendingPayouts = await Payout.find({ organizerId: userId, status: "PENDING" });
+    const pendingAmount = pendingPayouts.reduce((sum, p) => sum + (p.amount || 0), 0);
+
+    // Available balance = payoutBalance (current withdrawable balance)
+    const availableBalance = user.payoutBalance ? Number(user.payoutBalance.toFixed(2)) : 0;
+
+    // Total balance = available + pending
+    const totalBalance = Number((availableBalance + pendingAmount).toFixed(2));
+
     return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.EARNINGS_FETCHED, {
+      // --- Existing keys (unchanged) ---
       totalEarnings: user.totalEarnings ? Number(user.totalEarnings.toFixed(2)) : 0,
       payoutBalance: user.payoutBalance ? Number(user.payoutBalance.toFixed(2)) : 0,
       bankAccounts: approvedBankAccounts,
       payoutHistory,
       walletHistory: formattedWalletHistory,
       minPayout,
+      // --- New summary keys ---
+      availableBalance,
+      pending: Number(pendingAmount.toFixed(2)),
+      totalBalance,
+      analytics: {
+        earnings: Number(periodEarnings.toFixed(2)),         // from bookings in period
+        deductions: Number(periodDeductions.toFixed(2)),     // refunds & cancellations in period
+        netEarnings: Number(periodNetEarnings.toFixed(2)),   // earnings - deductions
+      },
     });
   } catch (error) {
     console.error("Error in getOrganizerEarnings:", error);
