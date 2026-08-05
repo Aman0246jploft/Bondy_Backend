@@ -150,6 +150,11 @@ const addBankAccount = async (req, res) => {
     const user = await User.findById(userId);
     if (!user) return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.USER_NOT_FOUND);
 
+    const hasPendingBank = user.bankAccounts && user.bankAccounts.some(b => b.status === "pending");
+    if (hasPendingBank) {
+      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.PENDING_BANK_ACCOUNT);
+    }
+
     const isFirstBank = !user.bankAccounts || user.bankAccounts.length === 0;
     if (!user.bankAccounts) user.bankAccounts = [];
 

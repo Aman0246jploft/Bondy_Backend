@@ -168,6 +168,15 @@ const submitVerification = async (req, res) => {
 
     // 3. Bank Account Submission
     if (bankVerification) {
+      const hasPendingBank = user.bankAccounts && user.bankAccounts.some(b => b.status === "pending");
+      if (hasPendingBank) {
+        return apiErrorRes(
+          HTTP_STATUS.BAD_REQUEST,
+          res,
+          constantsMessage.PENDING_BANK_ACCOUNT,
+        );
+      }
+
       const { bankName, bankHolderName, accountNumber, otherDetails } = bankVerification;
       if (!bankName || !bankHolderName || !accountNumber) {
         return apiErrorRes(
