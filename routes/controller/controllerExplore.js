@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const mongoose = require("mongoose");
 const HTTP_STATUS = require("../../utils/statusCode");
+const constantsMessage = require("../../utils/constantsMessage");
 const { apiErrorRes, apiSuccessRes, formatResponseUrl } = require("../../utils/globalFunction");
 const { getEvents } = require("./controllerEvent");
 const { getCourses } = require("./controllerCourse");
