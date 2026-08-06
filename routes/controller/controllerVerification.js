@@ -893,7 +893,7 @@ const deleteBank = async (req, res) => {
 // 4. Get Active Banks (All Authenticated Users)
 const getActiveBanks = async (req, res) => {
   try {
-    const banks = await Bank.find({ isActive: true }).sort({ bankName: 1 }).lean();
+    const banks = await Bank.find({ isActive: true }).sort({ bankName: 1, bankNameMn: 1 }).lean();
 
     const lang = await getUserLanguage(req, req.user?.userId);
 
@@ -915,7 +915,7 @@ const getActiveBanks = async (req, res) => {
 // 5. Get All Banks (Admin Only)
 const getAllBanks = async (req, res) => {
   try {
-    const banks = await Bank.find().sort({ bankName: 1 }).lean();
+    const banks = await Bank.find().sort({ bankName: 1, bankNameMn: 1 }).lean();
     return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.ACTIVE_BANKS_FETCHED_SUCCESSFULLY, { banks });
   } catch (error) {
     console.error("Error in getAllBanks:", error);
