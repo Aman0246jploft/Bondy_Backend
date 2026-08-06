@@ -824,7 +824,7 @@ const addBank = async (req, res) => {
       return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.BANK_NAME_ALREADY_EXISTS);
     }
 
-    const newBank = new Bank({ 
+    const newBank = new Bank({
       bankName: bankName.trim(),
       bankNameMn: bankNameMn ? bankNameMn.trim() : ""
     });
@@ -855,7 +855,7 @@ const updateBank = async (req, res) => {
       }
       bank.bankName = bankName.trim();
     }
-    
+
     if (bankNameMn !== undefined) {
       bank.bankNameMn = bankNameMn.trim();
     }
@@ -896,13 +896,14 @@ const getActiveBanks = async (req, res) => {
     const banks = await Bank.find({ isActive: true }).sort({ bankName: 1 }).lean();
 
     const lang = await getUserLanguage(req, req.user?.userId);
-    if (lang === "Mongolian") {
-      banks.forEach(bank => {
-        if (bank.bankNameMn) {
-          bank.bankName = bank.bankNameMn;
-        }
-      });
-    }
+
+    banks.forEach(bank => {
+      if (lang === "Mongolian" && bank.bankNameMn) {
+        bank.bankName = bank.bankNameMn;
+      }
+      // Remove the raw DB field from the public response
+      delete bank.bankNameMn;
+    });
 
     return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.ACTIVE_BANKS_FETCHED_SUCCESSFULLY, { banks });
   } catch (error) {
