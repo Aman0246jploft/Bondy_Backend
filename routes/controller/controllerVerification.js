@@ -7,6 +7,7 @@ const {
   apiErrorRes,
   formatResponseUrl,
   generateOTP,
+  getUserLanguage,
 } = require("../../utils/globalFunction");
 
 const CONSTANTS = require("../../utils/constants");
@@ -813,7 +814,7 @@ router.post(
 // 1. Add Bank (Admin Only)
 const addBank = async (req, res) => {
   try {
-    const { bankName } = req.body;
+    const { bankName, bankNameMn } = req.body;
     if (!bankName) {
       return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.BANK_NAME_IS_REQUIRED);
     }
@@ -823,7 +824,10 @@ const addBank = async (req, res) => {
       return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.BANK_NAME_ALREADY_EXISTS);
     }
 
-    const newBank = new Bank({ bankName: bankName.trim() });
+    const newBank = new Bank({ 
+      bankName: bankName.trim(),
+      bankNameMn: bankNameMn ? bankNameMn.trim() : ""
+    });
     await newBank.save();
 
     return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.BANK_ADDED_SUCCESSFULLY, { bank: newBank });
@@ -837,7 +841,7 @@ const addBank = async (req, res) => {
 const updateBank = async (req, res) => {
   try {
     const { bankId } = req.params;
-    const { bankName, isActive } = req.body;
+    const { bankName, bankNameMn, isActive } = req.body;
 
     const bank = await Bank.findById(bankId);
     if (!bank) {
@@ -850,6 +854,10 @@ const updateBank = async (req, res) => {
         return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.BANK_NAME_ALREADY_EXISTS);
       }
       bank.bankName = bankName.trim();
+    }
+    
+    if (bankNameMn !== undefined) {
+      bank.bankNameMn = bankNameMn.trim();
     }
 
     if (isActive !== undefined) {
@@ -886,9 +894,30 @@ const deleteBank = async (req, res) => {
 const getActiveBanks = async (req, res) => {
   try {
     const banks = await Bank.find({ isActive: true }).sort({ bankName: 1 }).lean();
+
+    const lang = await getUserLanguage(req, req.user?.userId);
+    if (lang === "Mongolian") {
+      banks.forEach(bank => {
+        if (bank.bankNameMn) {
+          bank.bankName = bank.bankNameMn;
+        }
+      });
+    }
+
     return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.ACTIVE_BANKS_FETCHED_SUCCESSFULLY, { banks });
   } catch (error) {
     console.error("Error in getActiveBanks:", error);
+    return apiErrorRes(HTTP_STATUS.INTERNAL_SERVER_ERROR, res, error.message);
+  }
+};
+
+// 5. Get All Banks (Admin Only)
+const getAllBanks = async (req, res) => {
+  try {
+    const banks = await Bank.find().sort({ bankName: 1 }).lean();
+    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.ACTIVE_BANKS_FETCHED_SUCCESSFULLY, { banks });
+  } catch (error) {
+    console.error("Error in getAllBanks:", error);
     return apiErrorRes(HTTP_STATUS.INTERNAL_SERVER_ERROR, res, error.message);
   }
 };
@@ -908,6 +937,13 @@ router.get(
 );
 
 // Admin Bank endpoints
+router.get(
+  "/banks/admin",
+  perApiLimiter(),
+  checkRole([roleId.SUPER_ADMIN]),
+  getAllBanks,
+);
+
 router.post(
   "/banks/admin",
   perApiLimiter(),

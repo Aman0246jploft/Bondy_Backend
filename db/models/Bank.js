@@ -8,6 +8,11 @@ const bankSchema = new mongoose.Schema(
       unique: true,
       trim: true,
     },
+    bankNameMn: {
+      type: String,
+      trim: true,
+      default: "",
+    },
     isActive: {
       type: Boolean,
       default: true,

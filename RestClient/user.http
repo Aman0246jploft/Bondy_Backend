@@ -111,7 +111,7 @@ Content-Type: application/json
 
 {
   "email": "testOrganizer6@example.com",
-  "otp": "1234",
+  "otp": "12345",
   "type": "LOGIN",
   "timeZone": "Asia/Kolkata"
 }
