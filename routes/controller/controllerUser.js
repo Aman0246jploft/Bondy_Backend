@@ -1671,7 +1671,7 @@ const updateTimezone = async (req, res) => {
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
-      "Timezone updated successfully",
+      constantsMessage.TIMEZONE_UPDATED_SUCCESSFULLY,
       { timeZone: user.timeZone }
     );
   } catch (error) {
@@ -1738,7 +1738,7 @@ const getUserProfileById = async (req, res) => {
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
-      "User profile fetched successfully",
+      constantsMessage.USER_PROFILE_FETCHED_SUCCESSFULLY,
       {
         user: profileData,
       },
@@ -1810,7 +1810,7 @@ const userList = async (req, res) => {
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
-      "User list fetched successfully",
+      constantsMessage.USER_LIST_FETCHED_SUCCESSFULLY,
       {
         users,
         total,
@@ -1847,7 +1847,7 @@ const toggleUserDisable = async (req, res) => {
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
-      `User ${isDisable ? "disabled" : "enabled"} successfully`,
+      constantsMessage.USER_X_SUCCESSFULLY,
       { user: updatedUser },
     );
   } catch (error) {
@@ -1919,7 +1919,7 @@ const resendUniversalOtp = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        "Type is required (LOGIN, CUSTOMER, ORGANIZER, FORGOT_PASSWORD).",
+        constantsMessage.TYPE_IS_REQUIRED_LOGIN_CUSTOMER_ORGANIZE,
       );
     }
 
@@ -1949,7 +1949,7 @@ const verifyUniversalOtp = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        "Type is required (LOGIN, CUSTOMER, ORGANIZER).",
+        constantsMessage.TYPE_IS_REQUIRED_LOGIN_CUSTOMER_ORGANIZE_1,
       );
     }
 
@@ -2036,7 +2036,7 @@ const verifyForgotPasswordOtp = async (req, res) => {
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
-      "OTP verified successfully. Use the token to reset password.",
+      constantsMessage.OTP_VERIFIED_SUCCESSFULLY_USE_THE_TOKEN,
       { token: resetToken },
     );
   } catch (error) {
@@ -2106,7 +2106,7 @@ const resetPassword = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.UNAUTHORIZED,
         res,
-        "Reset token required.",
+        constantsMessage.RESET_TOKEN_REQUIRED,
       );
     }
 
@@ -2117,7 +2117,7 @@ const resetPassword = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.UNAUTHORIZED,
         res,
-        "Invalid or expired reset token.",
+        constantsMessage.INVALID_OR_EXPIRED_RESET_TOKEN,
       );
     }
 
@@ -2194,7 +2194,7 @@ const changePassword = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        "Invalid old password.",
+        constantsMessage.INVALID_OLD_PASSWORD,
       );
     }
 
@@ -2205,7 +2205,7 @@ const changePassword = async (req, res) => {
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
-      "Password updated successfully.",
+      constantsMessage.PASSWORD_UPDATED_SUCCESSFULLY,
     );
   } catch (error) {
     console.error("Error in changePassword:", error);
@@ -2384,7 +2384,7 @@ const staffForgotPasswordInit = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.NOT_FOUND,
         res,
-        "Staff account not found",
+        constantsMessage.STAFF_ACCOUNT_NOT_FOUND,
       );
     }
 
@@ -2435,7 +2435,7 @@ const staffVerifyForgotPasswordOtp = async (req, res) => {
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
-      "OTP verified successfully. Use the token to reset password.",
+      constantsMessage.OTP_VERIFIED_SUCCESSFULLY_USE_THE_TOKEN,
       { token: resetToken },
     );
   } catch (error) {
@@ -2453,7 +2453,7 @@ const staffResendForgotPasswordOtp = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.NOT_FOUND,
         res,
-        "Staff account not found",
+        constantsMessage.STAFF_ACCOUNT_NOT_FOUND,
       );
     }
 
@@ -2490,7 +2490,7 @@ const staffResetPassword = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.UNAUTHORIZED,
         res,
-        "Reset token required.",
+        constantsMessage.RESET_TOKEN_REQUIRED,
       );
     }
 
@@ -2501,7 +2501,7 @@ const staffResetPassword = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.UNAUTHORIZED,
         res,
-        "Invalid or expired reset token.",
+        constantsMessage.INVALID_OR_EXPIRED_RESET_TOKEN,
       );
     }
 
@@ -2514,7 +2514,7 @@ const staffResetPassword = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.NOT_FOUND,
         res,
-        "Staff account not found",
+        constantsMessage.STAFF_ACCOUNT_NOT_FOUND,
       );
     }
 
@@ -2593,7 +2593,7 @@ const addStaff = async (req, res) => {
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
-      "Staff member added successfully",
+      constantsMessage.STAFF_MEMBER_ADDED_SUCCESSFULLY,
       { staff: staffUser.toObject() },
     );
   } catch (error) {
@@ -2621,7 +2621,7 @@ const listStaff = async (req, res) => {
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
-      "Staff list retrieved successfully",
+      constantsMessage.STAFF_LIST_RETRIEVED_SUCCESSFULLY,
       { staff: formattedStaffList },
     );
   } catch (error) {
@@ -2639,7 +2639,7 @@ const staffLogin = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        "Invalid email or password",
+        constantsMessage.INVALID_EMAIL_OR_PASSWORD_1,
       );
     }
 
@@ -2656,7 +2656,7 @@ const staffLogin = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        "Invalid email or password",
+        constantsMessage.INVALID_EMAIL_OR_PASSWORD_1,
       );
     }
 
@@ -2665,7 +2665,7 @@ const staffLogin = async (req, res) => {
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
-      "Staff logged in successfully",
+      constantsMessage.STAFF_LOGGED_IN_SUCCESSFULLY,
       {
         user: { ...user.toObject(), userRole: userRole[user.roleId] },
         token,
@@ -2708,7 +2708,7 @@ const getStaffAssignedList = async (req, res) => {
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
-      "Assigned list retrieved successfully",
+      constantsMessage.ASSIGNED_LIST_RETRIEVED_SUCCESSFULLY,
       { events: formattedEvents, courses: formattedCourses },
     );
   } catch (error) {
@@ -2808,7 +2808,7 @@ const getStaffScanHistory = async (req, res) => {
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
-      "Scan history retrieved successfully",
+      constantsMessage.SCAN_HISTORY_RETRIEVED_SUCCESSFULLY,
       {
         scanHistory,
         total,
@@ -2841,7 +2841,7 @@ const editStaff = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.NOT_FOUND,
         res,
-        "Staff member not found or access denied",
+        constantsMessage.STAFF_MEMBER_NOT_FOUND_OR_ACCESS_DENIED,
       );
     }
 
@@ -2881,7 +2881,7 @@ const editStaff = async (req, res) => {
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
-      "Staff member updated successfully",
+      constantsMessage.STAFF_MEMBER_UPDATED_SUCCESSFULLY,
       { staff: staffUser.toObject() },
     );
   } catch (error) {
@@ -2906,7 +2906,7 @@ const removeStaff = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.NOT_FOUND,
         res,
-        "Staff member not found or access denied",
+        constantsMessage.STAFF_MEMBER_NOT_FOUND_OR_ACCESS_DENIED,
       );
     }
 
@@ -2926,7 +2926,7 @@ const removeStaff = async (req, res) => {
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
-      "Staff member removed successfully",
+      constantsMessage.STAFF_MEMBER_REMOVED_SUCCESSFULLY,
     );
   } catch (error) {
     console.error("Error in removeStaff:", error);
@@ -3030,7 +3030,7 @@ const addOrganizerInfo = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.FORBIDDEN,
         res,
-        "Only organizers can update organizer info",
+        constantsMessage.ONLY_ORGANIZERS_CAN_UPDATE_ORGANIZER_INF,
       );
     }
 
@@ -3072,7 +3072,7 @@ const addOrganizerInfo = async (req, res) => {
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
-      "Organizer info submitted successfully. Your account is now under review.",
+      constantsMessage.ORGANIZER_INFO_SUBMITTED_SUCCESSFULLY_YO,
       { user },
     );
   } catch (error) {
@@ -3107,7 +3107,7 @@ const adminVerifyOrganizer = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        "User is not an organizer"
+        constantsMessage.USER_IS_NOT_AN_ORGANIZER
       );
     }
 
@@ -3165,7 +3165,7 @@ const adminVerifyOrganizer = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        "Invalid action. Use 'approve' or 'reject'."
+        constantsMessage.INVALID_ACTION_USE_APPROVE_OR_REJECT
       );
     }
 
@@ -3186,7 +3186,7 @@ const adminVerifyOrganizer = async (req, res) => {
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
-      `Organizer account successfully ${action === "approve" ? "approved" : "rejected"}.`,
+      constantsMessage.ORGANIZER_ACCOUNT_SUCCESSFULLY_X,
       { user }
     );
   } catch (error) {

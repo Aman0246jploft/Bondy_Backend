@@ -137,7 +137,7 @@ router.post(
       return apiSuccessRes(
         HTTP_STATUS.OK,
         res,
-        "Notifications deleted successfully",
+        constantsMessage.NOTIFICATIONS_DELETED_SUCCESSFULLY,
         result.data,
       );
     } catch (error) {

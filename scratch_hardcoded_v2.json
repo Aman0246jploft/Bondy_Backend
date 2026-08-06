@@ -1,0 +1,1538 @@
+[
+  {
+    "file": "controllerAttendee.js",
+    "prefix": "apiErrorRes(\r\n        HTTP_STATUS.BAD_REQUEST,\r\n        res,\r\n        ",
+    "message": "`Cannot create attendees - ${transaction.bookingType} has expired`",
+    "suffix": ","
+  },
+  {
+    "file": "controllerAttendee.js",
+    "prefix": "apiErrorRes(\r\n        HTTP_STATUS.BAD_REQUEST,\r\n        res,\r\n        ",
+    "message": "`You must provide exactly ${transaction.qty} attendee(s)`",
+    "suffix": ","
+  },
+  {
+    "file": "controllerAttendee.js",
+    "prefix": "apiErrorRes(\r\n        HTTP_STATUS.BAD_REQUEST,\r\n        res,\r\n        ",
+    "message": "\"Attendees already created for this transaction\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerAttendee.js",
+    "prefix": "apiErrorRes(HTTP_STATUS.NOT_FOUND, res, ",
+    "message": "\"Event or Course not found\"",
+    "suffix": ")"
+  },
+  {
+    "file": "controllerAttendee.js",
+    "prefix": "apiErrorRes(\r\n        HTTP_STATUS.FORBIDDEN,\r\n        res,\r\n        ",
+    "message": "\"You are not authorized to view attendees for this item\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerAttendee.js",
+    "prefix": "apiErrorRes(HTTP_STATUS.NOT_FOUND, res, ",
+    "message": "\"Booking not found\"",
+    "suffix": ")"
+  },
+  {
+    "file": "controllerAttendee.js",
+    "prefix": "apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, ",
+    "message": "\"Booking is not paid\"",
+    "suffix": ")"
+  },
+  {
+    "file": "controllerAttendee.js",
+    "prefix": "apiErrorRes(\r\n              HTTP_STATUS.BAD_REQUEST,\r\n              res,\r\n              ",
+    "message": "\"This booking does not belong to the selected event/course\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerAttendee.js",
+    "prefix": "apiErrorRes(\r\n              HTTP_STATUS.BAD_REQUEST,\r\n              res,\r\n              ",
+    "message": "\"All tickets for this booking are already checked in\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerAttendee.js",
+    "prefix": "apiErrorRes(\r\n          HTTP_STATUS.BAD_REQUEST,\r\n          res,\r\n          ",
+    "message": "\"entityId is required for User profile scans\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerAttendee.js",
+    "prefix": "apiErrorRes(\r\n          HTTP_STATUS.NOT_FOUND,\r\n          res,\r\n          ",
+    "message": "\"No paid booking found for this user\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerAttendee.js",
+    "prefix": "apiErrorRes(\r\n            HTTP_STATUS.BAD_REQUEST,\r\n            res,\r\n            ",
+    "message": "\"All tickets for this booking are already checked in\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerAttendee.js",
+    "prefix": "apiErrorRes(HTTP_STATUS.NOT_FOUND, res, ",
+    "message": "\"Transaction not found\"",
+    "suffix": ")"
+  },
+  {
+    "file": "controllerAttendee.js",
+    "prefix": "apiErrorRes(\r\n          HTTP_STATUS.BAD_REQUEST,\r\n          res,\r\n          ",
+    "message": "\"This ticket does not belong to the selected event/course\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerAttendee.js",
+    "prefix": "apiErrorRes(\r\n        HTTP_STATUS.FORBIDDEN,\r\n        res,\r\n        ",
+    "message": "`You are not authorized to check-in attendees for this ${attendee.eventId ? \"event\" : \"course\"}`",
+    "suffix": ","
+  },
+  {
+    "file": "controllerAttendee.js",
+    "prefix": "apiErrorRes(\r\n        HTTP_STATUS.FORBIDDEN,\r\n        res,\r\n        ",
+    "message": "\"You are not authorized to view this ticket\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerAttendee.js",
+    "prefix": "apiErrorRes(HTTP_STATUS.FORBIDDEN, res, ",
+    "message": "\"You are not authorized to check-in attendees for this event/course\"",
+    "suffix": ")"
+  },
+  {
+    "file": "controllerAttendee.js",
+    "prefix": "apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, ",
+    "message": "\"This specific ticket has already been scanned and checked in\"",
+    "suffix": ")"
+  },
+  {
+    "file": "controllerAttendee.js",
+    "prefix": "apiErrorRes(\r\n          HTTP_STATUS.NOT_FOUND,\r\n          res,\r\n          ",
+    "message": "\"Individual ticket not found\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerAttendee.js",
+    "prefix": "apiErrorRes(\r\n          HTTP_STATUS.BAD_REQUEST,\r\n          res,\r\n          ",
+    "message": "\"eventId or courseId is required for User profile scans\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerAttendee.js",
+    "prefix": "apiErrorRes(\r\n          HTTP_STATUS.NOT_FOUND,\r\n          res,\r\n          ",
+    "message": "\"No paid booking found for this user\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerAttendee.js",
+    "prefix": "apiErrorRes(\r\n        HTTP_STATUS.BAD_REQUEST,\r\n        res,\r\n        ",
+    "message": "\"This ticket does not belong to the selected event\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerAttendee.js",
+    "prefix": "apiErrorRes(\r\n        HTTP_STATUS.BAD_REQUEST,\r\n        res,\r\n        ",
+    "message": "\"This ticket does not belong to the selected course\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerAttendee.js",
+    "prefix": "apiErrorRes(\r\n        HTTP_STATUS.FORBIDDEN,\r\n        res,\r\n        ",
+    "message": "\"You are not authorized to check-in attendees for this event/course\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerAttendee.js",
+    "prefix": "apiErrorRes(\r\n        HTTP_STATUS.BAD_REQUEST,\r\n        res,\r\n        ",
+    "message": "\"Transaction is not PAID\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerAttendee.js",
+    "prefix": "apiErrorRes(\r\n        HTTP_STATUS.BAD_REQUEST,\r\n        res,\r\n        ",
+    "message": "`${transaction.bookingType === \"COURSE\" ? \"Pass\" : (transaction.bookingType || \"Event\"",
+    "suffix": ")"
+  },
+  {
+    "file": "controllerAttendee.js",
+    "prefix": "apiErrorRes(\r\n          HTTP_STATUS.BAD_REQUEST,\r\n          res,\r\n          ",
+    "message": "\"No available attendee found to check-in\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerAttendee.js",
+    "prefix": "apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, ",
+    "message": "\"Ticket code or QR code is required\"",
+    "suffix": ")"
+  },
+  {
+    "file": "controllerAttendee.js",
+    "prefix": "apiSuccessRes(HTTP_STATUS.OK, res, ",
+    "message": "\"Ticket verification result\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerAttendee.js",
+    "prefix": "apiSuccessRes(HTTP_STATUS.OK, res, ",
+    "message": "\"Ticket verification result\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerAttendee.js",
+    "prefix": "apiErrorRes(HTTP_STATUS.FORBIDDEN, res, ",
+    "message": "`You are not authorized to verify tickets for this ${secureAtt.eventId ? \"event\" : \"course\"}`",
+    "suffix": ")"
+  },
+  {
+    "file": "controllerAttendee.js",
+    "prefix": "apiSuccessRes(HTTP_STATUS.OK, res, ",
+    "message": "\"Ticket verification result\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerAttendee.js",
+    "prefix": "apiSuccessRes(HTTP_STATUS.OK, res, ",
+    "message": "\"Ticket verification result\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerAttendee.js",
+    "prefix": "apiSuccessRes(HTTP_STATUS.OK, res, ",
+    "message": "\"Ticket verified successfully\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerAttendee.js",
+    "prefix": "apiErrorRes(HTTP_STATUS.NOT_FOUND, res, ",
+    "message": "\"Individual ticket not found\"",
+    "suffix": ")"
+  },
+  {
+    "file": "controllerAttendee.js",
+    "prefix": "apiErrorRes(HTTP_STATUS.NOT_FOUND, res, ",
+    "message": "\"Ticket not found for this sub-booking ID\"",
+    "suffix": ")"
+  },
+  {
+    "file": "controllerAttendee.js",
+    "prefix": "apiErrorRes(HTTP_STATUS.NOT_FOUND, res, ",
+    "message": "\"Booking not found\"",
+    "suffix": ")"
+  },
+  {
+    "file": "controllerAttendee.js",
+    "prefix": "apiErrorRes(\r\n          HTTP_STATUS.BAD_REQUEST,\r\n          res,\r\n          ",
+    "message": "\"entityId is required for User profile scans\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerAttendee.js",
+    "prefix": "apiErrorRes(\r\n          HTTP_STATUS.NOT_FOUND,\r\n          res,\r\n          ",
+    "message": "\"No paid booking found for this user\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerAttendee.js",
+    "prefix": "apiErrorRes(\r\n        HTTP_STATUS.BAD_REQUEST,\r\n        res,\r\n        ",
+    "message": "`This ticket does not belong to the selected ${bookingType === \"EVENT\" ? \"event\" : \"course\"}`",
+    "suffix": ","
+  },
+  {
+    "file": "controllerAttendee.js",
+    "prefix": "apiErrorRes(\r\n        HTTP_STATUS.FORBIDDEN,\r\n        res,\r\n        ",
+    "message": "`You are not authorized to view details for this ${bookingType === \"EVENT\" ? \"event\" : \"course\"}`",
+    "suffix": ","
+  },
+  {
+    "file": "controllerAttendee.js",
+    "prefix": "apiErrorRes(\r\n        HTTP_STATUS.BAD_REQUEST,\r\n        res,\r\n        ",
+    "message": "\"Transaction is not PAID\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerAttendee.js",
+    "prefix": "apiSuccessRes(HTTP_STATUS.OK, res, ",
+    "message": "\"Ticket verified successfully\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerBanner.js",
+    "prefix": "apiSuccessRes(\r\n      HTTP_STATUS.OK,\r\n      res,\r\n      ",
+    "message": "\"Banner created successfully\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerBanner.js",
+    "prefix": "apiSuccessRes(\r\n      HTTP_STATUS.OK,\r\n      res,\r\n      ",
+    "message": "\"Banners fetched successfully\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerBanner.js",
+    "prefix": "apiSuccessRes(\r\n      HTTP_STATUS.OK,\r\n      res,\r\n      ",
+    "message": "\"Active banners fetched successfully\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerBanner.js",
+    "prefix": "apiErrorRes(\r\n        HTTP_STATUS.NOT_FOUND,\r\n        res,\r\n        ",
+    "message": "\"Banner not found\"",
+    "suffix": "\r\n      )"
+  },
+  {
+    "file": "controllerBanner.js",
+    "prefix": "apiSuccessRes(\r\n      HTTP_STATUS.OK,\r\n      res,\r\n      ",
+    "message": "\"Banner updated successfully\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerBanner.js",
+    "prefix": "apiErrorRes(\r\n        HTTP_STATUS.NOT_FOUND,\r\n        res,\r\n        ",
+    "message": "\"Banner not found\"",
+    "suffix": "\r\n      )"
+  },
+  {
+    "file": "controllerBanner.js",
+    "prefix": "apiSuccessRes(\r\n      HTTP_STATUS.OK,\r\n      res,\r\n      ",
+    "message": "\"Banner status toggled successfully\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerBanner.js",
+    "prefix": "apiErrorRes(\r\n        HTTP_STATUS.NOT_FOUND,\r\n        res,\r\n        ",
+    "message": "\"Banner not found\"",
+    "suffix": "\r\n      )"
+  },
+  {
+    "file": "controllerBanner.js",
+    "prefix": "apiSuccessRes(\r\n      HTTP_STATUS.OK,\r\n      res,\r\n      ",
+    "message": "\"Banner deleted successfully\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerBooking.js",
+    "prefix": "apiErrorRes(HTTP_STATUS.NOT_FOUND, res, ",
+    "message": "`Ticket type not found for ticketId: ${item.ticketId}`",
+    "suffix": ")"
+  },
+  {
+    "file": "controllerBooking.js",
+    "prefix": "apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, ",
+    "message": "`Sales not started for ticket type: ${ticket.ticketName}`",
+    "suffix": ")"
+  },
+  {
+    "file": "controllerBooking.js",
+    "prefix": "apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, ",
+    "message": "`Sales ended for ticket type: ${ticket.ticketName}`",
+    "suffix": ")"
+  },
+  {
+    "file": "controllerBooking.js",
+    "prefix": "apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, ",
+    "message": "`Not enough tickets available for: ${ticket.ticketName}`",
+    "suffix": ")"
+  },
+  {
+    "file": "controllerBooking.js",
+    "prefix": "apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, ",
+    "message": "\"At least one ongoing slot is required\"",
+    "suffix": ")"
+  },
+  {
+    "file": "controllerBooking.js",
+    "prefix": "apiErrorRes(HTTP_STATUS.NOT_FOUND, res, ",
+    "message": "`Batch not found: ${slot.batchId}`",
+    "suffix": ")"
+  },
+  {
+    "file": "controllerBooking.js",
+    "prefix": "apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, ",
+    "message": "`Batch inactive: ${batch.batchName || slot.batchId}`",
+    "suffix": ")"
+  },
+  {
+    "file": "controllerBooking.js",
+    "prefix": "apiErrorRes(\r\n                HTTP_STATUS.BAD_REQUEST,\r\n                res,\r\n                ",
+    "message": "`Booking is closed for slot: ${batch.batchName || slot.batchId} on ${dateStr} (this date is cancelled)`",
+    "suffix": "\r\n              )"
+  },
+  {
+    "file": "controllerBooking.js",
+    "prefix": "apiErrorRes(\r\n                HTTP_STATUS.BAD_REQUEST,\r\n                res,\r\n                ",
+    "message": "`Booking is closed for slot: ${batch.batchName || slot.batchId} (cut-off time reached)`",
+    "suffix": "\r\n              )"
+  },
+  {
+    "file": "controllerBooking.js",
+    "prefix": "apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, ",
+    "message": "`Batch full: ${batch.batchName || slot.batchId}`",
+    "suffix": ")"
+  },
+  {
+    "file": "controllerBooking.js",
+    "prefix": "apiErrorRes(\r\n            HTTP_STATUS.BAD_REQUEST,\r\n            res,\r\n            ",
+    "message": "\"Booking is closed for this course (cut-off time reached)\"",
+    "suffix": "\r\n          )"
+  },
+  {
+    "file": "controllerBooking.js",
+    "prefix": "apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, ",
+    "message": "\"1 Month Pass is not enabled for this class\"",
+    "suffix": ")"
+  },
+  {
+    "file": "controllerBooking.js",
+    "prefix": "apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, ",
+    "message": "\"3 Month Pass is not enabled for this class\"",
+    "suffix": ")"
+  },
+  {
+    "file": "controllerBooking.js",
+    "prefix": "apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, ",
+    "message": "\"At least one ongoing slot or pass selection is required\"",
+    "suffix": ")"
+  },
+  {
+    "file": "controllerBooking.js",
+    "prefix": "apiErrorRes(HTTP_STATUS.NOT_FOUND, res, ",
+    "message": "`Ticket type not found for ticketId: ${item.ticketId}`",
+    "suffix": ")"
+  },
+  {
+    "file": "controllerBooking.js",
+    "prefix": "apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, ",
+    "message": "`Sales not started for ticket type: ${ticket.ticketName}`",
+    "suffix": ")"
+  },
+  {
+    "file": "controllerBooking.js",
+    "prefix": "apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, ",
+    "message": "`Sales ended for ticket type: ${ticket.ticketName}`",
+    "suffix": ")"
+  },
+  {
+    "file": "controllerBooking.js",
+    "prefix": "apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, ",
+    "message": "`Not enough tickets available for: ${ticket.ticketName}`",
+    "suffix": ")"
+  },
+  {
+    "file": "controllerBooking.js",
+    "prefix": "apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, ",
+    "message": "\"At least one ongoing slot selection is required\"",
+    "suffix": ")"
+  },
+  {
+    "file": "controllerBooking.js",
+    "prefix": "apiErrorRes(HTTP_STATUS.NOT_FOUND, res, ",
+    "message": "`Batch not found: ${slot.batchId}`",
+    "suffix": ")"
+  },
+  {
+    "file": "controllerBooking.js",
+    "prefix": "apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, ",
+    "message": "`Batch inactive: ${batch.batchName || slot.batchId}`",
+    "suffix": ")"
+  },
+  {
+    "file": "controllerBooking.js",
+    "prefix": "apiErrorRes(\r\n                HTTP_STATUS.BAD_REQUEST,\r\n                res,\r\n                ",
+    "message": "`Booking is closed for slot: ${batch.batchName || slot.batchId} on ${dateStr} (this date is cancelled)`",
+    "suffix": "\r\n              )"
+  },
+  {
+    "file": "controllerBooking.js",
+    "prefix": "apiErrorRes(\r\n                HTTP_STATUS.BAD_REQUEST,\r\n                res,\r\n                ",
+    "message": "`Booking is closed for slot: ${batch.batchName || slot.batchId} (cut-off time reached)`",
+    "suffix": "\r\n              )"
+  },
+  {
+    "file": "controllerBooking.js",
+    "prefix": "apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, ",
+    "message": "`Batch full: ${batch.batchName || slot.batchId}`",
+    "suffix": ")"
+  },
+  {
+    "file": "controllerBooking.js",
+    "prefix": "apiErrorRes(\r\n            HTTP_STATUS.BAD_REQUEST,\r\n            res,\r\n            ",
+    "message": "\"Booking is closed for this course (cut-off time reached)\"",
+    "suffix": "\r\n          )"
+  },
+  {
+    "file": "controllerBooking.js",
+    "prefix": "apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, ",
+    "message": "\"1 Month Pass is not enabled for this class\"",
+    "suffix": ")"
+  },
+  {
+    "file": "controllerBooking.js",
+    "prefix": "apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, ",
+    "message": "\"3 Month Pass is not enabled for this class\"",
+    "suffix": ")"
+  },
+  {
+    "file": "controllerBooking.js",
+    "prefix": "apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, ",
+    "message": "\"At least one ongoing slot or pass selection is required\"",
+    "suffix": ")"
+  },
+  {
+    "file": "controllerBooking.js",
+    "prefix": "apiSuccessRes(HTTP_STATUS.OK, res, ",
+    "message": "\"Refund preview calculated successfully\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerBooking.js",
+    "prefix": "apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, ",
+    "message": "\"Event is already cancelled\"",
+    "suffix": ")"
+  },
+  {
+    "file": "controllerBooking.js",
+    "prefix": "apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, ",
+    "message": "\"This specific date is already cancelled for this batch\"",
+    "suffix": ")"
+  },
+  {
+    "file": "controllerBooking.js",
+    "prefix": "apiErrorRes(HTTP_STATUS.FORBIDDEN, res, ",
+    "message": "\"You are not authorized to edit this course\"",
+    "suffix": ")"
+  },
+  {
+    "file": "controllerBooking.js",
+    "prefix": "apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, ",
+    "message": "\"Cannot adjust reserved seats for a cancelled batch\"",
+    "suffix": ")"
+  },
+  {
+    "file": "controllerBooking.js",
+    "prefix": "apiErrorRes(\r\n        HTTP_STATUS.BAD_REQUEST,\r\n        res,\r\n        ",
+    "message": "`Seats limit (${batch.seats}) cannot be less than enrolled count (${enrolledCount}) + externally reserved seats (${ReservedExternally})`",
+    "suffix": "\r\n      )"
+  },
+  {
+    "file": "controllerBooking.js",
+    "prefix": "apiSuccessRes(HTTP_STATUS.OK, res, ",
+    "message": "\"Reserved seats updated successfully\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerBooking.js",
+    "prefix": "apiErrorRes(HTTP_STATUS.FORBIDDEN, res, ",
+    "message": "\"You don't have permission to view this event's attendees\"",
+    "suffix": ")"
+  },
+  {
+    "file": "controllerBooking.js",
+    "prefix": "apiErrorRes(\r\n        HTTP_STATUS.FORBIDDEN,\r\n        res,\r\n        ",
+    "message": "\"You don't have permission to view this course's attendees\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerBooking.js",
+    "prefix": "apiErrorRes(HTTP_STATUS.FORBIDDEN, res, ",
+    "message": "\"You don't have permission to view this event's statistics\"",
+    "suffix": ")"
+  },
+  {
+    "file": "controllerComment.js",
+    "prefix": "apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, ",
+    "message": "\"Invalid entity model\"",
+    "suffix": ")"
+  },
+  {
+    "file": "controllerComment.js",
+    "prefix": "apiSuccessRes(HTTP_STATUS.OK, res, ",
+    "message": "\"Comments fetched successfully\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerComment.js",
+    "prefix": "apiSuccessRes(HTTP_STATUS.OK, res, ",
+    "message": "\"Comment updated successfully\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerComment.js",
+    "prefix": "apiErrorRes(\r\n        HTTP_STATUS.NOT_FOUND,\r\n        res,\r\n        ",
+    "message": "\"Parent comment not found\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerCourse.js",
+    "prefix": "apiErrorRes(\r\n              HTTP_STATUS.BAD_REQUEST,\r\n              res,\r\n              ",
+    "message": "`Batch with ID ${b._id} not found for this course`",
+    "suffix": "\r\n            )"
+  },
+  {
+    "file": "controllerCourse.js",
+    "prefix": "apiErrorRes(\r\n        HTTP_STATUS.BAD_REQUEST,\r\n        res,\r\n        ",
+    "message": "\"Cannot edit a course that has already ended\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerCourse.js",
+    "prefix": "apiErrorRes(\r\n        HTTP_STATUS.BAD_REQUEST,\r\n        res,\r\n        ",
+    "message": "\"Once a course is published, it cannot be changed back to a draft\"",
+    "suffix": "\r\n      )"
+  },
+  {
+    "file": "controllerCourse.js",
+    "prefix": "apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, ",
+    "message": "\"Course title is required for a published course\"",
+    "suffix": ")"
+  },
+  {
+    "file": "controllerCourse.js",
+    "prefix": "apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, ",
+    "message": "\"Enrollment type is required for a published course\"",
+    "suffix": ")"
+  },
+  {
+    "file": "controllerCourse.js",
+    "prefix": "apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, ",
+    "message": "\"Course category is required for a published course\"",
+    "suffix": ")"
+  },
+  {
+    "file": "controllerCourse.js",
+    "prefix": "apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, ",
+    "message": "\"Start and end dates are required for a published course\"",
+    "suffix": ")"
+  },
+  {
+    "file": "controllerCourse.js",
+    "prefix": "apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, ",
+    "message": "\"Start date is required for a published course\"",
+    "suffix": ")"
+  },
+  {
+    "file": "controllerCourse.js",
+    "prefix": "apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, ",
+    "message": "\"Total sessions is required for a published course\"",
+    "suffix": ")"
+  },
+  {
+    "file": "controllerCourse.js",
+    "prefix": "apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, ",
+    "message": "\"Price is required for a published course\"",
+    "suffix": ")"
+  },
+  {
+    "file": "controllerCourse.js",
+    "prefix": "apiErrorRes(\r\n          HTTP_STATUS.BAD_REQUEST,\r\n          res,\r\n          ",
+    "message": "\"Venue address with valid latitude and longitude is required for a published course\"",
+    "suffix": "\r\n        )"
+  },
+  {
+    "file": "controllerCourse.js",
+    "prefix": "apiErrorRes(\r\n          HTTP_STATUS.BAD_REQUEST,\r\n          res,\r\n          ",
+    "message": "\"At least one batch is required for a published course\"",
+    "suffix": "\r\n        )"
+  },
+  {
+    "file": "controllerCourse.js",
+    "prefix": "apiErrorRes(\r\n            HTTP_STATUS.BAD_REQUEST,\r\n            res,\r\n            ",
+    "message": "`Batch at index ${i} must have batchName, startTime, endTime, days, and seats`",
+    "suffix": "\r\n          )"
+  },
+  {
+    "file": "controllerCourse.js",
+    "prefix": "apiErrorRes(\r\n          HTTP_STATUS.BAD_REQUEST,\r\n          res,\r\n          ",
+    "message": "\"Cannot modify the start date/time of a course that is already live\"",
+    "suffix": "\r\n        )"
+  },
+  {
+    "file": "controllerCourse.js",
+    "prefix": "apiErrorRes(\r\n          HTTP_STATUS.BAD_REQUEST,\r\n          res,\r\n          ",
+    "message": "\"Start date must be in the future for upcoming courses\"",
+    "suffix": "\r\n        )"
+  },
+  {
+    "file": "controllerCourse.js",
+    "prefix": "apiErrorRes(\r\n          HTTP_STATUS.BAD_REQUEST,\r\n          res,\r\n          ",
+    "message": "\"End date must be in the future\"",
+    "suffix": "\r\n        )"
+  },
+  {
+    "file": "controllerCourse.js",
+    "prefix": "apiErrorRes(\r\n            HTTP_STATUS.BAD_REQUEST,\r\n            res,\r\n            ",
+    "message": "\"Start date must be before end date\"",
+    "suffix": "\r\n          )"
+  },
+  {
+    "file": "controllerCourse.js",
+    "prefix": "apiErrorRes(\r\n            HTTP_STATUS.BAD_REQUEST,\r\n            res,\r\n            ",
+    "message": "`Seats limit (${seatsVal}) cannot be less than enrolled count (${enrolledCount}) + externally reserved seats (${reservedVal}) for batch \"${batch.batchName || (existingBatch ? existingBatch.batchName : ''",
+    "suffix": ")"
+  },
+  {
+    "file": "controllerCourse.js",
+    "prefix": "apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, ",
+    "message": "\"Invalid course ID format\"",
+    "suffix": ")"
+  },
+  {
+    "file": "controllerCourse.js",
+    "prefix": "apiErrorRes(HTTP_STATUS.NOT_FOUND, res, ",
+    "message": "\"Course not found\"",
+    "suffix": ")"
+  },
+  {
+    "file": "controllerCourse.js",
+    "prefix": "apiErrorRes(\r\n        HTTP_STATUS.FORBIDDEN,\r\n        res,\r\n        ",
+    "message": "\"You are not authorized to delete this course\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerCourse.js",
+    "prefix": "apiErrorRes(\r\n        HTTP_STATUS.BAD_REQUEST,\r\n        res,\r\n        ",
+    "message": "\"Only draft courses can be deleted\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerCourse.js",
+    "prefix": "apiSuccessRes(\r\n      HTTP_STATUS.OK,\r\n      res,\r\n      ",
+    "message": "\"Draft course deleted successfully\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerCourse.js",
+    "prefix": "apiErrorRes(HTTP_STATUS.NOT_FOUND, res, ",
+    "message": "\"Course not found\"",
+    "suffix": ")"
+  },
+  {
+    "file": "controllerCourse.js",
+    "prefix": "apiErrorRes(\r\n        HTTP_STATUS.FORBIDDEN,\r\n        res,\r\n        ",
+    "message": "\"You are not authorized to assign staff to this course\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerCourse.js",
+    "prefix": "apiErrorRes(\r\n        HTTP_STATUS.BAD_REQUEST,\r\n        res,\r\n        ",
+    "message": "\"One or more provided user IDs are not valid staff members\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerCourse.js",
+    "prefix": "apiSuccessRes(\r\n      HTTP_STATUS.OK,\r\n      res,\r\n      ",
+    "message": "\"Staff successfully assigned to the course\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerCourse.js",
+    "prefix": "apiSuccessRes(\r\n        HTTP_STATUS.OK,\r\n        res,\r\n        ",
+    "message": "\"Organizer has no courses for analytics\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerCourse.js",
+    "prefix": "apiSuccessRes(\r\n      HTTP_STATUS.OK,\r\n      res,\r\n      ",
+    "message": "\"Organizer courses analytics summary retrieved successfully\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerCourse.js",
+    "prefix": "apiErrorRes(\r\n        HTTP_STATUS.FORBIDDEN,\r\n        res,\r\n        ",
+    "message": "\"You are not authorized to view analytics for this course\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerCourse.js",
+    "prefix": "apiSuccessRes(\r\n      HTTP_STATUS.OK,\r\n      res,\r\n      ",
+    "message": "\"Course analytics retrieved successfully\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerCourse.js",
+    "prefix": "apiSuccessRes(\r\n      HTTP_STATUS.OK,\r\n      res,\r\n      ",
+    "message": "\"Booking cut-off options retrieved successfully\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerEvent.js",
+    "prefix": "apiErrorRes(\r\n          HTTP_STATUS.BAD_REQUEST,\r\n          res,\r\n          ",
+    "message": "\"Your event is already live\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerEvent.js",
+    "prefix": "apiErrorRes(\r\n            HTTP_STATUS.BAD_REQUEST,\r\n            res,\r\n            ",
+    "message": "`Total event seats (${totalSeats}) cannot be less than booked count (${bookedQty}) + externally reserved seats (${reservedVal})`",
+    "suffix": "\r\n          )"
+  },
+  {
+    "file": "controllerEvent.js",
+    "prefix": "apiErrorRes(\r\n            HTTP_STATUS.BAD_REQUEST,\r\n            res,\r\n            ",
+    "message": "`Total event seats (${totalSeats}) cannot be less than externally reserved seats (${reservedVal})`",
+    "suffix": "\r\n          )"
+  },
+  {
+    "file": "controllerEvent.js",
+    "prefix": "apiErrorRes(\r\n        HTTP_STATUS.BAD_REQUEST,\r\n        res,\r\n        ",
+    "message": "\"Your event is already live\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerEvent.js",
+    "prefix": "apiErrorRes(\r\n        HTTP_STATUS.BAD_REQUEST,\r\n        res,\r\n        ",
+    "message": "\"Once an event is published, it cannot be changed back to a draft\"",
+    "suffix": "\r\n      )"
+  },
+  {
+    "file": "controllerEvent.js",
+    "prefix": "apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, ",
+    "message": "\"Event title is required for a published event\"",
+    "suffix": ")"
+  },
+  {
+    "file": "controllerEvent.js",
+    "prefix": "apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, ",
+    "message": "\"Event category is required for a published event\"",
+    "suffix": ")"
+  },
+  {
+    "file": "controllerEvent.js",
+    "prefix": "apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, ",
+    "message": "\"Start and end dates are required for a published event\"",
+    "suffix": ")"
+  },
+  {
+    "file": "controllerEvent.js",
+    "prefix": "apiErrorRes(\r\n          HTTP_STATUS.BAD_REQUEST,\r\n          res,\r\n          ",
+    "message": "\"Venue address with valid latitude and longitude is required for a published event\"",
+    "suffix": "\r\n        )"
+  },
+  {
+    "file": "controllerEvent.js",
+    "prefix": "apiErrorRes(\r\n          HTTP_STATUS.BAD_REQUEST,\r\n          res,\r\n          ",
+    "message": "\"At least one ticket is required for a published event\"",
+    "suffix": "\r\n        )"
+  },
+  {
+    "file": "controllerEvent.js",
+    "prefix": "apiErrorRes(\r\n            HTTP_STATUS.BAD_REQUEST,\r\n            res,\r\n            ",
+    "message": "`Ticket at index ${i} must have ticketName, price, and qty`",
+    "suffix": "\r\n          )"
+  },
+  {
+    "file": "controllerEvent.js",
+    "prefix": "apiErrorRes(\r\n          HTTP_STATUS.BAD_REQUEST,\r\n          res,\r\n          ",
+    "message": "\"Cannot modify the start date/time of an event that is already live\"",
+    "suffix": "\r\n        )"
+  },
+  {
+    "file": "controllerEvent.js",
+    "prefix": "apiErrorRes(\r\n          HTTP_STATUS.BAD_REQUEST,\r\n          res,\r\n          ",
+    "message": "\"Cannot modify the start date/time of an event that is already live\"",
+    "suffix": "\r\n        )"
+  },
+  {
+    "file": "controllerEvent.js",
+    "prefix": "apiErrorRes(\r\n          HTTP_STATUS.BAD_REQUEST,\r\n          res,\r\n          ",
+    "message": "\"Start date must be in the future for upcoming events\"",
+    "suffix": "\r\n        )"
+  },
+  {
+    "file": "controllerEvent.js",
+    "prefix": "apiErrorRes(\r\n          HTTP_STATUS.BAD_REQUEST,\r\n          res,\r\n          ",
+    "message": "\"End date must be in the future\"",
+    "suffix": "\r\n        )"
+  },
+  {
+    "file": "controllerEvent.js",
+    "prefix": "apiErrorRes(\r\n            HTTP_STATUS.BAD_REQUEST,\r\n            res,\r\n            ",
+    "message": "\"Start date must be before end date\"",
+    "suffix": "\r\n          )"
+  },
+  {
+    "file": "controllerEvent.js",
+    "prefix": "apiErrorRes(\r\n          HTTP_STATUS.BAD_REQUEST,\r\n          res,\r\n          ",
+    "message": "\"Minimum age must be specified and non-negative for MIN_AGE type\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerEvent.js",
+    "prefix": "apiErrorRes(\r\n            HTTP_STATUS.BAD_REQUEST,\r\n            res,\r\n            ",
+    "message": "\"Both minimum and maximum age must be specified and non-negative for RANGE type\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerEvent.js",
+    "prefix": "apiErrorRes(\r\n            HTTP_STATUS.BAD_REQUEST,\r\n            res,\r\n            ",
+    "message": "\"Minimum age must be less than maximum age\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerEvent.js",
+    "prefix": "apiErrorRes(\r\n        HTTP_STATUS.BAD_REQUEST,\r\n        res,\r\n        ",
+    "message": "`Total event seats (${totalSeats}) cannot be less than booked count (${bookedQty}) + externally reserved seats (${reservedVal})`",
+    "suffix": "\r\n      )"
+  },
+  {
+    "file": "controllerEvent.js",
+    "prefix": "apiSuccessRes(\r\n      HTTP_STATUS.OK,\r\n      res,\r\n      ",
+    "message": "\"Refund policies retrieved successfully\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerEvent.js",
+    "prefix": "apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, ",
+    "message": "\"Invalid event ID format\"",
+    "suffix": ")"
+  },
+  {
+    "file": "controllerEvent.js",
+    "prefix": "apiErrorRes(HTTP_STATUS.NOT_FOUND, res, ",
+    "message": "\"Event not found\"",
+    "suffix": ")"
+  },
+  {
+    "file": "controllerEvent.js",
+    "prefix": "apiErrorRes(\r\n        HTTP_STATUS.FORBIDDEN,\r\n        res,\r\n        ",
+    "message": "\"You are not authorized to delete this event\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerEvent.js",
+    "prefix": "apiErrorRes(\r\n        HTTP_STATUS.BAD_REQUEST,\r\n        res,\r\n        ",
+    "message": "\"Only draft events can be deleted\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerEvent.js",
+    "prefix": "apiSuccessRes(\r\n      HTTP_STATUS.OK,\r\n      res,\r\n      ",
+    "message": "\"Draft event deleted successfully\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerEvent.js",
+    "prefix": "apiErrorRes(HTTP_STATUS.NOT_FOUND, res, ",
+    "message": "\"Event not found\"",
+    "suffix": ")"
+  },
+  {
+    "file": "controllerEvent.js",
+    "prefix": "apiErrorRes(\r\n        HTTP_STATUS.FORBIDDEN,\r\n        res,\r\n        ",
+    "message": "\"You are not authorized to assign staff to this event\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerEvent.js",
+    "prefix": "apiErrorRes(\r\n        HTTP_STATUS.BAD_REQUEST,\r\n        res,\r\n        ",
+    "message": "\"One or more provided user IDs are not valid staff members\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerEvent.js",
+    "prefix": "apiSuccessRes(\r\n      HTTP_STATUS.OK,\r\n      res,\r\n      ",
+    "message": "\"Staff successfully assigned to the event\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerEvent.js",
+    "prefix": "apiErrorRes(\r\n        HTTP_STATUS.FORBIDDEN,\r\n        res,\r\n        ",
+    "message": "\"You are not authorized to view analytics for this event\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerEvent.js",
+    "prefix": "apiSuccessRes(\r\n      HTTP_STATUS.OK,\r\n      res,\r\n      ",
+    "message": "\"Event analytics retrieved successfully\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerEvent.js",
+    "prefix": "apiSuccessRes(\r\n        HTTP_STATUS.OK,\r\n        res,\r\n        ",
+    "message": "\"Organizer has no listings for analytics\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerEvent.js",
+    "prefix": "apiSuccessRes(\r\n      HTTP_STATUS.OK,\r\n      res,\r\n      ",
+    "message": "\"Organizer events and courses analytics summary retrieved successfully\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerExplore.js",
+    "prefix": "apiSuccessRes(HTTP_STATUS.OK, res, ",
+    "message": "\"Explore list fetched successfully\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerExplore.js",
+    "prefix": "apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, ",
+    "message": "\"id and type (event/course) are required\"",
+    "suffix": ")"
+  },
+  {
+    "file": "controllerExplore.js",
+    "prefix": "apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, ",
+    "message": "\"Invalid type. Must be 'event' or 'course'\"",
+    "suffix": ")"
+  },
+  {
+    "file": "controllerExplore.js",
+    "prefix": "apiSuccessRes(HTTP_STATUS.OK, res, ",
+    "message": "\"Share URL generated successfully\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerExplore.js",
+    "prefix": "apiSuccessRes(HTTP_STATUS.OK, res, ",
+    "message": "\"Search results fetched successfully\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerExplore.js",
+    "prefix": "apiSuccessRes(HTTP_STATUS.OK, res, ",
+    "message": "\"Search results fetched successfully\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerExplore.js",
+    "prefix": "apiErrorRes(HTTP_STATUS.UNAUTHORIZED, res, ",
+    "message": "\"User not authenticated\"",
+    "suffix": ")"
+  },
+  {
+    "file": "controllerExplore.js",
+    "prefix": "apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, ",
+    "message": "\"Query is required\"",
+    "suffix": ")"
+  },
+  {
+    "file": "controllerExplore.js",
+    "prefix": "apiSuccessRes(HTTP_STATUS.OK, res, ",
+    "message": "\"Search query saved to history successfully\"",
+    "suffix": ")"
+  },
+  {
+    "file": "controllerExplore.js",
+    "prefix": "apiSuccessRes(HTTP_STATUS.OK, res, ",
+    "message": "\"Recent searches retrieved successfully\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerExplore.js",
+    "prefix": "apiSuccessRes(\r\n      HTTP_STATUS.OK,\r\n      res,\r\n      ",
+    "message": "\"Recent searches retrieved successfully\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerExplore.js",
+    "prefix": "apiErrorRes(HTTP_STATUS.UNAUTHORIZED, res, ",
+    "message": "\"User not authenticated\"",
+    "suffix": ")"
+  },
+  {
+    "file": "controllerExplore.js",
+    "prefix": "apiSuccessRes(HTTP_STATUS.OK, res, ",
+    "message": "\"Search query deleted successfully\"",
+    "suffix": ")"
+  },
+  {
+    "file": "controllerExplore.js",
+    "prefix": "apiSuccessRes(HTTP_STATUS.OK, res, ",
+    "message": "\"All search history cleared successfully\"",
+    "suffix": ")"
+  },
+  {
+    "file": "controllerExplore.js",
+    "prefix": "apiSuccessRes(\r\n      HTTP_STATUS.OK,\r\n      res,\r\n      ",
+    "message": "\"Trending searches retrieved successfully\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerNotification.js",
+    "prefix": "apiSuccessRes(\r\n        HTTP_STATUS.OK,\r\n        res,\r\n        ",
+    "message": "\"Notifications deleted successfully\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerPayout.js",
+    "prefix": "apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, ",
+    "message": "\"Bank Name, Holder Name, and Account Number are required.\"",
+    "suffix": ")"
+  },
+  {
+    "file": "controllerPayout.js",
+    "prefix": "apiSuccessRes(HTTP_STATUS.OK, res, ",
+    "message": "\"Bank account added successfully. Waiting for admin approval.\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerPayout.js",
+    "prefix": "apiErrorRes(HTTP_STATUS.NOT_FOUND, res, ",
+    "message": "\"Bank account not found.\"",
+    "suffix": ")"
+  },
+  {
+    "file": "controllerPayout.js",
+    "prefix": "apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, ",
+    "message": "\"Only approved bank accounts can be set as primary.\"",
+    "suffix": ")"
+  },
+  {
+    "file": "controllerPayout.js",
+    "prefix": "apiSuccessRes(HTTP_STATUS.OK, res, ",
+    "message": "\"Primary bank account updated successfully.\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerPayout.js",
+    "prefix": "apiErrorRes(HTTP_STATUS.NOT_FOUND, res, ",
+    "message": "\"Bank account not found.\"",
+    "suffix": ")"
+  },
+  {
+    "file": "controllerPayout.js",
+    "prefix": "apiSuccessRes(HTTP_STATUS.OK, res, ",
+    "message": "\"Bank account removed successfully.\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerPayout.js",
+    "prefix": "apiSuccessRes(HTTP_STATUS.OK, res, ",
+    "message": "\"Bank accounts fetched successfully.\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerPayout.js",
+    "prefix": "apiErrorRes(\r\n        HTTP_STATUS.BAD_REQUEST,\r\n        res,\r\n        ",
+    "message": "`Minimum payout amount is ₮${minPayout.toLocaleString()}`",
+    "suffix": ","
+  },
+  {
+    "file": "controllerPayout.js",
+    "prefix": "apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, ",
+    "message": "\"Selected bank account not found.\"",
+    "suffix": ")"
+  },
+  {
+    "file": "controllerPayout.js",
+    "prefix": "apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, ",
+    "message": "\"Selected bank account is not approved.\"",
+    "suffix": ")"
+  },
+  {
+    "file": "controllerPayout.js",
+    "prefix": "apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, ",
+    "message": "\"No approved bank account found for payout.\"",
+    "suffix": ")"
+  },
+  {
+    "file": "controllerReferral.js",
+    "prefix": "apiSuccessRes(HTTP_STATUS.OK, res, ",
+    "message": "\"Referral rewards fetched\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerReport.js",
+    "prefix": "apiErrorRes(\r\n        HTTP_STATUS.BAD_REQUEST,\r\n        res,\r\n        ",
+    "message": "`Report is already ${report.status}.`",
+    "suffix": ","
+  },
+  {
+    "file": "controllerUser.js",
+    "prefix": "apiSuccessRes(\r\n      HTTP_STATUS.OK,\r\n      res,\r\n      ",
+    "message": "\"Timezone updated successfully\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerUser.js",
+    "prefix": "apiSuccessRes(\r\n      HTTP_STATUS.OK,\r\n      res,\r\n      ",
+    "message": "\"User profile fetched successfully\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerUser.js",
+    "prefix": "apiSuccessRes(\r\n      HTTP_STATUS.OK,\r\n      res,\r\n      ",
+    "message": "\"User list fetched successfully\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerUser.js",
+    "prefix": "apiSuccessRes(\r\n      HTTP_STATUS.OK,\r\n      res,\r\n      ",
+    "message": "`User ${isDisable ? \"disabled\" : \"enabled\"} successfully`",
+    "suffix": ","
+  },
+  {
+    "file": "controllerUser.js",
+    "prefix": "apiErrorRes(\r\n        HTTP_STATUS.BAD_REQUEST,\r\n        res,\r\n        ",
+    "message": "\"Type is required (LOGIN, CUSTOMER, ORGANIZER, FORGOT_PASSWORD).\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerUser.js",
+    "prefix": "apiErrorRes(\r\n        HTTP_STATUS.BAD_REQUEST,\r\n        res,\r\n        ",
+    "message": "\"Type is required (LOGIN, CUSTOMER, ORGANIZER).\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerUser.js",
+    "prefix": "apiSuccessRes(\r\n      HTTP_STATUS.OK,\r\n      res,\r\n      ",
+    "message": "\"OTP verified successfully. Use the token to reset password.\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerUser.js",
+    "prefix": "apiErrorRes(\r\n        HTTP_STATUS.UNAUTHORIZED,\r\n        res,\r\n        ",
+    "message": "\"Reset token required.\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerUser.js",
+    "prefix": "apiErrorRes(\r\n        HTTP_STATUS.UNAUTHORIZED,\r\n        res,\r\n        ",
+    "message": "\"Invalid or expired reset token.\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerUser.js",
+    "prefix": "apiErrorRes(\r\n        HTTP_STATUS.BAD_REQUEST,\r\n        res,\r\n        ",
+    "message": "\"Invalid old password.\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerUser.js",
+    "prefix": "apiSuccessRes(\r\n      HTTP_STATUS.OK,\r\n      res,\r\n      ",
+    "message": "\"Password updated successfully.\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerUser.js",
+    "prefix": "apiErrorRes(\r\n        HTTP_STATUS.NOT_FOUND,\r\n        res,\r\n        ",
+    "message": "\"Staff account not found\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerUser.js",
+    "prefix": "apiSuccessRes(\r\n      HTTP_STATUS.OK,\r\n      res,\r\n      ",
+    "message": "\"OTP verified successfully. Use the token to reset password.\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerUser.js",
+    "prefix": "apiErrorRes(\r\n        HTTP_STATUS.NOT_FOUND,\r\n        res,\r\n        ",
+    "message": "\"Staff account not found\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerUser.js",
+    "prefix": "apiErrorRes(\r\n        HTTP_STATUS.UNAUTHORIZED,\r\n        res,\r\n        ",
+    "message": "\"Reset token required.\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerUser.js",
+    "prefix": "apiErrorRes(\r\n        HTTP_STATUS.UNAUTHORIZED,\r\n        res,\r\n        ",
+    "message": "\"Invalid or expired reset token.\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerUser.js",
+    "prefix": "apiErrorRes(\r\n        HTTP_STATUS.NOT_FOUND,\r\n        res,\r\n        ",
+    "message": "\"Staff account not found\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerUser.js",
+    "prefix": "apiSuccessRes(\r\n      HTTP_STATUS.OK,\r\n      res,\r\n      ",
+    "message": "\"Staff member added successfully\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerUser.js",
+    "prefix": "apiSuccessRes(\r\n      HTTP_STATUS.OK,\r\n      res,\r\n      ",
+    "message": "\"Staff list retrieved successfully\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerUser.js",
+    "prefix": "apiErrorRes(\r\n        HTTP_STATUS.BAD_REQUEST,\r\n        res,\r\n        ",
+    "message": "\"Invalid email or password\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerUser.js",
+    "prefix": "apiErrorRes(\r\n        HTTP_STATUS.BAD_REQUEST,\r\n        res,\r\n        ",
+    "message": "\"Invalid email or password\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerUser.js",
+    "prefix": "apiSuccessRes(\r\n      HTTP_STATUS.OK,\r\n      res,\r\n      ",
+    "message": "\"Staff logged in successfully\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerUser.js",
+    "prefix": "apiSuccessRes(\r\n      HTTP_STATUS.OK,\r\n      res,\r\n      ",
+    "message": "\"Assigned list retrieved successfully\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerUser.js",
+    "prefix": "apiSuccessRes(\r\n      HTTP_STATUS.OK,\r\n      res,\r\n      ",
+    "message": "\"Scan history retrieved successfully\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerUser.js",
+    "prefix": "apiErrorRes(\r\n        HTTP_STATUS.NOT_FOUND,\r\n        res,\r\n        ",
+    "message": "\"Staff member not found or access denied\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerUser.js",
+    "prefix": "apiSuccessRes(\r\n      HTTP_STATUS.OK,\r\n      res,\r\n      ",
+    "message": "\"Staff member updated successfully\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerUser.js",
+    "prefix": "apiErrorRes(\r\n        HTTP_STATUS.NOT_FOUND,\r\n        res,\r\n        ",
+    "message": "\"Staff member not found or access denied\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerUser.js",
+    "prefix": "apiSuccessRes(\r\n      HTTP_STATUS.OK,\r\n      res,\r\n      ",
+    "message": "\"Staff member removed successfully\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerUser.js",
+    "prefix": "apiErrorRes(\r\n        HTTP_STATUS.FORBIDDEN,\r\n        res,\r\n        ",
+    "message": "\"Only organizers can update organizer info\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerUser.js",
+    "prefix": "apiSuccessRes(\r\n      HTTP_STATUS.OK,\r\n      res,\r\n      ",
+    "message": "\"Organizer info submitted successfully. Your account is now under review.\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerUser.js",
+    "prefix": "apiErrorRes(\r\n        HTTP_STATUS.BAD_REQUEST,\r\n        res,\r\n        ",
+    "message": "\"User is not an organizer\"",
+    "suffix": "\r\n      )"
+  },
+  {
+    "file": "controllerUser.js",
+    "prefix": "apiErrorRes(\r\n        HTTP_STATUS.BAD_REQUEST,\r\n        res,\r\n        ",
+    "message": "\"Invalid action. Use 'approve' or 'reject'.\"",
+    "suffix": "\r\n      )"
+  },
+  {
+    "file": "controllerUser.js",
+    "prefix": "apiSuccessRes(\r\n      HTTP_STATUS.OK,\r\n      res,\r\n      ",
+    "message": "`Organizer account successfully ${action === \"approve\" ? \"approved\" : \"rejected\"}.`",
+    "suffix": ","
+  },
+  {
+    "file": "controllerUserSetting.js",
+    "prefix": "apiErrorRes(\r\n                HTTP_STATUS.BAD_REQUEST,\r\n                res,\r\n                ",
+    "message": "\"Invalid appTheme value. Allowed values: 'light'",
+    "suffix": ","
+  },
+  {
+    "file": "controllerUserSetting.js",
+    "prefix": "apiErrorRes(\r\n                HTTP_STATUS.BAD_REQUEST,\r\n                res,\r\n                ",
+    "message": "\"Invalid language value. Allowed values: 'English'",
+    "suffix": ","
+  },
+  {
+    "file": "controllerVerification.js",
+    "prefix": "apiErrorRes(\r\n          HTTP_STATUS.BAD_REQUEST,\r\n          res,\r\n          ",
+    "message": "\"Both front and back images are required for National ID.\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerVerification.js",
+    "prefix": "apiErrorRes(\r\n          HTTP_STATUS.BAD_REQUEST,\r\n          res,\r\n          ",
+    "message": "\"Both front and back images are required for Driving Licence.\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerVerification.js",
+    "prefix": "apiErrorRes(\r\n          HTTP_STATUS.BAD_REQUEST,\r\n          res,\r\n          ",
+    "message": "\"Bank Name, Holder Name, and Account Number are required for Bank Verification.\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerVerification.js",
+    "prefix": "apiErrorRes(\r\n          HTTP_STATUS.BAD_REQUEST,\r\n          res,\r\n          ",
+    "message": "\"Business Name and Business Category are required for Business Verification.\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerVerification.js",
+    "prefix": "apiErrorRes(\r\n        HTTP_STATUS.BAD_REQUEST,\r\n        res,\r\n        ",
+    "message": "\"No verification details provided. Please submit nationalId, drivingLicence, bankVerification, or businessVerification.\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerVerification.js",
+    "prefix": "apiErrorRes(\r\n        HTTP_STATUS.BAD_REQUEST,\r\n        res,\r\n        ",
+    "message": "\"Invalid verification type. Must be 'nationalId'",
+    "suffix": ","
+  },
+  {
+    "file": "controllerVerification.js",
+    "prefix": "apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, ",
+    "message": "\"National ID has not been submitted yet.\"",
+    "suffix": ")"
+  },
+  {
+    "file": "controllerVerification.js",
+    "prefix": "apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, ",
+    "message": "\"Driving Licence has not been submitted yet.\"",
+    "suffix": ")"
+  },
+  {
+    "file": "controllerVerification.js",
+    "prefix": "apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, ",
+    "message": "\"Bank details not found.\"",
+    "suffix": ")"
+  },
+  {
+    "file": "controllerVerification.js",
+    "prefix": "apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, ",
+    "message": "\"Business details have not been submitted yet.\"",
+    "suffix": ")"
+  },
+  {
+    "file": "controllerVerification.js",
+    "prefix": "apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, ",
+    "message": "\"Country code and contact number are required.\"",
+    "suffix": ")"
+  },
+  {
+    "file": "controllerVerification.js",
+    "prefix": "apiSuccessRes(HTTP_STATUS.OK, res, ",
+    "message": "\"OTP sent successfully to your phone number.\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerVerification.js",
+    "prefix": "apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, ",
+    "message": "\"Country code and contact number are required to resend OTP.\"",
+    "suffix": ")"
+  },
+  {
+    "file": "controllerVerification.js",
+    "prefix": "apiSuccessRes(HTTP_STATUS.OK, res, ",
+    "message": "\"OTP resent successfully to your phone number.\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerVerification.js",
+    "prefix": "apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, ",
+    "message": "\"OTP is required.\"",
+    "suffix": ")"
+  },
+  {
+    "file": "controllerVerification.js",
+    "prefix": "apiSuccessRes(HTTP_STATUS.OK, res, ",
+    "message": "\"Phone number verified successfully.\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerVerification.js",
+    "prefix": "apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, ",
+    "message": "\"Email is required.\"",
+    "suffix": ")"
+  },
+  {
+    "file": "controllerVerification.js",
+    "prefix": "apiSuccessRes(HTTP_STATUS.OK, res, ",
+    "message": "\"OTP sent successfully to your email address.\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerVerification.js",
+    "prefix": "apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, ",
+    "message": "\"Email is required to resend OTP.\"",
+    "suffix": ")"
+  },
+  {
+    "file": "controllerVerification.js",
+    "prefix": "apiSuccessRes(HTTP_STATUS.OK, res, ",
+    "message": "\"OTP resent successfully to your email address.\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerVerification.js",
+    "prefix": "apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, ",
+    "message": "\"OTP is required.\"",
+    "suffix": ")"
+  },
+  {
+    "file": "controllerVerification.js",
+    "prefix": "apiSuccessRes(HTTP_STATUS.OK, res, ",
+    "message": "\"Email verified successfully.\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerVerification.js",
+    "prefix": "apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, ",
+    "message": "\"Bank Name is required.\"",
+    "suffix": ")"
+  },
+  {
+    "file": "controllerVerification.js",
+    "prefix": "apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, ",
+    "message": "\"Bank Name already exists.\"",
+    "suffix": ")"
+  },
+  {
+    "file": "controllerVerification.js",
+    "prefix": "apiSuccessRes(HTTP_STATUS.OK, res, ",
+    "message": "\"Bank added successfully.\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerVerification.js",
+    "prefix": "apiErrorRes(HTTP_STATUS.NOT_FOUND, res, ",
+    "message": "\"Bank not found.\"",
+    "suffix": ")"
+  },
+  {
+    "file": "controllerVerification.js",
+    "prefix": "apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, ",
+    "message": "\"Bank Name already exists.\"",
+    "suffix": ")"
+  },
+  {
+    "file": "controllerVerification.js",
+    "prefix": "apiSuccessRes(HTTP_STATUS.OK, res, ",
+    "message": "\"Bank updated successfully.\"",
+    "suffix": ","
+  },
+  {
+    "file": "controllerVerification.js",
+    "prefix": "apiErrorRes(HTTP_STATUS.NOT_FOUND, res, ",
+    "message": "\"Bank not found.\"",
+    "suffix": ")"
+  },
+  {
+    "file": "controllerVerification.js",
+    "prefix": "apiSuccessRes(HTTP_STATUS.OK, res, ",
+    "message": "\"Bank deleted successfully.\"",
+    "suffix": ")"
+  },
+  {
+    "file": "controllerVerification.js",
+    "prefix": "apiSuccessRes(HTTP_STATUS.OK, res, ",
+    "message": "\"Active banks fetched successfully.\"",
+    "suffix": ","
+  }
+]

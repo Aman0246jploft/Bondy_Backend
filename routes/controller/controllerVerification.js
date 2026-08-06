@@ -103,7 +103,7 @@ const submitVerification = async (req, res) => {
         return apiErrorRes(
           HTTP_STATUS.BAD_REQUEST,
           res,
-          "Both front and back images are required for National ID.",
+          constantsMessage.BOTH_FRONT_AND_BACK_IMAGES_ARE_REQUIRED,
         );
       }
 
@@ -138,7 +138,7 @@ const submitVerification = async (req, res) => {
         return apiErrorRes(
           HTTP_STATUS.BAD_REQUEST,
           res,
-          "Both front and back images are required for Driving Licence.",
+          constantsMessage.BOTH_FRONT_AND_BACK_IMAGES_ARE_REQUIRED_1,
         );
       }
 
@@ -182,7 +182,7 @@ const submitVerification = async (req, res) => {
         return apiErrorRes(
           HTTP_STATUS.BAD_REQUEST,
           res,
-          "Bank Name, Holder Name, and Account Number are required for Bank Verification.",
+          constantsMessage.BANK_NAME_HOLDER_NAME_AND_ACCOUNT_NUMBER_1,
         );
       }
 
@@ -224,7 +224,7 @@ const submitVerification = async (req, res) => {
         return apiErrorRes(
           HTTP_STATUS.BAD_REQUEST,
           res,
-          "Business Name and Business Category are required for Business Verification.",
+          constantsMessage.BUSINESS_NAME_AND_BUSINESS_CATEGORY_ARE,
         );
       }
 
@@ -264,7 +264,7 @@ const submitVerification = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        "No verification details provided. Please submit nationalId, drivingLicence, bankVerification, or businessVerification.",
+        constantsMessage.NO_VERIFICATION_DETAILS_PROVIDED_PLEASE,
       );
     }
 
@@ -375,7 +375,7 @@ const verifyOrganizer = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        "Invalid verification type. Must be 'nationalId', 'drivingLicence', 'bankVerification', or 'businessVerification'.",
+        constantsMessage.INVALID_VERIFICATION_TYPE_MUST_BE_NATION, 'drivingLicence', 'bankVerification', or 'businessVerification'.",
       );
     }
 
@@ -388,7 +388,7 @@ const verifyOrganizer = async (req, res) => {
 
     if (type === "nationalId") {
       if (user.verifications.idVerification.nationalId.status === "unverified") {
-        return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "National ID has not been submitted yet.");
+        return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.NATIONAL_ID_HAS_NOT_BEEN_SUBMITTED_YET);
       }
       user.verifications.idVerification.nationalId.isVerified = isApprove;
       user.verifications.idVerification.nationalId.status = isApprove ? "approved" : "rejected";
@@ -409,7 +409,7 @@ const verifyOrganizer = async (req, res) => {
       });
     } else if (type === "drivingLicence") {
       if (user.verifications.idVerification.drivingLicence.status === "unverified") {
-        return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Driving Licence has not been submitted yet.");
+        return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.DRIVING_LICENCE_HAS_NOT_BEEN_SUBMITTED_Y);
       }
       user.verifications.idVerification.drivingLicence.isVerified = isApprove;
       user.verifications.idVerification.drivingLicence.status = isApprove ? "approved" : "rejected";
@@ -438,7 +438,7 @@ const verifyOrganizer = async (req, res) => {
       }
 
       if (!bankAccount) {
-        return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Bank details not found.");
+        return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.BANK_DETAILS_NOT_FOUND);
       }
 
       bankAccount.isVerified = isApprove;
@@ -481,7 +481,7 @@ const verifyOrganizer = async (req, res) => {
       }
     } else if (type === "businessVerification") {
       if (user.businessVerificationStatus === "unverified") {
-        return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Business details have not been submitted yet.");
+        return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.BUSINESS_DETAILS_HAVE_NOT_BEEN_SUBMITTED);
       }
       user.isBusinessVerified = isApprove;
       user.businessVerificationStatus = isApprove ? "approved" : "rejected";
@@ -541,7 +541,7 @@ const sendPhoneOTP = async (req, res) => {
     const contactNumber = req.body.contactNumber || user.contactNumber;
 
     if (!contactNumber || !countryCode) {
-      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Country code and contact number are required.");
+      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.COUNTRY_CODE_AND_CONTACT_NUMBER_ARE_REQU);
     }
 
     const otp = process.env.NODE_ENV === "development" ? "12345" : generateOTP();
@@ -550,7 +550,7 @@ const sendPhoneOTP = async (req, res) => {
     await setKeyWithTime(`phone_verify_otp:${userId}`, otp, OTP_EXPIRY_MINUTES);
     await setKeyWithTime(`phone_verify_data:${userId}`, JSON.stringify({ countryCode, contactNumber }), OTP_EXPIRY_MINUTES);
 
-    return apiSuccessRes(HTTP_STATUS.OK, res, "OTP sent successfully to your phone number.", { otp });
+    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.OTP_SENT_SUCCESSFULLY_TO_YOUR_PHONE_NUMB, { otp });
   } catch (error) {
     console.error("Error in sendPhoneOTP:", error);
     return apiErrorRes(HTTP_STATUS.INTERNAL_SERVER_ERROR, res, error.message);
@@ -580,7 +580,7 @@ const resendPhoneOTP = async (req, res) => {
     contactNumber = contactNumber || user.contactNumber;
 
     if (!contactNumber || !countryCode) {
-      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Country code and contact number are required to resend OTP.");
+      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.COUNTRY_CODE_AND_CONTACT_NUMBER_ARE_REQU_1);
     }
 
     const otp = process.env.NODE_ENV === "development" ? "12345" : generateOTP();
@@ -588,7 +588,7 @@ const resendPhoneOTP = async (req, res) => {
     await setKeyWithTime(`phone_verify_otp:${userId}`, otp, OTP_EXPIRY_MINUTES);
     await setKeyWithTime(`phone_verify_data:${userId}`, JSON.stringify({ countryCode, contactNumber }), OTP_EXPIRY_MINUTES);
 
-    return apiSuccessRes(HTTP_STATUS.OK, res, "OTP resent successfully to your phone number.", { otp });
+    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.OTP_RESENT_SUCCESSFULLY_TO_YOUR_PHONE_NU, { otp });
   } catch (error) {
     console.error("Error in resendPhoneOTP:", error);
     return apiErrorRes(HTTP_STATUS.INTERNAL_SERVER_ERROR, res, error.message);
@@ -602,7 +602,7 @@ const verifyPhoneOTP = async (req, res) => {
     const { otp } = req.body;
 
     if (!otp) {
-      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "OTP is required.");
+      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.OTP_IS_REQUIRED);
     }
 
     const redisOtp = await getKey(`phone_verify_otp:${userId}`);
@@ -631,7 +631,7 @@ const verifyPhoneOTP = async (req, res) => {
     await removeKey(`phone_verify_otp:${userId}`);
     await removeKey(`phone_verify_data:${userId}`);
 
-    return apiSuccessRes(HTTP_STATUS.OK, res, "Phone number verified successfully.", {
+    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.PHONE_NUMBER_VERIFIED_SUCCESSFULLY, {
       verifications: user.verifications,
     });
   } catch (error) {
@@ -652,7 +652,7 @@ const sendEmailOTP = async (req, res) => {
     const email = req.body.email || user.email;
 
     if (!email) {
-      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Email is required.");
+      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.EMAIL_IS_REQUIRED);
     }
 
     const otp = process.env.NODE_ENV === "development" ? "12345" : generateOTP();
@@ -661,7 +661,7 @@ const sendEmailOTP = async (req, res) => {
     await setKeyWithTime(`email_verify_otp:${userId}`, otp, OTP_EXPIRY_MINUTES);
     await setKeyWithTime(`email_verify_data:${userId}`, email.toLowerCase(), OTP_EXPIRY_MINUTES);
 
-    return apiSuccessRes(HTTP_STATUS.OK, res, "OTP sent successfully to your email address.", { otp });
+    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.OTP_SENT_SUCCESSFULLY_TO_YOUR_EMAIL_ADDR, { otp });
   } catch (error) {
     console.error("Error in sendEmailOTP:", error);
     return apiErrorRes(HTTP_STATUS.INTERNAL_SERVER_ERROR, res, error.message);
@@ -687,7 +687,7 @@ const resendEmailOTP = async (req, res) => {
     email = email || user.email;
 
     if (!email) {
-      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Email is required to resend OTP.");
+      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.EMAIL_IS_REQUIRED_TO_RESEND_OTP);
     }
 
     const otp = process.env.NODE_ENV === "development" ? "12345" : generateOTP();
@@ -695,7 +695,7 @@ const resendEmailOTP = async (req, res) => {
     await setKeyWithTime(`email_verify_otp:${userId}`, otp, OTP_EXPIRY_MINUTES);
     await setKeyWithTime(`email_verify_data:${userId}`, email.toLowerCase(), OTP_EXPIRY_MINUTES);
 
-    return apiSuccessRes(HTTP_STATUS.OK, res, "OTP resent successfully to your email address.", { otp });
+    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.OTP_RESENT_SUCCESSFULLY_TO_YOUR_EMAIL_AD, { otp });
   } catch (error) {
     console.error("Error in resendEmailOTP:", error);
     return apiErrorRes(HTTP_STATUS.INTERNAL_SERVER_ERROR, res, error.message);
@@ -709,7 +709,7 @@ const verifyEmailOTP = async (req, res) => {
     const { otp } = req.body;
 
     if (!otp) {
-      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "OTP is required.");
+      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.OTP_IS_REQUIRED);
     }
 
     const redisOtp = await getKey(`email_verify_otp:${userId}`);
@@ -735,7 +735,7 @@ const verifyEmailOTP = async (req, res) => {
     await removeKey(`email_verify_otp:${userId}`);
     await removeKey(`email_verify_data:${userId}`);
 
-    return apiSuccessRes(HTTP_STATUS.OK, res, "Email verified successfully.", {
+    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.EMAIL_VERIFIED_SUCCESSFULLY, {
       verifications: user.verifications,
     });
   } catch (error) {
@@ -815,18 +815,18 @@ const addBank = async (req, res) => {
   try {
     const { bankName } = req.body;
     if (!bankName) {
-      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Bank Name is required.");
+      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.BANK_NAME_IS_REQUIRED);
     }
 
     const existingBank = await Bank.findOne({ bankName: bankName.trim() });
     if (existingBank) {
-      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Bank Name already exists.");
+      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.BANK_NAME_ALREADY_EXISTS);
     }
 
     const newBank = new Bank({ bankName: bankName.trim() });
     await newBank.save();
 
-    return apiSuccessRes(HTTP_STATUS.OK, res, "Bank added successfully.", { bank: newBank });
+    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.BANK_ADDED_SUCCESSFULLY, { bank: newBank });
   } catch (error) {
     console.error("Error in addBank:", error);
     return apiErrorRes(HTTP_STATUS.INTERNAL_SERVER_ERROR, res, error.message);
@@ -841,13 +841,13 @@ const updateBank = async (req, res) => {
 
     const bank = await Bank.findById(bankId);
     if (!bank) {
-      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Bank not found.");
+      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.BANK_NOT_FOUND);
     }
 
     if (bankName !== undefined) {
       const existingBank = await Bank.findOne({ bankName: bankName.trim(), _id: { $ne: bankId } });
       if (existingBank) {
-        return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Bank Name already exists.");
+        return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.BANK_NAME_ALREADY_EXISTS);
       }
       bank.bankName = bankName.trim();
     }
@@ -858,7 +858,7 @@ const updateBank = async (req, res) => {
 
     await bank.save();
 
-    return apiSuccessRes(HTTP_STATUS.OK, res, "Bank updated successfully.", { bank });
+    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.BANK_UPDATED_SUCCESSFULLY, { bank });
   } catch (error) {
     console.error("Error in updateBank:", error);
     return apiErrorRes(HTTP_STATUS.INTERNAL_SERVER_ERROR, res, error.message);
@@ -872,10 +872,10 @@ const deleteBank = async (req, res) => {
 
     const bank = await Bank.findByIdAndDelete(bankId);
     if (!bank) {
-      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Bank not found.");
+      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.BANK_NOT_FOUND);
     }
 
-    return apiSuccessRes(HTTP_STATUS.OK, res, "Bank deleted successfully.");
+    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.BANK_DELETED_SUCCESSFULLY);
   } catch (error) {
     console.error("Error in deleteBank:", error);
     return apiErrorRes(HTTP_STATUS.INTERNAL_SERVER_ERROR, res, error.message);
@@ -886,7 +886,7 @@ const deleteBank = async (req, res) => {
 const getActiveBanks = async (req, res) => {
   try {
     const banks = await Bank.find({ isActive: true }).sort({ bankName: 1 }).lean();
-    return apiSuccessRes(HTTP_STATUS.OK, res, "Active banks fetched successfully.", { banks });
+    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.ACTIVE_BANKS_FETCHED_SUCCESSFULLY, { banks });
   } catch (error) {
     console.error("Error in getActiveBanks:", error);
     return apiErrorRes(HTTP_STATUS.INTERNAL_SERVER_ERROR, res, error.message);

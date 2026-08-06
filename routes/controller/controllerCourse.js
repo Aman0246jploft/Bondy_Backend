@@ -1648,7 +1648,7 @@ const updateCourse = async (req, res) => {
             return apiErrorRes(
               HTTP_STATUS.BAD_REQUEST,
               res,
-              `Batch with ID ${b._id} not found for this course`
+              constantsMessage.BATCH_WITH_ID_X_NOT_FOUND_FOR_THIS_COURS
             );
           }
         }
@@ -1689,7 +1689,7 @@ const updateCourse = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        "Cannot edit a course that has already ended",
+        constantsMessage.CANNOT_EDIT_A_COURSE_THAT_HAS_ALREADY_EN,
       );
     }
 
@@ -1698,7 +1698,7 @@ const updateCourse = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        "Once a course is published, it cannot be changed back to a draft"
+        constantsMessage.ONCE_A_COURSE_IS_PUBLISHED_IT_CANNOT_BE
       );
     }
 
@@ -1717,28 +1717,28 @@ const updateCourse = async (req, res) => {
       const enrollmentTypeVal = updateData.enrollmentType || existingCourse.enrollmentType;
 
       if (!courseTitleVal) {
-        return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Course title is required for a published course");
+        return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.COURSE_TITLE_IS_REQUIRED_FOR_A_PUBLISHED);
       }
       if (!enrollmentTypeVal) {
-        return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Enrollment type is required for a published course");
+        return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.ENROLLMENT_TYPE_IS_REQUIRED_FOR_A_PUBLIS);
       }
       if (!courseCategoryVal) {
-        return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Course category is required for a published course");
+        return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.COURSE_CATEGORY_IS_REQUIRED_FOR_A_PUBLIS);
       }
       if (enrollmentTypeVal === "fixedStart") {
         if (!startDateVal || !endDateVal) {
-          return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Start and end dates are required for a published course");
+          return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.START_AND_END_DATES_ARE_REQUIRED_FOR_A_P);
         }
       } else {
         if (!startDateVal) {
-          return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Start date is required for a published course");
+          return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.START_DATE_IS_REQUIRED_FOR_A_PUBLISHED_C);
         }
       }
       if (totalSessionsVal === undefined || totalSessionsVal === null) {
-        return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Total sessions is required for a published course");
+        return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.TOTAL_SESSIONS_IS_REQUIRED_FOR_A_PUBLISH);
       }
       if (priceVal === undefined || priceVal === null) {
-        return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Price is required for a published course");
+        return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.PRICE_IS_REQUIRED_FOR_A_PUBLISHED_COURSE);
       }
       const hasValidCoords = (addr) => {
         if (!addr) return false;
@@ -1756,14 +1756,14 @@ const updateCourse = async (req, res) => {
         return apiErrorRes(
           HTTP_STATUS.BAD_REQUEST,
           res,
-          "Venue address with valid latitude and longitude is required for a published course"
+          constantsMessage.VENUE_ADDRESS_WITH_VALID_LATITUDE_AND_LO
         );
       }
       if (!batchesVal || !Array.isArray(batchesVal) || batchesVal.length === 0) {
         return apiErrorRes(
           HTTP_STATUS.BAD_REQUEST,
           res,
-          "At least one batch is required for a published course"
+          constantsMessage.AT_LEAST_ONE_BATCH_IS_REQUIRED_FOR_A_PUB
         );
       }
 
@@ -1774,7 +1774,7 @@ const updateCourse = async (req, res) => {
           return apiErrorRes(
             HTTP_STATUS.BAD_REQUEST,
             res,
-            `Batch at index ${i} must have batchName, startTime, endTime, days, and seats`
+            constantsMessage.BATCH_AT_INDEX_X_MUST_HAVE_BATCHNAME_STA
           );
         }
       }
@@ -1790,7 +1790,7 @@ const updateCourse = async (req, res) => {
         return apiErrorRes(
           HTTP_STATUS.BAD_REQUEST,
           res,
-          "Cannot modify the start date/time of a course that is already live"
+          constantsMessage.CANNOT_MODIFY_THE_START_DATE_TIME_OF_A_C
         );
       }
     }
@@ -1808,7 +1808,7 @@ const updateCourse = async (req, res) => {
         return apiErrorRes(
           HTTP_STATUS.BAD_REQUEST,
           res,
-          "Start date must be in the future for upcoming courses"
+          constantsMessage.START_DATE_MUST_BE_IN_THE_FUTURE_FOR_UPC
         );
       }
     }
@@ -1822,7 +1822,7 @@ const updateCourse = async (req, res) => {
         return apiErrorRes(
           HTTP_STATUS.BAD_REQUEST,
           res,
-          "End date must be in the future"
+          constantsMessage.END_DATE_MUST_BE_IN_THE_FUTURE
         );
       }
     }
@@ -1845,7 +1845,7 @@ const updateCourse = async (req, res) => {
           return apiErrorRes(
             HTTP_STATUS.BAD_REQUEST,
             res,
-            "Start date must be before end date"
+            constantsMessage.START_DATE_MUST_BE_BEFORE_END_DATE
           );
         }
       }
@@ -1875,7 +1875,7 @@ const updateCourse = async (req, res) => {
           return apiErrorRes(
             HTTP_STATUS.BAD_REQUEST,
             res,
-            `Seats limit (${seatsVal}) cannot be less than enrolled count (${enrolledCount}) + externally reserved seats (${reservedVal}) for batch "${batch.batchName || (existingBatch ? existingBatch.batchName : '') || batch._id || 'new batch'}"`,
+            constantsMessage.SEATS_LIMIT_X_CANNOT_BE_LESS_THAN_ENROLL_1) || batch._id || 'new batch'}"`,
           );
         }
       }
@@ -2070,19 +2070,19 @@ const deleteDraftCourse = async (req, res) => {
     const userId = req.user.userId;
 
     if (!mongoose.Types.ObjectId.isValid(courseId)) {
-      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Invalid course ID format");
+      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.INVALID_COURSE_ID_FORMAT);
     }
 
     const course = await Course.findById(courseId);
     if (!course) {
-      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Course not found");
+      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.COURSE_NOT_FOUND_1);
     }
 
     if (course.createdBy.toString() !== userId) {
       return apiErrorRes(
         HTTP_STATUS.FORBIDDEN,
         res,
-        "You are not authorized to delete this course",
+        constantsMessage.YOU_ARE_NOT_AUTHORIZED_TO_DELETE_THIS_CO,
       );
     }
 
@@ -2090,7 +2090,7 @@ const deleteDraftCourse = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        "Only draft courses can be deleted",
+        constantsMessage.ONLY_DRAFT_COURSES_CAN_BE_DELETED,
       );
     }
 
@@ -2099,7 +2099,7 @@ const deleteDraftCourse = async (req, res) => {
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
-      "Draft course deleted successfully",
+      constantsMessage.DRAFT_COURSE_DELETED_SUCCESSFULLY,
     );
   } catch (error) {
     console.error("Error in deleteDraftCourse:", error);
@@ -2761,14 +2761,14 @@ const assignStaffToCourse = async (req, res) => {
 
     const course = await Course.findById(courseId);
     if (!course) {
-      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Course not found");
+      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.COURSE_NOT_FOUND_1);
     }
 
     if (course.createdBy.toString() !== organizerId) {
       return apiErrorRes(
         HTTP_STATUS.FORBIDDEN,
         res,
-        "You are not authorized to assign staff to this course",
+        constantsMessage.YOU_ARE_NOT_AUTHORIZED_TO_ASSIGN_STAFF_T,
       );
     }
 
@@ -2782,7 +2782,7 @@ const assignStaffToCourse = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        "One or more provided user IDs are not valid staff members",
+        constantsMessage.ONE_OR_MORE_PROVIDED_USER_IDS_ARE_NOT_VA,
       );
     }
 
@@ -2792,7 +2792,7 @@ const assignStaffToCourse = async (req, res) => {
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
-      "Staff successfully assigned to the course",
+      constantsMessage.STAFF_SUCCESSFULLY_ASSIGNED_TO_THE_COURS,
       { course },
     );
   } catch (error) {
@@ -2851,7 +2851,7 @@ const getOrganizerCoursesAnalytics = async (req, res) => {
       return apiSuccessRes(
         HTTP_STATUS.OK,
         res,
-        "Organizer has no courses for analytics",
+        constantsMessage.ORGANIZER_HAS_NO_COURSES_FOR_ANALYTICS,
         {
           summary: {
             totalViews: 0,
@@ -2915,7 +2915,7 @@ const getOrganizerCoursesAnalytics = async (req, res) => {
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
-      "Organizer courses analytics summary retrieved successfully",
+      constantsMessage.ORGANIZER_COURSES_ANALYTICS_SUMMARY_RETR,
       {
         summary: {
           totalViews,
@@ -2956,7 +2956,7 @@ const getCourseAnalytics = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.FORBIDDEN,
         res,
-        "You are not authorized to view analytics for this course",
+        constantsMessage.YOU_ARE_NOT_AUTHORIZED_TO_VIEW_ANALYTICS,
       );
     }
 
@@ -2986,7 +2986,7 @@ const getCourseAnalytics = async (req, res) => {
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
-      "Course analytics retrieved successfully",
+      constantsMessage.COURSE_ANALYTICS_RETRIEVED_SUCCESSFULLY,
       {
         courseId: course._id,
         courseTitle: course.courseTitle,
@@ -3034,7 +3034,7 @@ const getBookingCutOffs = async (req, res) => {
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
-      "Booking cut-off options retrieved successfully",
+      constantsMessage.BOOKING_CUT_OFF_OPTIONS_RETRIEVED_SUCCES,
       options
     );
   } catch (error) {

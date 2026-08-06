@@ -57,7 +57,7 @@ const updateUserSetting = async (req, res) => {
             return apiErrorRes(
                 HTTP_STATUS.BAD_REQUEST,
                 res,
-                "Invalid appTheme value. Allowed values: 'light', 'dark'."
+                constantsMessage.INVALID_APPTHEME_VALUE_ALLOWED_VALUES_LI, 'dark'."
             );
         }
 
@@ -65,7 +65,7 @@ const updateUserSetting = async (req, res) => {
             return apiErrorRes(
                 HTTP_STATUS.BAD_REQUEST,
                 res,
-                "Invalid language value. Allowed values: 'English', 'Mongolian'."
+                constantsMessage.INVALID_LANGUAGE_VALUE_ALLOWED_VALUES_EN, 'Mongolian'."
             );
         }
 

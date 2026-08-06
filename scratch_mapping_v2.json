@@ -1,0 +1,830 @@
+{
+  "`Cannot create attendees - ${transaction.bookingType} has expired`": {
+    "key": "CANNOT_CREATE_ATTENDEES_X_HAS_EXPIRED",
+    "value": "Booking type has expired"
+  },
+  "`You must provide exactly ${transaction.qty} attendee(s)`": {
+    "key": "YOU_MUST_PROVIDE_EXACTLY_X_ATTENDEE_S",
+    "value": "Invalid attendee count"
+  },
+  "\"Attendees already created for this transaction\"": {
+    "key": "ATTENDEES_ALREADY_CREATED_FOR_THIS_TRANS",
+    "value": "Attendees already created for this transaction"
+  },
+  "\"Event or Course not found\"": {
+    "key": "EVENT_OR_COURSE_NOT_FOUND",
+    "value": "Event or Course not found"
+  },
+  "\"You are not authorized to view attendees for this item\"": {
+    "key": "YOU_ARE_NOT_AUTHORIZED_TO_VIEW_ATTENDEES",
+    "value": "You are not authorized to view attendees for this item"
+  },
+  "\"Booking not found\"": {
+    "key": "BOOKING_NOT_FOUND",
+    "value": "Booking not found"
+  },
+  "\"Booking is not paid\"": {
+    "key": "BOOKING_IS_NOT_PAID",
+    "value": "Booking is not paid"
+  },
+  "\"This booking does not belong to the selected event/course\"": {
+    "key": "THIS_BOOKING_DOES_NOT_BELONG_TO_THE_SELE",
+    "value": "This booking does not belong to the selected event/course"
+  },
+  "\"All tickets for this booking are already checked in\"": {
+    "key": "ALL_TICKETS_FOR_THIS_BOOKING_ARE_ALREADY",
+    "value": "All tickets for this booking are already checked in"
+  },
+  "\"entityId is required for User profile scans\"": {
+    "key": "ENTITYID_IS_REQUIRED_FOR_USER_PROFILE_SC",
+    "value": "entityId is required for User profile scans"
+  },
+  "\"No paid booking found for this user\"": {
+    "key": "NO_PAID_BOOKING_FOUND_FOR_THIS_USER",
+    "value": "No paid booking found for this user"
+  },
+  "\"Transaction not found\"": {
+    "key": "TRANSACTION_NOT_FOUND_1",
+    "value": "Transaction not found"
+  },
+  "\"This ticket does not belong to the selected event/course\"": {
+    "key": "THIS_TICKET_DOES_NOT_BELONG_TO_THE_SELEC",
+    "value": "This ticket does not belong to the selected event/course"
+  },
+  "`You are not authorized to check-in attendees for this ${attendee.eventId ? \"event\" : \"course\"}`": {
+    "key": "YOU_ARE_NOT_AUTHORIZED_TO_CHECK_IN_ATTEN",
+    "value": "You are not authorized to check-in attendees for this"
+  },
+  "\"You are not authorized to view this ticket\"": {
+    "key": "YOU_ARE_NOT_AUTHORIZED_TO_VIEW_THIS_TICK",
+    "value": "You are not authorized to view this ticket"
+  },
+  "\"You are not authorized to check-in attendees for this event/course\"": {
+    "key": "YOU_ARE_NOT_AUTHORIZED_TO_CHECK_IN_ATTEN_1",
+    "value": "You are not authorized to check-in attendees for this event/course"
+  },
+  "\"This specific ticket has already been scanned and checked in\"": {
+    "key": "THIS_SPECIFIC_TICKET_HAS_ALREADY_BEEN_SC",
+    "value": "This specific ticket has already been scanned and checked in"
+  },
+  "\"Individual ticket not found\"": {
+    "key": "INDIVIDUAL_TICKET_NOT_FOUND",
+    "value": "Individual ticket not found"
+  },
+  "\"eventId or courseId is required for User profile scans\"": {
+    "key": "EVENTID_OR_COURSEID_IS_REQUIRED_FOR_USER",
+    "value": "eventId or courseId is required for User profile scans"
+  },
+  "\"This ticket does not belong to the selected event\"": {
+    "key": "THIS_TICKET_DOES_NOT_BELONG_TO_THE_SELEC_1",
+    "value": "This ticket does not belong to the selected event"
+  },
+  "\"This ticket does not belong to the selected course\"": {
+    "key": "THIS_TICKET_DOES_NOT_BELONG_TO_THE_SELEC_2",
+    "value": "This ticket does not belong to the selected course"
+  },
+  "\"Transaction is not PAID\"": {
+    "key": "TRANSACTION_IS_NOT_PAID",
+    "value": "Transaction is not PAID"
+  },
+  "`${transaction.bookingType === \"COURSE\" ? \"Pass\" : (transaction.bookingType || \"Event\"": {
+    "key": "TRANSACTION_BOOKINGTYPE_COURSE_PASS_TRAN",
+    "value": "${transaction.bookingType === COURSE ? Pass : (transaction.bookingType || Event"
+  },
+  "\"No available attendee found to check-in\"": {
+    "key": "NO_AVAILABLE_ATTENDEE_FOUND_TO_CHECK_IN",
+    "value": "No available attendee found to check-in"
+  },
+  "\"Ticket code or QR code is required\"": {
+    "key": "TICKET_CODE_OR_QR_CODE_IS_REQUIRED",
+    "value": "Ticket code or QR code is required"
+  },
+  "\"Ticket verification result\"": {
+    "key": "TICKET_VERIFICATION_RESULT",
+    "value": "Ticket verification result"
+  },
+  "`You are not authorized to verify tickets for this ${secureAtt.eventId ? \"event\" : \"course\"}`": {
+    "key": "YOU_ARE_NOT_AUTHORIZED_TO_VERIFY_TICKETS",
+    "value": "You are not authorized to verify tickets for this"
+  },
+  "\"Ticket verified successfully\"": {
+    "key": "TICKET_VERIFIED_SUCCESSFULLY",
+    "value": "Ticket verified successfully"
+  },
+  "\"Ticket not found for this sub-booking ID\"": {
+    "key": "TICKET_NOT_FOUND_FOR_THIS_SUB_BOOKING_ID",
+    "value": "Ticket not found for this sub-booking ID"
+  },
+  "`This ticket does not belong to the selected ${bookingType === \"EVENT\" ? \"event\" : \"course\"}`": {
+    "key": "THIS_TICKET_DOES_NOT_BELONG_TO_THE_SELEC_3",
+    "value": "This ticket does not belong to the selected"
+  },
+  "`You are not authorized to view details for this ${bookingType === \"EVENT\" ? \"event\" : \"course\"}`": {
+    "key": "YOU_ARE_NOT_AUTHORIZED_TO_VIEW_DETAILS_F",
+    "value": "You are not authorized to view details for this"
+  },
+  "\"Banner created successfully\"": {
+    "key": "BANNER_CREATED_SUCCESSFULLY",
+    "value": "Banner created successfully"
+  },
+  "\"Banners fetched successfully\"": {
+    "key": "BANNERS_FETCHED_SUCCESSFULLY",
+    "value": "Banners fetched successfully"
+  },
+  "\"Active banners fetched successfully\"": {
+    "key": "ACTIVE_BANNERS_FETCHED_SUCCESSFULLY",
+    "value": "Active banners fetched successfully"
+  },
+  "\"Banner not found\"": {
+    "key": "BANNER_NOT_FOUND",
+    "value": "Banner not found"
+  },
+  "\"Banner updated successfully\"": {
+    "key": "BANNER_UPDATED_SUCCESSFULLY",
+    "value": "Banner updated successfully"
+  },
+  "\"Banner status toggled successfully\"": {
+    "key": "BANNER_STATUS_TOGGLED_SUCCESSFULLY",
+    "value": "Banner status toggled successfully"
+  },
+  "\"Banner deleted successfully\"": {
+    "key": "BANNER_DELETED_SUCCESSFULLY",
+    "value": "Banner deleted successfully"
+  },
+  "`Ticket type not found for ticketId: ${item.ticketId}`": {
+    "key": "TICKET_TYPE_NOT_FOUND_FOR_TICKETID_X",
+    "value": "Ticket type not found for ticketId:"
+  },
+  "`Sales not started for ticket type: ${ticket.ticketName}`": {
+    "key": "SALES_NOT_STARTED_FOR_TICKET_TYPE_X",
+    "value": "Sales not started for ticket type:"
+  },
+  "`Sales ended for ticket type: ${ticket.ticketName}`": {
+    "key": "SALES_ENDED_FOR_TICKET_TYPE_X",
+    "value": "Sales ended for ticket type:"
+  },
+  "`Not enough tickets available for: ${ticket.ticketName}`": {
+    "key": "NOT_ENOUGH_TICKETS_AVAILABLE_FOR_X",
+    "value": "Not enough tickets available for:"
+  },
+  "\"At least one ongoing slot is required\"": {
+    "key": "AT_LEAST_ONE_ONGOING_SLOT_IS_REQUIRED",
+    "value": "At least one ongoing slot is required"
+  },
+  "`Batch not found: ${slot.batchId}`": {
+    "key": "BATCH_NOT_FOUND_X",
+    "value": "Batch not found:"
+  },
+  "`Batch inactive: ${batch.batchName || slot.batchId}`": {
+    "key": "BATCH_INACTIVE_X",
+    "value": "Batch inactive:"
+  },
+  "`Booking is closed for slot: ${batch.batchName || slot.batchId} on ${dateStr} (this date is cancelled)`": {
+    "key": "BOOKING_IS_CLOSED_FOR_SLOT_X_ON_X_THIS_D",
+    "value": "Booking is closed for slot: on (this date is cancelled)"
+  },
+  "`Booking is closed for slot: ${batch.batchName || slot.batchId} (cut-off time reached)`": {
+    "key": "BOOKING_IS_CLOSED_FOR_SLOT_X_CUT_OFF_TIM",
+    "value": "Booking is closed for slot: (cut-off time reached)"
+  },
+  "`Batch full: ${batch.batchName || slot.batchId}`": {
+    "key": "BATCH_FULL_X",
+    "value": "Batch full:"
+  },
+  "\"Booking is closed for this course (cut-off time reached)\"": {
+    "key": "BOOKING_IS_CLOSED_FOR_THIS_COURSE_CUT_OF",
+    "value": "Booking is closed for this course (cut-off time reached)"
+  },
+  "\"1 Month Pass is not enabled for this class\"": {
+    "key": "_1_MONTH_PASS_IS_NOT_ENABLED_FOR_THIS_CLA",
+    "value": "1 Month Pass is not enabled for this class"
+  },
+  "\"3 Month Pass is not enabled for this class\"": {
+    "key": "_3_MONTH_PASS_IS_NOT_ENABLED_FOR_THIS_CLA",
+    "value": "3 Month Pass is not enabled for this class"
+  },
+  "\"At least one ongoing slot or pass selection is required\"": {
+    "key": "AT_LEAST_ONE_ONGOING_SLOT_OR_PASS_SELECT",
+    "value": "At least one ongoing slot or pass selection is required"
+  },
+  "\"At least one ongoing slot selection is required\"": {
+    "key": "AT_LEAST_ONE_ONGOING_SLOT_SELECTION_IS_R",
+    "value": "At least one ongoing slot selection is required"
+  },
+  "\"Refund preview calculated successfully\"": {
+    "key": "REFUND_PREVIEW_CALCULATED_SUCCESSFULLY",
+    "value": "Refund preview calculated successfully"
+  },
+  "\"Event is already cancelled\"": {
+    "key": "EVENT_IS_ALREADY_CANCELLED",
+    "value": "Event is already cancelled"
+  },
+  "\"This specific date is already cancelled for this batch\"": {
+    "key": "THIS_SPECIFIC_DATE_IS_ALREADY_CANCELLED",
+    "value": "This specific date is already cancelled for this batch"
+  },
+  "\"You are not authorized to edit this course\"": {
+    "key": "YOU_ARE_NOT_AUTHORIZED_TO_EDIT_THIS_COUR",
+    "value": "You are not authorized to edit this course"
+  },
+  "\"Cannot adjust reserved seats for a cancelled batch\"": {
+    "key": "CANNOT_ADJUST_RESERVED_SEATS_FOR_A_CANCE",
+    "value": "Cannot adjust reserved seats for a cancelled batch"
+  },
+  "`Seats limit (${batch.seats}) cannot be less than enrolled count (${enrolledCount}) + externally reserved seats (${ReservedExternally})`": {
+    "key": "SEATS_LIMIT_X_CANNOT_BE_LESS_THAN_ENROLL",
+    "value": "Seats limit () cannot be less than enrolled count () + externally reserved seats ()"
+  },
+  "\"Reserved seats updated successfully\"": {
+    "key": "RESERVED_SEATS_UPDATED_SUCCESSFULLY",
+    "value": "Reserved seats updated successfully"
+  },
+  "\"You don't have permission to view this event's attendees\"": {
+    "key": "YOU_DONT_HAVE_PERMISSION_TO_VIEW_THIS_EV",
+    "value": "You dont have permission to view this events attendees"
+  },
+  "\"You don't have permission to view this course's attendees\"": {
+    "key": "YOU_DONT_HAVE_PERMISSION_TO_VIEW_THIS_CO",
+    "value": "You dont have permission to view this courses attendees"
+  },
+  "\"You don't have permission to view this event's statistics\"": {
+    "key": "YOU_DONT_HAVE_PERMISSION_TO_VIEW_THIS_EV_1",
+    "value": "You dont have permission to view this events statistics"
+  },
+  "\"Invalid entity model\"": {
+    "key": "INVALID_ENTITY_MODEL_1",
+    "value": "Invalid entity model"
+  },
+  "\"Comments fetched successfully\"": {
+    "key": "COMMENTS_FETCHED_SUCCESSFULLY",
+    "value": "Comments fetched successfully"
+  },
+  "\"Comment updated successfully\"": {
+    "key": "COMMENT_UPDATED_SUCCESSFULLY",
+    "value": "Comment updated successfully"
+  },
+  "\"Parent comment not found\"": {
+    "key": "PARENT_COMMENT_NOT_FOUND_1",
+    "value": "Parent comment not found"
+  },
+  "`Batch with ID ${b._id} not found for this course`": {
+    "key": "BATCH_WITH_ID_X_NOT_FOUND_FOR_THIS_COURS",
+    "value": "Batch with ID not found for this course"
+  },
+  "\"Cannot edit a course that has already ended\"": {
+    "key": "CANNOT_EDIT_A_COURSE_THAT_HAS_ALREADY_EN",
+    "value": "Cannot edit a course that has already ended"
+  },
+  "\"Once a course is published, it cannot be changed back to a draft\"": {
+    "key": "ONCE_A_COURSE_IS_PUBLISHED_IT_CANNOT_BE",
+    "value": "Once a course is published, it cannot be changed back to a draft"
+  },
+  "\"Course title is required for a published course\"": {
+    "key": "COURSE_TITLE_IS_REQUIRED_FOR_A_PUBLISHED",
+    "value": "Course title is required for a published course"
+  },
+  "\"Enrollment type is required for a published course\"": {
+    "key": "ENROLLMENT_TYPE_IS_REQUIRED_FOR_A_PUBLIS",
+    "value": "Enrollment type is required for a published course"
+  },
+  "\"Course category is required for a published course\"": {
+    "key": "COURSE_CATEGORY_IS_REQUIRED_FOR_A_PUBLIS",
+    "value": "Course category is required for a published course"
+  },
+  "\"Start and end dates are required for a published course\"": {
+    "key": "START_AND_END_DATES_ARE_REQUIRED_FOR_A_P",
+    "value": "Start and end dates are required for a published course"
+  },
+  "\"Start date is required for a published course\"": {
+    "key": "START_DATE_IS_REQUIRED_FOR_A_PUBLISHED_C",
+    "value": "Start date is required for a published course"
+  },
+  "\"Total sessions is required for a published course\"": {
+    "key": "TOTAL_SESSIONS_IS_REQUIRED_FOR_A_PUBLISH",
+    "value": "Total sessions is required for a published course"
+  },
+  "\"Price is required for a published course\"": {
+    "key": "PRICE_IS_REQUIRED_FOR_A_PUBLISHED_COURSE",
+    "value": "Price is required for a published course"
+  },
+  "\"Venue address with valid latitude and longitude is required for a published course\"": {
+    "key": "VENUE_ADDRESS_WITH_VALID_LATITUDE_AND_LO",
+    "value": "Venue address with valid latitude and longitude is required for a published course"
+  },
+  "\"At least one batch is required for a published course\"": {
+    "key": "AT_LEAST_ONE_BATCH_IS_REQUIRED_FOR_A_PUB",
+    "value": "At least one batch is required for a published course"
+  },
+  "`Batch at index ${i} must have batchName, startTime, endTime, days, and seats`": {
+    "key": "BATCH_AT_INDEX_X_MUST_HAVE_BATCHNAME_STA",
+    "value": "Batch at index must have batchName, startTime, endTime, days, and seats"
+  },
+  "\"Cannot modify the start date/time of a course that is already live\"": {
+    "key": "CANNOT_MODIFY_THE_START_DATE_TIME_OF_A_C",
+    "value": "Cannot modify the start date/time of a course that is already live"
+  },
+  "\"Start date must be in the future for upcoming courses\"": {
+    "key": "START_DATE_MUST_BE_IN_THE_FUTURE_FOR_UPC",
+    "value": "Start date must be in the future for upcoming courses"
+  },
+  "\"End date must be in the future\"": {
+    "key": "END_DATE_MUST_BE_IN_THE_FUTURE",
+    "value": "End date must be in the future"
+  },
+  "\"Start date must be before end date\"": {
+    "key": "START_DATE_MUST_BE_BEFORE_END_DATE",
+    "value": "Start date must be before end date"
+  },
+  "`Seats limit (${seatsVal}) cannot be less than enrolled count (${enrolledCount}) + externally reserved seats (${reservedVal}) for batch \"${batch.batchName || (existingBatch ? existingBatch.batchName : ''": {
+    "key": "SEATS_LIMIT_X_CANNOT_BE_LESS_THAN_ENROLL_1",
+    "value": "Seats limit () cannot be less than enrolled count () + externally reserved seats () for batch ${batch.batchName || (existingBatch ? existingBatch.batchName :"
+  },
+  "\"Invalid course ID format\"": {
+    "key": "INVALID_COURSE_ID_FORMAT",
+    "value": "Invalid course ID format"
+  },
+  "\"Course not found\"": {
+    "key": "COURSE_NOT_FOUND_1",
+    "value": "Course not found"
+  },
+  "\"You are not authorized to delete this course\"": {
+    "key": "YOU_ARE_NOT_AUTHORIZED_TO_DELETE_THIS_CO",
+    "value": "You are not authorized to delete this course"
+  },
+  "\"Only draft courses can be deleted\"": {
+    "key": "ONLY_DRAFT_COURSES_CAN_BE_DELETED",
+    "value": "Only draft courses can be deleted"
+  },
+  "\"Draft course deleted successfully\"": {
+    "key": "DRAFT_COURSE_DELETED_SUCCESSFULLY",
+    "value": "Draft course deleted successfully"
+  },
+  "\"You are not authorized to assign staff to this course\"": {
+    "key": "YOU_ARE_NOT_AUTHORIZED_TO_ASSIGN_STAFF_T",
+    "value": "You are not authorized to assign staff to this course"
+  },
+  "\"One or more provided user IDs are not valid staff members\"": {
+    "key": "ONE_OR_MORE_PROVIDED_USER_IDS_ARE_NOT_VA",
+    "value": "One or more provided user IDs are not valid staff members"
+  },
+  "\"Staff successfully assigned to the course\"": {
+    "key": "STAFF_SUCCESSFULLY_ASSIGNED_TO_THE_COURS",
+    "value": "Staff successfully assigned to the course"
+  },
+  "\"Organizer has no courses for analytics\"": {
+    "key": "ORGANIZER_HAS_NO_COURSES_FOR_ANALYTICS",
+    "value": "Organizer has no courses for analytics"
+  },
+  "\"Organizer courses analytics summary retrieved successfully\"": {
+    "key": "ORGANIZER_COURSES_ANALYTICS_SUMMARY_RETR",
+    "value": "Organizer courses analytics summary retrieved successfully"
+  },
+  "\"You are not authorized to view analytics for this course\"": {
+    "key": "YOU_ARE_NOT_AUTHORIZED_TO_VIEW_ANALYTICS",
+    "value": "You are not authorized to view analytics for this course"
+  },
+  "\"Course analytics retrieved successfully\"": {
+    "key": "COURSE_ANALYTICS_RETRIEVED_SUCCESSFULLY",
+    "value": "Course analytics retrieved successfully"
+  },
+  "\"Booking cut-off options retrieved successfully\"": {
+    "key": "BOOKING_CUT_OFF_OPTIONS_RETRIEVED_SUCCES",
+    "value": "Booking cut-off options retrieved successfully"
+  },
+  "\"Your event is already live\"": {
+    "key": "YOUR_EVENT_IS_ALREADY_LIVE",
+    "value": "Your event is already live"
+  },
+  "`Total event seats (${totalSeats}) cannot be less than booked count (${bookedQty}) + externally reserved seats (${reservedVal})`": {
+    "key": "TOTAL_EVENT_SEATS_X_CANNOT_BE_LESS_THAN",
+    "value": "Total event seats () cannot be less than booked count () + externally reserved seats ()"
+  },
+  "`Total event seats (${totalSeats}) cannot be less than externally reserved seats (${reservedVal})`": {
+    "key": "TOTAL_EVENT_SEATS_X_CANNOT_BE_LESS_THAN_1",
+    "value": "Total event seats () cannot be less than externally reserved seats ()"
+  },
+  "\"Once an event is published, it cannot be changed back to a draft\"": {
+    "key": "ONCE_AN_EVENT_IS_PUBLISHED_IT_CANNOT_BE",
+    "value": "Once an event is published, it cannot be changed back to a draft"
+  },
+  "\"Event title is required for a published event\"": {
+    "key": "EVENT_TITLE_IS_REQUIRED_FOR_A_PUBLISHED",
+    "value": "Event title is required for a published event"
+  },
+  "\"Event category is required for a published event\"": {
+    "key": "EVENT_CATEGORY_IS_REQUIRED_FOR_A_PUBLISH",
+    "value": "Event category is required for a published event"
+  },
+  "\"Start and end dates are required for a published event\"": {
+    "key": "START_AND_END_DATES_ARE_REQUIRED_FOR_A_P_1",
+    "value": "Start and end dates are required for a published event"
+  },
+  "\"Venue address with valid latitude and longitude is required for a published event\"": {
+    "key": "VENUE_ADDRESS_WITH_VALID_LATITUDE_AND_LO_1",
+    "value": "Venue address with valid latitude and longitude is required for a published event"
+  },
+  "\"At least one ticket is required for a published event\"": {
+    "key": "AT_LEAST_ONE_TICKET_IS_REQUIRED_FOR_A_PU",
+    "value": "At least one ticket is required for a published event"
+  },
+  "`Ticket at index ${i} must have ticketName, price, and qty`": {
+    "key": "TICKET_AT_INDEX_X_MUST_HAVE_TICKETNAME_P",
+    "value": "Ticket at index must have ticketName, price, and qty"
+  },
+  "\"Cannot modify the start date/time of an event that is already live\"": {
+    "key": "CANNOT_MODIFY_THE_START_DATE_TIME_OF_AN",
+    "value": "Cannot modify the start date/time of an event that is already live"
+  },
+  "\"Start date must be in the future for upcoming events\"": {
+    "key": "START_DATE_MUST_BE_IN_THE_FUTURE_FOR_UPC_1",
+    "value": "Start date must be in the future for upcoming events"
+  },
+  "\"Minimum age must be specified and non-negative for MIN_AGE type\"": {
+    "key": "MINIMUM_AGE_MUST_BE_SPECIFIED_AND_NON_NE",
+    "value": "Minimum age must be specified and non-negative for MIN_AGE type"
+  },
+  "\"Both minimum and maximum age must be specified and non-negative for RANGE type\"": {
+    "key": "BOTH_MINIMUM_AND_MAXIMUM_AGE_MUST_BE_SPE",
+    "value": "Both minimum and maximum age must be specified and non-negative for RANGE type"
+  },
+  "\"Minimum age must be less than maximum age\"": {
+    "key": "MINIMUM_AGE_MUST_BE_LESS_THAN_MAXIMUM_AG",
+    "value": "Minimum age must be less than maximum age"
+  },
+  "\"Refund policies retrieved successfully\"": {
+    "key": "REFUND_POLICIES_RETRIEVED_SUCCESSFULLY",
+    "value": "Refund policies retrieved successfully"
+  },
+  "\"Invalid event ID format\"": {
+    "key": "INVALID_EVENT_ID_FORMAT",
+    "value": "Invalid event ID format"
+  },
+  "\"Event not found\"": {
+    "key": "EVENT_NOT_FOUND_1",
+    "value": "Event not found"
+  },
+  "\"You are not authorized to delete this event\"": {
+    "key": "YOU_ARE_NOT_AUTHORIZED_TO_DELETE_THIS_EV",
+    "value": "You are not authorized to delete this event"
+  },
+  "\"Only draft events can be deleted\"": {
+    "key": "ONLY_DRAFT_EVENTS_CAN_BE_DELETED",
+    "value": "Only draft events can be deleted"
+  },
+  "\"Draft event deleted successfully\"": {
+    "key": "DRAFT_EVENT_DELETED_SUCCESSFULLY",
+    "value": "Draft event deleted successfully"
+  },
+  "\"You are not authorized to assign staff to this event\"": {
+    "key": "YOU_ARE_NOT_AUTHORIZED_TO_ASSIGN_STAFF_T_1",
+    "value": "You are not authorized to assign staff to this event"
+  },
+  "\"Staff successfully assigned to the event\"": {
+    "key": "STAFF_SUCCESSFULLY_ASSIGNED_TO_THE_EVENT",
+    "value": "Staff successfully assigned to the event"
+  },
+  "\"You are not authorized to view analytics for this event\"": {
+    "key": "YOU_ARE_NOT_AUTHORIZED_TO_VIEW_ANALYTICS_1",
+    "value": "You are not authorized to view analytics for this event"
+  },
+  "\"Event analytics retrieved successfully\"": {
+    "key": "EVENT_ANALYTICS_RETRIEVED_SUCCESSFULLY",
+    "value": "Event analytics retrieved successfully"
+  },
+  "\"Organizer has no listings for analytics\"": {
+    "key": "ORGANIZER_HAS_NO_LISTINGS_FOR_ANALYTICS",
+    "value": "Organizer has no listings for analytics"
+  },
+  "\"Organizer events and courses analytics summary retrieved successfully\"": {
+    "key": "ORGANIZER_EVENTS_AND_COURSES_ANALYTICS_S",
+    "value": "Organizer events and courses analytics summary retrieved successfully"
+  },
+  "\"Explore list fetched successfully\"": {
+    "key": "EXPLORE_LIST_FETCHED_SUCCESSFULLY",
+    "value": "Explore list fetched successfully"
+  },
+  "\"id and type (event/course) are required\"": {
+    "key": "ID_AND_TYPE_EVENT_COURSE_ARE_REQUIRED",
+    "value": "id and type (event/course) are required"
+  },
+  "\"Invalid type. Must be 'event' or 'course'\"": {
+    "key": "INVALID_TYPE_MUST_BE_EVENT_OR_COURSE",
+    "value": "Invalid type. Must be event or course"
+  },
+  "\"Share URL generated successfully\"": {
+    "key": "SHARE_URL_GENERATED_SUCCESSFULLY",
+    "value": "Share URL generated successfully"
+  },
+  "\"Search results fetched successfully\"": {
+    "key": "SEARCH_RESULTS_FETCHED_SUCCESSFULLY",
+    "value": "Search results fetched successfully"
+  },
+  "\"User not authenticated\"": {
+    "key": "USER_NOT_AUTHENTICATED",
+    "value": "User not authenticated"
+  },
+  "\"Query is required\"": {
+    "key": "QUERY_IS_REQUIRED",
+    "value": "Query is required"
+  },
+  "\"Search query saved to history successfully\"": {
+    "key": "SEARCH_QUERY_SAVED_TO_HISTORY_SUCCESSFUL",
+    "value": "Search query saved to history successfully"
+  },
+  "\"Recent searches retrieved successfully\"": {
+    "key": "RECENT_SEARCHES_RETRIEVED_SUCCESSFULLY",
+    "value": "Recent searches retrieved successfully"
+  },
+  "\"Search query deleted successfully\"": {
+    "key": "SEARCH_QUERY_DELETED_SUCCESSFULLY",
+    "value": "Search query deleted successfully"
+  },
+  "\"All search history cleared successfully\"": {
+    "key": "ALL_SEARCH_HISTORY_CLEARED_SUCCESSFULLY",
+    "value": "All search history cleared successfully"
+  },
+  "\"Trending searches retrieved successfully\"": {
+    "key": "TRENDING_SEARCHES_RETRIEVED_SUCCESSFULLY",
+    "value": "Trending searches retrieved successfully"
+  },
+  "\"Notifications deleted successfully\"": {
+    "key": "NOTIFICATIONS_DELETED_SUCCESSFULLY",
+    "value": "Notifications deleted successfully"
+  },
+  "\"Bank Name, Holder Name, and Account Number are required.\"": {
+    "key": "BANK_NAME_HOLDER_NAME_AND_ACCOUNT_NUMBER",
+    "value": "Bank Name, Holder Name, and Account Number are required."
+  },
+  "\"Bank account added successfully. Waiting for admin approval.\"": {
+    "key": "BANK_ACCOUNT_ADDED_SUCCESSFULLY_WAITING",
+    "value": "Bank account added successfully. Waiting for admin approval."
+  },
+  "\"Bank account not found.\"": {
+    "key": "BANK_ACCOUNT_NOT_FOUND",
+    "value": "Bank account not found."
+  },
+  "\"Only approved bank accounts can be set as primary.\"": {
+    "key": "ONLY_APPROVED_BANK_ACCOUNTS_CAN_BE_SET_A",
+    "value": "Only approved bank accounts can be set as primary."
+  },
+  "\"Primary bank account updated successfully.\"": {
+    "key": "PRIMARY_BANK_ACCOUNT_UPDATED_SUCCESSFULL",
+    "value": "Primary bank account updated successfully."
+  },
+  "\"Bank account removed successfully.\"": {
+    "key": "BANK_ACCOUNT_REMOVED_SUCCESSFULLY",
+    "value": "Bank account removed successfully."
+  },
+  "\"Bank accounts fetched successfully.\"": {
+    "key": "BANK_ACCOUNTS_FETCHED_SUCCESSFULLY",
+    "value": "Bank accounts fetched successfully."
+  },
+  "`Minimum payout amount is ₮${minPayout.toLocaleString()}`": {
+    "key": "MINIMUM_PAYOUT_AMOUNT_IS_X",
+    "value": "Minimum payout amount is ₮"
+  },
+  "\"Selected bank account not found.\"": {
+    "key": "SELECTED_BANK_ACCOUNT_NOT_FOUND",
+    "value": "Selected bank account not found."
+  },
+  "\"Selected bank account is not approved.\"": {
+    "key": "SELECTED_BANK_ACCOUNT_IS_NOT_APPROVED",
+    "value": "Selected bank account is not approved."
+  },
+  "\"No approved bank account found for payout.\"": {
+    "key": "NO_APPROVED_BANK_ACCOUNT_FOUND_FOR_PAYOU",
+    "value": "No approved bank account found for payout."
+  },
+  "\"Referral rewards fetched\"": {
+    "key": "REFERRAL_REWARDS_FETCHED",
+    "value": "Referral rewards fetched"
+  },
+  "`Report is already ${report.status}.`": {
+    "key": "REPORT_IS_ALREADY_X",
+    "value": "Report is already processed"
+  },
+  "\"Timezone updated successfully\"": {
+    "key": "TIMEZONE_UPDATED_SUCCESSFULLY",
+    "value": "Timezone updated successfully"
+  },
+  "\"User profile fetched successfully\"": {
+    "key": "USER_PROFILE_FETCHED_SUCCESSFULLY",
+    "value": "User profile fetched successfully"
+  },
+  "\"User list fetched successfully\"": {
+    "key": "USER_LIST_FETCHED_SUCCESSFULLY",
+    "value": "User list fetched successfully"
+  },
+  "`User ${isDisable ? \"disabled\" : \"enabled\"} successfully`": {
+    "key": "USER_X_SUCCESSFULLY",
+    "value": "User successfully"
+  },
+  "\"Type is required (LOGIN, CUSTOMER, ORGANIZER, FORGOT_PASSWORD).\"": {
+    "key": "TYPE_IS_REQUIRED_LOGIN_CUSTOMER_ORGANIZE",
+    "value": "Type is required (LOGIN, CUSTOMER, ORGANIZER, FORGOT_PASSWORD)."
+  },
+  "\"Type is required (LOGIN, CUSTOMER, ORGANIZER).\"": {
+    "key": "TYPE_IS_REQUIRED_LOGIN_CUSTOMER_ORGANIZE_1",
+    "value": "Type is required (LOGIN, CUSTOMER, ORGANIZER)."
+  },
+  "\"OTP verified successfully. Use the token to reset password.\"": {
+    "key": "OTP_VERIFIED_SUCCESSFULLY_USE_THE_TOKEN",
+    "value": "OTP verified successfully. Use the token to reset password."
+  },
+  "\"Reset token required.\"": {
+    "key": "RESET_TOKEN_REQUIRED",
+    "value": "Reset token required."
+  },
+  "\"Invalid or expired reset token.\"": {
+    "key": "INVALID_OR_EXPIRED_RESET_TOKEN",
+    "value": "Invalid or expired reset token."
+  },
+  "\"Invalid old password.\"": {
+    "key": "INVALID_OLD_PASSWORD",
+    "value": "Invalid old password."
+  },
+  "\"Password updated successfully.\"": {
+    "key": "PASSWORD_UPDATED_SUCCESSFULLY",
+    "value": "Password updated successfully."
+  },
+  "\"Staff account not found\"": {
+    "key": "STAFF_ACCOUNT_NOT_FOUND",
+    "value": "Staff account not found"
+  },
+  "\"Staff member added successfully\"": {
+    "key": "STAFF_MEMBER_ADDED_SUCCESSFULLY",
+    "value": "Staff member added successfully"
+  },
+  "\"Staff list retrieved successfully\"": {
+    "key": "STAFF_LIST_RETRIEVED_SUCCESSFULLY",
+    "value": "Staff list retrieved successfully"
+  },
+  "\"Invalid email or password\"": {
+    "key": "INVALID_EMAIL_OR_PASSWORD_1",
+    "value": "Invalid email or password"
+  },
+  "\"Staff logged in successfully\"": {
+    "key": "STAFF_LOGGED_IN_SUCCESSFULLY",
+    "value": "Staff logged in successfully"
+  },
+  "\"Assigned list retrieved successfully\"": {
+    "key": "ASSIGNED_LIST_RETRIEVED_SUCCESSFULLY",
+    "value": "Assigned list retrieved successfully"
+  },
+  "\"Scan history retrieved successfully\"": {
+    "key": "SCAN_HISTORY_RETRIEVED_SUCCESSFULLY",
+    "value": "Scan history retrieved successfully"
+  },
+  "\"Staff member not found or access denied\"": {
+    "key": "STAFF_MEMBER_NOT_FOUND_OR_ACCESS_DENIED",
+    "value": "Staff member not found or access denied"
+  },
+  "\"Staff member updated successfully\"": {
+    "key": "STAFF_MEMBER_UPDATED_SUCCESSFULLY",
+    "value": "Staff member updated successfully"
+  },
+  "\"Staff member removed successfully\"": {
+    "key": "STAFF_MEMBER_REMOVED_SUCCESSFULLY",
+    "value": "Staff member removed successfully"
+  },
+  "\"Only organizers can update organizer info\"": {
+    "key": "ONLY_ORGANIZERS_CAN_UPDATE_ORGANIZER_INF",
+    "value": "Only organizers can update organizer info"
+  },
+  "\"Organizer info submitted successfully. Your account is now under review.\"": {
+    "key": "ORGANIZER_INFO_SUBMITTED_SUCCESSFULLY_YO",
+    "value": "Organizer info submitted successfully. Your account is now under review."
+  },
+  "\"User is not an organizer\"": {
+    "key": "USER_IS_NOT_AN_ORGANIZER",
+    "value": "User is not an organizer"
+  },
+  "\"Invalid action. Use 'approve' or 'reject'.\"": {
+    "key": "INVALID_ACTION_USE_APPROVE_OR_REJECT",
+    "value": "Invalid action. Use approve or reject."
+  },
+  "`Organizer account successfully ${action === \"approve\" ? \"approved\" : \"rejected\"}.`": {
+    "key": "ORGANIZER_ACCOUNT_SUCCESSFULLY_X",
+    "value": "Organizer account successfully ."
+  },
+  "\"Invalid appTheme value. Allowed values: 'light'": {
+    "key": "INVALID_APPTHEME_VALUE_ALLOWED_VALUES_LI",
+    "value": "Invalid appTheme value. Allowed values: light"
+  },
+  "\"Invalid language value. Allowed values: 'English'": {
+    "key": "INVALID_LANGUAGE_VALUE_ALLOWED_VALUES_EN",
+    "value": "Invalid language value. Allowed values: English"
+  },
+  "\"Both front and back images are required for National ID.\"": {
+    "key": "BOTH_FRONT_AND_BACK_IMAGES_ARE_REQUIRED",
+    "value": "Both front and back images are required for National ID."
+  },
+  "\"Both front and back images are required for Driving Licence.\"": {
+    "key": "BOTH_FRONT_AND_BACK_IMAGES_ARE_REQUIRED_1",
+    "value": "Both front and back images are required for Driving Licence."
+  },
+  "\"Bank Name, Holder Name, and Account Number are required for Bank Verification.\"": {
+    "key": "BANK_NAME_HOLDER_NAME_AND_ACCOUNT_NUMBER_1",
+    "value": "Bank Name, Holder Name, and Account Number are required for Bank Verification."
+  },
+  "\"Business Name and Business Category are required for Business Verification.\"": {
+    "key": "BUSINESS_NAME_AND_BUSINESS_CATEGORY_ARE",
+    "value": "Business Name and Business Category are required for Business Verification."
+  },
+  "\"No verification details provided. Please submit nationalId, drivingLicence, bankVerification, or businessVerification.\"": {
+    "key": "NO_VERIFICATION_DETAILS_PROVIDED_PLEASE",
+    "value": "No verification details provided. Please submit nationalId, drivingLicence, bankVerification, or businessVerification."
+  },
+  "\"Invalid verification type. Must be 'nationalId'": {
+    "key": "INVALID_VERIFICATION_TYPE_MUST_BE_NATION",
+    "value": "Invalid verification type. Must be nationalId"
+  },
+  "\"National ID has not been submitted yet.\"": {
+    "key": "NATIONAL_ID_HAS_NOT_BEEN_SUBMITTED_YET",
+    "value": "National ID has not been submitted yet."
+  },
+  "\"Driving Licence has not been submitted yet.\"": {
+    "key": "DRIVING_LICENCE_HAS_NOT_BEEN_SUBMITTED_Y",
+    "value": "Driving Licence has not been submitted yet."
+  },
+  "\"Bank details not found.\"": {
+    "key": "BANK_DETAILS_NOT_FOUND",
+    "value": "Bank details not found."
+  },
+  "\"Business details have not been submitted yet.\"": {
+    "key": "BUSINESS_DETAILS_HAVE_NOT_BEEN_SUBMITTED",
+    "value": "Business details have not been submitted yet."
+  },
+  "\"Country code and contact number are required.\"": {
+    "key": "COUNTRY_CODE_AND_CONTACT_NUMBER_ARE_REQU",
+    "value": "Country code and contact number are required."
+  },
+  "\"OTP sent successfully to your phone number.\"": {
+    "key": "OTP_SENT_SUCCESSFULLY_TO_YOUR_PHONE_NUMB",
+    "value": "OTP sent successfully to your phone number."
+  },
+  "\"Country code and contact number are required to resend OTP.\"": {
+    "key": "COUNTRY_CODE_AND_CONTACT_NUMBER_ARE_REQU_1",
+    "value": "Country code and contact number are required to resend OTP."
+  },
+  "\"OTP resent successfully to your phone number.\"": {
+    "key": "OTP_RESENT_SUCCESSFULLY_TO_YOUR_PHONE_NU",
+    "value": "OTP resent successfully to your phone number."
+  },
+  "\"OTP is required.\"": {
+    "key": "OTP_IS_REQUIRED",
+    "value": "OTP is required."
+  },
+  "\"Phone number verified successfully.\"": {
+    "key": "PHONE_NUMBER_VERIFIED_SUCCESSFULLY",
+    "value": "Phone number verified successfully."
+  },
+  "\"Email is required.\"": {
+    "key": "EMAIL_IS_REQUIRED",
+    "value": "Email is required."
+  },
+  "\"OTP sent successfully to your email address.\"": {
+    "key": "OTP_SENT_SUCCESSFULLY_TO_YOUR_EMAIL_ADDR",
+    "value": "OTP sent successfully to your email address."
+  },
+  "\"Email is required to resend OTP.\"": {
+    "key": "EMAIL_IS_REQUIRED_TO_RESEND_OTP",
+    "value": "Email is required to resend OTP."
+  },
+  "\"OTP resent successfully to your email address.\"": {
+    "key": "OTP_RESENT_SUCCESSFULLY_TO_YOUR_EMAIL_AD",
+    "value": "OTP resent successfully to your email address."
+  },
+  "\"Email verified successfully.\"": {
+    "key": "EMAIL_VERIFIED_SUCCESSFULLY",
+    "value": "Email verified successfully."
+  },
+  "\"Bank Name is required.\"": {
+    "key": "BANK_NAME_IS_REQUIRED",
+    "value": "Bank Name is required."
+  },
+  "\"Bank Name already exists.\"": {
+    "key": "BANK_NAME_ALREADY_EXISTS",
+    "value": "Bank Name already exists."
+  },
+  "\"Bank added successfully.\"": {
+    "key": "BANK_ADDED_SUCCESSFULLY",
+    "value": "Bank added successfully."
+  },
+  "\"Bank not found.\"": {
+    "key": "BANK_NOT_FOUND",
+    "value": "Bank not found."
+  },
+  "\"Bank updated successfully.\"": {
+    "key": "BANK_UPDATED_SUCCESSFULLY",
+    "value": "Bank updated successfully."
+  },
+  "\"Bank deleted successfully.\"": {
+    "key": "BANK_DELETED_SUCCESSFULLY",
+    "value": "Bank deleted successfully."
+  },
+  "\"Active banks fetched successfully.\"": {
+    "key": "ACTIVE_BANKS_FETCHED_SUCCESSFULLY",
+    "value": "Active banks fetched successfully."
+  }
+}

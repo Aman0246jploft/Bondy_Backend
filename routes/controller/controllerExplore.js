@@ -118,7 +118,7 @@ const getExploreList = async (req, res) => {
     const endIndex = originalPage * originalLimit;
     const paginatedList = mixedList.slice(startIndex, endIndex);
 
-    return apiSuccessRes(HTTP_STATUS.OK, res, "Explore list fetched successfully", {
+    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.EXPLORE_LIST_FETCHED_SUCCESSFULLY, {
       list: paginatedList,
       total: totalCount,
       totalPages: Math.ceil(totalCount / originalLimit),
@@ -137,7 +137,7 @@ const getShareUrl = async (req, res) => {
     const { id, type } = req.query;
 
     if (!id || !type) {
-      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "id and type (event/course) are required");
+      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.ID_AND_TYPE_EVENT_COURSE_ARE_REQUIRED);
     }
 
     const frontendUrl = process.env.FRONTEND_URL || "https://bondy-user.tasksplan.com";
@@ -148,10 +148,10 @@ const getShareUrl = async (req, res) => {
     } else if (type.toLowerCase() === "course") {
       shareUrl = `${frontendUrl}/programDetails?id=${id}`;
     } else {
-      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Invalid type. Must be 'event' or 'course'");
+      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.INVALID_TYPE_MUST_BE_EVENT_OR_COURSE);
     }
 
-    return apiSuccessRes(HTTP_STATUS.OK, res, "Share URL generated successfully", {
+    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.SHARE_URL_GENERATED_SUCCESSFULLY, {
       shareUrl,
       type
     });
@@ -186,7 +186,7 @@ const searchExplore = async (req, res) => {
     const hasType = type && type.trim();
 
     if (!hasQuery && !hasCategory && !hasType) {
-      return apiSuccessRes(HTTP_STATUS.OK, res, "Search results fetched successfully", {
+      return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.SEARCH_RESULTS_FETCHED_SUCCESSFULLY, {
         list: [],
         total: 0,
         totalPages: 0,
@@ -329,7 +329,7 @@ const searchExplore = async (req, res) => {
     // Simple pagination
     const paginated = combined.slice(skip, skip + parsedLimit);
 
-    return apiSuccessRes(HTTP_STATUS.OK, res, "Search results fetched successfully", {
+    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.SEARCH_RESULTS_FETCHED_SUCCESSFULLY, {
       list: paginated,
       total: combined.length,
       totalPages: Math.ceil(combined.length / parsedLimit),
@@ -345,13 +345,13 @@ const searchExplore = async (req, res) => {
 const saveRecentSearch = async (req, res) => {
   try {
     if (!req.user || !req.user.userId) {
-      return apiErrorRes(HTTP_STATUS.UNAUTHORIZED, res, "User not authenticated");
+      return apiErrorRes(HTTP_STATUS.UNAUTHORIZED, res, constantsMessage.USER_NOT_AUTHENTICATED);
     }
     const userId = req.user.userId;
     const { query } = req.body;
 
     if (!query || !query.trim()) {
-      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Query is required");
+      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.QUERY_IS_REQUIRED);
     }
 
     const cleanQuery = query.trim();
@@ -361,7 +361,7 @@ const saveRecentSearch = async (req, res) => {
       { upsert: true, new: true }
     );
 
-    return apiSuccessRes(HTTP_STATUS.OK, res, "Search query saved to history successfully");
+    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.SEARCH_QUERY_SAVED_TO_HISTORY_SUCCESSFUL);
   } catch (error) {
     console.error("Error in saveRecentSearch:", error);
     return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
@@ -371,7 +371,7 @@ const saveRecentSearch = async (req, res) => {
 const getRecentSearches = async (req, res) => {
   try {
     if (!req.user || !req.user.userId) {
-      return apiSuccessRes(HTTP_STATUS.OK, res, "Recent searches retrieved successfully", []);
+      return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.RECENT_SEARCHES_RETRIEVED_SUCCESSFULLY, []);
     }
 
     const userId = req.user.userId;
@@ -383,7 +383,7 @@ const getRecentSearches = async (req, res) => {
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
-      "Recent searches retrieved successfully",
+      constantsMessage.RECENT_SEARCHES_RETRIEVED_SUCCESSFULLY,
       searches.map((s) => s.query)
     );
   } catch (error) {
@@ -395,7 +395,7 @@ const getRecentSearches = async (req, res) => {
 const deleteRecentSearches = async (req, res) => {
   try {
     if (!req.user || !req.user.userId) {
-      return apiErrorRes(HTTP_STATUS.UNAUTHORIZED, res, "User not authenticated");
+      return apiErrorRes(HTTP_STATUS.UNAUTHORIZED, res, constantsMessage.USER_NOT_AUTHENTICATED);
     }
 
     const userId = req.user.userId;
@@ -403,10 +403,10 @@ const deleteRecentSearches = async (req, res) => {
 
     if (query) {
       await SearchHistory.deleteOne({ userId, query: query.trim() });
-      return apiSuccessRes(HTTP_STATUS.OK, res, "Search query deleted successfully");
+      return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.SEARCH_QUERY_DELETED_SUCCESSFULLY);
     } else {
       await SearchHistory.deleteMany({ userId });
-      return apiSuccessRes(HTTP_STATUS.OK, res, "All search history cleared successfully");
+      return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.ALL_SEARCH_HISTORY_CLEARED_SUCCESSFULLY);
     }
   } catch (error) {
     console.error("Error in deleteRecentSearches:", error);
@@ -613,7 +613,7 @@ const getTrendingSearches = async (req, res) => {
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
-      "Trending searches retrieved successfully",
+      constantsMessage.TRENDING_SEARCHES_RETRIEVED_SUCCESSFULLY,
       trendingItems
     );
   } catch (error) {

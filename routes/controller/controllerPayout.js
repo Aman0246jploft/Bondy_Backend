@@ -217,7 +217,7 @@ const addBankAccount = async (req, res) => {
     const { bankName, bankHolderName, accountNumber, otherDetails } = req.body;
 
     if (!bankName || !bankHolderName || !accountNumber) {
-      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Bank Name, Holder Name, and Account Number are required.");
+      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.BANK_NAME_HOLDER_NAME_AND_ACCOUNT_NUMBER);
     }
 
     const user = await User.findById(userId);
@@ -243,7 +243,7 @@ const addBankAccount = async (req, res) => {
 
     await user.save();
 
-    return apiSuccessRes(HTTP_STATUS.OK, res, "Bank account added successfully. Waiting for admin approval.", {
+    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.BANK_ACCOUNT_ADDED_SUCCESSFULLY_WAITING, {
       bankAccounts: user.bankAccounts
     });
   } catch (error) {
@@ -263,11 +263,11 @@ const setPrimaryBankAccount = async (req, res) => {
 
     const accountToSet = user.bankAccounts.find(acc => acc._id.toString() === accountId);
     if (!accountToSet) {
-      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Bank account not found.");
+      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.BANK_ACCOUNT_NOT_FOUND);
     }
 
     if (accountToSet.status !== "approved") {
-      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Only approved bank accounts can be set as primary.");
+      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.ONLY_APPROVED_BANK_ACCOUNTS_CAN_BE_SET_A);
     }
 
     user.bankAccounts.forEach(acc => {
@@ -276,7 +276,7 @@ const setPrimaryBankAccount = async (req, res) => {
 
     await user.save();
 
-    return apiSuccessRes(HTTP_STATUS.OK, res, "Primary bank account updated successfully.", {
+    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.PRIMARY_BANK_ACCOUNT_UPDATED_SUCCESSFULL, {
       bankAccounts: user.bankAccounts
     });
   } catch (error) {
@@ -296,7 +296,7 @@ const removeBankAccount = async (req, res) => {
 
     const accountIndex = user.bankAccounts.findIndex(acc => acc._id.toString() === accountId);
     if (accountIndex === -1) {
-      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Bank account not found.");
+      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.BANK_ACCOUNT_NOT_FOUND);
     }
 
     const accountToRemove = user.bankAccounts[accountIndex];
@@ -312,7 +312,7 @@ const removeBankAccount = async (req, res) => {
 
     await user.save();
 
-    return apiSuccessRes(HTTP_STATUS.OK, res, "Bank account removed successfully.", {
+    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.BANK_ACCOUNT_REMOVED_SUCCESSFULLY, {
       bankAccounts: user.bankAccounts
     });
   } catch (error) {
@@ -329,7 +329,7 @@ const getOrganizerBankAccounts = async (req, res) => {
     if (!user) {
       return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.USER_NOT_FOUND);
     }
-    return apiSuccessRes(HTTP_STATUS.OK, res, "Bank accounts fetched successfully.", {
+    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.BANK_ACCOUNTS_FETCHED_SUCCESSFULLY, {
       bankAccounts: user.bankAccounts || []
     });
   } catch (error) {
@@ -357,7 +357,7 @@ const requestPayout = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        `Minimum payout amount is ₮${minPayout.toLocaleString()}`,
+        constantsMessage.MINIMUM_PAYOUT_AMOUNT_IS_X,
       );
     }
 
@@ -374,10 +374,10 @@ const requestPayout = async (req, res) => {
     if (accountId) {
       selectedBank = user.bankAccounts?.find(b => b._id.toString() === accountId);
       if (!selectedBank) {
-        return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Selected bank account not found.");
+        return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.SELECTED_BANK_ACCOUNT_NOT_FOUND);
       }
       if (selectedBank.status !== "approved") {
-        return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Selected bank account is not approved.");
+        return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.SELECTED_BANK_ACCOUNT_IS_NOT_APPROVED);
       }
     } else {
       // Fallback to primary or any approved bank
@@ -388,7 +388,7 @@ const requestPayout = async (req, res) => {
     if (!selectedBank) {
       // Fallback to legacy bank verification check just in case
       if (user.verifications?.bankVerification?.status !== "approved") {
-        return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "No approved bank account found for payout.");
+        return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.NO_APPROVED_BANK_ACCOUNT_FOUND_FOR_PAYOU);
       }
     }
 

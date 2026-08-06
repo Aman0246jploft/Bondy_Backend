@@ -135,7 +135,7 @@ const resolveReport = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        `Report is already ${report.status}.`,
+        constantsMessage.REPORT_IS_ALREADY_X,
       );
     }
 

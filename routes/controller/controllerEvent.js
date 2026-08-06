@@ -127,7 +127,7 @@ const createEvent = async (req, res) => {
         return apiErrorRes(
           HTTP_STATUS.BAD_REQUEST,
           res,
-          "Your event is already live",
+          constantsMessage.YOUR_EVENT_IS_ALREADY_LIVE,
         );
       }
 
@@ -180,7 +180,7 @@ const createEvent = async (req, res) => {
           return apiErrorRes(
             HTTP_STATUS.BAD_REQUEST,
             res,
-            `Total event seats (${totalSeats}) cannot be less than booked count (${bookedQty}) + externally reserved seats (${reservedVal})`
+            constantsMessage.TOTAL_EVENT_SEATS_X_CANNOT_BE_LESS_THAN
           );
         }
       }
@@ -251,7 +251,7 @@ const createEvent = async (req, res) => {
           return apiErrorRes(
             HTTP_STATUS.BAD_REQUEST,
             res,
-            `Total event seats (${totalSeats}) cannot be less than externally reserved seats (${reservedVal})`
+            constantsMessage.TOTAL_EVENT_SEATS_X_CANNOT_BE_LESS_THAN_1
           );
         }
       }
@@ -2698,7 +2698,7 @@ const updateEvent = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        "Your event is already live",
+        constantsMessage.YOUR_EVENT_IS_ALREADY_LIVE,
       );
     }
 
@@ -2707,7 +2707,7 @@ const updateEvent = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        "Once an event is published, it cannot be changed back to a draft"
+        constantsMessage.ONCE_AN_EVENT_IS_PUBLISHED_IT_CANNOT_BE
       );
     }
 
@@ -2756,13 +2756,13 @@ const updateEvent = async (req, res) => {
       const ticketsVal = updateData.tickets || existingEvent.tickets;
 
       if (!title) {
-        return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Event title is required for a published event");
+        return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.EVENT_TITLE_IS_REQUIRED_FOR_A_PUBLISHED);
       }
       if (!category) {
-        return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Event category is required for a published event");
+        return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.EVENT_CATEGORY_IS_REQUIRED_FOR_A_PUBLISH);
       }
       if (!startDateVal || !endDateVal) {
-        return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Start and end dates are required for a published event");
+        return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.START_AND_END_DATES_ARE_REQUIRED_FOR_A_P_1);
       }
       const hasValidCoords = (addr) => {
         if (!addr) return false;
@@ -2780,14 +2780,14 @@ const updateEvent = async (req, res) => {
         return apiErrorRes(
           HTTP_STATUS.BAD_REQUEST,
           res,
-          "Venue address with valid latitude and longitude is required for a published event"
+          constantsMessage.VENUE_ADDRESS_WITH_VALID_LATITUDE_AND_LO_1
         );
       }
       if (!ticketsVal || !Array.isArray(ticketsVal) || ticketsVal.length === 0) {
         return apiErrorRes(
           HTTP_STATUS.BAD_REQUEST,
           res,
-          "At least one ticket is required for a published event"
+          constantsMessage.AT_LEAST_ONE_TICKET_IS_REQUIRED_FOR_A_PU
         );
       }
 
@@ -2798,7 +2798,7 @@ const updateEvent = async (req, res) => {
           return apiErrorRes(
             HTTP_STATUS.BAD_REQUEST,
             res,
-            `Ticket at index ${i} must have ticketName, price, and qty`
+            constantsMessage.TICKET_AT_INDEX_X_MUST_HAVE_TICKETNAME_P
           );
         }
       }
@@ -2811,14 +2811,14 @@ const updateEvent = async (req, res) => {
         return apiErrorRes(
           HTTP_STATUS.BAD_REQUEST,
           res,
-          "Cannot modify the start date/time of an event that is already live"
+          constantsMessage.CANNOT_MODIFY_THE_START_DATE_TIME_OF_AN
         );
       }
       if (updateData.startTime && updateData.startTime !== existingEvent.startTime) {
         return apiErrorRes(
           HTTP_STATUS.BAD_REQUEST,
           res,
-          "Cannot modify the start date/time of an event that is already live"
+          constantsMessage.CANNOT_MODIFY_THE_START_DATE_TIME_OF_AN
         );
       }
     }
@@ -2837,7 +2837,7 @@ const updateEvent = async (req, res) => {
         return apiErrorRes(
           HTTP_STATUS.BAD_REQUEST,
           res,
-          "Start date must be in the future for upcoming events"
+          constantsMessage.START_DATE_MUST_BE_IN_THE_FUTURE_FOR_UPC_1
         );
       }
     }
@@ -2849,7 +2849,7 @@ const updateEvent = async (req, res) => {
         return apiErrorRes(
           HTTP_STATUS.BAD_REQUEST,
           res,
-          "End date must be in the future"
+          constantsMessage.END_DATE_MUST_BE_IN_THE_FUTURE
         );
       }
     }
@@ -2872,7 +2872,7 @@ const updateEvent = async (req, res) => {
           return apiErrorRes(
             HTTP_STATUS.BAD_REQUEST,
             res,
-            "Start date must be before end date"
+            constantsMessage.START_DATE_MUST_BE_BEFORE_END_DATE
           );
         }
       }
@@ -2885,7 +2885,7 @@ const updateEvent = async (req, res) => {
         return apiErrorRes(
           HTTP_STATUS.BAD_REQUEST,
           res,
-          "Minimum age must be specified and non-negative for MIN_AGE type",
+          constantsMessage.MINIMUM_AGE_MUST_BE_SPECIFIED_AND_NON_NE,
         );
       }
       if (type === "RANGE") {
@@ -2898,14 +2898,14 @@ const updateEvent = async (req, res) => {
           return apiErrorRes(
             HTTP_STATUS.BAD_REQUEST,
             res,
-            "Both minimum and maximum age must be specified and non-negative for RANGE type",
+            constantsMessage.BOTH_MINIMUM_AND_MAXIMUM_AGE_MUST_BE_SPE,
           );
         }
         if (minAge >= maxAge) {
           return apiErrorRes(
             HTTP_STATUS.BAD_REQUEST,
             res,
-            "Minimum age must be less than maximum age",
+            constantsMessage.MINIMUM_AGE_MUST_BE_LESS_THAN_MAXIMUM_AG,
           );
         }
       }
@@ -2926,7 +2926,7 @@ const updateEvent = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        `Total event seats (${totalSeats}) cannot be less than booked count (${bookedQty}) + externally reserved seats (${reservedVal})`
+        constantsMessage.TOTAL_EVENT_SEATS_X_CANNOT_BE_LESS_THAN
       );
     }
     // 8. Update fields on the mongoose document
@@ -3155,7 +3155,7 @@ const getRefundPolicies = async (req, res) => {
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
-      "Refund policies retrieved successfully",
+      constantsMessage.REFUND_POLICIES_RETRIEVED_SUCCESSFULLY,
       policies,
     );
   } catch (error) {
@@ -3184,19 +3184,19 @@ const deleteDraftEvent = async (req, res) => {
     const userId = req.user.userId;
 
     if (!mongoose.Types.ObjectId.isValid(eventId)) {
-      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Invalid event ID format");
+      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.INVALID_EVENT_ID_FORMAT);
     }
 
     const event = await Event.findById(eventId);
     if (!event) {
-      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Event not found");
+      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.EVENT_NOT_FOUND_1);
     }
 
     if (event.createdBy.toString() !== userId) {
       return apiErrorRes(
         HTTP_STATUS.FORBIDDEN,
         res,
-        "You are not authorized to delete this event",
+        constantsMessage.YOU_ARE_NOT_AUTHORIZED_TO_DELETE_THIS_EV,
       );
     }
 
@@ -3204,7 +3204,7 @@ const deleteDraftEvent = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        "Only draft events can be deleted",
+        constantsMessage.ONLY_DRAFT_EVENTS_CAN_BE_DELETED,
       );
     }
 
@@ -3213,7 +3213,7 @@ const deleteDraftEvent = async (req, res) => {
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
-      "Draft event deleted successfully",
+      constantsMessage.DRAFT_EVENT_DELETED_SUCCESSFULLY,
     );
   } catch (error) {
     console.error("Error in deleteDraftEvent:", error);
@@ -3235,14 +3235,14 @@ const assignStaffToEvent = async (req, res) => {
 
     const event = await Event.findById(eventId);
     if (!event) {
-      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Event not found");
+      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.EVENT_NOT_FOUND_1);
     }
 
     if (event.createdBy.toString() !== organizerId) {
       return apiErrorRes(
         HTTP_STATUS.FORBIDDEN,
         res,
-        "You are not authorized to assign staff to this event",
+        constantsMessage.YOU_ARE_NOT_AUTHORIZED_TO_ASSIGN_STAFF_T_1,
       );
     }
 
@@ -3256,7 +3256,7 @@ const assignStaffToEvent = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        "One or more provided user IDs are not valid staff members",
+        constantsMessage.ONE_OR_MORE_PROVIDED_USER_IDS_ARE_NOT_VA,
       );
     }
 
@@ -3266,7 +3266,7 @@ const assignStaffToEvent = async (req, res) => {
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
-      "Staff successfully assigned to the event",
+      constantsMessage.STAFF_SUCCESSFULLY_ASSIGNED_TO_THE_EVENT,
       { event },
     );
   } catch (error) {
@@ -3343,7 +3343,7 @@ const getEventAnalytics = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.FORBIDDEN,
         res,
-        "You are not authorized to view analytics for this event",
+        constantsMessage.YOU_ARE_NOT_AUTHORIZED_TO_VIEW_ANALYTICS_1,
       );
     }
 
@@ -3373,7 +3373,7 @@ const getEventAnalytics = async (req, res) => {
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
-      "Event analytics retrieved successfully",
+      constantsMessage.EVENT_ANALYTICS_RETRIEVED_SUCCESSFULLY,
       {
         eventId: event._id,
         eventTitle: event.eventTitle,
@@ -3431,7 +3431,7 @@ const getOrganizerEventsAnalytics = async (req, res) => {
       return apiSuccessRes(
         HTTP_STATUS.OK,
         res,
-        "Organizer has no listings for analytics",
+        constantsMessage.ORGANIZER_HAS_NO_LISTINGS_FOR_ANALYTICS,
         {
           summary: {
             totalViews: 0,
@@ -3585,7 +3585,7 @@ const getOrganizerEventsAnalytics = async (req, res) => {
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
-      "Organizer events and courses analytics summary retrieved successfully",
+      constantsMessage.ORGANIZER_EVENTS_AND_COURSES_ANALYTICS_S,
       {
         summary: {
           totalViews,

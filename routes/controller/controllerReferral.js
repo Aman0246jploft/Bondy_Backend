@@ -108,7 +108,7 @@ router.get("/rewards", perApiLimiter(), async (req, res) => {
       return isExpired && !isUsed;
     }).length;
 
-    return apiSuccessRes(HTTP_STATUS.OK, res, "Referral rewards fetched", {
+    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.REFERRAL_REWARDS_FETCHED, {
       rewards,
       totalCoupons,
       activeCoupons,

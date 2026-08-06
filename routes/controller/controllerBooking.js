@@ -745,20 +745,20 @@ const calculateBooking = async (req, res) => {
       if (tickets && Array.isArray(tickets) && tickets.length > 0) {
         for (const item of tickets) {
           const ticket = event.tickets.id(item.ticketId);
-          if (!ticket) return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, `Ticket type not found for ticketId: ${item.ticketId}`);
+          if (!ticket) return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.TICKET_TYPE_NOT_FOUND_FOR_TICKETID_X);
 
           const now = new Date();
           if (ticket.salesStart && now < new Date(ticket.salesStart)) {
-            return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, `Sales not started for ticket type: ${ticket.ticketName}`);
+            return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.SALES_NOT_STARTED_FOR_TICKET_TYPE_X);
           }
           if (ticket.salesEnd && now > new Date(ticket.salesEnd)) {
-            return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, `Sales ended for ticket type: ${ticket.ticketName}`);
+            return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.SALES_ENDED_FOR_TICKET_TYPE_X);
           }
 
           const bookedCount = await getEventTicketBookedCount(event._id, item.ticketId);
           const available = ticket.qty - bookedCount;
           if (available < item.qty) {
-            return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, `Not enough tickets available for: ${ticket.ticketName}`);
+            return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.NOT_ENOUGH_TICKETS_AVAILABLE_FOR_X);
           }
 
           basePrice += roundToTwo(ticket.price * item.qty);
@@ -804,28 +804,28 @@ const calculateBooking = async (req, res) => {
           : (batchId ? [{ batchId, selectedDay, selectedDate: req.body.selectedDate }] : []);
 
         if (!passType && slotsToValidate.length === 0) {
-          return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "At least one ongoing slot is required");
+          return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.AT_LEAST_ONE_ONGOING_SLOT_IS_REQUIRED);
         }
 
         if (slotsToValidate.length > 0) {
           for (const slot of slotsToValidate) {
             const batch = course.batches.id(slot.batchId);
-            if (!batch) return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, `Batch not found: ${slot.batchId}`);
-            if (batch.status === "Cancelled") return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, `Batch inactive: ${batch.batchName || slot.batchId}`);
+            if (!batch) return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.BATCH_NOT_FOUND_X);
+            if (batch.status === "Cancelled") return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.BATCH_INACTIVE_X);
 
             const dateStr = slot.selectedDate || (slot.selectedDay && slot.selectedDay.includes("-") ? slot.selectedDay : null) || req.body.selectedDate || (selectedDay && selectedDay.includes("-") ? selectedDay : null);
             if (dateStr && batch.cancelledDates && batch.cancelledDates.some(cd => cd.date === dateStr)) {
               return apiErrorRes(
                 HTTP_STATUS.BAD_REQUEST,
                 res,
-                `Booking is closed for slot: ${batch.batchName || slot.batchId} on ${dateStr} (this date is cancelled)`
+                constantsMessage.BOOKING_IS_CLOSED_FOR_SLOT_X_ON_X_THIS_D
               );
             }
             if (isBookingCutOffReached(course, batch, dateStr)) {
               return apiErrorRes(
                 HTTP_STATUS.BAD_REQUEST,
                 res,
-                `Booking is closed for slot: ${batch.batchName || slot.batchId} (cut-off time reached)`
+                constantsMessage.BOOKING_IS_CLOSED_FOR_SLOT_X_CUT_OFF_TIM
               );
             }
             let reservedVal = batch.ReservedExternally || 0;
@@ -837,7 +837,7 @@ const calculateBooking = async (req, res) => {
             const bookedCount = await getCourseBatchBookedCount(course._id, slot.batchId, dateStr);
             const available = batch.seats - reservedVal - bookedCount;
             if (available < qty) {
-              return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, `Batch full: ${batch.batchName || slot.batchId}`);
+              return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.BATCH_FULL_X);
             }
           }
         }
@@ -850,7 +850,7 @@ const calculateBooking = async (req, res) => {
           return apiErrorRes(
             HTTP_STATUS.BAD_REQUEST,
             res,
-            "Booking is closed for this course (cut-off time reached)"
+            constantsMessage.BOOKING_IS_CLOSED_FOR_THIS_COURSE_CUT_OF
           );
         }
 
@@ -873,13 +873,13 @@ const calculateBooking = async (req, res) => {
         let passName = "";
         if (passType === "1_month") {
           if (!course.oneMonthPassEnabled) {
-            return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "1 Month Pass is not enabled for this class");
+            return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage._1_MONTH_PASS_IS_NOT_ENABLED_FOR_THIS_CLA);
           }
           passPrice = roundToTwo(course.oneMonthPassPrice * qty);
           passName = "1 Month Pass";
         } else if (passType === "3_month") {
           if (!course.threeMonthPassEnabled) {
-            return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "3 Month Pass is not enabled for this class");
+            return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage._3_MONTH_PASS_IS_NOT_ENABLED_FOR_THIS_CLA);
           }
           passPrice = roundToTwo(course.threeMonthPassPrice * qty);
           passName = "3 Month Pass";
@@ -893,7 +893,7 @@ const calculateBooking = async (req, res) => {
         }
 
         if (passPrice === 0 && slotPrice === 0) {
-          return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "At least one ongoing slot or pass selection is required");
+          return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.AT_LEAST_ONE_ONGOING_SLOT_OR_PASS_SELECT);
         }
 
         basePrice = passPrice + slotPrice;
@@ -968,20 +968,20 @@ const initiateBooking = async (req, res) => {
       if (tickets && Array.isArray(tickets) && tickets.length > 0) {
         for (const item of tickets) {
           const ticket = event.tickets.id(item.ticketId);
-          if (!ticket) return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, `Ticket type not found for ticketId: ${item.ticketId}`);
+          if (!ticket) return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.TICKET_TYPE_NOT_FOUND_FOR_TICKETID_X);
 
           const now = new Date();
           if (ticket.salesStart && now < new Date(ticket.salesStart)) {
-            return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, `Sales not started for ticket type: ${ticket.ticketName}`);
+            return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.SALES_NOT_STARTED_FOR_TICKET_TYPE_X);
           }
           if (ticket.salesEnd && now > new Date(ticket.salesEnd)) {
-            return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, `Sales ended for ticket type: ${ticket.ticketName}`);
+            return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.SALES_ENDED_FOR_TICKET_TYPE_X);
           }
 
           const bookedCount = await getEventTicketBookedCount(event._id, item.ticketId);
           const available = ticket.qty - bookedCount;
           if (available < item.qty) {
-            return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, `Not enough tickets available for: ${ticket.ticketName}`);
+            return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.NOT_ENOUGH_TICKETS_AVAILABLE_FOR_X);
           }
 
           const base = roundToTwo(ticket.price * item.qty);
@@ -1040,28 +1040,28 @@ const initiateBooking = async (req, res) => {
           ? ongoingSlots.filter((s) => s && s.batchId && (s.selectedDay || s.selectedDate))
           : [];
         if (!passType && cleanOngoingSlots.length === 0) {
-          return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "At least one ongoing slot selection is required");
+          return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.AT_LEAST_ONE_ONGOING_SLOT_SELECTION_IS_R);
         }
 
         if (cleanOngoingSlots.length > 0) {
           for (const slot of cleanOngoingSlots) {
             const batch = course.batches.id(slot.batchId);
-            if (!batch) return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, `Batch not found: ${slot.batchId}`);
-            if (batch.status === "Cancelled") return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, `Batch inactive: ${batch.batchName || slot.batchId}`);
+            if (!batch) return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.BATCH_NOT_FOUND_X);
+            if (batch.status === "Cancelled") return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.BATCH_INACTIVE_X);
 
             const dateStr = slot.selectedDate || (slot.selectedDay && slot.selectedDay.includes("-") ? slot.selectedDay : null) || req.body.selectedDate || (selectedDay && selectedDay.includes("-") ? selectedDay : null);
             if (dateStr && batch.cancelledDates && batch.cancelledDates.some(cd => cd.date === dateStr)) {
               return apiErrorRes(
                 HTTP_STATUS.BAD_REQUEST,
                 res,
-                `Booking is closed for slot: ${batch.batchName || slot.batchId} on ${dateStr} (this date is cancelled)`
+                constantsMessage.BOOKING_IS_CLOSED_FOR_SLOT_X_ON_X_THIS_D
               );
             }
             if (isBookingCutOffReached(course, batch, dateStr)) {
               return apiErrorRes(
                 HTTP_STATUS.BAD_REQUEST,
                 res,
-                `Booking is closed for slot: ${batch.batchName || slot.batchId} (cut-off time reached)`
+                constantsMessage.BOOKING_IS_CLOSED_FOR_SLOT_X_CUT_OFF_TIM
               );
             }
 
@@ -1074,7 +1074,7 @@ const initiateBooking = async (req, res) => {
             const bookedCount = await getCourseBatchBookedCount(course._id, slot.batchId, dateStr);
             const available = batch.seats - reserved - bookedCount;
             if (available < qty) {
-              return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, `Batch full: ${batch.batchName || slot.batchId}`);
+              return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.BATCH_FULL_X);
             }
           }
         }
@@ -1087,7 +1087,7 @@ const initiateBooking = async (req, res) => {
           return apiErrorRes(
             HTTP_STATUS.BAD_REQUEST,
             res,
-            "Booking is closed for this course (cut-off time reached)"
+            constantsMessage.BOOKING_IS_CLOSED_FOR_THIS_COURSE_CUT_OF
           );
         }
 
@@ -1110,13 +1110,13 @@ const initiateBooking = async (req, res) => {
         let passName = "";
         if (passType === "1_month") {
           if (!course.oneMonthPassEnabled) {
-            return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "1 Month Pass is not enabled for this class");
+            return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage._1_MONTH_PASS_IS_NOT_ENABLED_FOR_THIS_CLA);
           }
           passPrice = roundToTwo(course.oneMonthPassPrice * qty);
           passName = "1 Month Pass";
         } else if (passType === "3_month") {
           if (!course.threeMonthPassEnabled) {
-            return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "3 Month Pass is not enabled for this class");
+            return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage._3_MONTH_PASS_IS_NOT_ENABLED_FOR_THIS_CLA);
           }
           passPrice = roundToTwo(course.threeMonthPassPrice * qty);
           passName = "3 Month Pass";
@@ -1130,7 +1130,7 @@ const initiateBooking = async (req, res) => {
         }
 
         if (passPrice === 0 && slotPrice === 0) {
-          return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "At least one ongoing slot or pass selection is required");
+          return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.AT_LEAST_ONE_ONGOING_SLOT_OR_PASS_SELECT);
         }
 
         totalBasePrice = passPrice + slotPrice;
@@ -1710,7 +1710,7 @@ const previewRefund = async (req, res) => {
     }
 
     const userLang = await getUserLanguage(req, userId);
-    return apiSuccessRes(HTTP_STATUS.OK, res, "Refund preview calculated successfully", {
+    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.REFUND_PREVIEW_CALCULATED_SUCCESSFULLY, {
       transactionId: transaction._id,
       bookingId: transaction.bookingId,
       totalAmount: transaction.totalAmount,
@@ -1914,7 +1914,7 @@ const cancelEvent = async (req, res) => {
     if (!event) return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.EVENT_NOT_FOUND);
 
     if (event.status === "Cancelled") {
-      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Event is already cancelled");
+      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.EVENT_IS_ALREADY_CANCELLED);
     }
 
     // Authorization check
@@ -2044,7 +2044,7 @@ const cancelCourse = async (req, res) => {
         if (!batch.cancelledDates) batch.cancelledDates = [];
         const alreadyCancelled = batch.cancelledDates.some((cd) => cd.date === date);
         if (alreadyCancelled) {
-          return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "This specific date is already cancelled for this batch");
+          return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.THIS_SPECIFIC_DATE_IS_ALREADY_CANCELLED);
         }
         batch.cancelledDates.push({ date, reason: reason || "Slot cancelled by organizer" });
         await course.save();
@@ -2208,14 +2208,14 @@ const adjustCourseReservedSeats = async (req, res) => {
       course.createdBy.toString() !== userId.toString() &&
       req.user.roleId !== roleId.SUPER_ADMIN
     ) {
-      return apiErrorRes(HTTP_STATUS.FORBIDDEN, res, "You are not authorized to edit this course");
+      return apiErrorRes(HTTP_STATUS.FORBIDDEN, res, constantsMessage.YOU_ARE_NOT_AUTHORIZED_TO_EDIT_THIS_COUR);
     }
 
     const batch = course.batches.id(batchId);
     if (!batch) return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.BATCH_NOT_FOUND || "Batch not found");
 
     if (batch.status === "Cancelled") {
-      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Cannot adjust reserved seats for a cancelled batch");
+      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.CANNOT_ADJUST_RESERVED_SEATS_FOR_A_CANCE);
     }
     // Check availability limit
     const enrolledCount = await getCourseBatchBookedCount(courseId, batchId, date || null);
@@ -2223,7 +2223,7 @@ const adjustCourseReservedSeats = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        `Seats limit (${batch.seats}) cannot be less than enrolled count (${enrolledCount}) + externally reserved seats (${ReservedExternally})`
+        constantsMessage.SEATS_LIMIT_X_CANNOT_BE_LESS_THAN_ENROLL
       );
     }
 
@@ -2240,7 +2240,7 @@ const adjustCourseReservedSeats = async (req, res) => {
     }
 
     await course.save();
-    return apiSuccessRes(HTTP_STATUS.OK, res, "Reserved seats updated successfully", {
+    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.RESERVED_SEATS_UPDATED_SUCCESSFULLY, {
       courseId: course._id,
       batchId: batch._id,
       date,
@@ -2672,7 +2672,7 @@ const getEventAttendeesList = async (req, res) => {
       req.user.roleId !== roleId.SUPER_ADMIN &&
       !isAssignedStaff
     ) {
-      return apiErrorRes(HTTP_STATUS.FORBIDDEN, res, "You don't have permission to view this event's attendees");
+      return apiErrorRes(HTTP_STATUS.FORBIDDEN, res, constantsMessage.YOU_DONT_HAVE_PERMISSION_TO_VIEW_THIS_EV);
     }
 
     let filter = { eventId: event._id, status: { $in: ["PAID", "REFUNDED"] }, bookingType: "EVENT" };
@@ -2829,7 +2829,7 @@ const getCourseAttendeesList = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.FORBIDDEN,
         res,
-        "You don't have permission to view this course's attendees",
+        constantsMessage.YOU_DONT_HAVE_PERMISSION_TO_VIEW_THIS_CO,
       );
     }
 
@@ -3286,7 +3286,7 @@ const getEventAttendeeStats = async (req, res) => {
       event.createdBy.toString() !== userId.toString() &&
       req.user.roleId !== roleId.SUPER_ADMIN
     ) {
-      return apiErrorRes(HTTP_STATUS.FORBIDDEN, res, "You don't have permission to view this event's statistics");
+      return apiErrorRes(HTTP_STATUS.FORBIDDEN, res, constantsMessage.YOU_DONT_HAVE_PERMISSION_TO_VIEW_THIS_EV_1);
     }
 
     const transactions = await Transaction.find({ eventId: event._id, status: "PAID" })

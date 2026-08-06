@@ -34,7 +34,7 @@ const {
 //     if (entityModel === "Event") targetModel = Event;
 //     else if (entityModel === "Course") targetModel = Course;
 //     else {
-//       return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Invalid entity model");
+//       return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.INVALID_ENTITY_MODEL_1);
 //     }
 
 //     const entity = await targetModel.findById(entityId);
@@ -293,7 +293,7 @@ const createComment = async (req, res) => {
 //       }),
 //     );
 
-//     return apiSuccessRes(HTTP_STATUS.OK, res, "Comments fetched successfully", {
+//     return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.COMMENTS_FETCHED_SUCCESSFULLY, {
 //       comments: commentsWithReplies,
 //       total: totalCount,
 //       page: parseInt(page),
@@ -426,7 +426,7 @@ const getComments = async (req, res) => {
 //     comment.content = content;
 //     await comment.save();
 
-//     return apiSuccessRes(HTTP_STATUS.OK, res, "Comment updated successfully", {
+//     return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.COMMENT_UPDATED_SUCCESSFULLY, {
 //       comment,
 //     });
 //   } catch (error) {
@@ -635,7 +635,7 @@ const getReplies = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.NOT_FOUND,
         res,
-        "Parent comment not found",
+        constantsMessage.PARENT_COMMENT_NOT_FOUND_1,
       );
     }
 

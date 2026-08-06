@@ -290,7 +290,7 @@ const createAttendees = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        `Cannot create attendees - ${transaction.bookingType} has expired`,
+        constantsMessage.CANNOT_CREATE_ATTENDEES_X_HAS_EXPIRED,
         {
           item: {
             title: transaction.eventId
@@ -307,7 +307,7 @@ const createAttendees = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        `You must provide exactly ${transaction.qty} attendee(s)`,
+        constantsMessage.YOU_MUST_PROVIDE_EXACTLY_X_ATTENDEE_S,
       );
     }
 
@@ -317,7 +317,7 @@ const createAttendees = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        "Attendees already created for this transaction",
+        constantsMessage.ATTENDEES_ALREADY_CREATED_FOR_THIS_TRANS,
       );
     }
 
@@ -402,7 +402,7 @@ const getEventAttendees = async (req, res) => {
     }
 
     if (!entity) {
-      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Event or Course not found");
+      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.EVENT_OR_COURSE_NOT_FOUND);
     }
 
     // Verify Event/Course Ownership or Assigned Staff
@@ -413,7 +413,7 @@ const getEventAttendees = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.FORBIDDEN,
         res,
-        "You are not authorized to view attendees for this item",
+        constantsMessage.YOU_ARE_NOT_AUTHORIZED_TO_VIEW_ATTENDEES,
       );
     }
 
@@ -964,10 +964,10 @@ const checkInAttendee = async (req, res) => {
         // Parent booking ID (BNDY-531806) — original behaviour
         transaction = await Transaction.findOne({ bookingId: ticketNumber });
         if (!transaction) {
-          return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Booking not found");
+          return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.BOOKING_NOT_FOUND);
         }
         if (transaction.status !== "PAID") {
-          return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Booking is not paid");
+          return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.BOOKING_IS_NOT_PAID);
         }
 
         if (entityId) {
@@ -976,7 +976,7 @@ const checkInAttendee = async (req, res) => {
             return apiErrorRes(
               HTTP_STATUS.BAD_REQUEST,
               res,
-              "This booking does not belong to the selected event/course",
+              constantsMessage.THIS_BOOKING_DOES_NOT_BELONG_TO_THE_SELE,
             );
           }
         }
@@ -990,7 +990,7 @@ const checkInAttendee = async (req, res) => {
             return apiErrorRes(
               HTTP_STATUS.BAD_REQUEST,
               res,
-              "All tickets for this booking are already checked in",
+              constantsMessage.ALL_TICKETS_FOR_THIS_BOOKING_ARE_ALREADY,
             );
           }
         }
@@ -1011,7 +1011,7 @@ const checkInAttendee = async (req, res) => {
         return apiErrorRes(
           HTTP_STATUS.BAD_REQUEST,
           res,
-          "entityId is required for User profile scans",
+          constantsMessage.ENTITYID_IS_REQUIRED_FOR_USER_PROFILE_SC,
         );
       }
       const filter = {
@@ -1031,7 +1031,7 @@ const checkInAttendee = async (req, res) => {
         return apiErrorRes(
           HTTP_STATUS.NOT_FOUND,
           res,
-          "No paid booking found for this user",
+          constantsMessage.NO_PAID_BOOKING_FOUND_FOR_THIS_USER,
         );
       }
 
@@ -1044,7 +1044,7 @@ const checkInAttendee = async (req, res) => {
           return apiErrorRes(
             HTTP_STATUS.BAD_REQUEST,
             res,
-            "All tickets for this booking are already checked in",
+            constantsMessage.ALL_TICKETS_FOR_THIS_BOOKING_ARE_ALREADY,
           );
         }
       }
@@ -1077,7 +1077,7 @@ const checkInAttendee = async (req, res) => {
     }
 
     if (!transaction) {
-      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Transaction not found");
+      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.TRANSACTION_NOT_FOUND_1);
     }
 
     if (entityId) {
@@ -1086,7 +1086,7 @@ const checkInAttendee = async (req, res) => {
         return apiErrorRes(
           HTTP_STATUS.BAD_REQUEST,
           res,
-          "This ticket does not belong to the selected event/course",
+          constantsMessage.THIS_TICKET_DOES_NOT_BELONG_TO_THE_SELEC,
         );
       }
     }
@@ -1100,7 +1100,7 @@ const checkInAttendee = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.FORBIDDEN,
         res,
-        `You are not authorized to check-in attendees for this ${attendee.eventId ? "event" : "course"}`,
+        constantsMessage.YOU_ARE_NOT_AUTHORIZED_TO_CHECK_IN_ATTEN,
       );
     }
 
@@ -1137,7 +1137,7 @@ const getAttendeeByTicket = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.FORBIDDEN,
         res,
-        "You are not authorized to view this ticket",
+        constantsMessage.YOU_ARE_NOT_AUTHORIZED_TO_VIEW_THIS_TICK,
       );
     }
 
@@ -1217,7 +1217,7 @@ const scanQRAndCheckIn = async (req, res) => {
         secureEvent.assignedStaff.some(id => id.toString() === organizerId);
       const isAdminSec = req.user.roleId === roleId.SUPER_ADMIN;
       if (!isCreatorSec && !isStaffSec && !isAdminSec) {
-        return apiErrorRes(HTTP_STATUS.FORBIDDEN, res, "You are not authorized to check-in attendees for this event/course");
+        return apiErrorRes(HTTP_STATUS.FORBIDDEN, res, constantsMessage.YOU_ARE_NOT_AUTHORIZED_TO_CHECK_IN_ATTEN_1);
       }
 
       // Perform check-in
@@ -1339,7 +1339,7 @@ const scanQRAndCheckIn = async (req, res) => {
             .populate("userId", "firstName lastName email profileImage");
 
           if (attendee && attendee.isCheckedIn) {
-            return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "This specific ticket has already been scanned and checked in");
+            return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.THIS_SPECIFIC_TICKET_HAS_ALREADY_BEEN_SC);
           }
         } else {
           // Parent QR logic: find the first available non-checked-in attendee
@@ -1361,7 +1361,7 @@ const scanQRAndCheckIn = async (req, res) => {
         return apiErrorRes(
           HTTP_STATUS.NOT_FOUND,
           res,
-          "Individual ticket not found",
+          constantsMessage.INDIVIDUAL_TICKET_NOT_FOUND,
         );
       }
       event = attendee.eventId || attendee.courseId;
@@ -1378,7 +1378,7 @@ const scanQRAndCheckIn = async (req, res) => {
         return apiErrorRes(
           HTTP_STATUS.BAD_REQUEST,
           res,
-          "eventId or courseId is required for User profile scans",
+          constantsMessage.EVENTID_OR_COURSEID_IS_REQUIRED_FOR_USER,
         );
       }
 
@@ -1412,7 +1412,7 @@ const scanQRAndCheckIn = async (req, res) => {
         return apiErrorRes(
           HTTP_STATUS.NOT_FOUND,
           res,
-          "No paid booking found for this user",
+          constantsMessage.NO_PAID_BOOKING_FOUND_FOR_THIS_USER,
         );
       }
       event = transaction.eventId || transaction.courseId;
@@ -1440,14 +1440,14 @@ const scanQRAndCheckIn = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        "This ticket does not belong to the selected event",
+        constantsMessage.THIS_TICKET_DOES_NOT_BELONG_TO_THE_SELEC_1,
       );
     }
     if (courseId && event._id.toString() !== courseId) {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        "This ticket does not belong to the selected course",
+        constantsMessage.THIS_TICKET_DOES_NOT_BELONG_TO_THE_SELEC_2,
       );
     }
 
@@ -1460,7 +1460,7 @@ const scanQRAndCheckIn = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.FORBIDDEN,
         res,
-        "You are not authorized to check-in attendees for this event/course",
+        constantsMessage.YOU_ARE_NOT_AUTHORIZED_TO_CHECK_IN_ATTEN_1,
       );
     }
 
@@ -1469,7 +1469,7 @@ const scanQRAndCheckIn = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        "Transaction is not PAID",
+        constantsMessage.TRANSACTION_IS_NOT_PAID,
       );
     }
 
@@ -1492,7 +1492,7 @@ const scanQRAndCheckIn = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        `${transaction.bookingType === "COURSE" ? "Pass" : (transaction.bookingType || "Event")} has expired - Check-in not allowed`,
+        constantsMessage.TRANSACTION_BOOKINGTYPE_COURSE_PASS_TRAN)} has expired - Check-in not allowed`,
         {
           item: {
             title: title,
@@ -1529,7 +1529,7 @@ const scanQRAndCheckIn = async (req, res) => {
         return apiErrorRes(
           HTTP_STATUS.BAD_REQUEST,
           res,
-          "No available attendee found to check-in",
+          constantsMessage.NO_AVAILABLE_ATTENDEE_FOUND_TO_CHECK_IN,
         );
       }
 
@@ -1572,7 +1572,7 @@ const verifyTicket = async (req, res) => {
     const userId = req.user.userId;
 
     if (!code) {
-      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Ticket code or QR code is required");
+      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.TICKET_CODE_OR_QR_CODE_IS_REQUIRED);
     }
 
     let attendee = null;
@@ -1591,7 +1591,7 @@ const verifyTicket = async (req, res) => {
         secureResolved = await resolveAttendeeFromSecureQR(code);
       } catch (secureErr) {
         const isTampered = secureErr.message && secureErr.message.includes("TAMPERED");
-        return apiSuccessRes(HTTP_STATUS.OK, res, "Ticket verification result", {
+        return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.TICKET_VERIFICATION_RESULT, {
           isValid: false,
           validationStatus: isTampered ? "TAMPERED" : "INVALID",
           message: isTampered ? constantsMessage.TAMPERED_QR : "Ticket not found or invalid",
@@ -1604,7 +1604,7 @@ const verifyTicket = async (req, res) => {
       }
 
       if (!secureResolved) {
-        return apiSuccessRes(HTTP_STATUS.OK, res, "Ticket verification result", {
+        return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.TICKET_VERIFICATION_RESULT, {
           isValid: false,
           validationStatus: "TAMPERED",
           message: constantsMessage.TAMPERED_QR,
@@ -1622,7 +1622,7 @@ const verifyTicket = async (req, res) => {
           secureEvent.assignedStaff.some(id => id.toString() === userId);
         const isAdmin = req.user.roleId === roleId.SUPER_ADMIN;
         if (!isCreator && !isStaff && !isAdmin) {
-          return apiErrorRes(HTTP_STATUS.FORBIDDEN, res, `You are not authorized to verify tickets for this ${secureAtt.eventId ? "event" : "course"}`);
+          return apiErrorRes(HTTP_STATUS.FORBIDDEN, res, constantsMessage.YOU_ARE_NOT_AUTHORIZED_TO_VERIFY_TICKETS);
         }
       }
 
@@ -1632,7 +1632,7 @@ const verifyTicket = async (req, res) => {
 
       if (secureAtt.status === "CANCELLED") {
         await recordScanAudit(secureAtt, userId, "CANCELLED", "Ticket is cancelled");
-        return apiSuccessRes(HTTP_STATUS.OK, res, "Ticket verification result", {
+        return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.TICKET_VERIFICATION_RESULT, {
           isValid: false,
           validationStatus: "CANCELLED",
           message: constantsMessage.TICKET_CANCELLED,
@@ -1645,7 +1645,7 @@ const verifyTicket = async (req, res) => {
       }
       if (secureAtt.status === "REFUNDED") {
         await recordScanAudit(secureAtt, userId, "CANCELLED", "Ticket is refunded");
-        return apiSuccessRes(HTTP_STATUS.OK, res, "Ticket verification result", {
+        return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.TICKET_VERIFICATION_RESULT, {
           isValid: false,
           validationStatus: "CANCELLED",
           message: constantsMessage.TICKET_REFUNDED,
@@ -1698,7 +1698,7 @@ const verifyTicket = async (req, res) => {
 
       const vTitle = secureEvent?.eventTitle || secureEvent?.courseTitle || "";
 
-      return apiSuccessRes(HTTP_STATUS.OK, res, "Ticket verified successfully", {
+      return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.TICKET_VERIFIED_SUCCESSFULLY, {
         isValid,
         validationStatus: scanResultCode,
         message: finalMessage,
@@ -1897,7 +1897,7 @@ const verifyTicket = async (req, res) => {
       }
 
       if (!attendee) {
-        return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Individual ticket not found");
+        return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.INDIVIDUAL_TICKET_NOT_FOUND);
       }
       event = attendee.eventId || attendee.courseId;
       transaction = attendee.transactionId;
@@ -1924,7 +1924,7 @@ const verifyTicket = async (req, res) => {
           .populate("userId", "firstName lastName email profileImage");
 
         if (!transaction) {
-          return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Ticket not found for this sub-booking ID");
+          return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.TICKET_NOT_FOUND_FOR_THIS_SUB_BOOKING_ID);
         }
         await ensureAttendeesExist(transaction);
         event = transaction.eventId || transaction.courseId;
@@ -1972,7 +1972,7 @@ const verifyTicket = async (req, res) => {
           .populate("userId", "firstName lastName email profileImage");
 
         if (!transaction) {
-          return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, "Booking not found");
+          return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.BOOKING_NOT_FOUND);
         }
         await ensureAttendeesExist(transaction);
         event = transaction.eventId || transaction.courseId;
@@ -1994,7 +1994,7 @@ const verifyTicket = async (req, res) => {
         return apiErrorRes(
           HTTP_STATUS.BAD_REQUEST,
           res,
-          "entityId is required for User profile scans",
+          constantsMessage.ENTITYID_IS_REQUIRED_FOR_USER_PROFILE_SC,
         );
       }
       const filter = {
@@ -2017,7 +2017,7 @@ const verifyTicket = async (req, res) => {
         return apiErrorRes(
           HTTP_STATUS.NOT_FOUND,
           res,
-          "No paid booking found for this user",
+          constantsMessage.NO_PAID_BOOKING_FOUND_FOR_THIS_USER,
         );
       }
       await ensureAttendeesExist(transaction);
@@ -2058,7 +2058,7 @@ const verifyTicket = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        `This ticket does not belong to the selected ${bookingType === "EVENT" ? "event" : "course"}`,
+        constantsMessage.THIS_TICKET_DOES_NOT_BELONG_TO_THE_SELEC_3,
       );
     }
 
@@ -2070,7 +2070,7 @@ const verifyTicket = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.FORBIDDEN,
         res,
-        `You are not authorized to view details for this ${bookingType === "EVENT" ? "event" : "course"}`,
+        constantsMessage.YOU_ARE_NOT_AUTHORIZED_TO_VIEW_DETAILS_F,
       );
     }
 
@@ -2078,7 +2078,7 @@ const verifyTicket = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        "Transaction is not PAID",
+        constantsMessage.TRANSACTION_IS_NOT_PAID,
       );
     }
 
@@ -2225,7 +2225,7 @@ const verifyTicket = async (req, res) => {
       }
     }
 
-    return apiSuccessRes(HTTP_STATUS.OK, res, "Ticket verified successfully", {
+    return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.TICKET_VERIFIED_SUCCESSFULLY, {
       isValid,
       message: finalMessage,
       isExpired,

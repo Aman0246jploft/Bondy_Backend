@@ -50,8 +50,21 @@ const getUserLanguage = async (req = null, userId = null) => {
       if (setting && setting.language === "English") return "English";
     }
 
+    // 3. Fallback: If no userId but email is in body (e.g. login/signup init), lookup user
+    if (!effectiveUserId && req?.body?.email) {
+      const User = mongoose.model("User");
+      const user = await User.findOne({ email: req.body.email.toLowerCase(), isDeleted: false }).select("_id").lean();
+      if (user) {
+        const UserSetting = mongoose.model("UserSetting");
+        const setting = await UserSetting.findOne({ userId: user._id }).select("language").lean();
+        if (setting && setting.language === "Mongolian") return "Mongolian";
+        if (setting && setting.language === "English") return "English";
+      }
+    }
+
     return "English";
-  } catch (_) {
+  } catch (error) {
+    console.error("Error in getUserLanguage:", error);
     return "English";
   }
 };

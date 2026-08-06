@@ -33,7 +33,7 @@ const createBanner = async (req, res) => {
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
-      "Banner created successfully",
+      constantsMessage.BANNER_CREATED_SUCCESSFULLY,
       { banner: newBanner }
     );
   } catch (error) {
@@ -67,7 +67,7 @@ const getBannersAdmin = async (req, res) => {
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
-      "Banners fetched successfully",
+      constantsMessage.BANNERS_FETCHED_SUCCESSFULLY,
       {
         banners: formattedBanners,
         total,
@@ -99,7 +99,7 @@ const getBannersPublic = async (req, res) => {
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
-      "Active banners fetched successfully",
+      constantsMessage.ACTIVE_BANNERS_FETCHED_SUCCESSFULLY,
       { banners: formattedBanners }
     );
   } catch (error) {
@@ -119,7 +119,7 @@ const updateBanner = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.NOT_FOUND,
         res,
-        "Banner not found"
+        constantsMessage.BANNER_NOT_FOUND
       );
     }
 
@@ -138,7 +138,7 @@ const updateBanner = async (req, res) => {
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
-      "Banner updated successfully",
+      constantsMessage.BANNER_UPDATED_SUCCESSFULLY,
       { banner }
     );
   } catch (error) {
@@ -157,7 +157,7 @@ const toggleBannerActive = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.NOT_FOUND,
         res,
-        "Banner not found"
+        constantsMessage.BANNER_NOT_FOUND
       );
     }
 
@@ -167,7 +167,7 @@ const toggleBannerActive = async (req, res) => {
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
-      "Banner status toggled successfully",
+      constantsMessage.BANNER_STATUS_TOGGLED_SUCCESSFULLY,
       {
         bannerId: banner._id,
         isActive: banner.isActive,
@@ -189,7 +189,7 @@ const deleteBanner = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.NOT_FOUND,
         res,
-        "Banner not found"
+        constantsMessage.BANNER_NOT_FOUND
       );
     }
 
@@ -200,7 +200,7 @@ const deleteBanner = async (req, res) => {
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
-      "Banner deleted successfully",
+      constantsMessage.BANNER_DELETED_SUCCESSFULLY,
       { bannerId: id }
     );
   } catch (error) {
