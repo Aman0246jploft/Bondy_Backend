@@ -1492,7 +1492,7 @@ const scanQRAndCheckIn = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        constantsMessage.TRANSACTION_BOOKINGTYPE_COURSE_PASS_TRAN)} has expired - Check-in not allowed`,
+        constantsMessage.TRANSACTION_BOOKINGTYPE_COURSE_PASS_TRAN,
         {
           item: {
             title: title,

@@ -1875,7 +1875,7 @@ const updateCourse = async (req, res) => {
           return apiErrorRes(
             HTTP_STATUS.BAD_REQUEST,
             res,
-            constantsMessage.SEATS_LIMIT_X_CANNOT_BE_LESS_THAN_ENROLL_1) || batch._id || 'new batch'}"`,
+            constantsMessage.SEATS_LIMIT_X_CANNOT_BE_LESS_THAN_ENROLL_1
           );
         }
       }

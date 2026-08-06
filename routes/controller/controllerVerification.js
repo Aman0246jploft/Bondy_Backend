@@ -375,7 +375,7 @@ const verifyOrganizer = async (req, res) => {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        constantsMessage.INVALID_VERIFICATION_TYPE_MUST_BE_NATION, 'drivingLicence', 'bankVerification', or 'businessVerification'.",
+        constantsMessage.INVALID_VERIFICATION_TYPE_MUST_BE_NATION
       );
     }
 
