@@ -136,6 +136,78 @@ const daysOfWeek = {
     SUN: "Sun"
 }
 
+// Wallet Transaction Types & Translations
+const walletTransactionType = {
+    TICKET_SALE: "TICKET_SALE",
+    COURSE_SALE: "COURSE_SALE",
+    PURCHASE: "PURCHASE",
+    PAYOUT_REQUEST: "PAYOUT_REQUEST",
+    PAYOUT_REJECTED: "PAYOUT_REJECTED",
+    REFUND: "REFUND",
+    CANCELLATION_DEDUCTION: "CANCELLATION_DEDUCTION",
+    ADJUSTMENT: "ADJUSTMENT",
+    REFERRAL: "REFERRAL",
+};
+
+const WALLET_TYPE_TRANSLATIONS = {
+    Mongolian: {
+        "TICKET_SALE": "Тасалбар борлуулалт",
+        "COURSE_SALE": "Сургалт борлуулалт",
+        "PURCHASE": "Худалдан авалт",
+        "PAYOUT_REQUEST": "Төлбөрийн хүсэлт",
+        "PAYOUT_REJECTED": "Төлбөр буцаагдсан",
+        "REFUND": "Буцаан олголт",
+        "CANCELLATION_DEDUCTION": "Цуцлалтын суутгал",
+        "ADJUSTMENT": "Зохицуулалт",
+        "REFERRAL": "Урилгын шагнал",
+        "Ticket Sale": "Тасалбар борлуулалт",
+        "Course Sale": "Сургалт борлуулалт",
+        "Purchase": "Худалдан авалт",
+        "Payout Request": "Төлбөрийн хүсэлт",
+        "Payout Refunded": "Төлбөр буцаагдсан",
+        "Payout Rejected": "Төлбөр буцаагдсан",
+        "Refund": "Буцаан олголт",
+        "Cancellation Deduction": "Цуцлалтын суутгал",
+        "Adjustment": "Зохицуулалт",
+        "Referral": "Урилгын шагнал",
+        "Referral Reward": "Урилгын шагнал",
+    },
+    English: {
+        "TICKET_SALE": "Ticket Sale",
+        "COURSE_SALE": "Course Sale",
+        "PURCHASE": "Purchase",
+        "PAYOUT_REQUEST": "Payout Request",
+        "PAYOUT_REJECTED": "Payout Refunded",
+        "REFUND": "Refund",
+        "CANCELLATION_DEDUCTION": "Cancellation Deduction",
+        "ADJUSTMENT": "Adjustment",
+        "REFERRAL": "Referral Reward",
+        "Ticket Sale": "Ticket Sale",
+        "Course Sale": "Course Sale",
+        "Purchase": "Purchase",
+        "Payout Request": "Payout Request",
+        "Payout Refunded": "Payout Refunded",
+        "Payout Rejected": "Payout Rejected",
+        "Refund": "Refund",
+        "Cancellation Deduction": "Cancellation Deduction",
+        "Adjustment": "Adjustment",
+        "Referral": "Referral Reward",
+        "Referral Reward": "Referral Reward",
+    },
+};
+
+/**
+ * Translates a given wallet transaction type to the specified language ("Mongolian" or "English")
+ */
+const translateWalletType = (type, language = "English") => {
+    if (!type) return type;
+    const lang = (language && typeof language === "string" && (language.toLowerCase().includes("mongolian") || language.toLowerCase().startsWith("mn")))
+        ? "Mongolian"
+        : "English";
+    const dict = WALLET_TYPE_TRANSLATIONS[lang] || WALLET_TYPE_TRANSLATIONS.English;
+    return dict[type] || dict[type.toUpperCase()] || type;
+};
+
 module.exports = {
     roleId,
     userRole,
@@ -150,5 +222,8 @@ module.exports = {
     visibility,
     ageRestriction,
     eventStatus,
-    daysOfWeek
+    daysOfWeek,
+    walletTransactionType,
+    WALLET_TYPE_TRANSLATIONS,
+    translateWalletType
 }

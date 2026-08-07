@@ -1,11 +1,11 @@
 const express = require("express");
 const router = express.Router();
 const organizerStatsService = require("../services/serviceOrganizerStats");
-const { apiSuccessRes, apiErrorRes } = require("../../utils/globalFunction");
+const { apiSuccessRes, apiErrorRes, getUserLanguage } = require("../../utils/globalFunction");
 const constantsMessage = require("../../utils/constantsMessage");
 const HTTP_STATUS = require("../../utils/statusCode");
 const { SUCCESS } = require("../../utils/constants");
-const { roleId } = require("../../utils/Role");
+const { roleId, translateWalletType } = require("../../utils/Role");
 const checkRole = require("../../middlewares/checkRole");
 const mongoose = require("mongoose");
 
@@ -92,6 +92,13 @@ router.get(
       );
 
       if (result.statusCode === SUCCESS) {
+        const userLang = await getUserLanguage(req, organizerId);
+        if (result.data?.walletHistory && Array.isArray(result.data.walletHistory)) {
+          result.data.walletHistory = result.data.walletHistory.map((entry) => ({
+            ...entry,
+            type: translateWalletType(entry.type, userLang),
+          }));
+        }
         return apiSuccessRes(
           HTTP_STATUS.OK,
           res,

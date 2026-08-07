@@ -15,7 +15,17 @@ const getWalletHistorySchema = Joi.object({
     page: Joi.number().integer().min(1).default(1),
     limit: Joi.number().integer().min(1).max(100).default(10),
     type: Joi.string()
-        .valid("TICKET_SALE", "PAYOUT_REQUEST", "PAYOUT_REJECTED", "REFUND", "ADJUSTMENT")
+        .valid(
+            "TICKET_SALE",
+            "COURSE_SALE",
+            "PURCHASE",
+            "PAYOUT_REQUEST",
+            "PAYOUT_REJECTED",
+            "REFUND",
+            "CANCELLATION_DEDUCTION",
+            "ADJUSTMENT",
+            "REFERRAL"
+        )
         .optional(),
     startDate: Joi.date().iso().optional(),
     endDate: Joi.date().iso().min(Joi.ref("startDate")).optional(),

@@ -8,10 +8,10 @@ const {
   WalletHistory,
 } = require("../../db");
 const HTTP_STATUS = require("../../utils/statusCode");
-const { apiErrorRes, apiSuccessRes } = require("../../utils/globalFunction");
+const { apiErrorRes, apiSuccessRes, getUserLanguage } = require("../../utils/globalFunction");
 const constantsMessage = require("../../utils/constantsMessage");
 const checkRole = require("../../middlewares/checkRole");
-const { roleId } = require("../../utils/Role");
+const { roleId, translateWalletType } = require("../../utils/Role");
 const { notifyPayoutResult } = require("../services/serviceNotification");
 
 // --- Organizer APIs ---
@@ -20,6 +20,7 @@ const { notifyPayoutResult } = require("../services/serviceNotification");
 const getOrganizerEarnings = async (req, res) => {
   try {
     const userId = req.user.userId;
+    const userLang = await getUserLanguage(req, userId);
     const { filterType, startDate, endDate } = req.query;
 
     const user = await User.findById(userId).select(
@@ -113,12 +114,8 @@ const getOrganizerEarnings = async (req, res) => {
         doc.balanceAfter = Number(doc.balanceAfter.toFixed(2));
       }
 
-      const typeMapping = {
-        COURSE_SALE: "Course Sale",
-      };
-
-      if (doc.type && typeMapping[doc.type]) {
-        doc.type = typeMapping[doc.type];
+      if (doc.type) {
+        doc.type = translateWalletType(doc.type, userLang);
       }
 
       return doc;
