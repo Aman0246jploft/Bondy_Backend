@@ -208,6 +208,115 @@ const translateWalletType = (type, language = "English") => {
     return dict[type] || dict[type.toUpperCase()] || type;
 };
 
+/**
+ * Translates a given wallet transaction description to the specified language ("Mongolian" or "English")
+ */
+const translateWalletDescription = (description, language = "English") => {
+    if (!description || typeof description !== "string") return description;
+    const lang = (language && typeof language === "string" && (language.toLowerCase().includes("mongolian") || language.toLowerCase().startsWith("mn")))
+        ? "Mongolian"
+        : "English";
+
+    if (lang === "Mongolian") {
+        let desc = description;
+        if (desc === "1st Successful Referral Reward - 10% Off") return "1 дэх амжилттай урилгын шагнал - 10% хөнгөлөлт";
+        if (desc === "5th Successful Referral Reward - 25,000 MNT Off") return "5 дахь амжилттай урилгын шагнал - 25,000₮ хөнгөлөлт";
+        if (desc === "Booking cancelled") return "Захиалга цуцлагдсан";
+        if (desc === "No reason provided") return "Шалтгаан тодорхойгүй";
+        if (desc === "No notes") return "Тэмдэглэлгүй";
+        if (desc === "Unknown Event") return "Тодорхойгүй арга хэмжээ";
+        if (desc === "Unknown Course") return "Тодорхойгүй сургалт";
+
+        if (desc.startsWith("Ticket Sale: ")) {
+            return "Тасалбар борлуулалт: " + desc.slice(13);
+        }
+        if (desc.startsWith("Course Sale: ")) {
+            return "Сургалт борлуулалт: " + desc.slice(13);
+        }
+        if (desc.startsWith("Event: ")) {
+            const rest = desc.slice(7);
+            return "Арга хэмжээ: " + (rest === "Unknown Event" ? "Тодорхойгүй арга хэмжээ" : rest);
+        }
+        if (desc.startsWith("Course: ")) {
+            const rest = desc.slice(8);
+            return "Сургалт: " + (rest === "Unknown Course" ? "Тодорхойгүй сургалт" : rest);
+        }
+        if (desc.startsWith("Payout Request of ")) {
+            return "Төлбөрийн хүсэлт: ₮" + desc.slice(18);
+        }
+        if (desc.startsWith("Payout request of ")) {
+            return "Төлбөрийн хүсэлт: ₮" + desc.slice(18);
+        }
+        if (desc.startsWith("Payout Request: ")) {
+            return "Төлбөрийн хүсэлт: " + desc.slice(16);
+        }
+        if (desc.startsWith("Payout rejected: ")) {
+            const rest = desc.slice(17);
+            return "Төлбөр татгалзагдсан: " + (rest === "No reason provided" ? "Шалтгаан тодорхойгүй" : rest);
+        }
+        if (desc.startsWith("Payout Rejected: ")) {
+            const rest = desc.slice(17);
+            return "Төлбөр татгалзагдсан: " + (rest === "No reason provided" ? "Шалтгаан тодорхойгүй" : rest);
+        }
+        if (desc.startsWith("Admin manual payout: ")) {
+            const rest = desc.slice(21);
+            return "Админы гараар хийсэн төлбөр: " + (rest === "No notes" ? "Тэмдэглэлгүй" : rest);
+        }
+        if (desc.startsWith("Cancellation Deduction: ")) {
+            const rest = desc.slice(24);
+            return "Цуцлалтын суутгал: " + (rest === "Booking cancelled" ? "Захиалга цуцлагдсан" : rest);
+        }
+        if (desc.startsWith("Referral Reward: ")) {
+            return "Урилгын шагнал: " + desc.slice(17);
+        }
+        if (desc === "Referral Reward" || desc === "Referral") {
+            return "Урилгын шагнал";
+        }
+        return desc;
+    } else {
+        let desc = description;
+        if (desc.startsWith("Тасалбар борлуулалт: ")) {
+            return "Ticket Sale: " + desc.slice(21);
+        }
+        if (desc.startsWith("Сургалт борлуулалт: ")) {
+            return "Course Sale: " + desc.slice(20);
+        }
+        if (desc.startsWith("Арга хэмжээ: ")) {
+            const rest = desc.slice(13);
+            return "Event: " + (rest === "Тодорхойгүй арга хэмжээ" ? "Unknown Event" : rest);
+        }
+        if (desc.startsWith("Сургалт: ")) {
+            const rest = desc.slice(9);
+            return "Course: " + (rest === "Тодорхойгүй сургалт" ? "Unknown Course" : rest);
+        }
+        if (desc.startsWith("Төлбөрийн хүсэлт: ₮")) {
+            return "Payout Request of " + desc.slice(19);
+        }
+        if (desc.startsWith("Төлбөрийн хүсэлт: ")) {
+            return "Payout Request: " + desc.slice(18);
+        }
+        if (desc.startsWith("Төлбөр татгалзагдсан: ")) {
+            const rest = desc.slice(22);
+            return "Payout rejected: " + (rest === "Шалтгаан тодорхойгүй" ? "No reason provided" : rest);
+        }
+        if (desc.startsWith("Админы гараар хийсэн төлбөр: ")) {
+            const rest = desc.slice(29);
+            return "Admin manual payout: " + (rest === "Тэмдэглэлгүй" ? "No notes" : rest);
+        }
+        if (desc.startsWith("Цуцлалтын суутгал: ")) {
+            const rest = desc.slice(19);
+            return "Cancellation Deduction: " + (rest === "Захиалга цуцлагдсан" ? "Booking cancelled" : rest);
+        }
+        if (desc.startsWith("Урилгын шагнал: ")) {
+            return "Referral Reward: " + desc.slice(16);
+        }
+        if (desc === "Урилгын шагнал") {
+            return "Referral Reward";
+        }
+        return desc;
+    }
+};
+
 module.exports = {
     roleId,
     userRole,
@@ -225,5 +334,6 @@ module.exports = {
     daysOfWeek,
     walletTransactionType,
     WALLET_TYPE_TRANSLATIONS,
-    translateWalletType
+    translateWalletType,
+    translateWalletDescription
 }

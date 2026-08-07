@@ -5,7 +5,7 @@ const { apiSuccessRes, apiErrorRes, getUserLanguage } = require("../../utils/glo
 const constantsMessage = require("../../utils/constantsMessage");
 const HTTP_STATUS = require("../../utils/statusCode");
 const { SUCCESS } = require("../../utils/constants");
-const { roleId, translateWalletType } = require("../../utils/Role");
+const { roleId, translateWalletType, translateWalletDescription } = require("../../utils/Role");
 const checkRole = require("../../middlewares/checkRole");
 const mongoose = require("mongoose");
 
@@ -97,6 +97,7 @@ router.get(
           result.data.walletHistory = result.data.walletHistory.map((entry) => ({
             ...entry,
             type: translateWalletType(entry.type, userLang),
+            description: translateWalletDescription(entry.description, userLang),
           }));
         }
         return apiSuccessRes(

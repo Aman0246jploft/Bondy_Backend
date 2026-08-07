@@ -11,7 +11,7 @@ const HTTP_STATUS = require("../../utils/statusCode");
 const { apiErrorRes, apiSuccessRes, getUserLanguage } = require("../../utils/globalFunction");
 const constantsMessage = require("../../utils/constantsMessage");
 const checkRole = require("../../middlewares/checkRole");
-const { roleId, translateWalletType } = require("../../utils/Role");
+const { roleId, translateWalletType, translateWalletDescription } = require("../../utils/Role");
 const { notifyPayoutResult } = require("../services/serviceNotification");
 
 // --- Organizer APIs ---
@@ -116,6 +116,9 @@ const getOrganizerEarnings = async (req, res) => {
 
       if (doc.type) {
         doc.type = translateWalletType(doc.type, userLang);
+      }
+      if (doc.description) {
+        doc.description = translateWalletDescription(doc.description, userLang);
       }
 
       return doc;
