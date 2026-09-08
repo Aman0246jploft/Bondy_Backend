@@ -106,6 +106,20 @@ const adjustCourseReservedSeatsSchema = Joi.object({
   }),
 });
 
+const qpayInitiateSchema = Joi.object({
+  transactionId: Joi.string().required().messages({
+    "string.empty": "Transaction ID is required",
+    "any.required": "Transaction ID is required",
+  }),
+});
+
+const qpayCheckSchema = Joi.object({
+  transactionId: Joi.string().required().messages({
+    "string.empty": "Transaction ID is required",
+    "any.required": "Transaction ID is required",
+  }),
+});
+
 module.exports = {
   initiateBookingSchema,
   confirmPaymentSchema,
@@ -114,4 +128,7 @@ module.exports = {
   cancelCourseSchema,
   scanQRCodeSchema,
   adjustCourseReservedSeatsSchema,
+  qpayInitiateSchema,
+  qpayCheckSchema,
 };
+

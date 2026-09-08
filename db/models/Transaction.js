@@ -35,16 +35,16 @@ const transactionSchema = new mongoose.Schema(
         // For Ongoing courses: array of selected batches and days
         ongoingSlots: [
             {
-                batchId:       { type: String, required: true },
-                selectedDay:   { type: String, required: true },
-                selectedDate:  { type: String, default: null },
+                batchId: { type: String, required: true },
+                selectedDay: { type: String, required: true },
+                selectedDate: { type: String, default: null },
                 // Per-slot unique identifier & scannable QR code (mirrors event tickets.qrs[])
-                subBookingId:  { type: String, default: null },
-                qrCodeData:    { type: String, default: null },
+                subBookingId: { type: String, default: null },
+                qrCodeData: { type: String, default: null },
                 // Per-slot check-in tracking
-                isCheckedIn:   { type: Boolean, default: false },
-                checkedInAt:   { type: Date, default: null },
-                checkedInBy:   { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null }
+                isCheckedIn: { type: Boolean, default: false },
+                checkedInAt: { type: Date, default: null },
+                checkedInBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null }
             }
         ],
         passType: {
@@ -143,9 +143,34 @@ const transactionSchema = new mongoose.Schema(
             enum: ["PENDING", "PAID", "FAILED", "CANCELLED", "REFUND_INITIATED", "REFUNDED"],
             default: "PENDING",
         },
-        paymentId: {
-            type: String, // from payment gateway
+        paymentMethod: {
+            type: String,
+            enum: ["STRIPE", "QPAY", "SOCIALPAY", "FREE", "WALLET"],
+            default: "QPAY",
         },
+        paymentId: {
+            type: String, // from payment gateway (will store QPay invoice_id)
+        },
+        qpayInvoiceId: {
+            type: String,
+            default: null,
+        },
+        qpayPaymentId: {
+            type: String,
+            default: null,
+        },
+        qpayPaymentData: {
+            type: mongoose.Schema.Types.Mixed,
+            default: null,
+        },
+        qpayUrls: [
+            {
+                name: { type: String },
+                description: { type: String },
+                logo: { type: String },
+                link: { type: String }
+            }
+        ],
         qrCodeData: {
             type: String, // Unique string/payload for QR (legacy — individual tickets now use Attendee.qrCodeData)
         },
@@ -233,6 +258,8 @@ transactionSchema.set("toJSON", {
 transactionSchema.index({ userId: 1, status: 1, createdAt: -1 });
 transactionSchema.index({ eventId: 1, status: 1 });
 transactionSchema.index({ courseId: 1, status: 1 });
+transactionSchema.index({ qpayPaymentId: 1 }, { unique: true, sparse: true });
+transactionSchema.index({ qpayInvoiceId: 1 });
 // Note: bookingId unique index is declared in the field definition (unique: true), no need to repeat here
 
 module.exports = mongoose.model("Transaction", transactionSchema);
