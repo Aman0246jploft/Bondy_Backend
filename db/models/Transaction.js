@@ -257,8 +257,10 @@ transactionSchema.set("toJSON", {
 // ── Indexes ───────────────────────────────────────────────────────────────────
 transactionSchema.index({ userId: 1, status: 1, createdAt: -1 });
 transactionSchema.index({ eventId: 1, status: 1 });
-transactionSchema.index({ courseId: 1, status: 1 });
-transactionSchema.index({ qpayPaymentId: 1 }, { unique: true, sparse: true });
+transactionSchema.index(
+    { qpayPaymentId: 1 },
+    { unique: true, partialFilterExpression: { qpayPaymentId: { $type: "string" } } }
+);
 transactionSchema.index({ qpayInvoiceId: 1 });
 // Note: bookingId unique index is declared in the field definition (unique: true), no need to repeat here
 
