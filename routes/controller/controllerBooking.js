@@ -47,6 +47,7 @@ const {
   logQPayEvent,
   getRecentLogs,
   readRawLogFile,
+  clearQPayLogs,
 } = require("../../utils/qpayLogger");
 
 const validateRequest = require("../../middlewares/validateRequest");
@@ -2165,7 +2166,16 @@ const qpayCallback = async (req, res) => {
  */
 const getQPayLogsHandler = async (req, res) => {
   try {
-    const { limit = 50, bookingId, invoiceId, format } = req.query;
+    const { limit = 50, bookingId, invoiceId, format, action, clear } = req.query;
+
+    if (clear === "true" || action === "clear" || req.method === "DELETE") {
+      await clearQPayLogs();
+      if (format === "text" || format === "raw") {
+        res.setHeader("Content-Type", "text/plain; charset=utf-8");
+        return res.send("QPay logs cleared successfully. Ready for client test!\n");
+      }
+      return apiSuccessRes(HTTP_STATUS.OK, res, "QPay logs cleared successfully");
+    }
 
     if (format === "text" || format === "raw") {
       const rawText = readRawLogFile(Number(limit) || 200);
@@ -4193,6 +4203,7 @@ router.post("/qpay/initiate", perApiLimiter(), validateRequest(qpayInitiateSchem
 router.post("/qpay/check", perApiLimiter(), validateRequest(qpayCheckSchema), checkQpayStatus);
 router.get("/qpay/callback", qpayCallback);
 router.get("/qpay/logs", getQPayLogsHandler);
+router.delete("/qpay/logs", getQPayLogsHandler);
 
 // Ticket Management
 router.get("/list", perApiLimiter(), getTicketList);

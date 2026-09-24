@@ -218,9 +218,27 @@ const readRawLogFile = (maxLines = 200) => {
   }
 };
 
+/**
+ * Clears the QPay log file and drops MongoDB audit records
+ */
+const clearQPayLogs = async () => {
+  try {
+    if (fs.existsSync(MAIN_LOG_FILE)) {
+      fs.writeFileSync(MAIN_LOG_FILE, "", "utf8");
+    }
+    await QPayLog.deleteMany({});
+    console.log("[qpayLogger] QPay logs cleared successfully.");
+    return true;
+  } catch (err) {
+    console.error("[qpayLogger] Error clearing logs:", err.message);
+    throw err;
+  }
+};
+
 module.exports = {
   logQPayEvent,
   getRecentLogs,
   readRawLogFile,
+  clearQPayLogs,
   MAIN_LOG_FILE,
 };
