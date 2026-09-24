@@ -141,7 +141,7 @@ const getShareUrl = async (req, res) => {
       return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.ID_AND_TYPE_EVENT_COURSE_ARE_REQUIRED);
     }
 
-    const frontendUrl = process.env.FRONTEND_URL || "https://bondy-user.tasksplan.com";
+    const frontendUrl = process.env.FRONTEND_URL;
     let shareUrl = "";
 
     if (type.toLowerCase() === "event") {

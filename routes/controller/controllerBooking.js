@@ -4175,7 +4175,7 @@ const generateTicketUrls = async (req, res) => {
       return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.TICKET_NOT_FOUND_OR_UNAUTHORIZED);
     }
 
-    const frontendUrl = process.env.FRONTEND_URL || "https://bondy-user.tasksplan.com";
+    const frontendUrl = process.env.FRONTEND_URL;
     const shareUrl = `${frontendUrl}/public/ticket?id=${transactionId}`;
     const downloadUrl = `${frontendUrl}/public/ticket?id=${transactionId}&download=true`;
 

@@ -36,7 +36,7 @@ router.get("/my-code", perApiLimiter(), async (req, res) => {
       });
     }
 
-    const baseUrl = process.env.FRONTEND_URL || "https://bondy.com";
+    const baseUrl = process.env.FRONTEND_URL;
     const referralLink = `${baseUrl}/register?ref=${referral.referralCode}`;
 
     return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.REFERRAL_CODE_FETCHED, {
@@ -169,7 +169,7 @@ router.post("/invite", perApiLimiter(), async (req, res) => {
 
     // In a real system, send an email here via nodemailer/sendgrid
     // For now we return the referral link
-    const baseUrl = process.env.FRONTEND_URL || "https://bondy.com";
+    const baseUrl = process.env.FRONTEND_URL;
     const referralLink = `${baseUrl}/register?ref=${inviteCode}`;
 
     return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.INVITE_SENT, {
