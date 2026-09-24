@@ -21,8 +21,8 @@ router.post("/upload", upload.single("file"), async (req, res) => {
       );
     }
     // Construct public URL - adjust based on your set up (local vs cloudinary)
-    // Assuming local storage based on index.js static serve
-    const fileUrl = `${process.env.BASE_URL}/uploads/${req.file.filename}`;
+    const baseUrl = process.env.BACKEND_URL || process.env.BASE_URL;
+    const fileUrl = `${baseUrl}/uploads/${req.file.filename}`;
 
     return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.FILE_UPLOADED, {
       fileUrl,
