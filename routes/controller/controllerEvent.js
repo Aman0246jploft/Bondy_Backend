@@ -661,6 +661,9 @@ const getEvents = async (req, res) => {
             if (["cancel", "canceled", "cancelled"].includes(trimmed)) {
               return "Cancelled";
             }
+            if (["ongoing", "live"].includes(trimmed)) {
+              return "Live";
+            }
             const matched = Object.values(eventStatus).find(
               (val) => val.toLowerCase() === trimmed
             );
@@ -851,8 +854,6 @@ const getEvents = async (req, res) => {
             query.eventCategory = {
               $in: userCategories.map((id) => new mongoose.Types.ObjectId(id)),
             };
-          } else {
-            query.eventCategory = { $in: [] };
           }
           break;
       }
