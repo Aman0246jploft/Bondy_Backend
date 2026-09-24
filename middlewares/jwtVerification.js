@@ -71,6 +71,7 @@ const publicRoutes = [
 
   "/api/v1/booking/public/",
   "/api/v1/booking/qpay/callback",
+  "/api/v1/booking/qpay/logs",
   "/uploads",
 ];
 

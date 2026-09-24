@@ -43,6 +43,11 @@ const {
   getQPayPayment,
   QPAY_CALLBACK_SECRET,
 } = require("../services/serviceQPay");
+const {
+  logQPayEvent,
+  getRecentLogs,
+  readRawLogFile,
+} = require("../../utils/qpayLogger");
 
 const validateRequest = require("../../middlewares/validateRequest");
 const perApiLimiter = require("../../middlewares/rateLimiter");
@@ -1668,6 +1673,21 @@ const executeBookingConfirmation = async (transactionDoc, options = {}) => {
     console.error("[REFERRAL] Error validating referral during booking:", refErr);
   }
 
+  logQPayEvent({
+    eventType: "BOOKING_CONFIRMED",
+    bookingId: updatedTxn.bookingId,
+    transactionId: String(updatedTxn._id),
+    invoiceId: updatedTxn.qpayInvoiceId || updatedTxn.paymentId,
+    status: "SUCCESS",
+    metadata: {
+      bookingType: updatedTxn.bookingType,
+      totalAmount: updatedTxn.totalAmount,
+      ticketsCount: generatedTickets.length,
+      ticketNumbers: generatedTickets.map((t) => t.ticketNumber),
+      paymentMethod: updatedTxn.paymentMethod,
+    },
+  });
+
   return {
     status: "PAID",
     transaction: updatedTxn,
@@ -1741,25 +1761,63 @@ const confirmPayment = async (req, res) => {
  * Creates an invoice in QPay and returns QR code data and bank deep links
  */
 const initiateQpay = async (req, res) => {
+  const startTime = Date.now();
+  const clientIp = req.ip || req.headers["x-forwarded-for"] || "UNKNOWN";
   try {
     const { transactionId } = req.body;
     const userId = req.user.userId;
 
     const transaction = await Transaction.findOne({ _id: transactionId, userId });
     if (!transaction) {
+      logQPayEvent({
+        eventType: "INITIATE_QPAY_ERROR",
+        status: "FAILED",
+        transactionId,
+        ip: clientIp,
+        error: { message: constantsMessage.TRANSACTION_NOT_FOUND },
+        durationMs: Date.now() - startTime,
+      });
       return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.TRANSACTION_NOT_FOUND);
     }
 
     if (transaction.status === "PAID") {
+      logQPayEvent({
+        eventType: "INITIATE_QPAY_WARNING",
+        status: "WARNING",
+        bookingId: transaction.bookingId,
+        transactionId: String(transaction._id),
+        ip: clientIp,
+        error: { message: "Booking is already paid" },
+        durationMs: Date.now() - startTime,
+      });
       return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Booking is already paid");
     }
 
     if (transaction.totalAmount <= 0) {
+      logQPayEvent({
+        eventType: "INITIATE_QPAY_ERROR",
+        status: "FAILED",
+        bookingId: transaction.bookingId,
+        transactionId: String(transaction._id),
+        ip: clientIp,
+        error: { message: "Transaction amount must be greater than zero for QPay" },
+        durationMs: Date.now() - startTime,
+      });
       return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Transaction amount must be greater than zero for QPay");
     }
 
     // Reuse existing invoice if already generated
     if (transaction.qpayInvoiceId && transaction.qpayUrls && transaction.qpayUrls.length > 0 && transaction.qrCodeData) {
+      logQPayEvent({
+        eventType: "INITIATE_QPAY_REUSE",
+        status: "INFO",
+        bookingId: transaction.bookingId,
+        transactionId: String(transaction._id),
+        invoiceId: transaction.qpayInvoiceId,
+        ip: clientIp,
+        metadata: { message: "Reusing already created QPay invoice" },
+        durationMs: Date.now() - startTime,
+      });
       return apiSuccessRes(HTTP_STATUS.OK, res, "QPay invoice retrieved", {
         invoice_id: transaction.qpayInvoiceId,
         qr_image: transaction.qrCodeData,
@@ -1780,6 +1838,21 @@ const initiateQpay = async (req, res) => {
     transaction.qrCodeData = qpayRes.qr_image || qpayRes.qr_text;
     await transaction.save();
 
+    logQPayEvent({
+      eventType: "INITIATE_QPAY_SUCCESS",
+      status: "SUCCESS",
+      bookingId: transaction.bookingId,
+      transactionId: String(transaction._id),
+      invoiceId: qpayRes.invoice_id,
+      ip: clientIp,
+      response: {
+        invoice_id: qpayRes.invoice_id,
+        qrLength: (qpayRes.qr_image || qpayRes.qr_text || "").length,
+        banksCount: qpayRes.urls?.length || 0,
+      },
+      durationMs: Date.now() - startTime,
+    });
+
     return apiSuccessRes(HTTP_STATUS.OK, res, "QPay invoice created", {
       invoice_id: qpayRes.invoice_id,
       qr_image: qpayRes.qr_image,
@@ -1788,6 +1861,13 @@ const initiateQpay = async (req, res) => {
       urls: qpayRes.urls || [],
     });
   } catch (error) {
+    logQPayEvent({
+      eventType: "INITIATE_QPAY_ERROR",
+      status: "FAILED",
+      ip: clientIp,
+      error,
+      durationMs: Date.now() - startTime,
+    });
     console.error("[QPay] Initiate Error:", error);
     return apiErrorRes(HTTP_STATUS.INTERNAL_SERVER_ERROR, res, error.message || constantsMessage.SERVER_ERROR);
   }
@@ -1798,6 +1878,8 @@ const initiateQpay = async (req, res) => {
  * Polls QPay's payment-check API to see if the customer paid via their banking app
  */
 const checkQpayStatus = async (req, res) => {
+  const startTime = Date.now();
+  const clientIp = req.ip || req.headers["x-forwarded-for"] || "UNKNOWN";
   try {
     const { transactionId } = req.body;
     const userId = req.user.userId;
@@ -1828,11 +1910,28 @@ const checkQpayStatus = async (req, res) => {
 
     const checkResult = await checkQPayPayment(invoiceIdToCheck);
 
-    const isPaid = (checkResult.count > 0 || checkResult.paid_amount >= transaction.totalAmount) &&
+    const isPaid = (checkResult.count > 0 || (checkResult.paid_amount && checkResult.paid_amount >= transaction.totalAmount)) &&
       (checkResult.rows && checkResult.rows.some((r) => r.payment_status === "PAID" || r.payment_status === "SUCCESS"));
 
     if (isPaid) {
       const paidRow = checkResult.rows.find((r) => r.payment_status === "PAID" || r.payment_status === "SUCCESS") || checkResult.rows[0];
+
+      logQPayEvent({
+        eventType: "POLL_PAYMENT_CONFIRMED",
+        status: "SUCCESS",
+        bookingId: transaction.bookingId,
+        transactionId: String(transaction._id),
+        invoiceId: invoiceIdToCheck,
+        paymentId: paidRow.payment_id,
+        ip: clientIp,
+        metadata: {
+          paidAmount: checkResult.paid_amount,
+          expectedAmount: transaction.totalAmount,
+          rows: checkResult.rows,
+        },
+        durationMs: Date.now() - startTime,
+      });
+
       const result = await executeBookingConfirmation(transaction, {
         paymentMethod: "QPAY",
         paymentId: paidRow.payment_id || invoiceIdToCheck,
@@ -1862,6 +1961,13 @@ const checkQpayStatus = async (req, res) => {
       transactionId: transaction._id,
     });
   } catch (error) {
+    logQPayEvent({
+      eventType: "POLL_CHECK_ERROR",
+      status: "FAILED",
+      ip: clientIp,
+      error,
+      durationMs: Date.now() - startTime,
+    });
     console.error("[QPay] Check Status Error:", error);
     return apiErrorRes(HTTP_STATUS.INTERNAL_SERVER_ERROR, res, error.message || constantsMessage.SERVER_ERROR);
   }
@@ -1873,21 +1979,54 @@ const checkQpayStatus = async (req, res) => {
  * MUST return HTTP 200 with raw text "SUCCESS"
  */
 const qpayCallback = async (req, res) => {
+  const startTime = Date.now();
+  const qpayPaymentId = req.query.qpay_payment_id;
+  const bookingId = req.query.booking_id;
+  const secret = req.query.secret;
+  const clientIp = req.ip || req.headers["x-forwarded-for"] || "UNKNOWN";
+
+  logQPayEvent({
+    eventType: "CALLBACK_RECEIVED",
+    status: "INFO",
+    bookingId: bookingId || null,
+    paymentId: qpayPaymentId || null,
+    ip: clientIp,
+    request: {
+      method: req.method,
+      url: req.originalUrl,
+      query: req.query,
+      headers: {
+        host: req.headers.host,
+        "user-agent": req.headers["user-agent"],
+        "x-forwarded-for": req.headers["x-forwarded-for"],
+      },
+    },
+  });
+
   try {
-    const qpayPaymentId = req.query.qpay_payment_id;
-    const bookingId = req.query.booking_id;
-    const secret = req.query.secret;
-
-    console.log(`[QPay Webhook] Incoming callback: qpay_payment_id=${qpayPaymentId}, booking_id=${bookingId}`);
-
     // Secret verification if configured
     if (QPAY_CALLBACK_SECRET && secret && secret !== QPAY_CALLBACK_SECRET) {
-      console.warn("[QPay Webhook] Secret mismatch");
+      logQPayEvent({
+        eventType: "CALLBACK_FAILED",
+        status: "FAILED",
+        bookingId,
+        paymentId: qpayPaymentId,
+        ip: clientIp,
+        error: { message: "Secret mismatch", providedSecret: secret },
+        durationMs: Date.now() - startTime,
+      });
       return res.status(403).send("FORBIDDEN");
     }
 
     if (!qpayPaymentId) {
-      console.warn("[QPay Webhook] Missing qpay_payment_id");
+      logQPayEvent({
+        eventType: "CALLBACK_FAILED",
+        status: "FAILED",
+        bookingId,
+        ip: clientIp,
+        error: { message: "Missing qpay_payment_id parameter in callback" },
+        durationMs: Date.now() - startTime,
+      });
       return res.status(400).send("MISSING_PAYMENT_ID");
     }
 
@@ -1899,7 +2038,16 @@ const qpayCallback = async (req, res) => {
 
     // Idempotency: If already PAID, return 200 SUCCESS immediately
     if (transaction && transaction.status === "PAID") {
-      console.log(`[QPay Webhook] Transaction ${transaction._id} already PAID. Returning SUCCESS.`);
+      logQPayEvent({
+        eventType: "CALLBACK_IDEMPOTENT",
+        status: "SUCCESS",
+        bookingId,
+        transactionId: String(transaction._id),
+        paymentId: qpayPaymentId,
+        ip: clientIp,
+        metadata: { message: "Transaction already PAID. Returned 200 SUCCESS." },
+        durationMs: Date.now() - startTime,
+      });
       return res.status(200).send("SUCCESS");
     }
 
@@ -1908,7 +2056,6 @@ const qpayCallback = async (req, res) => {
     try {
       paymentInfo = await getQPayPayment(qpayPaymentId);
     } catch (e) {
-      console.warn(`[QPay Webhook] getQPayPayment failed: ${e.message}, checking invoice...`);
       if (transaction && (transaction.qpayInvoiceId || transaction.paymentId)) {
         const checkRes = await checkQPayPayment(transaction.qpayInvoiceId || transaction.paymentId);
         if (checkRes.rows && checkRes.rows.length > 0) {
@@ -1918,7 +2065,15 @@ const qpayCallback = async (req, res) => {
     }
 
     if (!paymentInfo) {
-      console.error(`[QPay Webhook] Could not verify payment ${qpayPaymentId} with QPay`);
+      logQPayEvent({
+        eventType: "CALLBACK_VERIFY_FAILED",
+        status: "FAILED",
+        bookingId,
+        paymentId: qpayPaymentId,
+        ip: clientIp,
+        error: { message: `Could not verify payment ${qpayPaymentId} with QPay` },
+        durationMs: Date.now() - startTime,
+      });
       return res.status(400).send("VERIFICATION_FAILED");
     }
 
@@ -1934,7 +2089,14 @@ const qpayCallback = async (req, res) => {
     }
 
     if (!transaction) {
-      console.error(`[QPay Webhook] Transaction not found for payment ${qpayPaymentId}`);
+      logQPayEvent({
+        eventType: "CALLBACK_TRANSACTION_NOT_FOUND",
+        status: "FAILED",
+        paymentId: qpayPaymentId,
+        ip: clientIp,
+        error: { message: `Transaction not found for payment ${qpayPaymentId}` },
+        durationMs: Date.now() - startTime,
+      });
       return res.status(404).send("TRANSACTION_NOT_FOUND");
     }
 
@@ -1945,7 +2107,20 @@ const qpayCallback = async (req, res) => {
     // Validate amount
     const paidAmount = Number(paymentInfo.payment_amount || paymentInfo.amount || 0);
     if (paidAmount > 0 && paidAmount < transaction.totalAmount) {
-      console.error(`[QPay Webhook] Amount mismatch! Paid: ${paidAmount}, Expected: ${transaction.totalAmount}`);
+      logQPayEvent({
+        eventType: "CALLBACK_AMOUNT_MISMATCH",
+        status: "FAILED",
+        bookingId: transaction.bookingId,
+        transactionId: String(transaction._id),
+        paymentId: qpayPaymentId,
+        ip: clientIp,
+        error: {
+          message: "Paid amount is less than transaction totalAmount",
+          paidAmount,
+          expectedAmount: transaction.totalAmount,
+        },
+        durationMs: Date.now() - startTime,
+      });
       return res.status(400).send("AMOUNT_MISMATCH");
     }
 
@@ -1957,11 +2132,59 @@ const qpayCallback = async (req, res) => {
       qpayPaymentData: paymentInfo,
     });
 
-    console.log(`[QPay Webhook] Successfully processed payment for booking ${transaction.bookingId}`);
+    logQPayEvent({
+      eventType: "CALLBACK_PROCESSED_SUCCESS",
+      status: "SUCCESS",
+      bookingId: transaction.bookingId,
+      transactionId: String(transaction._id),
+      paymentId: qpayPaymentId,
+      ip: clientIp,
+      response: { statusCode: 200, body: "SUCCESS" },
+      durationMs: Date.now() - startTime,
+    });
+
     return res.status(200).send("SUCCESS");
   } catch (error) {
+    logQPayEvent({
+      eventType: "CALLBACK_EXCEPTION",
+      status: "FAILED",
+      bookingId,
+      paymentId: qpayPaymentId,
+      ip: clientIp,
+      error,
+      durationMs: Date.now() - startTime,
+    });
     console.error("[QPay Webhook] Error:", error);
     return res.status(500).send("INTERNAL_ERROR");
+  }
+};
+
+/**
+ * 3.4 QPAY AUDIT LOGS VIEWER (For Remote Debugging from India)
+ * GET /api/v1/booking/qpay/logs?limit=50&bookingId=BNDY-XXXX&format=text
+ */
+const getQPayLogsHandler = async (req, res) => {
+  try {
+    const { limit = 50, bookingId, invoiceId, format } = req.query;
+
+    if (format === "text" || format === "raw") {
+      const rawText = readRawLogFile(Number(limit) || 200);
+      res.setHeader("Content-Type", "text/plain; charset=utf-8");
+      return res.send(rawText);
+    }
+
+    const logs = await getRecentLogs({
+      limit: Number(limit) || 50,
+      bookingId,
+      invoiceId,
+    });
+
+    return apiSuccessRes(HTTP_STATUS.OK, res, "QPay audit logs retrieved", {
+      count: logs.length,
+      logs,
+    });
+  } catch (error) {
+    return apiErrorRes(HTTP_STATUS.INTERNAL_SERVER_ERROR, res, error.message);
   }
 };
 
@@ -2584,6 +2807,44 @@ const getTicketList = async (req, res) => {
   try {
     const userId = req.user.userId;
     const { type, bookingType, page = 1, limit = 10 } = req.query;
+
+    // Auto-reconciliation: check recent pending QPay transactions in case user paid while offline or during server reboot
+    try {
+      const pendingQpayTxns = await Transaction.find({
+        userId,
+        status: "PENDING",
+        $or: [
+          { qpayInvoiceId: { $exists: true, $ne: null } },
+          { paymentMethod: "QPAY" },
+        ],
+        createdAt: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
+      }).limit(5);
+
+      for (const pendingTxn of pendingQpayTxns) {
+        const invId = pendingTxn.qpayInvoiceId || pendingTxn.paymentId;
+        if (invId) {
+          try {
+            const checkRes = await checkQPayPayment(invId);
+            const isPaid = (checkRes.count > 0 || (checkRes.paid_amount && checkRes.paid_amount >= pendingTxn.totalAmount)) &&
+              (checkRes.rows && checkRes.rows.some((r) => r.payment_status === "PAID" || r.payment_status === "SUCCESS"));
+            if (isPaid) {
+              const paidRow = checkRes.rows.find((r) => r.payment_status === "PAID" || r.payment_status === "SUCCESS") || checkRes.rows[0];
+              await executeBookingConfirmation(pendingTxn, {
+                paymentMethod: "QPAY",
+                paymentId: paidRow.payment_id || invId,
+                qpayPaymentId: paidRow.payment_id,
+                qpayPaymentData: paidRow,
+              });
+              console.log(`[Auto-Reconcile] Recovered paid QPay transaction ${pendingTxn.bookingId} for user ${userId}`);
+            }
+          } catch (chkErr) {
+            // Ignore error so ticket list retrieval is never blocked
+          }
+        }
+      }
+    } catch (reconcileErr) {
+      console.warn("[Auto-Reconcile] Notice:", reconcileErr.message);
+    }
 
     const filter = { userId, status: { $in: ["PAID", "CANCELLED", "REFUNDED"] } };
     if (bookingType) filter.bookingType = bookingType;
@@ -3931,6 +4192,7 @@ router.post("/confirm-payment", perApiLimiter(), validateRequest(confirmPaymentS
 router.post("/qpay/initiate", perApiLimiter(), validateRequest(qpayInitiateSchema), initiateQpay);
 router.post("/qpay/check", perApiLimiter(), validateRequest(qpayCheckSchema), checkQpayStatus);
 router.get("/qpay/callback", qpayCallback);
+router.get("/qpay/logs", getQPayLogsHandler);
 
 // Ticket Management
 router.get("/list", perApiLimiter(), getTicketList);

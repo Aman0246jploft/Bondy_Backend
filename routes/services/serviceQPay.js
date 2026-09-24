@@ -1,5 +1,6 @@
 const axios = require("axios");
 const { getQPayConfig, validateQPayConfig } = require("../../config/qpay");
+const { logQPayEvent } = require("../../utils/qpayLogger");
 
 // Access configuration dynamically
 const getConfig = () => getQPayConfig();
@@ -32,6 +33,7 @@ const refreshQPayToken = async () => {
     }
 
     const config = getConfig();
+    const startTime = Date.now();
     try {
         const response = await axios.post(
             `${config.baseUrl}/auth/refresh`,
@@ -56,8 +58,23 @@ const refreshQPayToken = async () => {
             expiresAt: Date.now() + (expiresIn - bufferSeconds) * 1000,
         };
 
+        logQPayEvent({
+            eventType: "TOKEN_REFRESH",
+            status: "SUCCESS",
+            request: { url: `${config.baseUrl}/auth/refresh`, method: "POST" },
+            response: { expiresIn: data.expires_in, tokenType: data.token_type },
+            durationMs: Date.now() - startTime,
+        });
+
         return tokenCache.accessToken;
     } catch (error) {
+        logQPayEvent({
+            eventType: "TOKEN_REFRESH",
+            status: "FAILED",
+            request: { url: `${config.baseUrl}/auth/refresh`, method: "POST" },
+            error,
+            durationMs: Date.now() - startTime,
+        });
         console.warn("[QPay] Token refresh failed, falling back to basic auth:", error.response?.data || error.message);
         clearTokenCache();
         throw error;
@@ -87,6 +104,7 @@ const getQPayToken = async (forceRefresh = false) => {
 
     // 3. Obtain a fresh access token using Basic Auth credentials
     const config = getConfig();
+    const startTime = Date.now();
     try {
         const credentials = Buffer.from(`${config.username}:${config.password}`).toString("base64");
         const response = await axios.post(
@@ -111,8 +129,23 @@ const getQPayToken = async (forceRefresh = false) => {
             expiresAt: now + (expiresIn - bufferSeconds) * 1000,
         };
 
+        logQPayEvent({
+            eventType: "TOKEN_AUTH",
+            status: "SUCCESS",
+            request: { url: `${config.baseUrl}/auth/token`, method: "POST", username: config.username },
+            response: { expiresIn: data.expires_in, tokenType: data.token_type },
+            durationMs: Date.now() - startTime,
+        });
+
         return tokenCache.accessToken;
     } catch (error) {
+        logQPayEvent({
+            eventType: "TOKEN_AUTH",
+            status: "FAILED",
+            request: { url: `${config.baseUrl}/auth/token`, method: "POST", username: config.username },
+            error,
+            durationMs: Date.now() - startTime,
+        });
         console.error("[QPay] Authentication Error:", error.response?.data || error.message);
         clearTokenCache();
         throw new Error(`Failed to authenticate with QPay: ${error.response?.data?.message || error.message}`);
@@ -153,6 +186,8 @@ const createQPayInvoice = async ({
     callbackUrl,
 }) => {
     const config = getConfig();
+    const startTime = Date.now();
+    let payload = null;
     try {
         const resolvedCallbackUrl = callbackUrl || (
             config.callbackUrl
@@ -160,7 +195,7 @@ const createQPayInvoice = async ({
                 : undefined
         );
 
-        const payload = {
+        payload = {
             invoice_code: config.invoiceCode,
             sender_invoice_no: String(senderInvoiceNo),
             invoice_receiver_code: String(invoiceReceiverCode || senderInvoiceNo),
@@ -180,8 +215,26 @@ const createQPayInvoice = async ({
             })
         );
 
+        logQPayEvent({
+            eventType: "INVOICE_CREATE",
+            bookingId: String(senderInvoiceNo),
+            invoiceId: response.data?.invoice_id,
+            status: "SUCCESS",
+            request: { url: `${config.baseUrl}/invoice`, method: "POST", payload },
+            response: response.data,
+            durationMs: Date.now() - startTime,
+        });
+
         return response.data;
     } catch (error) {
+        logQPayEvent({
+            eventType: "INVOICE_CREATE",
+            bookingId: String(senderInvoiceNo),
+            status: "FAILED",
+            request: { url: `${config.baseUrl}/invoice`, method: "POST", payload },
+            error,
+            durationMs: Date.now() - startTime,
+        });
         console.error("[QPay] Invoice Creation Error:", error.response?.data || error.message);
         throw new Error(error.response?.data?.message || "Failed to create QPay invoice");
     }
@@ -193,8 +246,10 @@ const createQPayInvoice = async ({
  */
 const checkQPayPayment = async (invoiceId) => {
     const config = getConfig();
+    const startTime = Date.now();
+    let payload = null;
     try {
-        const payload = {
+        payload = {
             object_type: "INVOICE",
             object_id: String(invoiceId),
             offset: {
@@ -213,8 +268,28 @@ const checkQPayPayment = async (invoiceId) => {
             })
         );
 
+        const isPaid = (response.data.count > 0 || (response.data.paid_amount && response.data.paid_amount > 0)) &&
+            (response.data.rows && response.data.rows.some((r) => r.payment_status === "PAID" || r.payment_status === "SUCCESS"));
+
+        logQPayEvent({
+            eventType: "PAYMENT_CHECK",
+            invoiceId: String(invoiceId),
+            status: isPaid ? "SUCCESS" : "PENDING",
+            request: { url: `${config.baseUrl}/payment/check`, method: "POST", payload },
+            response: response.data,
+            durationMs: Date.now() - startTime,
+        });
+
         return response.data;
     } catch (error) {
+        logQPayEvent({
+            eventType: "PAYMENT_CHECK",
+            invoiceId: String(invoiceId),
+            status: "FAILED",
+            request: { url: `${config.baseUrl}/payment/check`, method: "POST", payload },
+            error,
+            durationMs: Date.now() - startTime,
+        });
         console.error("[QPay] Payment Check Error:", error.response?.data || error.message);
         throw new Error(error.response?.data?.message || "Failed to check QPay payment status");
     }
@@ -226,6 +301,7 @@ const checkQPayPayment = async (invoiceId) => {
  */
 const getQPayPayment = async (paymentId) => {
     const config = getConfig();
+    const startTime = Date.now();
     try {
         const response = await executeQPayRequest((token) =>
             axios.get(`${config.baseUrl}/payment/${encodeURIComponent(paymentId)}`, {
@@ -236,8 +312,25 @@ const getQPayPayment = async (paymentId) => {
             })
         );
 
+        logQPayEvent({
+            eventType: "GET_PAYMENT_DETAILS",
+            paymentId: String(paymentId),
+            status: "SUCCESS",
+            request: { url: `${config.baseUrl}/payment/${paymentId}`, method: "GET" },
+            response: response.data,
+            durationMs: Date.now() - startTime,
+        });
+
         return response.data;
     } catch (error) {
+        logQPayEvent({
+            eventType: "GET_PAYMENT_DETAILS",
+            paymentId: String(paymentId),
+            status: "FAILED",
+            request: { url: `${config.baseUrl}/payment/${paymentId}`, method: "GET" },
+            error,
+            durationMs: Date.now() - startTime,
+        });
         console.error("[QPay] Get Payment Error:", error.response?.data || error.message);
         throw new Error(error.response?.data?.message || "Failed to retrieve QPay payment info");
     }
