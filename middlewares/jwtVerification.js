@@ -18,6 +18,8 @@ const publicRoutes = [
   "/api/v1/user/staff/login",
 
   "/api/v1/user/upload",
+  "/api/v1/user/organizers",
+  "/api/v1/user/profile/",
   "/api/v1/event/list",
   "/api/v1/course/list",
   "/api/v1/course/booking-cutoffs",

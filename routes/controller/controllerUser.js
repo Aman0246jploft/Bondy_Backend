@@ -12,6 +12,7 @@ const {
   GlobalSetting,
   Block,
   Report,
+  Category,
 } = require("../../db");
 const CONSTANTS = require("../../utils/constants");
 const constantsMessage = require("../../utils/constantsMessage");
@@ -1749,6 +1750,119 @@ const getUserProfileById = async (req, res) => {
   }
 };
 
+const getPublicOrganizers = async (req, res) => {
+  try {
+    const { search, featured } = req.query;
+    const query = {
+      roleId: roleId.ORGANIZER,
+      isDeleted: false,
+      isDisable: { $ne: true },
+    };
+
+    if (search && typeof search === "string" && search.trim()) {
+      const trimmed = search.trim();
+      const escaped = trimmed.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const searchRegex = new RegExp(escaped, "i");
+
+      // Find any categories whose name matches
+      const matchingCatIds = await Category.find({
+        $or: [
+          { name: searchRegex },
+          { name_thi: searchRegex },
+          { categoryName: searchRegex },
+          { categoryName_mn: searchRegex },
+        ],
+      }).distinct("_id");
+
+      query.$or = [
+        { businessName: searchRegex },
+        { firstName: searchRegex },
+        { lastName: searchRegex },
+        { shortDesc: searchRegex },
+        { bio: searchRegex },
+      ];
+
+      if (matchingCatIds.length > 0) {
+        query.$or.push(
+          { businessCategory: { $in: matchingCatIds } },
+          { categories: { $in: matchingCatIds } }
+        );
+      }
+    }
+
+    const organizers = await User.find(query)
+      .select(
+        "firstName lastName businessName profileImage businessCategory categories shortDesc bio isVerified isBusinessVerified isAllVerified organizerVerificationStatus createdAt"
+      )
+      .populate("businessCategory", "name name_thi categoryName categoryName_mn")
+      .populate("categories", "name name_thi categoryName categoryName_mn")
+      .lean();
+
+    const formatted = organizers.map((user) => {
+      const name =
+        (user.businessName && user.businessName.trim()) ||
+        `${user.firstName || ""} ${user.lastName || ""}`.trim() ||
+        "Зохион байгуулагч";
+
+      const avatar = user.profileImage
+        ? formatResponseUrl(user.profileImage)
+        : "/img/sidebar-logo.svg";
+
+      const isApproved = user.organizerVerificationStatus === "approved";
+      const verified = Boolean(
+        isApproved ||
+        user.isVerified ||
+        user.isBusinessVerified ||
+        user.isAllVerified
+      );
+
+      const category =
+        user.businessCategory?.categoryName_mn ||
+        user.businessCategory?.name_thi ||
+        user.businessCategory?.name ||
+        user.categories?.[0]?.categoryName_mn ||
+        user.categories?.[0]?.name_thi ||
+        user.categories?.[0]?.name ||
+        user.shortDesc ||
+        "";
+
+      return {
+        _id: user._id,
+        name,
+        avatar,
+        verified,
+        isApproved,
+        category,
+        shortDesc: user.shortDesc || "",
+        bio: user.bio || "",
+        createdAt: user.createdAt,
+      };
+    });
+
+    // If featured, sort verified/approved first
+    if (featured === "1" || featured === "true" || featured === true) {
+      formatted.sort((a, b) => {
+        if (a.isApproved !== b.isApproved) return b.isApproved ? 1 : -1;
+        if (a.verified !== b.verified) return b.verified ? 1 : -1;
+        return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
+      });
+    }
+
+    return apiSuccessRes(
+      HTTP_STATUS.OK,
+      res,
+      constantsMessage.USER_PROFILE_FETCHED_SUCCESSFULLY || "Organizers fetched successfully",
+      {
+        organizers: formatted,
+        total: formatted.length,
+      }
+    );
+  } catch (error) {
+    console.error("Error in getPublicOrganizers:", error);
+    return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
+  }
+};
+
 
 const userList = async (req, res) => {
   try {
@@ -2328,6 +2442,9 @@ router.delete("/delete/:userId", checkRole([roleId.SUPER_ADMIN]), deleteUser);
 
 // Delete My Account
 router.delete("/delete-account", perApiLimiter(), deleteMyAccount);
+
+// Get Public Organizers
+router.get("/organizers", perApiLimiter(), getPublicOrganizers);
 
 // Get User Profile By ID
 router.get("/profile/:userId", perApiLimiter(), getUserProfileById);
