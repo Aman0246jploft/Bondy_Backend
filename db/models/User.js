@@ -274,6 +274,11 @@ const UserSchema = new Schema(
       default: false,
       index: true,
     },
+    isPromoted: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
     timeZone: { type: String },
     lastLogin: {
       type: Date,

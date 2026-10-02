@@ -980,6 +980,7 @@ const getFormattedProfileData = async (userId, viewerId = null) => {
     businessName: user.businessName,
     businessCategory: user.businessCategory,
     shortDesc: user.shortDesc,
+    isPromoted: Boolean(user.isPromoted),
     socialMediaLink: user.socialMediaLink,
     businessVerificationStatus: user.businessVerificationStatus,
     businessRejectionReason: user.businessRejectionReason,
@@ -1752,12 +1753,27 @@ const getUserProfileById = async (req, res) => {
 
 const getPublicOrganizers = async (req, res) => {
   try {
-    const { search, featured } = req.query;
+    const { search, featured, promoted, promotedOnly } = req.query;
+
+    // Only approved organizers should appear publicly in frontend
+    const andConditions = [
+      {
+        $or: [
+          { organizerVerificationStatus: "approved" },
+          { isAllVerified: true },
+        ],
+      },
+    ];
+
     const query = {
       roleId: roleId.ORGANIZER,
       isDeleted: false,
       isDisable: { $ne: true },
     };
+
+    if (promotedOnly === "1" || promotedOnly === "true") {
+      query.isPromoted = true;
+    }
 
     if (search && typeof search === "string" && search.trim()) {
       const trimmed = search.trim();
@@ -1774,7 +1790,7 @@ const getPublicOrganizers = async (req, res) => {
         ],
       }).distinct("_id");
 
-      query.$or = [
+      const searchConditions = [
         { businessName: searchRegex },
         { firstName: searchRegex },
         { lastName: searchRegex },
@@ -1783,16 +1799,19 @@ const getPublicOrganizers = async (req, res) => {
       ];
 
       if (matchingCatIds.length > 0) {
-        query.$or.push(
+        searchConditions.push(
           { businessCategory: { $in: matchingCatIds } },
           { categories: { $in: matchingCatIds } }
         );
       }
+      andConditions.push({ $or: searchConditions });
     }
+
+    query.$and = andConditions;
 
     const organizers = await User.find(query)
       .select(
-        "firstName lastName businessName profileImage businessCategory categories shortDesc bio isVerified isBusinessVerified isAllVerified organizerVerificationStatus createdAt"
+        "firstName lastName businessName profileImage businessCategory categories shortDesc bio isVerified isBusinessVerified isAllVerified organizerVerificationStatus isPromoted createdAt"
       )
       .populate("businessCategory", "name name_thi categoryName categoryName_mn")
       .populate("categories", "name name_thi categoryName categoryName_mn")
@@ -1832,6 +1851,7 @@ const getPublicOrganizers = async (req, res) => {
         avatar,
         verified,
         isApproved,
+        isPromoted: Boolean(user.isPromoted),
         category,
         shortDesc: user.shortDesc || "",
         bio: user.bio || "",
@@ -1839,9 +1859,10 @@ const getPublicOrganizers = async (req, res) => {
       };
     });
 
-    // If featured, sort verified/approved first
-    if (featured === "1" || featured === "true" || featured === true) {
+    // If featured or promoted, sort promoted first, then verified/approved, then newest
+    if (featured === "1" || featured === "true" || featured === true || promoted === "1" || promoted === "true") {
       formatted.sort((a, b) => {
+        if (a.isPromoted !== b.isPromoted) return b.isPromoted ? 1 : -1;
         if (a.isApproved !== b.isApproved) return b.isApproved ? 1 : -1;
         if (a.verified !== b.verified) return b.verified ? 1 : -1;
         return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
@@ -1891,23 +1912,36 @@ const userList = async (req, res) => {
       filter.isDeleted = false; // default behavior
     }
 
+    const andConditions = [];
+
     // Role filter
     if (roleId) {
       filter.roleId = Number(roleId);
       if (Number(roleId) === 2) {
-        filter.hasBeenApproved = true;
-        filter.isAllVerified = true;
+        andConditions.push({
+          $or: [
+            { organizerVerificationStatus: "approved" },
+            { isAllVerified: true },
+          ],
+        });
       }
     }
 
     // Keyword search
     if (search) {
-      filter.$or = [
-        { firstName: { $regex: search, $options: "i" } },
-        { lastName: { $regex: search, $options: "i" } },
-        { email: { $regex: search, $options: "i" } },
-        { contactNumber: { $regex: search, $options: "i" } },
-      ];
+      andConditions.push({
+        $or: [
+          { firstName: { $regex: search, $options: "i" } },
+          { lastName: { $regex: search, $options: "i" } },
+          { email: { $regex: search, $options: "i" } },
+          { contactNumber: { $regex: search, $options: "i" } },
+          { businessName: { $regex: search, $options: "i" } },
+        ],
+      });
+    }
+
+    if (andConditions.length > 0) {
+      filter.$and = andConditions;
     }
 
     const skip = (Number(page) - 1) * Number(limit);
@@ -1966,6 +2000,37 @@ const toggleUserDisable = async (req, res) => {
     );
   } catch (error) {
     console.error("Error in toggleUserDisable:", error);
+    return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
+  }
+};
+
+const toggleUserPromote = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { isPromoted } = req.body;
+
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      { isPromoted: Boolean(isPromoted) },
+      { new: true },
+    );
+
+    if (!updatedUser) {
+      return apiErrorRes(
+        HTTP_STATUS.NOT_FOUND,
+        res,
+        constantsMessage.USER_NOT_FOUND,
+      );
+    }
+
+    return apiSuccessRes(
+      HTTP_STATUS.OK,
+      res,
+      "Organizer promotion status updated successfully",
+      { user: updatedUser },
+    );
+  } catch (error) {
+    console.error("Error in toggleUserPromote:", error);
     return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
   }
 };
@@ -2437,6 +2502,11 @@ router.patch(
   "/toggle-disable/:userId",
   checkRole([roleId.SUPER_ADMIN]),
   toggleUserDisable,
+);
+router.patch(
+  "/toggle-promote/:userId",
+  checkRole([roleId.SUPER_ADMIN]),
+  toggleUserPromote,
 );
 router.delete("/delete/:userId", checkRole([roleId.SUPER_ADMIN]), deleteUser);
 
