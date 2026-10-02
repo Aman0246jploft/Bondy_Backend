@@ -10,26 +10,27 @@ const { roleId } = require("../../utils/Role");
 
 const createContact = async (req, res) => {
     try {
-        const { fullName, email, phone, topic, message } = req.body;
+        const { email, phone, topic, message } = req.body;
+        const fullName = req.body.fullName || req.body.name;
 
         if (!fullName || !email || !message) {
             return apiErrorRes(
                 HTTP_STATUS.BAD_REQUEST,
                 res,
-                constantsMessage.CONTACT_REQUIRED_FIELDS,
+                constantsMessage.CONTACT_REQUIRED_FIELDS || "Full name, email and message are required",
             );
         }
 
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailRegex.test(email)) {
-            return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.INVALID_EMAIL);
+            return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.INVALID_EMAIL || "Invalid email address");
         }
 
         const newContact = new Contact({
             fullName,
             email,
             phone,
-            topic: topic || "General",
+            topic: topic || "Organizer Partnership",
             message,
         });
 
@@ -38,7 +39,7 @@ const createContact = async (req, res) => {
         return apiSuccessRes(
             HTTP_STATUS.OK,
             res,
-            constantsMessage.MESSAGE_SENT,
+            constantsMessage.MESSAGE_SENT || "Message sent successfully",
             newContact,
         );
     } catch (error) {
