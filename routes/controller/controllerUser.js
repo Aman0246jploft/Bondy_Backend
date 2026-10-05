@@ -1848,6 +1848,9 @@ const getPublicOrganizers = async (req, res) => {
       return {
         _id: user._id,
         name,
+        firstName: user.firstName || "",
+        lastName: user.lastName || "",
+        businessName: user.businessName || "",
         avatar,
         verified,
         isApproved,
