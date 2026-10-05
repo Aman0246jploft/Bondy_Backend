@@ -75,6 +75,33 @@ mongoose
         },
         { upsert: true, new: true }
       );
+      // await GlobalSetting.findOneAndUpdate(
+      //   { key: "FOOTER_LINKS" },
+      //   {
+      //     $setOnInsert: {
+      //       key: "FOOTER_LINKS",
+      //       value: {
+      //         explore: [
+      //           { label: "Events", labelEn: "Events", labelMn: "Арга хэмжээ", href: "/Explore" },
+      //           { label: "Courses", labelEn: "Courses", labelMn: "Сургалт", href: "/Programs-Listing" },
+      //           { label: "Organizers", labelEn: "Organizers", labelMn: "Зохион байгуулагчид", href: "/Organizers" }
+      //         ],
+      //         organizer: [
+      //           { label: "Become an organizer", labelEn: "Become an organizer", labelMn: "Зохион байгуулагч болох", href: "/register?role=organizer" },
+      //           { label: "Partner with us", labelEn: "Partner with us", labelMn: "Хамтрагч болох", href: "/#partner" },
+      //           { label: "Dashboard", labelEn: "Dashboard", labelMn: "Хяналтын самбар", href: "/Dashboard" }
+      //         ],
+      //         help: [
+      //           { label: "Contact Us", labelEn: "Contact Us", labelMn: "Холбоо барих", href: "/contact-us" },
+      //           { label: "Privacy Policy", labelEn: "Privacy Policy", labelMn: "Нууцлалын бодлого", href: "/privacy-policy" },
+      //           { label: "Terms of Service", labelEn: "Terms of Service", labelMn: "Үйлчилгээний нөхцөл", href: "/terms" }
+      //         ]
+      //       },
+      //       description: "Footer navigation links for the website"
+      //     }
+      //   },
+      //   { upsert: true, new: true }
+      // );
       console.log("✅ Default global settings seeded");
 
       // Seed major banks of Mongolia
