@@ -1771,7 +1771,14 @@ const getPublicOrganizers = async (req, res) => {
       isDisable: { $ne: true },
     };
 
-    if (promotedOnly === "1" || promotedOnly === "true") {
+    if (
+      promotedOnly === "1" ||
+      promotedOnly === "true" ||
+      featured === "1" ||
+      featured === "true" ||
+      promoted === "1" ||
+      promoted === "true"
+    ) {
       query.isPromoted = true;
     }
 
