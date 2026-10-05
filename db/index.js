@@ -189,4 +189,5 @@ module.exports = {
   CancellationReason: require("./models/CancellationReason"),
   Banner: require("./models/Banner"),
   SearchHistory: require("./models/SearchHistory"),
+  AdminNotificationLog: require("./models/AdminNotificationLog"),
 };

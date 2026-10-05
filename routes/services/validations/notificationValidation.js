@@ -16,8 +16,17 @@ const deleteMultiple = Joi.object({
     notificationIds: Joi.array().items(Joi.string()).min(1).required(),
 });
 
+const sendCustomNotification = Joi.object({
+    target: Joi.string().valid("everyone", "users", "organizers").required(),
+    title: Joi.string().trim().min(1).max(200).required(),
+    message: Joi.string().trim().min(1).max(2000).required(),
+    deepLink: Joi.string().allow("", null).optional(),
+    webLink: Joi.string().allow("", null).optional(),
+});
+
 module.exports = {
     getNotifications,
     markAsRead,
     deleteMultiple,
+    sendCustomNotification,
 };
