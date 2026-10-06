@@ -3261,9 +3261,11 @@ const getEventAttendeesList = async (req, res) => {
     if (!event) return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.EVENT_NOT_FOUND);
 
     const isAssignedStaff = req.user.roleId === roleId.STAFF && event.assignedStaff && event.assignedStaff.some(id => id.toString() === userId.toString());
+    const isOrganizer = req.user.roleId === roleId.ORGANIZER;
     if (
       event.createdBy.toString() !== userId.toString() &&
       req.user.roleId !== roleId.SUPER_ADMIN &&
+      !isOrganizer &&
       !isAssignedStaff
     ) {
       return apiErrorRes(HTTP_STATUS.FORBIDDEN, res, constantsMessage.YOU_DONT_HAVE_PERMISSION_TO_VIEW_THIS_EV);
@@ -3415,9 +3417,11 @@ const getCourseAttendeesList = async (req, res) => {
     }
 
     const isAssignedStaff = req.user.roleId === roleId.STAFF && course.assignedStaff && course.assignedStaff.some(id => id.toString() === userId.toString());
+    const isOrganizer = req.user.roleId === roleId.ORGANIZER;
     if (
       course.createdBy.toString() !== userId.toString() &&
       req.user.roleId !== roleId.SUPER_ADMIN &&
+      !isOrganizer &&
       !isAssignedStaff
     ) {
       return apiErrorRes(
@@ -3876,9 +3880,11 @@ const getEventAttendeeStats = async (req, res) => {
     const event = await Event.findById(eventId);
     if (!event) return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.EVENT_NOT_FOUND);
 
+    const isOrganizer = req.user.roleId === roleId.ORGANIZER;
     if (
       event.createdBy.toString() !== userId.toString() &&
-      req.user.roleId !== roleId.SUPER_ADMIN
+      req.user.roleId !== roleId.SUPER_ADMIN &&
+      !isOrganizer
     ) {
       return apiErrorRes(HTTP_STATUS.FORBIDDEN, res, constantsMessage.YOU_DONT_HAVE_PERMISSION_TO_VIEW_THIS_EV_1);
     }

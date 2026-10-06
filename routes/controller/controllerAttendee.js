@@ -405,11 +405,13 @@ const getEventAttendees = async (req, res) => {
       return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.EVENT_OR_COURSE_NOT_FOUND);
     }
 
-    // Verify Event/Course Ownership or Assigned Staff
+    // Verify Event/Course Ownership, Assigned Staff, Super Admin, or Organizer
     const isCreator = entity.createdBy.toString() === userId;
     const isAssignedStaff = req.user.roleId === roleId.STAFF && entity.assignedStaff && entity.assignedStaff.some(id => id.toString() === userId);
+    const isSuperAdmin = req.user.roleId === roleId.SUPER_ADMIN;
+    const isOrganizer = req.user.roleId === roleId.ORGANIZER;
 
-    if (!isCreator && !isAssignedStaff) {
+    if (!isCreator && !isAssignedStaff && !isSuperAdmin && !isOrganizer) {
       return apiErrorRes(
         HTTP_STATUS.FORBIDDEN,
         res,
@@ -1095,8 +1097,9 @@ const checkInAttendee = async (req, res) => {
     const isCreator = targetItem.createdBy.toString() === userId;
     const isAssignedStaff = req.user.roleId === roleId.STAFF && targetItem.assignedStaff && targetItem.assignedStaff.some(id => id.toString() === userId);
     const isSuperAdmin = req.user.roleId === roleId.SUPER_ADMIN;
+    const isOrganizer = req.user.roleId === roleId.ORGANIZER;
 
-    if (!isCreator && !isAssignedStaff && !isSuperAdmin) {
+    if (!isCreator && !isAssignedStaff && !isSuperAdmin && !isOrganizer) {
       return apiErrorRes(
         HTTP_STATUS.FORBIDDEN,
         res,
@@ -1132,8 +1135,10 @@ const getAttendeeByTicket = async (req, res) => {
     const targetItem = attendee.eventId || attendee.courseId;
     const isCreator = targetItem.createdBy.toString() === userId;
     const isAssignedStaff = req.user.roleId === roleId.STAFF && targetItem.assignedStaff && targetItem.assignedStaff.some(id => id.toString() === userId);
+    const isSuperAdmin = req.user.roleId === roleId.SUPER_ADMIN;
+    const isOrganizer = req.user.roleId === roleId.ORGANIZER;
 
-    if (!isCreator && !isAssignedStaff) {
+    if (!isCreator && !isAssignedStaff && !isSuperAdmin && !isOrganizer) {
       return apiErrorRes(
         HTTP_STATUS.FORBIDDEN,
         res,
@@ -1207,7 +1212,7 @@ const scanQRAndCheckIn = async (req, res) => {
         return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.TICKET_REFUNDED);
       }
 
-      // Authorization: must be creator, assigned staff, or super admin
+      // Authorization: must be creator, assigned staff, super admin, or organizer
       const secureEvent = secureAttendee.eventId || secureAttendee.courseId;
       if (!secureEvent) {
         return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.ENTITY_NOT_FOUND);
@@ -1216,7 +1221,8 @@ const scanQRAndCheckIn = async (req, res) => {
       const isStaffSec = req.user.roleId === roleId.STAFF && secureEvent.assignedStaff &&
         secureEvent.assignedStaff.some(id => id.toString() === organizerId);
       const isAdminSec = req.user.roleId === roleId.SUPER_ADMIN;
-      if (!isCreatorSec && !isStaffSec && !isAdminSec) {
+      const isOrganizerSec = req.user.roleId === roleId.ORGANIZER;
+      if (!isCreatorSec && !isStaffSec && !isAdminSec && !isOrganizerSec) {
         return apiErrorRes(HTTP_STATUS.FORBIDDEN, res, constantsMessage.YOU_ARE_NOT_AUTHORIZED_TO_CHECK_IN_ATTEN_1);
       }
 
@@ -1435,15 +1441,16 @@ const scanQRAndCheckIn = async (req, res) => {
       return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.ENTITY_NOT_FOUND);
     }
 
-    // Verify that the ticket matches the selected event/course context
-    if (eventId && event._id.toString() !== eventId) {
+    // Verify that the ticket matches the selected event/course context (skip for organizer/admin)
+    const isOrganizerRole = req.user.roleId === roleId.ORGANIZER || req.user.roleId === roleId.SUPER_ADMIN;
+    if (eventId && event._id.toString() !== eventId && !isOrganizerRole) {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
         constantsMessage.THIS_TICKET_DOES_NOT_BELONG_TO_THE_SELEC_1,
       );
     }
-    if (courseId && event._id.toString() !== courseId) {
+    if (courseId && event._id.toString() !== courseId && !isOrganizerRole) {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
@@ -1451,12 +1458,13 @@ const scanQRAndCheckIn = async (req, res) => {
       );
     }
 
-    // Verify Event/Course Ownership or Assigned Staff
+    // Verify Event/Course Ownership, Assigned Staff, Super Admin, or Organizer
     const isCreator = event.createdBy.toString() === organizerId;
     const isAssignedStaff = req.user.roleId === roleId.STAFF && event.assignedStaff && event.assignedStaff.some(id => id.toString() === organizerId);
     const isSuperAdmin = req.user.roleId === roleId.SUPER_ADMIN;
+    const isOrganizer = req.user.roleId === roleId.ORGANIZER;
 
-    if (!isCreator && !isAssignedStaff && !isSuperAdmin) {
+    if (!isCreator && !isAssignedStaff && !isSuperAdmin && !isOrganizer) {
       return apiErrorRes(
         HTTP_STATUS.FORBIDDEN,
         res,
@@ -1621,7 +1629,8 @@ const verifyTicket = async (req, res) => {
         const isStaff = req.user.roleId === roleId.STAFF && secureEvent.assignedStaff &&
           secureEvent.assignedStaff.some(id => id.toString() === userId);
         const isAdmin = req.user.roleId === roleId.SUPER_ADMIN;
-        if (!isCreator && !isStaff && !isAdmin) {
+        const isOrganizer = req.user.roleId === roleId.ORGANIZER;
+        if (!isCreator && !isStaff && !isAdmin && !isOrganizer) {
           return apiErrorRes(HTTP_STATUS.FORBIDDEN, res, constantsMessage.YOU_ARE_NOT_AUTHORIZED_TO_VERIFY_TICKETS);
         }
       }
@@ -2054,7 +2063,8 @@ const verifyTicket = async (req, res) => {
       return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.ENTITY_NOT_FOUND);
     }
 
-    if (entityId && event._id.toString() !== entityId) {
+    const isOrganizerRole = req.user.roleId === roleId.ORGANIZER || req.user.roleId === roleId.SUPER_ADMIN;
+    if (entityId && event._id.toString() !== entityId && !isOrganizerRole) {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
@@ -2065,8 +2075,9 @@ const verifyTicket = async (req, res) => {
     const isCreator = event.createdBy.toString() === userId;
     const isAssignedStaff = req.user.roleId === roleId.STAFF && event.assignedStaff && event.assignedStaff.some(id => id.toString() === userId);
     const isSuperAdmin = req.user.roleId === roleId.SUPER_ADMIN;
+    const isOrganizer = req.user.roleId === roleId.ORGANIZER;
 
-    if (!isCreator && !isAssignedStaff && !isSuperAdmin) {
+    if (!isCreator && !isAssignedStaff && !isSuperAdmin && !isOrganizer) {
       return apiErrorRes(
         HTTP_STATUS.FORBIDDEN,
         res,
