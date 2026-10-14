@@ -9,6 +9,13 @@ const batchSchema = Joi.object({
     days: Joi.array().items(Joi.string().valid(...Object.values(daysOfWeek))).optional(),
     seats: Joi.number().integer().min(1).optional(),
     ReservedExternally: Joi.number().integer().min(0).optional(),
+    startDate: Joi.date().optional().allow(null, ""),
+    endDate: Joi.date().optional().allow(null, ""),
+    sessions: Joi.number().integer().min(1).optional().allow(null, ""),
+    price: Joi.number().min(0).optional().allow(null, ""),
+    overrideLocation: Joi.boolean().optional(),
+    venueName: Joi.string().max(80).optional().allow(null, ""),
+    venueAddress: Joi.string().max(180).optional().allow(null, ""),
 });
 
 const createCourseSchema = Joi.object({
@@ -27,7 +34,7 @@ const createCourseSchema = Joi.object({
         otherwise: Joi.required(),
     }),
     posterImage: Joi.array().items(Joi.string().allow('', null)).optional(),
-    mediaLinks: Joi.array().items(Joi.string().allow('', null)).optional(),
+    mediaLinks: Joi.array().items(Joi.string().allow('', null)).max(5).optional(),
     shortTeaserVideo: Joi.array().items(Joi.string().allow('', null)).optional(),
     startDate: Joi.date().when('isDraft', {
         is: true,
@@ -69,7 +76,7 @@ const createCourseSchema = Joi.object({
         }),
         city: Joi.string().optional().allow(null, ""),
         country: Joi.string().optional().allow(null, ""),
-        address: Joi.string().optional().allow(null, ""),
+        address: Joi.string().trim().max(180).optional().allow(null, ""),
         state: Joi.string().optional().allow(null, ""),
         zipcode: Joi.string().optional().allow(null, ""),
     }).when('isDraft', {
@@ -152,7 +159,7 @@ const updateCourseSchema = Joi.object({
     whatYouWillLearn: Joi.string().optional().allow(null, ""),
     courseCategory: Joi.string().hex().length(24).optional().allow(null, ""),
     posterImage: Joi.array().items(Joi.string().allow('', null)).optional(),
-    mediaLinks: Joi.array().items(Joi.string().allow('', null)).optional(),
+    mediaLinks: Joi.array().items(Joi.string().allow('', null)).max(5).optional(),
     shortTeaserVideo: Joi.array().items(Joi.string().allow('', null)).optional(),
     startDate: Joi.date().optional(),
     endDate: Joi.date().optional(),
@@ -170,7 +177,7 @@ const updateCourseSchema = Joi.object({
         }),
         city: Joi.string().optional().allow(null, ""),
         country: Joi.string().optional().allow(null, ""),
-        address: Joi.string().optional().allow(null, ""),
+        address: Joi.string().trim().max(180).optional().allow(null, ""),
         state: Joi.string().optional().allow(null, ""),
         zipcode: Joi.string().optional().allow(null, ""),
     }).optional(),

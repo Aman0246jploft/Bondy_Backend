@@ -1725,9 +1725,14 @@ const confirmPayment = async (req, res) => {
       return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.INVALID_TRANSACTION_STATE);
     }
 
+    const devInstantPay = String(process.env.DEV_INSTANT_PAY || "").toLowerCase() === "true";
+    if (transaction.totalAmount > 0 && !devInstantPay) {
+      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Complete this payment with QPay");
+    }
+
     const result = await executeBookingConfirmation(transaction, {
       paymentMethod: transaction.totalAmount === 0 ? "FREE" : (transaction.paymentMethod || "QPAY"),
-      paymentId: transaction.totalAmount === 0 ? `FREE_BOOKING_${Date.now()}` : `MOCK_PAY_${Date.now()}`,
+      paymentId: transaction.totalAmount === 0 ? `FREE_BOOKING_${Date.now()}` : `DEV_INSTANT_${Date.now()}`,
     });
 
     if (result.status === "REFUND_INITIATED") {
@@ -2958,7 +2963,7 @@ const getTicketDetail = async (req, res) => {
     const { transactionId } = req.params;
     const userId = req.user.userId;
 
-    const transaction = await Transaction.findOne({ _id: transactionId, userId })
+    const withTicketPopulates = (query) => query
       .populate({
         path: "userId",
         populate: { path: "categories", model: "Category" },
@@ -2977,6 +2982,22 @@ const getTicketDetail = async (req, res) => {
           { path: "createdBy", model: "User", select: "firstName lastName email profileImage" },
         ],
       });
+
+    let transaction = await withTicketPopulates(
+      Transaction.findOne({ _id: transactionId, userId }),
+    );
+
+    if (!transaction) {
+      const candidate = await withTicketPopulates(Transaction.findById(transactionId));
+      const owner = candidate?.bookingType === "COURSE"
+        ? candidate?.courseId?.createdBy
+        : candidate?.eventId?.createdBy;
+      const ownerId = owner?._id || owner;
+      const canViewAsOwner = (req.user.roleId === roleId.ORGANIZER || req.user.roleId === roleId.SUPER_ADMIN)
+        && ownerId
+        && String(ownerId) === String(userId);
+      if (canViewAsOwner) transaction = candidate;
+    }
 
     if (!transaction) {
       return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.TICKET_NOT_FOUND);
@@ -3107,12 +3128,12 @@ const getTicketDetail = async (req, res) => {
     // For new bookings: tickets were generated at confirmPayment
     // For legacy bookings: fallback via lazy ensureAttendeesExist
     let individualTickets = await Attendee.find({ transactionId: transaction._id })
-      .select("_id ticketNumber ticketName ticketIndex ticketId isPass status qrCodeData isCheckedIn checkedInAt checkInHistory scanHistory")
+      .select("_id ticketNumber ticketName ticketIndex ticketId isPass status qrCodeData isCheckedIn checkedInAt checkInHistory scanHistory firstName lastName")
       .sort({ ticketIndex: 1 })
       .lean();
 
-    // Legacy fallback: generate tickets if none exist (for old PAID bookings)
-    if (individualTickets.length === 0 && transaction.status === "PAID") {
+    const buyerId = transaction.userId?._id || transaction.userId;
+    if (individualTickets.length === 0 && transaction.status === "PAID" && String(buyerId) === String(userId)) {
       try {
         const txnWithSecret = await Transaction.findById(transaction._id).select("+ticketSecretKey");
         const userDoc = await User.findById(userId).select("firstName lastName email");
@@ -3135,6 +3156,8 @@ const getTicketDetail = async (req, res) => {
         _id: t._id,
         ticketNumber: t.ticketNumber,
         ticketName: t.ticketName,
+        firstName: t.firstName || "",
+        lastName: t.lastName || "",
         ticketIndex: t.ticketIndex,
         ticketId: t.ticketId,
         isPass: t.isPass,
@@ -4197,6 +4220,213 @@ const generateTicketUrls = async (req, res) => {
 
 
 // ════════════════════════════════════════════════════════════════════════════
+// ORGANIZER: bookings for one buyer of this organizer's events and courses
+// ════════════════════════════════════════════════════════════════════════════
+
+async function organizerOwnedIds(organizerId) {
+  const [myEvents, myCourses] = await Promise.all([
+    Event.find({ createdBy: organizerId }).select("_id"),
+    Course.find({ createdBy: organizerId }).select("_id"),
+  ]);
+  return {
+    eventIds: myEvents.map((e) => e._id),
+    courseIds: myCourses.map((c) => c._id),
+  };
+}
+
+function organizerBuyerFilter(eventIds, courseIds, buyerId) {
+  const filter = {
+    bookingType: { $in: ["EVENT", "COURSE"] },
+    $or: [
+      { eventId: { $in: eventIds } },
+      { courseId: { $in: courseIds } },
+    ],
+  };
+  if (buyerId) filter.userId = buyerId;
+  return filter;
+}
+
+function bookingItemTitle(txn) {
+  if (txn.bookingType === "COURSE") return txn.courseId?.courseTitle || "";
+  return txn.eventId?.eventTitle || "";
+}
+
+const getOrganizerBuyerRefs = async (req, res) => {
+  try {
+    const organizerId = req.user.userId;
+    const { eventIds, courseIds } = await organizerOwnedIds(organizerId);
+    const txns = await Transaction.find(organizerBuyerFilter(eventIds, courseIds))
+      .select("userId bookingId bookingType eventId courseId createdAt")
+      .populate("eventId", "eventTitle")
+      .populate("courseId", "courseTitle")
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const map = new Map();
+    txns.forEach((txn) => {
+      const uid = String(txn.userId || "");
+      if (!uid) return;
+      if (!map.has(uid)) {
+        map.set(uid, {
+          userId: uid,
+          bookingIds: [],
+          latestTitle: bookingItemTitle(txn),
+          latestBookingId: txn.bookingId || "",
+        });
+      }
+      const row = map.get(uid);
+      if (txn.bookingId && !row.bookingIds.includes(txn.bookingId)) {
+        row.bookingIds.push(txn.bookingId);
+      }
+    });
+
+    return apiSuccessRes(HTTP_STATUS.OK, res, "Buyer booking references fetched", {
+      buyers: Array.from(map.values()),
+    });
+  } catch (error) {
+    console.error("Error in getOrganizerBuyerRefs:", error);
+    return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
+  }
+};
+
+function escapeRegex(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function organizerRangeBounds(range, from, to) {
+  const now = new Date();
+  if (range === "week") return { $gte: new Date(now.getTime() - 7 * 86400000) };
+  if (range === "d30") return { $gte: new Date(now.getTime() - 30 * 86400000) };
+  if (range === "month") return { $gte: new Date(now.getFullYear(), now.getMonth(), 1) };
+  if (range === "custom" && /^\d{4}-\d{2}-\d{2}$/.test(from || "") && /^\d{4}-\d{2}-\d{2}$/.test(to || "")) {
+    const [fy, fm, fd] = from.split("-").map(Number);
+    const [ty, tm, td] = to.split("-").map(Number);
+    return {
+      $gte: new Date(fy, fm - 1, fd, 0, 0, 0, 0),
+      $lte: new Date(ty, tm - 1, td, 23, 59, 59, 999),
+    };
+  }
+  return null;
+}
+
+const getOrganizerCustomerBookings = async (req, res) => {
+  try {
+    const organizerId = req.user.userId;
+    const { eventIds, courseIds } = await organizerOwnedIds(organizerId);
+    const type = String(req.query.type || "all");
+    const status = String(req.query.status || "all");
+    const range = String(req.query.range || "all");
+    const q = String(req.query.q || "").trim();
+    const buyerId = req.query.userId;
+    const and = [];
+
+    if (type === "event") {
+      and.push({ bookingType: "EVENT", eventId: { $in: eventIds } });
+    } else if (type === "course") {
+      and.push({ bookingType: "COURSE", courseId: { $in: courseIds } });
+    } else {
+      and.push(organizerBuyerFilter(eventIds, courseIds));
+    }
+
+    if (buyerId) {
+      if (!mongoose.Types.ObjectId.isValid(buyerId)) {
+        return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "User is required");
+      }
+      and.push({ userId: new mongoose.Types.ObjectId(buyerId) });
+    }
+
+    if (status === "confirmed") and.push({ status: "PAID" });
+    else if (status === "pending") and.push({ status: "PENDING" });
+    else if (status === "cancelled") {
+      and.push({ status: { $in: ["CANCELLED", "FAILED", "REFUND_INITIATED", "REFUNDED"] } });
+    }
+
+    const createdAt = organizerRangeBounds(range, req.query.from, req.query.to);
+    if (createdAt) and.push({ createdAt });
+
+    if (q) {
+      const rx = new RegExp(escapeRegex(q), "i");
+      const [users, events, courses] = await Promise.all([
+        User.aggregate([
+          {
+            $addFields: {
+              fullName: { $concat: [{ $ifNull: ["$firstName", ""] }, " ", { $ifNull: ["$lastName", ""] }] },
+            },
+          },
+          {
+            $match: {
+              $or: [
+                { fullName: rx },
+                { firstName: rx },
+                { lastName: rx },
+                { email: rx },
+              ],
+            },
+          },
+          { $project: { _id: 1 } },
+          { $limit: 200 },
+        ]),
+        Event.find({ _id: { $in: eventIds }, eventTitle: rx }).select("_id"),
+        Course.find({ _id: { $in: courseIds }, courseTitle: rx }).select("_id"),
+      ]);
+      and.push({
+        $or: [
+          { bookingId: rx },
+          { userId: { $in: users.map((u) => u._id) } },
+          { eventId: { $in: events.map((e) => e._id) } },
+          { courseId: { $in: courses.map((c) => c._id) } },
+        ],
+      });
+    }
+
+    const filter = and.length === 1 ? and[0] : { $and: and };
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = Math.min(50, Math.max(1, parseInt(req.query.limit, 10) || 10));
+    const skip = (page - 1) * limit;
+    const [txns, total] = await Promise.all([
+      Transaction.find(filter)
+        .populate("userId", "firstName lastName email profileImage")
+        .populate("eventId", "eventTitle")
+        .populate("courseId", "courseTitle")
+        .sort({ createdAt: -1, _id: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      Transaction.countDocuments(filter),
+    ]);
+
+    const bookings = txns.map((txn) => ({
+      transactionId: txn._id,
+      bookingId: txn.bookingId || "",
+      type: txn.bookingType,
+      title: bookingItemTitle(txn),
+      qty: txn.qty || 0,
+      totalAmount: txn.totalAmount || 0,
+      status: txn.status,
+      createdAt: txn.createdAt,
+      buyer: {
+        _id: txn.userId?._id || "",
+        firstName: txn.userId?.firstName || "",
+        lastName: txn.userId?.lastName || "",
+        email: txn.userId?.email || "",
+        profileImage: txn.userId?.profileImage ? formatResponseUrl(txn.userId.profileImage) : "",
+      },
+    }));
+
+    return apiSuccessRes(HTTP_STATUS.OK, res, "Customer bookings fetched", {
+      bookings,
+      total,
+      page,
+      limit,
+      hasMore: skip + bookings.length < total,
+    });
+  } catch (error) {
+    console.error("Error in getOrganizerCustomerBookings:", error);
+    return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
+  }
+};
+
+// ════════════════════════════════════════════════════════════════════════════
 // ROUTES
 // ════════════════════════════════════════════════════════════════════════════
 
@@ -4248,6 +4478,20 @@ router.get(
   "/recent",
   checkRole([roleId.ORGANIZER, roleId.SUPER_ADMIN]),
   getRecentBookings,
+);
+
+router.get(
+  "/organizer/buyer-refs",
+  perApiLimiter(),
+  checkRole([roleId.ORGANIZER, roleId.SUPER_ADMIN]),
+  getOrganizerBuyerRefs,
+);
+
+router.get(
+  "/organizer/customer-bookings",
+  perApiLimiter(),
+  checkRole([roleId.ORGANIZER, roleId.SUPER_ADMIN]),
+  getOrganizerCustomerBookings,
 );
 
 // Public Ticket APIs

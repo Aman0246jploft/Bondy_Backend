@@ -60,6 +60,13 @@ const batchSchema = new mongoose.Schema(
       min: 0,
       default: 0,
     },
+    startDate: { type: Date },
+    endDate: { type: Date },
+    sessions: { type: Number, min: 1 },
+    price: { type: Number, min: 0 },
+    overrideLocation: { type: Boolean, default: false },
+    venueName: { type: String, default: "" },
+    venueAddress: { type: String, default: "" },
     status: {
       type: String,
       enum: ["Active", "Cancelled"],

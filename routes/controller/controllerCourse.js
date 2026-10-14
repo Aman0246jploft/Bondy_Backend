@@ -1658,6 +1658,7 @@ const updateCourse = async (req, res) => {
         if (b._id && existingCourse.batches) {
           const existingBatch = existingCourse.batches.id(b._id);
           if (existingBatch) {
+            const keep = (key) => (b[key] !== undefined && b[key] !== "" ? b[key] : existingBatch[key]);
             return {
               _id: existingBatch._id,
               batchName: b.batchName !== undefined ? b.batchName : existingBatch.batchName,
@@ -1667,6 +1668,15 @@ const updateCourse = async (req, res) => {
               seats: b.seats !== undefined ? b.seats : existingBatch.seats,
               ReservedExternally: b.ReservedExternally !== undefined ? b.ReservedExternally : existingBatch.ReservedExternally,
               status: b.status !== undefined ? b.status : existingBatch.status,
+              startDate: keep("startDate"),
+              endDate: keep("endDate"),
+              sessions: keep("sessions"),
+              price: keep("price"),
+              overrideLocation: b.overrideLocation !== undefined ? b.overrideLocation : existingBatch.overrideLocation,
+              venueName: b.venueName !== undefined ? b.venueName : existingBatch.venueName,
+              venueAddress: b.venueAddress !== undefined ? b.venueAddress : existingBatch.venueAddress,
+              cancelledDates: existingBatch.cancelledDates,
+              reservedDates: existingBatch.reservedDates,
             };
           }
         }
@@ -2971,7 +2981,27 @@ const getCourseAnalytics = async (req, res) => {
       bookingType: "COURSE",
       ...dateFilter,
     };
+    // Optional: scope registrations and revenue to a single cohort (batch).
+    // Page views are tracked per course, so they stay course-wide.
+    const scopedBatchId = typeof req.query.batchId === "string" ? req.query.batchId.trim() : "";
+    if (scopedBatchId) {
+      transactionQuery.$or = [
+        { batchId: scopedBatchId },
+        { "ongoingSlots.batchId": scopedBatchId },
+      ];
+    }
     const transactions = await Transaction.find(transactionQuery);
+
+    // Registrations per day, for the progress chart
+    const dailyMap = {};
+    transactions.forEach((txn) => {
+      if (!txn.createdAt) return;
+      const key = new Date(txn.createdAt).toISOString().slice(0, 10);
+      dailyMap[key] = (dailyMap[key] || 0) + 1;
+    });
+    const series = Object.keys(dailyMap)
+      .sort()
+      .map((date) => ({ date, count: dailyMap[date] }));
 
     const totalBookingsCount = transactions.length;
     const totalTicketsSold = transactions.reduce((sum, t) => sum + (t.qty || 0), 0);
@@ -2996,6 +3026,7 @@ const getCourseAnalytics = async (req, res) => {
         bookingRate,
         grossRevenue,
         organizerRevenue,
+        series,
       },
     );
   } catch (error) {

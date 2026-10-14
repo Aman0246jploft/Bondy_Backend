@@ -179,7 +179,8 @@ const submitVerification = async (req, res) => {
       }
 
       const { bankName, bankHolderName, accountNumber, otherDetails } = bankVerification;
-      if (!bankName || !bankHolderName || !accountNumber) {
+      const holderName = String(bankHolderName || "").trim();
+      if (!bankName || !holderName || holderName.length > 80 || !accountNumber) {
         return apiErrorRes(
           HTTP_STATUS.BAD_REQUEST,
           res,
@@ -192,7 +193,7 @@ const submitVerification = async (req, res) => {
 
       user.bankAccounts.push({
         bankName,
-        bankHolderName,
+        bankHolderName: holderName,
         accountNumber,
         otherDetails: otherDetails || null,
         isVerified: false,
@@ -205,7 +206,7 @@ const submitVerification = async (req, res) => {
       // Update legacy bankVerification for backwards compatibility
       user.verifications.bankVerification = {
         bankName,
-        bankHolderName,
+        bankHolderName: holderName,
         accountNumber,
         otherDetails: otherDetails || null,
         isVerified: false,
@@ -650,9 +651,9 @@ const sendEmailOTP = async (req, res) => {
       return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.USER_NOT_FOUND);
     }
 
-    const email = req.body.email || user.email;
+    const email = String(req.body.email || user.email || "").trim();
 
-    if (!email) {
+    if (!email || email.length > 120 || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
       return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.EMAIL_IS_REQUIRED);
     }
 

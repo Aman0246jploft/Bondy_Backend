@@ -1,4 +1,4 @@
-const { Transaction, User, Event, Course, SupportTicket, Payout } = require("../../db");
+const { Transaction, User, Event, Course, SupportTicket, Payout, WalletHistory } = require("../../db");
 const { roleId } = require("../../utils/Role");
 const { SUCCESS, SERVER_ERROR, DATA_NULL } = require("../../utils/constants");
 const { resultDb } = require("../../utils/globalFunction");
@@ -547,7 +547,21 @@ async function getRevenueAnalytics({ filter, startDate, endDate, organizerId = n
           _id: { $dateToString: { format: groupFormat, date: "$createdAt" } },
           grossRevenue: { $sum: "$totalAmount" },
           netAdminRevenue: { $sum: "$commissionAmount" },
-          netOrganizerRevenue: { $sum: "$organizerEarning" },
+          netOrganizerRevenue: {
+            $sum: {
+              $cond: [
+                { $gt: ["$organizerEarning", 0] },
+                "$organizerEarning",
+                {
+                  $cond: [
+                    { $gt: ["$totalAmount", 0] },
+                    { $subtract: ["$totalAmount", { $ifNull: ["$commissionAmount", 0] }] },
+                    0,
+                  ],
+                },
+              ],
+            },
+          },
           count: { $sum: 1 },
         },
       },
@@ -567,6 +581,46 @@ async function getRevenueAnalytics({ filter, startDate, endDate, organizerId = n
     aggResults.forEach((item) => {
       resultMap[item._id] = item;
     });
+
+    // If organizerId, also incorporate confirmed sales from WalletHistory
+    if (organizerId) {
+      const orgObjectId = new mongoose.Types.ObjectId(organizerId);
+      const walletMatch = {
+        userId: orgObjectId,
+        type: { $in: ["TICKET_SALE", "COURSE_SALE"] },
+        createdAt: { $gte: start },
+      };
+      if (filter === "custom" && endDate) {
+        walletMatch.createdAt.$lte = new Date(endDate);
+      } else if (filter === "lastMonth") {
+        walletMatch.createdAt.$lte = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
+      }
+
+      const walletAgg = await WalletHistory.aggregate([
+        { $match: walletMatch },
+        {
+          $group: {
+            _id: { $dateToString: { format: groupFormat, date: "$createdAt" } },
+            amount: { $sum: "$amount" },
+            count: { $sum: 1 },
+          },
+        },
+      ]);
+
+      walletAgg.forEach((w) => {
+        if (!resultMap[w._id]) {
+          resultMap[w._id] = {
+            grossRevenue: w.amount,
+            netAdminRevenue: 0,
+            netOrganizerRevenue: w.amount,
+            count: w.count,
+          };
+        } else if ((resultMap[w._id].netOrganizerRevenue || 0) === 0) {
+          resultMap[w._id].netOrganizerRevenue = w.amount;
+          resultMap[w._id].grossRevenue = Math.max(resultMap[w._id].grossRevenue || 0, w.amount);
+        }
+      });
+    }
 
     // Fill the timeline
     const current = new Date(start);
@@ -656,12 +710,50 @@ async function getRevenueAnalytics({ filter, startDate, endDate, organizerId = n
         _id: null,
         grossRevenue: { $sum: "$totalAmount" },
         netAdminRevenue: { $sum: "$commissionAmount" },
-        netOrganizerRevenue: { $sum: "$organizerEarning" },
+        netOrganizerRevenue: {
+          $sum: {
+            $cond: [
+              { $gt: ["$organizerEarning", 0] },
+              "$organizerEarning",
+              {
+                $cond: [
+                  { $gt: ["$totalAmount", 0] },
+                  { $subtract: ["$totalAmount", { $ifNull: ["$commissionAmount", 0] }] },
+                  0,
+                ],
+              },
+            ],
+          },
+        },
       },
     });
 
     const prevResults = await Transaction.aggregate(prevPipeline);
     const prevData = prevResults[0] || { grossRevenue: 0, netAdminRevenue: 0, netOrganizerRevenue: 0 };
+
+    if (organizerId && (!prevData.netOrganizerRevenue || prevData.netOrganizerRevenue === 0)) {
+      const orgObjectId = new mongoose.Types.ObjectId(organizerId);
+      const prevWallet = await WalletHistory.aggregate([
+        {
+          $match: {
+            userId: orgObjectId,
+            type: { $in: ["TICKET_SALE", "COURSE_SALE"] },
+            createdAt: { $gte: prevStart, $lt: start },
+          },
+        },
+        {
+          $group: {
+            _id: null,
+            amount: { $sum: "$amount" },
+          },
+        },
+      ]);
+      if (prevWallet.length > 0 && prevWallet[0].amount > 0) {
+        prevData.netOrganizerRevenue = prevWallet[0].amount;
+        prevData.grossRevenue = Math.max(prevData.grossRevenue || 0, prevWallet[0].amount);
+      }
+    }
+
     const prevNet = organizerId ? prevData.netOrganizerRevenue : prevData.netAdminRevenue;
 
     const calculateGrowth = (current, previous) => {
