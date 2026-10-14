@@ -2,6 +2,12 @@ const mongoose = require("mongoose");
 
 const faqSchema = new mongoose.Schema(
     {
+        categoryId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "FAQTopic",
+            required: true,
+            index: true,
+        },
         question: {
             type: String,
             required: true,

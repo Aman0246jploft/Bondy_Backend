@@ -33,7 +33,7 @@ const generateTicketId = () => {
 // Create Ticket
 const createTicket = async (req, res) => {
   try {
-    const { category, subject, description, images } = req.body;
+    const { category, subject, description, images, referenceNumber } = req.body;
     const userId = req.user.userId;
 
     const ticketId = generateTicketId();
@@ -44,6 +44,7 @@ const createTicket = async (req, res) => {
       category,
       subject,
       description,
+      referenceNumber: referenceNumber || "",
       images: images || [],
     });
 
@@ -78,6 +79,10 @@ const getMyTickets = async (req, res) => {
       .limit(parseInt(limit))
       .lean();
 
+    tickets.forEach((t) => {
+      t.replyCount = Array.isArray(t.adminComments) ? t.adminComments.length : 0;
+    });
+
     const total = await SupportTicket.countDocuments(query);
 
     return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.SUPPORT_TICKETS_FETCHED, {
@@ -99,6 +104,7 @@ const getAllTickets = async (req, res) => {
       status,
       category,
       ticketId,
+      referenceNumber,
       userId,
       search,
       startDate,
@@ -113,6 +119,8 @@ const getAllTickets = async (req, res) => {
     if (status) query.status = status;
     if (category) query.category = category;
     if (ticketId) query.ticketId = { $regex: ticketId, $options: "i" };
+    if (referenceNumber)
+      query.referenceNumber = { $regex: referenceNumber, $options: "i" };
     if (userId) query.user = userId;
 
     if (search) {
@@ -120,15 +128,14 @@ const getAllTickets = async (req, res) => {
         { subject: { $regex: search, $options: "i" } },
         { description: { $regex: search, $options: "i" } },
         { ticketId: { $regex: search, $options: "i" } },
+        { referenceNumber: { $regex: search, $options: "i" } },
       ];
     }
 
     if (startDate || endDate) {
       query.createdAt = {};
       if (startDate) query.createdAt.$gte = new Date(startDate);
-      if (endDate) query.createdAt.$lte = new Date(endDate); q
-      gt
-
+      if (endDate) query.createdAt.$lte = new Date(endDate);
     }
 
     const tickets = await SupportTicket.find(query)

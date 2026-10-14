@@ -26,6 +26,13 @@ const supportTicketSchema = new mongoose.Schema(
             type: String,
             required: true,
         },
+        // Optional request / booking number the user is asking about (e.g. BND-284913)
+        referenceNumber: {
+            type: String,
+            trim: true,
+            default: "",
+            index: true,
+        },
         status: {
             type: String,
             enum: ["Pending", "Open", "Resolved", "Cancelled", "Reopen", "closed"],

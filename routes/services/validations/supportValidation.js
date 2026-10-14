@@ -2,8 +2,9 @@ const Joi = require("joi");
 
 const createTicketSchema = Joi.object({
     category: Joi.string().required().trim(),
-    subject: Joi.string().required().trim().min(3).max(100),
-    description: Joi.string().required().min(10),
+    subject: Joi.string().required().trim().min(5).max(100),
+    description: Joi.string().required().min(10).max(1000),
+    referenceNumber: Joi.string().trim().max(50).optional().allow(""),
     images: Joi.array().items(Joi.string().uri()).optional()
 });
 
@@ -26,6 +27,7 @@ const getTicketsSchema = Joi.object({
         .optional(),
     category: Joi.string().optional(),
     ticketId: Joi.string().optional(),
+    referenceNumber: Joi.string().optional(),
     search: Joi.string().optional(),
     userId: Joi.string().hex().length(24).optional(),
     page: Joi.number().integer().min(1).default(1),

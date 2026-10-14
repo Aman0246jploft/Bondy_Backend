@@ -32,6 +32,7 @@ const {
   updateEventSchema,
   updateEventParamsSchema,
   toggleEventSliderSchema,
+  eventFieldLengthError,
 } = require("../services/validations/eventValidation");
 const validateRequest = require("../../middlewares/validateRequest");
 const { assignStaffSchema } = require("../services/validations/userValidation");
@@ -56,6 +57,10 @@ const CONSTANTS = require("../../utils/constants");
 // Create Event
 const createEvent = async (req, res) => {
   try {
+    const lengthError = eventFieldLengthError(req.body);
+    if (lengthError) {
+      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, lengthError);
+    }
     const { id, venueAddress, isDraft: isDraftBody, ...eventData } = req.body;
     const userId = req.user.userId;
 
@@ -2648,6 +2653,10 @@ const getAllEventAttendees = async (req, res) => {
 // Update/Edit Event
 const updateEvent = async (req, res) => {
   try {
+    const lengthError = eventFieldLengthError(req.body);
+    if (lengthError) {
+      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, lengthError);
+    }
     const { eventId } = req.params;
     const userId = req.user.userId;
     const updateData = req.body;
@@ -2831,10 +2840,37 @@ const updateEvent = async (req, res) => {
       updateData.endTime !== undefined ||
       updateData.timeZone !== undefined;
 
-    // Ensure startDate is in the future for upcoming events
+    const eventMoment = (dateValue, timeValue) => {
+      if (!dateValue) return null;
+      const raw = dateValue instanceof Date ? "" : String(dateValue);
+      const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      let year;
+      let month;
+      let day;
+      if (match && !raw.includes("T")) {
+        year = Number(match[1]);
+        month = Number(match[2]) - 1;
+        day = Number(match[3]);
+      } else {
+        const parsed = new Date(dateValue);
+        if (Number.isNaN(parsed.getTime())) return null;
+        year = parsed.getFullYear();
+        month = parsed.getMonth();
+        day = parsed.getDate();
+      }
+      const parts = String(timeValue || "00:00").split(":");
+      const hours = Number(parts[0]);
+      const minutes = Number(parts[1]);
+      return new Date(year, month, day, Number.isFinite(hours) ? hours : 0, Number.isFinite(minutes) ? minutes : 0, 0, 0);
+    };
+
+    // Ensure the event start moment is still ahead for upcoming events
     if (dateOrTimeModified && !isLive && !targetIsDraft) {
-      const newStart = updateData.startDate ? new Date(updateData.startDate) : new Date(existingEvent.startDate);
-      if (newStart < now) {
+      const newStart = eventMoment(
+        updateData.startDate || existingEvent.startDate,
+        updateData.startTime || existingEvent.startTime || "00:00"
+      );
+      if (newStart && newStart < now) {
         return apiErrorRes(
           HTTP_STATUS.BAD_REQUEST,
           res,
@@ -2843,10 +2879,13 @@ const updateEvent = async (req, res) => {
       }
     }
 
-    // Ensure endDate is in the future
+    // Ensure the event end moment is still ahead
     if (dateOrTimeModified && !targetIsDraft) {
-      const newEnd = updateData.endDate ? new Date(updateData.endDate) : new Date(existingEvent.endDate);
-      if (newEnd < now) {
+      const newEnd = eventMoment(
+        updateData.endDate || existingEvent.endDate,
+        updateData.endTime || existingEvent.endTime || "23:59"
+      );
+      if (newEnd && newEnd < now) {
         return apiErrorRes(
           HTTP_STATUS.BAD_REQUEST,
           res,
@@ -3175,7 +3214,7 @@ router.post(
   "/edit/:eventId",
   perApiLimiter(),
   checkRole([roleId.ORGANIZER]),
-  // validateRequest(updateEventSchema),
+  validateRequest(updateEventSchema),
   updateEvent,
 );
 
@@ -3371,6 +3410,26 @@ const getEventAnalytics = async (req, res) => {
       bookingRate = Number(((totalBookingsCount / viewCount) * 100).toFixed(2));
     }
 
+    const seriesMatch = {
+      eventId: event._id,
+      status: "PAID",
+      bookingType: "EVENT",
+    };
+    if (dateFilter.createdAt) seriesMatch.createdAt = dateFilter.createdAt;
+
+    const salesSeriesAgg = await Transaction.aggregate([
+      { $match: seriesMatch },
+      {
+        $group: {
+          _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
+          tickets: { $sum: { $ifNull: ["$qty", 0] } },
+          revenue: { $sum: { $ifNull: ["$organizerEarning", 0] } },
+          gross: { $sum: { $ifNull: ["$totalAmount", 0] } },
+        },
+      },
+      { $sort: { _id: 1 } },
+    ]);
+
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
@@ -3384,6 +3443,12 @@ const getEventAnalytics = async (req, res) => {
         bookingRate,
         grossRevenue,
         organizerRevenue,
+        salesSeries: salesSeriesAgg.map((row) => ({
+          date: row._id,
+          tickets: row.tickets || 0,
+          revenue: row.revenue || 0,
+          gross: row.gross || 0,
+        })),
       },
     );
   } catch (error) {

@@ -143,17 +143,17 @@ const changePasswordSchema = Joi.object({
 });
 
 const addStaffSchema = Joi.object({
-  fullname: Joi.string().required(),
-  email: Joi.string().email().required(),
-  password: Joi.string().min(6).required(),
-  profilePhoto: Joi.string().optional().allow("", null),
+  fullname: Joi.string().trim().min(1).max(80).required(),
+  email: Joi.string().trim().email().max(120).required(),
+  password: Joi.string().min(8).max(64).required(),
+  profilePhoto: Joi.string().max(2048).optional().allow("", null),
 });
 
 const editStaffSchema = Joi.object({
-  fullname: Joi.string().optional(),
-  email: Joi.string().email().optional(),
-  password: Joi.string().min(6).optional().allow("", null),
-  profilePhoto: Joi.string().optional().allow("", null),
+  fullname: Joi.string().trim().min(1).max(80).optional(),
+  email: Joi.string().trim().email().max(120).optional(),
+  password: Joi.string().min(8).max(64).optional().allow("", null),
+  profilePhoto: Joi.string().max(2048).optional().allow("", null),
 });
 
 const assignStaffSchema = Joi.object({

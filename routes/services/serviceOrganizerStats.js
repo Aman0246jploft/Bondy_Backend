@@ -30,12 +30,12 @@ const getOrganizerTransactions = async (organizerId, filters = {}) => {
     const skip = (pageNum - 1) * limitNum;
 
     // Build match conditions
-    const matchConditions = {
-      status: "PAID", // Base: only PAID transactions
-    };
+    const matchConditions = {};
 
-    if (status) {
+    if (status && status !== "all") {
       matchConditions.status = status;
+    } else if (!status) {
+      matchConditions.status = { $in: ["PAID", "COMPLETED", "CONFIRMED"] };
     }
 
     if (bookingType) {
@@ -75,6 +75,7 @@ const getOrganizerTransactions = async (organizerId, filters = {}) => {
           $or: [
             { "eventInfo.createdBy": organizerObjectId },
             { "courseInfo.createdBy": organizerObjectId },
+            { organizerId: organizerObjectId },
           ],
         },
       },
@@ -117,6 +118,14 @@ const getOrganizerTransactions = async (organizerId, filters = {}) => {
             ],
           },
           customerEmail: "$customerInfo.email",
+          customerAvatar: "$customerInfo.profileImage",
+          customerPhone: {
+            $ifNull: ["$customerInfo.contactNumber", "$customerInfo.phone"],
+          },
+          ticketName: 1,
+          unit: {
+            $ifNull: ["$ticketName", { $ifNull: ["$passType", "$batchId"] }],
+          },
           qty: 1,
           basePrice: 1,
           taxAmount: 1,
@@ -510,6 +519,98 @@ const getOrganizerDashboardData = async (organizerId) => {
       netRevenue: 0,
     };
 
+    // 3. Course Statistics
+    const courseStatsResult = await Course.aggregate([
+      { $match: { createdBy: organizerObjectId } },
+      {
+        $group: {
+          _id: null,
+          totalCourses: { $sum: 1 },
+          totalLiveCourses: {
+            $sum: {
+              $cond: [
+                {
+                  $and: [
+                    { $eq: ["$isDraft", false] },
+                    { $in: ["$status", ["Live", "Upcoming", "Active"]] },
+                  ],
+                },
+                1,
+                0,
+              ],
+            },
+          },
+          totalDraftCourses: {
+            $sum: { $cond: [{ $eq: ["$isDraft", true] }, 1, 0] },
+          },
+          totalCompletedCourses: {
+            $sum: { $cond: [{ $eq: ["$status", "Past"] }, 1, 0] },
+          },
+        },
+      },
+    ]);
+
+    const courseStats = courseStatsResult[0] || {
+      totalCourses: 0,
+      totalLiveCourses: 0,
+      totalDraftCourses: 0,
+      totalCompletedCourses: 0,
+    };
+
+    // 4. Recent Transactions (Latest 5 orders for events/courses)
+    const recentTxResult = await getOrganizerTransactions(organizerId, { limit: 5 });
+    let recentTransactions =
+      recentTxResult.statusCode === SUCCESS && recentTxResult.data?.transactions
+        ? recentTxResult.data.transactions
+        : [];
+
+    // Fallback: If no direct Transaction documents exist, populate from confirmed ticket/course sales in WalletHistory
+    if (recentTransactions.length === 0) {
+      const salesWallet = await WalletHistory.find({
+        userId: organizerObjectId,
+        type: { $in: ["TICKET_SALE", "COURSE_SALE"] },
+      })
+        .sort({ createdAt: -1 })
+        .limit(5)
+        .populate({
+          path: "transactionId",
+          populate: { path: "userId", select: "firstName lastName email profileImage contactNumber phone" },
+        })
+        .lean();
+
+      if (salesWallet && salesWallet.length > 0) {
+        recentTransactions = salesWallet.map((w) => {
+          const tx = w.transactionId;
+          const cust = tx?.userId;
+          const cleanItem = w.description
+            ? w.description.replace(/^(Ticket Sale:|Course Sale:)\s*/i, "")
+            : (w.type === "COURSE_SALE" ? "Сургалт" : "Эвент");
+          const custName = cust
+            ? `${cust.firstName || ""} ${cust.lastName || ""}`.trim()
+            : "";
+
+          return {
+            _id: w._id,
+            bookingId: tx?.bookingId || `BNDY-${String(w._id).slice(-6).toUpperCase()}`,
+            bookingType: w.type === "COURSE_SALE" ? "COURSE" : "EVENT",
+            itemName: cleanItem,
+            customerName: custName,
+            customerEmail: cust?.email || "",
+            customerAvatar: cust?.profileImage || "",
+            customerPhone: cust?.contactNumber || cust?.phone || "",
+            ticketName: tx?.ticketName || (w.type === "COURSE_SALE" ? "Сургалтын бүртгэл" : "Энгийн тасалбар"),
+            unit: tx?.ticketName || (w.type === "COURSE_SALE" ? "Сургалтын бүртгэл" : "Энгийн тасалбар"),
+            qty: tx?.qty || 1,
+            basePrice: w.amount,
+            totalAmount: w.amount,
+            organizerEarning: w.amount,
+            status: "CONFIRMED",
+            createdAt: w.createdAt,
+          };
+        });
+      }
+    }
+
     return resultDb(SUCCESS, {
       totalDraftEvents: eventStats.totalDraftEvents,
       totalPendingEvents: eventStats.totalPendingEvents,
@@ -518,6 +619,11 @@ const getOrganizerDashboardData = async (organizerId) => {
       totalTicketsSold: transactionStats.totalTicketsSold,
       netRevenue: roundToTwo(transactionStats.netRevenue),
       totalAttendees: eventStats.totalAttendees,
+      totalCourses: courseStats.totalCourses,
+      totalLiveCourses: courseStats.totalLiveCourses,
+      totalDraftCourses: courseStats.totalDraftCourses,
+      totalCompletedCourses: courseStats.totalCompletedCourses,
+      recentTransactions,
     });
   } catch (error) {
     console.error("Error in getOrganizerDashboardData service:", error);
