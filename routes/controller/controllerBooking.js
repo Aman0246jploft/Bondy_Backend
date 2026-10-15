@@ -2821,7 +2821,7 @@ const adjustCourseReservedSeats = async (req, res) => {
 const getTicketList = async (req, res) => {
   try {
     const userId = req.user.userId;
-    const { type, bookingType, page = 1, limit = 10 } = req.query;
+    const { type, bookingType, page = 1, limit = 10, organizerId } = req.query;
 
     // Auto-reconciliation: check recent pending QPay transactions in case user paid while offline or during server reboot
     try {
@@ -2885,6 +2885,11 @@ const getTicketList = async (req, res) => {
     const filtered = transactions.filter((t) => {
       const item = t.eventId || t.courseId;
       if (!item) return false;
+
+      if (organizerId) {
+        const owner = item.createdBy?._id || item.createdBy;
+        if (String(owner || "") !== String(organizerId)) return false;
+      }
 
       if (t.bookingType === "COURSE" && t.passExpiryDate) {
         const expiry = new Date(t.passExpiryDate);

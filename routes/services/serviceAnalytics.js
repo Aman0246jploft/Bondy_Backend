@@ -563,6 +563,7 @@ async function getRevenueAnalytics({ filter, startDate, endDate, organizerId = n
             },
           },
           count: { $sum: 1 },
+          tickets: { $sum: { $ifNull: ["$qty", 1] } },
         },
       },
       { $sort: { _id: 1 } }
@@ -574,6 +575,8 @@ async function getRevenueAnalytics({ filter, startDate, endDate, organizerId = n
     const labels = [];
     const grossRevenueArr = [];
     const netRevenueArr = [];
+    const ordersCountArr = [];
+    const ticketsCountArr = [];
     const monthNames = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 
     // Map aggregation results for easy lookup
@@ -603,6 +606,7 @@ async function getRevenueAnalytics({ filter, startDate, endDate, organizerId = n
             _id: { $dateToString: { format: groupFormat, date: "$createdAt" } },
             amount: { $sum: "$amount" },
             count: { $sum: 1 },
+            tickets: { $sum: 1 },
           },
         },
       ]);
@@ -614,10 +618,13 @@ async function getRevenueAnalytics({ filter, startDate, endDate, organizerId = n
             netAdminRevenue: 0,
             netOrganizerRevenue: w.amount,
             count: w.count,
+            tickets: w.tickets || w.count,
           };
         } else if ((resultMap[w._id].netOrganizerRevenue || 0) === 0) {
           resultMap[w._id].netOrganizerRevenue = w.amount;
           resultMap[w._id].grossRevenue = Math.max(resultMap[w._id].grossRevenue || 0, w.amount);
+          resultMap[w._id].count = (resultMap[w._id].count || 0) + w.count;
+          resultMap[w._id].tickets = (resultMap[w._id].tickets || 0) + (w.tickets || w.count);
         }
       });
     }
@@ -638,9 +645,11 @@ async function getRevenueAnalytics({ filter, startDate, endDate, organizerId = n
         const label = monthNames[current.getMonth()];
         labels.push(label);
 
-        const data = resultMap[key] || { grossRevenue: 0, netAdminRevenue: 0, netOrganizerRevenue: 0 };
+        const data = resultMap[key] || { grossRevenue: 0, netAdminRevenue: 0, netOrganizerRevenue: 0, count: 0, tickets: 0 };
         grossRevenueArr.push(parseFloat((data.grossRevenue || 0).toFixed(2)));
         netRevenueArr.push(parseFloat((organizerId ? data.netOrganizerRevenue || 0 : data.netAdminRevenue || 0).toFixed(2)));
+        ordersCountArr.push(data.count || 0);
+        ticketsCountArr.push(data.tickets || data.count || 0);
 
         current.setMonth(current.getMonth() + 1);
       }
@@ -654,9 +663,11 @@ async function getRevenueAnalytics({ filter, startDate, endDate, organizerId = n
           : `${(current.getMonth() + 1).toString().padStart(2, '0')}.${current.getDate().toString().padStart(2, '0')}`;
         labels.push(label);
 
-        const data = resultMap[key] || { grossRevenue: 0, netAdminRevenue: 0, netOrganizerRevenue: 0 };
+        const data = resultMap[key] || { grossRevenue: 0, netAdminRevenue: 0, netOrganizerRevenue: 0, count: 0, tickets: 0 };
         grossRevenueArr.push(parseFloat((data.grossRevenue || 0).toFixed(2)));
         netRevenueArr.push(parseFloat((organizerId ? data.netOrganizerRevenue || 0 : data.netAdminRevenue || 0).toFixed(2)));
+        ordersCountArr.push(data.count || 0);
+        ticketsCountArr.push(data.tickets || data.count || 0);
 
         current.setDate(current.getDate() + 1);
       }
@@ -664,6 +675,8 @@ async function getRevenueAnalytics({ filter, startDate, endDate, organizerId = n
 
     const totalGross = parseFloat(grossRevenueArr.reduce((a, b) => a + b, 0).toFixed(2));
     const totalNet = parseFloat(netRevenueArr.reduce((a, b) => a + b, 0).toFixed(2));
+    const totalOrders = ordersCountArr.reduce((a, b) => a + b, 0);
+    const totalTickets = ticketsCountArr.reduce((a, b) => a + b, 0);
 
     // 4. Calculate Growth
     const prevPipeline = [
@@ -765,9 +778,13 @@ async function getRevenueAnalytics({ filter, startDate, endDate, organizerId = n
       labels,
       grossRevenue: grossRevenueArr,
       netRevenue: netRevenueArr,
+      ordersCount: ordersCountArr,
+      ticketsCount: ticketsCountArr,
       summary: {
         totalGross,
         totalNet,
+        totalOrders,
+        totalTickets,
         grossGrowth: calculateGrowth(totalGross, prevData.grossRevenue),
         netGrowth: calculateGrowth(totalNet, prevNet),
         currency: "₮", // Defaulting to ₮ as seen in current localization requirements
