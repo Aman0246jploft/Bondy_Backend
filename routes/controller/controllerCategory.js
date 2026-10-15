@@ -7,6 +7,7 @@ const {
   apiSuccessRes,
   BACKEND_URL,
   formatResponseUrl,
+  capitalizeWords,
 } = require("../../utils/globalFunction");
 const perApiLimiter = require("../../middlewares/rateLimiter");
 const checkRole = require("../../middlewares/checkRole");
@@ -127,6 +128,8 @@ const getCategoryList = async (req, res) => {
 
     const formattedCategories = categories.map((cat) => ({
       ...cat,
+      name: capitalizeWords(cat.name),
+      name_thi: cat.name_thi ? capitalizeWords(cat.name_thi) : cat.name_thi,
       image: cat.image ? formatResponseUrl(cat.image) : null,
       posterImage: cat.posterImage ? formatResponseUrl(cat.posterImage) : null,
     }));
@@ -331,8 +334,8 @@ const getCategoryStats = async (req, res) => {
 
         return {
           _id: cat._id,
-          name: cat.name,
-          name_thi: cat.name_thi,
+          name: capitalizeWords(cat.name),
+          name_thi: cat.name_thi ? capitalizeWords(cat.name_thi) : cat.name_thi,
           image: cat.image ? formatResponseUrl(cat.image) : null,
           eventCount: count,
           featured: cat.featured,
@@ -373,7 +376,10 @@ const getCategoryDetails = async (req, res) => {
 
     const formattedCategory = {
       ...category,
+      name: capitalizeWords(category.name),
+      name_thi: category.name_thi ? capitalizeWords(category.name_thi) : category.name_thi,
       image: category.image ? formatResponseUrl(category.image) : null,
+      posterImage: category.posterImage ? formatResponseUrl(category.posterImage) : null,
     };
 
     return apiSuccessRes(

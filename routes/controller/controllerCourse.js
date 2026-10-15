@@ -10,6 +10,7 @@ const {
   translateMessage,
   formatResponseUrl,
   getUserLanguage,
+  capitalizeWords,
 } = require("../../utils/globalFunction");
 const moment = require("moment-timezone");
 const { formatDateTimeByTimezone, adjustEventDateTime, getMappedTimeZone } = require("../../utils/timezoneHelper");
@@ -1230,7 +1231,11 @@ const getCourses = async (req, res) => {
       if (Array.isArray(course.posterImage)) course.posterImage = course.posterImage.map(formatResponseUrl);
       if (Array.isArray(course.mediaLinks)) course.mediaLinks = course.mediaLinks.map(formatResponseUrl);
       if (Array.isArray(course.shortTeaserVideo)) course.shortTeaserVideo = course.shortTeaserVideo.map(formatResponseUrl);
-      if (course.courseCategory?.image) course.courseCategory.image = formatResponseUrl(course.courseCategory.image);
+      if (course.courseCategory && typeof course.courseCategory === "object") {
+        if (course.courseCategory.name) course.courseCategory.name = capitalizeWords(course.courseCategory.name);
+        if (course.courseCategory.name_thi) course.courseCategory.name_thi = capitalizeWords(course.courseCategory.name_thi);
+        if (course.courseCategory.image) course.courseCategory.image = formatResponseUrl(course.courseCategory.image);
+      }
       if (course.createdBy?.profileImage) course.createdBy.profileImage = formatResponseUrl(course.createdBy.profileImage);
 
       let courseTotalSeats = 0;
@@ -1530,7 +1535,11 @@ const getCoursesAdmin = async (req, res) => {
       if (Array.isArray(course.posterImage)) course.posterImage = course.posterImage.map(formatResponseUrl);
       if (Array.isArray(course.mediaLinks)) course.mediaLinks = course.mediaLinks.map(formatResponseUrl);
       if (Array.isArray(course.shortTeaserVideo)) course.shortTeaserVideo = course.shortTeaserVideo.map(formatResponseUrl);
-      if (course.courseCategory?.image) course.courseCategory.image = formatResponseUrl(course.courseCategory.image);
+      if (course.courseCategory && typeof course.courseCategory === "object") {
+        if (course.courseCategory.name) course.courseCategory.name = capitalizeWords(course.courseCategory.name);
+        if (course.courseCategory.name_thi) course.courseCategory.name_thi = capitalizeWords(course.courseCategory.name_thi);
+        if (course.courseCategory.image) course.courseCategory.image = formatResponseUrl(course.courseCategory.image);
+      }
       if (course.createdBy?.profileImage) course.createdBy.profileImage = formatResponseUrl(course.createdBy.profileImage);
 
       // Dynamic total seats
@@ -1972,8 +1981,12 @@ const updateCourse = async (req, res) => {
     if (Array.isArray(updatedCourse.shortTeaserVideo)) {
       updatedCourse.shortTeaserVideo = updatedCourse.shortTeaserVideo.map(formatResponseUrl);
     }
-    if (updatedCourse.courseCategory?.image) {
-      updatedCourse.courseCategory.image = formatResponseUrl(updatedCourse.courseCategory.image);
+    if (updatedCourse.courseCategory && typeof updatedCourse.courseCategory === "object") {
+      if (updatedCourse.courseCategory.name) updatedCourse.courseCategory.name = capitalizeWords(updatedCourse.courseCategory.name);
+      if (updatedCourse.courseCategory.name_thi) updatedCourse.courseCategory.name_thi = capitalizeWords(updatedCourse.courseCategory.name_thi);
+      if (updatedCourse.courseCategory.image) {
+        updatedCourse.courseCategory.image = formatResponseUrl(updatedCourse.courseCategory.image);
+      }
     }
     if (updatedCourse.createdBy?.profileImage) {
       updatedCourse.createdBy.profileImage = formatResponseUrl(updatedCourse.createdBy.profileImage);
@@ -2533,7 +2546,11 @@ const getCourseDetails = async (req, res) => {
     if (Array.isArray(course.posterImage)) course.posterImage = course.posterImage.map(formatResponseUrl);
     if (Array.isArray(course.mediaLinks)) course.mediaLinks = course.mediaLinks.map(formatResponseUrl);
     if (Array.isArray(course.shortTeaserVideo)) course.shortTeaserVideo = course.shortTeaserVideo.map(formatResponseUrl);
-    if (course.courseCategory?.image) course.courseCategory.image = formatResponseUrl(course.courseCategory.image);
+    if (course.courseCategory && typeof course.courseCategory === "object") {
+      if (course.courseCategory.name) course.courseCategory.name = capitalizeWords(course.courseCategory.name);
+      if (course.courseCategory.name_thi) course.courseCategory.name_thi = capitalizeWords(course.courseCategory.name_thi);
+      if (course.courseCategory.image) course.courseCategory.image = formatResponseUrl(course.courseCategory.image);
+    }
     if (course.createdBy?.profileImage) course.createdBy.profileImage = formatResponseUrl(course.createdBy.profileImage);
 
     // 7. Duration
