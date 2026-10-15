@@ -1,0 +1,78 @@
+name: Deploy Backend
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy Backend to EC2
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          password: ${{ secrets.EC2_PASSWORD }}
+          script_stop: true
+          script: |
+            set -e
+
+            echo "========================================"
+            echo "Starting Bondy Backend Deployment"
+            echo "========================================"
+
+            echo "Current User:"
+            whoami
+
+            echo "Current Directory:"
+            pwd
+
+            echo "Loading NVM..."
+            export NVM_DIR="$HOME/.nvm"
+
+            if [ -s "$NVM_DIR/nvm.sh" ]; then
+              . "$NVM_DIR/nvm.sh"
+            else
+              echo "ERROR: NVM not found!"
+              exit 1
+            fi
+
+            echo "Node Version:"
+            node -v
+
+            echo "NPM Version:"
+            npm -v
+
+            echo "PM2 Version:"
+            pm2 -v
+
+            echo "Changing to project directory..."
+            cd /var/www/html/bondy/Bondy_Backend
+
+            echo "Current Branch:"
+            git branch --show-current
+
+            echo "Fetching latest code..."
+            git fetch origin
+
+            echo "Pulling latest code..."
+            git pull origin main
+
+            echo "Installing dependencies..."
+            npm install
+
+            echo "Restarting PM2..."
+            pm2 restart bondy-backend-5000
+
+            echo "Saving PM2 configuration..."
+            pm2 save
+
+            echo "PM2 Status:"
+            pm2 list
+
+            echo "========================================"
+            echo "Bondy Backend deployment completed successfully!"
+            echo "========================================"
