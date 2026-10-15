@@ -22,6 +22,7 @@ const {
   formatResponseUrl,
   toObjectId,
   getUserLanguage,
+  capitalizeWords,
 } = require("../../utils/globalFunction");
 const moment = require("moment-timezone");
 const { formatDateTimeByTimezone, adjustEventDateTime, getMappedTimeZone } = require("../../utils/timezoneHelper");
@@ -387,8 +388,16 @@ const formatEvent = (event, bookedEventIds = new Set(), bookedQty = 0, pendingQt
   if (Array.isArray(event.mediaLinks)) {
     event.mediaLinks = event.mediaLinks.map((l) => formatResponseUrl(l));
   }
-  if (event.eventCategory && event.eventCategory.image) {
-    event.eventCategory.image = formatResponseUrl(event.eventCategory.image);
+  if (event.eventCategory && typeof event.eventCategory === "object") {
+    if (event.eventCategory.name) {
+      event.eventCategory.name = capitalizeWords(event.eventCategory.name);
+    }
+    if (event.eventCategory.name_thi) {
+      event.eventCategory.name_thi = capitalizeWords(event.eventCategory.name_thi);
+    }
+    if (event.eventCategory.image) {
+      event.eventCategory.image = formatResponseUrl(event.eventCategory.image);
+    }
   }
   if (event.createdBy && event.createdBy.profileImage) {
     event.createdBy.profileImage = formatResponseUrl(

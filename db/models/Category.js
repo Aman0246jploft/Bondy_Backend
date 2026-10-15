@@ -6,13 +6,11 @@ const categorySchema = new mongoose.Schema(
       type: String,
       required: true,
       trim: true,
-      lowercase: true,
     },
 
     name_thi: {
       type: String,
       trim: true,
-      lowercase: true,
     },
 
 

@@ -25,6 +25,7 @@ const {
   verifyPassword,
   BACKEND_URL,
   formatResponseUrl,
+  capitalizeWords,
 } = require("../../utils/globalFunction");
 const { signToken } = require("../../utils/jwtTokenUtils");
 const jwt = require("jsonwebtoken");
@@ -853,8 +854,8 @@ const getFormattedProfileData = async (userId, viewerId = null) => {
   // Format categories with names
   const categories = activeCategories.map((cat) => ({
     _id: cat._id,
-    name: cat.name,
-    name_thi: cat.name_thi,
+    name: capitalizeWords(cat.name),
+    name_thi: cat.name_thi ? capitalizeWords(cat.name_thi) : cat.name_thi,
     type: cat.type,
     image: cat.image ? formatResponseUrl(cat.image) : null,
   }));
@@ -919,7 +920,7 @@ const getFormattedProfileData = async (userId, viewerId = null) => {
   else if (user.roleId === roleId.STAFF) role = "STAFF";
 
   // Get interested category names
-  const interestedCategories = activeCategories.map((cat) => cat.name);
+  const interestedCategories = activeCategories.map((cat) => capitalizeWords(cat.name));
 
   // Calculate allVerifiedAt: latest timestamp of all verifications when fully verified
   let allVerifiedAt = null;
