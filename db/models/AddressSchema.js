@@ -9,6 +9,7 @@ const addressSchema = new mongoose.Schema(
     },
     coordinates: {
       type: [Number], // [longitude, latitude]
+      default: undefined,
       required: function () {
         // If nested, 'this' refers to the subdocument.
         // We fetch the parent document to check isDraft.

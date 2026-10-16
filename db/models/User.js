@@ -234,6 +234,21 @@ const UserSchema = new Schema(
       trim: true,
       default: null,
     },
+    website: {
+      type: String,
+      trim: true,
+      default: null,
+    },
+    city: {
+      type: String,
+      trim: true,
+      default: null,
+    },
+    businessRegisterNumber: {
+      type: String,
+      trim: true,
+      default: null,
+    },
     isBusinessVerified: {
       type: Boolean,
       default: false,
@@ -344,6 +359,25 @@ UserSchema.index({ location: "2dsphere" }, { sparse: true });
 
 UserSchema.pre("save", function (next) {
   this.wasNew = this.isNew;
+
+  // Sanitize location coordinates to prevent 2dsphere index errors
+  if (this.location) {
+    const coords = this.location.coordinates;
+    const hasValidCoords =
+      Array.isArray(coords) &&
+      coords.length === 2 &&
+      typeof coords[0] === "number" &&
+      typeof coords[1] === "number" &&
+      !isNaN(coords[0]) &&
+      !isNaN(coords[1]);
+
+    if (!hasValidCoords) {
+      if (this.location.city && !this.city) {
+        this.city = this.location.city;
+      }
+      this.location = undefined;
+    }
+  }
 
   // If role is CUSTOMER, auto-approve organizerVerificationStatus and set isVerified to true
   if (this.roleId === roleId.CUSTOMER) {
