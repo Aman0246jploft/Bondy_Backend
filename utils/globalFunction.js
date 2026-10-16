@@ -88,6 +88,75 @@ const translateMessage = async (message, userId = null, req = null) => {
   }
 };
 
+const TITLE_KEYS = new Set([
+  "eventTitle",
+  "courseTitle",
+  "title",
+  "titleMn",
+  "eventName",
+  "courseName",
+  "ticketTitle",
+  "ticketName",
+  "bookingTitle",
+  "entityTitle",
+  "entityName",
+  "name",
+  "fullName",
+  "businessName",
+  "categoryName",
+  "venue",
+  "venueName",
+]);
+
+function toTitleCase(str) {
+  if (!str || typeof str !== "string") return str;
+  const trimmed = str.trim();
+  if (
+    trimmed.startsWith("http://") ||
+    trimmed.startsWith("https://") ||
+    trimmed.startsWith("/") ||
+    trimmed.startsWith("data:") ||
+    trimmed.startsWith("<") ||
+    trimmed.includes("@") ||
+    /^[0-9a-fA-F]{24}$/.test(trimmed) ||
+    /^\d{4}-\d{2}-\d{2}/.test(trimmed)
+  ) {
+    return str;
+  }
+  return str.replace(/(?:^|[\s\-\/\(\[\'\"\u2018\u201c])\S/g, (char) => char.toUpperCase());
+}
+
+function deepCapitalizeTitles(obj, seen = new WeakSet()) {
+  if (!obj || typeof obj !== "object") return obj;
+  if (seen.has(obj)) return obj;
+
+  if (typeof obj.toObject === "function") {
+    obj = obj.toObject();
+  }
+
+  seen.add(obj);
+
+  if (Array.isArray(obj)) {
+    for (let i = 0; i < obj.length; i++) {
+      obj[i] = deepCapitalizeTitles(obj[i], seen);
+    }
+    return obj;
+  }
+
+  for (const key of Object.keys(obj)) {
+    const val = obj[key];
+    if (typeof val === "string") {
+      if (TITLE_KEYS.has(key)) {
+        obj[key] = toTitleCase(val);
+      }
+    } else if (typeof val === "object" && val !== null) {
+      obj[key] = deepCapitalizeTitles(val, seen);
+    }
+  }
+
+  return obj;
+}
+
 const apiSuccessRes = async (
   statusCode = 200,
   res,
@@ -100,11 +169,12 @@ const apiSuccessRes = async (
 ) => {
   const userId = res?.req?.user?.userId || null;
   const translatedMessage = await translateMessage(message, userId, res?.req);
+  const formattedData = deepCapitalizeTitles(data);
   return res.status(200).json({
     message: translatedMessage,
     // code: code,
     status: !error,
-    data: data,
+    data: formattedData,
     token: token,
     currentDate,
   });

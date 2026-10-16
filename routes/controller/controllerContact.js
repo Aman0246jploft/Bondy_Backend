@@ -21,9 +21,25 @@ const createContact = async (req, res) => {
             );
         }
 
+        if (fullName.trim().length < 3 || fullName.trim().length > 30) {
+            return apiErrorRes(
+                HTTP_STATUS.BAD_REQUEST,
+                res,
+                "Name must be 3–30 characters",
+            );
+        }
+
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailRegex.test(email)) {
             return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.INVALID_EMAIL || "Invalid email address");
+        }
+
+        if (message.trim().length < 10 || message.trim().length > 250) {
+            return apiErrorRes(
+                HTTP_STATUS.BAD_REQUEST,
+                res,
+                "Description must be 10–250 characters",
+            );
         }
 
         const newContact = new Contact({
