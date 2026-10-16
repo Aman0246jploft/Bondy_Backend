@@ -221,7 +221,7 @@ const submitVerification = async (req, res) => {
     // 4. Business Verification Submission
     const businessVerification = req.body.businessVerification;
     if (businessVerification) {
-      const { businessName, businessCategory, shortDesc, socialMediaLink } = businessVerification;
+      const { businessName, businessCategory, shortDesc, socialMediaLink, city, website, businessRegisterNumber } = businessVerification;
       if (!businessName || !businessCategory) {
         return apiErrorRes(
           HTTP_STATUS.BAD_REQUEST,
@@ -255,7 +255,12 @@ const submitVerification = async (req, res) => {
       user.businessName = businessName;
       user.businessCategory = businessCategory;
       user.shortDesc = shortDesc || null;
-      user.socialMediaLink = socialMediaLink || null;
+      user.socialMediaLink = socialMediaLink || website || null;
+      if (city) {
+        user.city = city;
+      }
+      if (website) user.website = website;
+      if (businessRegisterNumber) user.businessRegisterNumber = businessRegisterNumber;
       user.isBusinessVerified = false;
       user.businessVerificationStatus = "pending";
       user.businessRejectionReason = null;

@@ -302,8 +302,8 @@ const notifyVerificationResult = (organizerId, action, reason) => {
     message: approved
       ? "Your verification document has been approved. You are now a verified organizer on Bondy!"
       : `Your verification document was rejected. Reason: ${reason || "Please contact support for details."}`,
-    deepLink: "/profile/verification",
-    webLink: "/profile",
+    deepLink: "/Verifiedprofile",
+    webLink: "/Verifiedprofile",
   });
 };
 

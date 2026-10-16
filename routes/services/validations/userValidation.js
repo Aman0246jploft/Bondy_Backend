@@ -105,6 +105,9 @@ const updateUserSchema = Joi.object({
   businessCategory: Joi.string().hex().length(24).optional().allow(null, ""),
   shortDesc: Joi.string().trim().optional().allow(null, ""),
   socialMediaLink: Joi.string().trim().optional().allow(null, ""),
+  city: Joi.string().trim().optional().allow(null, ""),
+  website: Joi.string().trim().optional().allow(null, ""),
+  businessRegisterNumber: Joi.string().trim().optional().allow(null, ""),
   timeZone: Joi.string().optional().allow(null, ""),
 });
 
