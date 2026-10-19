@@ -372,9 +372,10 @@ const applyPromoCode = async (discountCode, basePrice) => {
 
   if (!discountCode) return { discountAmount, promoApplied, promoMessage };
 
-  const code = await PromoCode.findOne({ code: discountCode, active: true });
+  const trimmedCode = typeof discountCode === "string" ? discountCode.trim() : discountCode;
+  const code = await PromoCode.findOne({ code: trimmedCode, active: true });
 
-  if (!code) {
+  if (!code || code.code !== trimmedCode) {
     return { discountAmount: 0, promoApplied: false, promoMessage: constantsMessage.INVALID_OR_EXPIRED_PROMO };
   }
 
@@ -1164,9 +1165,10 @@ const initiateBooking = async (req, res) => {
 
     // Calculate pricing
     let totalDiscountAmount = 0;
-    if (discountCode) {
-      const code = await PromoCode.findOne({ code: discountCode, active: true });
-      if (!code) {
+    const cleanDiscountCode = typeof discountCode === "string" ? discountCode.trim() : discountCode;
+    if (cleanDiscountCode) {
+      const code = await PromoCode.findOne({ code: cleanDiscountCode, active: true });
+      if (!code || code.code !== cleanDiscountCode) {
         return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.INVALID_OR_EXPIRED_PROMO);
       }
 
@@ -1199,7 +1201,7 @@ const initiateBooking = async (req, res) => {
         discountAmount: totalDiscountAmount,
         taxAmount: totalTaxAmount,
         totalAmount: totalFinalAmount,
-        discountCode: discountCode || null,
+        discountCode: cleanDiscountCode || null,
         appliedTaxIds,
         status: "PENDING",
         bookingType,
@@ -1260,9 +1262,9 @@ const initiateBooking = async (req, res) => {
             ).catch((e) => console.error("[Notification] notifyOrganizerNewBooking:", e));
           });
 
-        if (discountCode) {
+        if (cleanDiscountCode) {
           PromoCode.updateOne(
-            { code: discountCode },
+            { code: cleanDiscountCode },
             { $inc: { usedCount: 1 } },
           ).catch((e) => console.error("[Promo] increment usage failed:", e));
         }
@@ -1317,7 +1319,7 @@ const initiateBooking = async (req, res) => {
         discountAmount: totalDiscountAmount,
         taxAmount: totalTaxAmount,
         totalAmount: totalFinalAmount,
-        discountCode: discountCode || null,
+        discountCode: cleanDiscountCode || null,
         appliedTaxIds,
         status: "PENDING",
         bookingType,
@@ -1389,9 +1391,9 @@ const initiateBooking = async (req, res) => {
             ).catch((e) => console.error("[Notification] notifyOrganizerNewBooking:", e));
           });
 
-        if (discountCode) {
+        if (cleanDiscountCode) {
           PromoCode.updateOne(
-            { code: discountCode },
+            { code: cleanDiscountCode },
             { $inc: { usedCount: 1 } },
           ).catch((e) => console.error("[Promo] increment usage failed:", e));
         }

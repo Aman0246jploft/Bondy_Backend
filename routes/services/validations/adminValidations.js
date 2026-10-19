@@ -20,7 +20,7 @@ const updateTaxSchema = Joi.object({
 
 // PromoCode Schemas
 const createPromoCodeSchema = Joi.object({
-  code: Joi.string().uppercase().required(),
+  code: Joi.string().trim().required(),
   description: Joi.string().optional().allow(""),
   discountType: Joi.string().valid("percentage", "fixed").required(),
   discountValue: Joi.number().required(),
@@ -31,7 +31,7 @@ const createPromoCodeSchema = Joi.object({
 });
 const updatePromoCodeSchema = Joi.object({
   id: Joi.string().required(),
-  code: Joi.string().uppercase().optional(),
+  code: Joi.string().trim().optional(),
   description: Joi.string().optional().allow(""),
   discountType: Joi.string().valid("percentage", "fixed").optional(),
   discountValue: Joi.number().optional(),
