@@ -783,13 +783,19 @@ const getEvents = async (req, res) => {
 
     if (effectiveStartDate || effectiveEndDate) {
       if (effectiveStartDate) {
-        const sD = new Date(effectiveStartDate);
+        const sMoment = moment.tz(effectiveStartDate, mappedTz);
+        const sD = sMoment.isValid()
+          ? (String(effectiveStartDate).length <= 10 ? sMoment.startOf("day").toDate() : sMoment.toDate())
+          : new Date(effectiveStartDate);
         if (!isNaN(sD.getTime())) {
           startDateConditions.push({ $gte: sD });
         }
       }
       if (effectiveEndDate) {
-        const eD = new Date(effectiveEndDate);
+        const eMoment = moment.tz(effectiveEndDate, mappedTz);
+        const eD = eMoment.isValid()
+          ? (String(effectiveEndDate).length <= 10 ? eMoment.endOf("day").toDate() : eMoment.toDate())
+          : new Date(effectiveEndDate);
         if (!isNaN(eD.getTime())) {
           startDateConditions.push({ $lte: eD });
         }

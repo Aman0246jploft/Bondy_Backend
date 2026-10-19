@@ -6,7 +6,6 @@ const discountCodeSchema = new mongoose.Schema(
       type: String,
       required: true,
       unique: true, // no duplicate codes
-      uppercase: true,
       trim: true,
     },
     description: {
