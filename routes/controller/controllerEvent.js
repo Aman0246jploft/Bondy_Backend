@@ -485,7 +485,8 @@ const getEvents = async (req, res) => {
       filter = "all",
       latitude,
       longitude,
-      radius = 100,
+      radius: queryRadius,
+      distance: queryDistance,
       categoryId,
       category,
       search,
@@ -514,6 +515,8 @@ const getEvents = async (req, res) => {
       southWestLng,
       visibility,
     } = req.query;
+
+    const radius = queryRadius !== undefined ? queryRadius : (queryDistance !== undefined ? queryDistance : 100);
 
     const normalizeLongitude = (lng) => {
       if (Number.isNaN(lng)) return lng;
