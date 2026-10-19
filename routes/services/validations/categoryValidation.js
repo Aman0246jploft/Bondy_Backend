@@ -21,7 +21,11 @@ const categoryListSchema = Joi.object({
     page: Joi.number().integer().min(1).optional(),
     limit: Joi.number().integer().min(1).optional(),
     search: Joi.string().optional().allow(""),
-    type: Joi.string().valid("event", "course", "support_ticket").optional()
+    type: Joi.string().valid("event", "course", "support_ticket").optional(),
+    latitude: Joi.number().optional(),
+    longitude: Joi.number().optional(),
+    radius: Joi.number().positive().optional(),
+    distance: Joi.number().positive().optional()
 });
 
 module.exports = {

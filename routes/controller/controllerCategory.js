@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
-const { Category } = require("../../db");
+const mongoose = require("mongoose");
+const { Category, Event, Course } = require("../../db");
 const HTTP_STATUS = require("../../utils/statusCode");
 const {
   apiErrorRes,
@@ -100,7 +101,7 @@ const createCategory = async (req, res) => {
 // Get Category List with Pagination
 const getCategoryList = async (req, res) => {
   try {
-    const { page = 1, limit = 10, search, type } = req.query;
+    const { page = 1, limit = 10, search, type, latitude, longitude, radius, distance } = req.query;
 
     const pageNum = parseInt(page);
     const limitNum = parseInt(limit);
@@ -117,6 +118,68 @@ const getCategoryList = async (req, res) => {
     // Search by name if provided
     if (search) {
       query.name = { $regex: search, $options: "i" };
+    }
+
+    // Filter categories by distance (only return categories having active events/courses within radius)
+    const parsedLat = parseFloat(latitude);
+    const parsedLng = parseFloat(longitude);
+    const parsedRadius = parseFloat(radius || distance);
+    const safeRadiusKm = (!isNaN(parsedRadius) && parsedRadius > 0) ? parsedRadius : 100;
+
+    if (!isNaN(parsedLat) && !isNaN(parsedLng)) {
+      const categoryIdSet = new Set();
+      const geoQuery = { isDeleted: { $ne: true }, isDraft: { $ne: true } };
+
+      const searchEvents = !type || type.toLowerCase() === "event";
+      const searchCourses = !type || type.toLowerCase() === "course";
+
+      if (searchEvents) {
+        try {
+          const nearEvents = await Event.aggregate([
+            {
+              $geoNear: {
+                near: { type: "Point", coordinates: [parsedLng, parsedLat] },
+                distanceField: "dist",
+                maxDistance: safeRadiusKm * 1000,
+                spherical: true,
+                query: geoQuery,
+              },
+            },
+            { $match: { eventCategory: { $ne: null } } },
+            { $group: { _id: "$eventCategory" } },
+          ]);
+          nearEvents.forEach((e) => {
+            if (e._id) categoryIdSet.add(e._id.toString());
+          });
+        } catch (geoErr) {
+          console.warn("[getCategoryList] Event geo search warning:", geoErr.message);
+        }
+      }
+
+      if (searchCourses) {
+        try {
+          const nearCourses = await Course.aggregate([
+            {
+              $geoNear: {
+                near: { type: "Point", coordinates: [parsedLng, parsedLat] },
+                distanceField: "dist",
+                maxDistance: safeRadiusKm * 1000,
+                spherical: true,
+                query: geoQuery,
+              },
+            },
+            { $match: { courseCategory: { $ne: null } } },
+            { $group: { _id: "$courseCategory" } },
+          ]);
+          nearCourses.forEach((c) => {
+            if (c._id) categoryIdSet.add(c._id.toString());
+          });
+        } catch (geoErr) {
+          console.warn("[getCategoryList] Course geo search warning:", geoErr.message);
+        }
+      }
+
+      query._id = { $in: Array.from(categoryIdSet).map((id) => new mongoose.Types.ObjectId(id)) };
     }
 
     const total = await Category.countDocuments(query);
