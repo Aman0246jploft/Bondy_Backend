@@ -819,6 +819,7 @@ const calculateBooking = async (req, res) => {
   try {
     let { eventId, courseId, batchId, ticketId, qty: qtyInput, tickets, discountCode, ongoingSlots, selectedDay, passType } = req.body;
     const qty = Number(qtyInput) || 1;
+    const userId = req.user?.userId;
 
     let basePrice = 0;
     let ticketName = null;
@@ -828,6 +829,13 @@ const calculateBooking = async (req, res) => {
       const event = await Event.findById(eventId);
       if (!event) return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.EVENT_NOT_FOUND);
       if (event.status === "Cancelled") return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.EVENT_NOT_ACTIVE);
+
+      if (userId) {
+        const ageCheck = await validateAgeRestriction(event, "EVENT", userId);
+        if (!ageCheck.allowed) {
+          return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, ageCheck.message);
+        }
+      }
 
       if (tickets && Array.isArray(tickets) && tickets.length > 0) {
         for (const item of tickets) {
@@ -881,6 +889,13 @@ const calculateBooking = async (req, res) => {
       const course = await Course.findById(courseId);
       if (!course) return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.COURSE_NOT_FOUND);
       if (course.status === "Cancelled") return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.COURSE_NOT_ACTIVE);
+
+      if (userId) {
+        const ageCheck = await validateAgeRestriction(course, "COURSE", userId);
+        if (!ageCheck.allowed) {
+          return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, ageCheck.message);
+        }
+      }
 
       if (course.enrollmentType === "Ongoing") {
         const cleanOngoingSlots = Array.isArray(ongoingSlots)
