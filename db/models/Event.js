@@ -172,7 +172,7 @@ eventSchema.index({ venueAddress: "2dsphere" });
 eventSchema.pre("save", function (next) {
   this.isFeatured = this.fetcherEvent;
   if (this.tickets && Array.isArray(this.tickets)) {
-    this.isFreeEvent = this.tickets.some(t => t.isFreeTicket === true);
+    this.isFreeEvent = this.tickets.some(t => t.isFreeTicket === true || Number(t.price) === 0);
   }
   // Combine startDate + startTime and endDate + endTime into UTC Date objects if modified
   if (this.isModified("startDate") || this.isModified("startTime") || this.isModified("timeZone")) {

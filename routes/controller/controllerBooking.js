@@ -2897,10 +2897,13 @@ const adjustCourseReservedSeats = async (req, res) => {
     // Check availability limit
     const enrolledCount = await getCourseBatchBookedCount(courseId, batchId, date || null);
     if (batch.seats < enrolledCount + ReservedExternally) {
+      const errorMsg = ReservedExternally > 0
+        ? `Seats limit (${batch.seats}) cannot be less than enrolled count (${enrolledCount}) + externally reserved seats (${ReservedExternally})`
+        : `Seats limit (${batch.seats}) cannot be less than enrolled count (${enrolledCount})`;
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        constantsMessage.SEATS_LIMIT_X_CANNOT_BE_LESS_THAN_ENROLL
+        errorMsg
       );
     }
 

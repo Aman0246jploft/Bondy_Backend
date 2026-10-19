@@ -54,6 +54,45 @@ const crypto = require("crypto");
 const { getKey, setKeyWithTime } = require("../services/serviceRedis");
 const CONSTANTS = require("../../utils/constants");
 
+const normalizeEventTickets = (ticketsVal, body = {}) => {
+  if (!Array.isArray(ticketsVal)) return ticketsVal;
+  return ticketsVal
+    .filter(t => t && typeof t === "object" && Object.keys(t).length > 0)
+    .map(t => {
+      const isFree = t.isFreeTicket === true ||
+        t.isFreeTicket === "true" ||
+        Number(t.price) === 0 ||
+        body.isFreeEvent === true ||
+        body.isFreeEvent === "true" ||
+        body.ticketPrice === "0" ||
+        Number(body.ticketPrice) === 0;
+
+      const ticketPrice = isFree ? 0 : (Number(t.price) || 0);
+
+      const ticketName = (t.ticketName && String(t.ticketName).trim()) ||
+        (body.ticketName && String(body.ticketName).trim()) ||
+        (isFree ? "Free Entry" : "Standard Ticket");
+
+      const parsedQty = (t.qty !== undefined && t.qty !== null && t.qty !== "")
+        ? Number(t.qty)
+        : ((body.ticketQtyAvailable !== undefined && body.ticketQtyAvailable !== null && body.ticketQtyAvailable !== "")
+          ? Number(body.ticketQtyAvailable)
+          : ((body.totalTickets !== undefined && body.totalTickets !== null && body.totalTickets !== "")
+            ? Number(body.totalTickets)
+            : (isFree ? 999999 : 1)));
+
+      const ticketQty = parsedQty > 0 ? parsedQty : (isFree ? 999999 : 1);
+
+      return {
+        ...t,
+        ticketName,
+        ticketShortDesc: t.ticketShortDesc || (isFree ? "Free entry for this event" : ""),
+        price: ticketPrice,
+        qty: ticketQty,
+        isFreeTicket: isFree,
+      };
+    });
+};
 
 // Create Event
 const createEvent = async (req, res) => {
@@ -141,7 +180,7 @@ const createEvent = async (req, res) => {
       let ticketsVal = req.body.tickets;
 
       if (Array.isArray(ticketsVal)) {
-        ticketsVal = ticketsVal.filter(t => t && Object.keys(t).length > 0 && t.ticketName && t.qty !== undefined);
+        ticketsVal = normalizeEventTickets(ticketsVal, req.body);
       }
 
       if (ticketsVal !== undefined) {
@@ -149,24 +188,26 @@ const createEvent = async (req, res) => {
       }
 
       if (!isDraftValue) {
+        const isFree = req.body.isFreeEvent === true || req.body.isFreeEvent === "true" || req.body.ticketPrice === "0" || Number(req.body.ticketPrice) === 0 || !req.body.ticketPrice;
+        const fallbackQty = (req.body.ticketQtyAvailable !== undefined && req.body.ticketQtyAvailable !== null && req.body.ticketQtyAvailable !== "")
+          ? Number(req.body.ticketQtyAvailable)
+          : ((req.body.totalTickets !== undefined && req.body.totalTickets !== null && req.body.totalTickets !== "")
+            ? Number(req.body.totalTickets)
+            : 999999);
+        const fallbackTicket = [{
+          ticketName: (req.body.ticketName && String(req.body.ticketName).trim()) || (isFree ? "Free Entry" : "Standard Ticket"),
+          ticketShortDesc: isFree ? "Free entry for this event" : "Standard ticket",
+          price: isFree ? 0 : (Number(req.body.ticketPrice) || 0),
+          qty: fallbackQty > 0 ? fallbackQty : 999999,
+          isFreeTicket: isFree,
+        }];
+
         if (ticketsVal !== undefined && ticketsVal.length === 0) {
-          ticketsVal = [{
-            ticketName: "Free Entry",
-            ticketShortDesc: "Free entry for this event",
-            price: 0,
-            qty: 999999,
-            isFreeTicket: true,
-          }];
+          ticketsVal = fallbackTicket;
           req.body.tickets = ticketsVal;
           eventData.tickets = ticketsVal;
         } else if (ticketsVal === undefined && (!event.tickets || event.tickets.length === 0)) {
-          ticketsVal = [{
-            ticketName: "Free Entry",
-            ticketShortDesc: "Free entry for this event",
-            price: 0,
-            qty: 999999,
-            isFreeTicket: true,
-          }];
+          ticketsVal = fallbackTicket;
           req.body.tickets = ticketsVal;
           eventData.tickets = ticketsVal;
         }
@@ -183,10 +224,13 @@ const createEvent = async (req, res) => {
         const bookedQty = eventBookings.length > 0 ? eventBookings[0].bookedQty : 0;
 
         if (totalSeats < bookedQty + reservedVal) {
+          const errorMsg = reservedVal > 0
+            ? `Total event seats (${totalSeats}) cannot be less than booked count (${bookedQty}) + externally reserved seats (${reservedVal})`
+            : `Total event seats (${totalSeats}) cannot be less than already booked count (${bookedQty})`;
           return apiErrorRes(
             HTTP_STATUS.BAD_REQUEST,
             res,
-            constantsMessage.TOTAL_EVENT_SEATS_X_CANNOT_BE_LESS_THAN
+            errorMsg
           );
         }
       }
@@ -232,18 +276,24 @@ const createEvent = async (req, res) => {
       let ticketsVal = req.body.tickets || [];
 
       if (Array.isArray(ticketsVal)) {
-        ticketsVal = ticketsVal.filter(t => t && Object.keys(t).length > 0 && t.ticketName && t.qty !== undefined);
+        ticketsVal = normalizeEventTickets(ticketsVal, req.body);
       }
 
       eventData.tickets = ticketsVal;
 
       if (!isDraftValue && ticketsVal.length === 0) {
+        const isFree = req.body.isFreeEvent === true || req.body.isFreeEvent === "true" || req.body.ticketPrice === "0" || Number(req.body.ticketPrice) === 0 || !req.body.ticketPrice;
+        const fallbackQty = (req.body.ticketQtyAvailable !== undefined && req.body.ticketQtyAvailable !== null && req.body.ticketQtyAvailable !== "")
+          ? Number(req.body.ticketQtyAvailable)
+          : ((req.body.totalTickets !== undefined && req.body.totalTickets !== null && req.body.totalTickets !== "")
+            ? Number(req.body.totalTickets)
+            : 999999);
         ticketsVal = [{
-          ticketName: "Free Entry",
-          ticketShortDesc: "Free entry for this event",
-          price: 0,
-          qty: 999999,
-          isFreeTicket: true,
+          ticketName: (req.body.ticketName && String(req.body.ticketName).trim()) || (isFree ? "Free Entry" : "Standard Ticket"),
+          ticketShortDesc: isFree ? "Free entry for this event" : "Standard ticket",
+          price: isFree ? 0 : (Number(req.body.ticketPrice) || 0),
+          qty: fallbackQty > 0 ? fallbackQty : 999999,
+          isFreeTicket: isFree,
         }];
         req.body.tickets = ticketsVal;
         eventData.tickets = ticketsVal;
@@ -257,7 +307,7 @@ const createEvent = async (req, res) => {
           return apiErrorRes(
             HTTP_STATUS.BAD_REQUEST,
             res,
-            constantsMessage.TOTAL_EVENT_SEATS_X_CANNOT_BE_LESS_THAN_1
+            `Total event seats (${totalSeats}) cannot be less than externally reserved seats (${reservedVal})`
           );
         }
       }
@@ -2743,7 +2793,7 @@ const updateEvent = async (req, res) => {
 
     let reqTickets = updateData.tickets;
     if (Array.isArray(reqTickets)) {
-      reqTickets = reqTickets.filter(t => t && Object.keys(t).length > 0 && t.ticketName && t.qty !== undefined);
+      reqTickets = normalizeEventTickets(reqTickets, req.body);
     }
 
     if (reqTickets !== undefined) {
@@ -2751,24 +2801,26 @@ const updateEvent = async (req, res) => {
     }
 
     if (!targetIsDraft) {
+      const isFree = req.body.isFreeEvent === true || req.body.isFreeEvent === "true" || req.body.ticketPrice === "0" || Number(req.body.ticketPrice) === 0 || !req.body.ticketPrice;
+      const fallbackQty = (req.body.ticketQtyAvailable !== undefined && req.body.ticketQtyAvailable !== null && req.body.ticketQtyAvailable !== "")
+        ? Number(req.body.ticketQtyAvailable)
+        : ((req.body.totalTickets !== undefined && req.body.totalTickets !== null && req.body.totalTickets !== "")
+          ? Number(req.body.totalTickets)
+          : 999999);
+      const fallbackTicket = [{
+        ticketName: (req.body.ticketName && String(req.body.ticketName).trim()) || (isFree ? "Free Entry" : "Standard Ticket"),
+        ticketShortDesc: isFree ? "Free entry for this event" : "Standard ticket",
+        price: isFree ? 0 : (Number(req.body.ticketPrice) || 0),
+        qty: fallbackQty > 0 ? fallbackQty : 999999,
+        isFreeTicket: isFree,
+      }];
+
       if (reqTickets !== undefined && reqTickets.length === 0) {
-        reqTickets = [{
-          ticketName: "Free Entry",
-          ticketShortDesc: "Free entry for this event",
-          price: 0,
-          qty: 999999,
-          isFreeTicket: true,
-        }];
+        reqTickets = fallbackTicket;
         req.body.tickets = reqTickets;
         updateData.tickets = reqTickets;
       } else if (reqTickets === undefined && (!existingEvent.tickets || existingEvent.tickets.length === 0)) {
-        reqTickets = [{
-          ticketName: "Free Entry",
-          ticketShortDesc: "Free entry for this event",
-          price: 0,
-          qty: 999999,
-          isFreeTicket: true,
-        }];
+        reqTickets = fallbackTicket;
         req.body.tickets = reqTickets;
         updateData.tickets = reqTickets;
       }
@@ -2981,10 +3033,13 @@ const updateEvent = async (req, res) => {
     const bookedQty = eventBookings.length > 0 ? eventBookings[0].bookedQty : 0;
 
     if (totalSeats < bookedQty + reservedVal) {
+      const errorMsg = reservedVal > 0
+        ? `Total event seats (${totalSeats}) cannot be less than booked count (${bookedQty}) + externally reserved seats (${reservedVal})`
+        : `Total event seats (${totalSeats}) cannot be less than already booked count (${bookedQty})`;
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        constantsMessage.TOTAL_EVENT_SEATS_X_CANNOT_BE_LESS_THAN
+        errorMsg
       );
     }
     // 8. Update fields on the mongoose document

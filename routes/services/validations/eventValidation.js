@@ -37,7 +37,13 @@ function eventFieldLengthError(body) {
         if (String(ticket.ticketShortDesc || "").trim().length > 200) {
             return "Short description must be at most 200 characters.";
         }
-        const isFree = ticket.isFreeTicket === true || ticket.isFreeTicket === "true";
+        const isFree = ticket.isFreeTicket === true ||
+            ticket.isFreeTicket === "true" ||
+            Number(ticket.price) === 0 ||
+            body.isFreeEvent === true ||
+            body.isFreeEvent === "true" ||
+            body.ticketPrice === "0" ||
+            Number(body.ticketPrice) === 0;
         if (!isFree && ticket.price !== undefined && ticket.price !== null && ticket.price !== "") {
             const priceDigits = digitsOf(ticket.price);
             if (!priceDigits || priceDigits === "0" || priceDigits.length > 10) {
@@ -57,10 +63,10 @@ function eventFieldLengthError(body) {
 const ticketSchema = Joi.object({
     ticketName: Joi.string().trim().min(2).max(150).allow("", null).optional(),
     ticketShortDesc: Joi.string().trim().max(200).allow("", null).optional(),
-    price: Joi.number().when("isFreeTicket", {
+    price: Joi.number().min(0).max(MAX_DIGITS).when("isFreeTicket", {
         is: true,
-        then: Joi.number().min(0).max(0).optional(),
-        otherwise: Joi.number().integer().min(1).max(MAX_DIGITS).optional(),
+        then: Joi.number().valid(0).optional(),
+        otherwise: Joi.number().min(0).max(MAX_DIGITS).optional(),
     }),
     qty: Joi.number().integer().min(1).max(MAX_DIGITS).optional(),
     isFreeTicket: Joi.boolean().optional(),
@@ -140,6 +146,13 @@ const createEventSchema = Joi.object({
     timeZone: Joi.string().optional().allow(null, ""),
     isFreeEvent: Joi.boolean().optional(),
     ReservedExternally: Joi.number().integer().min(0).optional(),
+    ticketName: Joi.string().optional().allow("", null),
+    ticketPrice: Joi.alternatives().try(Joi.number(), Joi.string()).optional().allow("", null),
+    ticketQtyAvailable: Joi.alternatives().try(Joi.number(), Joi.string()).optional().allow("", null),
+    ticketSelesStartDate: Joi.alternatives().try(Joi.date(), Joi.string()).optional().allow("", null),
+    ticketSelesEndDate: Joi.alternatives().try(Joi.date(), Joi.string()).optional().allow("", null),
+    totalTickets: Joi.alternatives().try(Joi.number(), Joi.string()).optional().allow("", null),
+    accessAndPrivacy: Joi.boolean().optional(),
 });
 
 const getEventsSchema = Joi.object({
@@ -219,6 +232,13 @@ const updateEventSchema = Joi.object({
     timeZone: Joi.string().optional().allow(null, ""),
     isFreeEvent: Joi.boolean().optional(),
     ReservedExternally: Joi.number().integer().min(0).optional(),
+    ticketName: Joi.string().optional().allow("", null),
+    ticketPrice: Joi.alternatives().try(Joi.number(), Joi.string()).optional().allow("", null),
+    ticketQtyAvailable: Joi.alternatives().try(Joi.number(), Joi.string()).optional().allow("", null),
+    ticketSelesStartDate: Joi.alternatives().try(Joi.date(), Joi.string()).optional().allow("", null),
+    ticketSelesEndDate: Joi.alternatives().try(Joi.date(), Joi.string()).optional().allow("", null),
+    totalTickets: Joi.alternatives().try(Joi.number(), Joi.string()).optional().allow("", null),
+    accessAndPrivacy: Joi.boolean().optional(),
 });
 
 const updateEventParamsSchema = Joi.object({
