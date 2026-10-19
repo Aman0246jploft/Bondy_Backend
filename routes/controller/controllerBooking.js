@@ -363,6 +363,78 @@ const getCourseBatchBookedCount = async (courseId, batchId, selectedDay = null) 
 };
 
 /**
+ * Parse minimum required age from ageRestriction field
+ * Supports strings ("18+", "21+", "ALL"), numbers (18), and objects ({ minAge: 18 })
+ */
+const parseMinAge = (restriction) => {
+  if (!restriction) return 0;
+  if (typeof restriction === "number") {
+    return restriction > 0 ? restriction : 0;
+  }
+  if (typeof restriction === "string") {
+    const trimmed = restriction.trim().toUpperCase();
+    if (trimmed === "ALL" || trimmed === "ALL AGES" || trimmed === "ALL_AGES" || trimmed === "0" || trimmed === "NONE" || trimmed === "") {
+      return 0;
+    }
+    const match = trimmed.match(/\d+/);
+    return match ? parseInt(match[0], 10) : 0;
+  }
+  if (typeof restriction === "object") {
+    if (restriction.minAge !== undefined && restriction.minAge !== null) {
+      const parsed = Number(restriction.minAge);
+      return !isNaN(parsed) && parsed > 0 ? parsed : 0;
+    }
+  }
+  return 0;
+};
+
+/**
+ * Calculate user's age based on date of birth (dob)
+ */
+const getUserAge = (dob) => {
+  if (!dob) return null;
+  const birthDate = new Date(dob);
+  if (isNaN(birthDate.getTime())) return null;
+  const today = new Date();
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const m = today.getMonth() - birthDate.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+    age--;
+  }
+  return age;
+};
+
+/**
+ * Validate user age against item (event/course) age restriction
+ */
+const validateAgeRestriction = async (item, itemType, userId) => {
+  const minAge = parseMinAge(item?.ageRestriction);
+  if (!minAge || minAge <= 0) {
+    return { allowed: true };
+  }
+
+  const user = await User.findById(userId).select("dob");
+  if (!user || !user.dob) {
+    return {
+      allowed: false,
+      message: `Please update your date of birth in your profile to book this ${itemType.toLowerCase()}.`,
+    };
+  }
+
+  const userAge = getUserAge(user.dob);
+  if (userAge === null || userAge < minAge) {
+    return {
+      allowed: false,
+      message: `You must be at least ${minAge} years old to book this ${itemType.toLowerCase()}.`,
+      userAge,
+      minAge,
+    };
+  }
+
+  return { allowed: true, userAge, minAge };
+};
+
+/**
  * Apply promo code and return discount details
  */
 const applyPromoCode = async (discountCode, basePrice) => {
@@ -978,6 +1050,12 @@ const initiateBooking = async (req, res) => {
       if (!event) return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.EVENT_NOT_FOUND);
       if (event.status === "Cancelled") return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.EVENT_NOT_ACTIVE);
 
+      // Validate age restriction
+      const ageCheck = await validateAgeRestriction(event, "EVENT", userId);
+      if (!ageCheck.allowed) {
+        return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, ageCheck.message);
+      }
+
       bookingType = "EVENT";
 
       if (tickets && Array.isArray(tickets) && tickets.length > 0) {
@@ -1049,6 +1127,12 @@ const initiateBooking = async (req, res) => {
       course = await Course.findById(courseId);
       if (!course) return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.COURSE_NOT_FOUND);
       if (course.status === "Cancelled") return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.COURSE_NOT_ACTIVE);
+
+      // Validate age restriction
+      const ageCheck = await validateAgeRestriction(course, "COURSE", userId);
+      if (!ageCheck.allowed) {
+        return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, ageCheck.message);
+      }
 
       if (course.enrollmentType === "Ongoing") {
         const cleanOngoingSlots = Array.isArray(ongoingSlots)
