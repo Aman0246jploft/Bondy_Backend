@@ -1717,6 +1717,8 @@ const confirmPayment = async (req, res) => {
         .select("_id ticketNumber ticketName ticketIndex isPass status qrCodeData")
         .lean();
       return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.BOOKING_CONFIRMED, {
+        transactionId: transaction._id,
+        bookingId: transaction.bookingId,
         transaction: transactionObj,
         tickets: existingTickets,
       });
@@ -1745,6 +1747,8 @@ const confirmPayment = async (req, res) => {
     formatItemMedia(transactionObj, transaction.bookingType);
 
     return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.BOOKING_CONFIRMED, {
+      transactionId: transaction._id,
+      bookingId: transaction.bookingId,
       transaction: transactionObj,
       tickets: result.tickets.map((t) => ({
         _id: t._id,
@@ -1825,6 +1829,8 @@ const initiateQpay = async (req, res) => {
         durationMs: Date.now() - startTime,
       });
       return apiSuccessRes(HTTP_STATUS.OK, res, "QPay invoice retrieved", {
+        transactionId: transaction._id,
+        bookingId: transaction.bookingId,
         invoice_id: transaction.qpayInvoiceId,
         qr_image: transaction.qrCodeData,
         urls: transaction.qpayUrls,
@@ -1860,6 +1866,8 @@ const initiateQpay = async (req, res) => {
     });
 
     return apiSuccessRes(HTTP_STATUS.OK, res, "QPay invoice created", {
+      transactionId: transaction._id,
+      bookingId: transaction.bookingId,
       invoice_id: qpayRes.invoice_id,
       qr_image: qpayRes.qr_image,
       qr_text: qpayRes.qr_text,
@@ -1904,6 +1912,8 @@ const checkQpayStatus = async (req, res) => {
       formatItemMedia(transactionObj, transaction.bookingType);
       return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.BOOKING_CONFIRMED, {
         status: "PAID",
+        transactionId: transaction._id,
+        bookingId: transaction.bookingId,
         transaction: transactionObj,
         tickets: existingTickets,
       });
@@ -1948,6 +1958,8 @@ const checkQpayStatus = async (req, res) => {
       if (result.status === "REFUND_INITIATED") {
         return apiSuccessRes(HTTP_STATUS.OK, res, result.message, {
           status: "REFUND_INITIATED",
+          transactionId: transaction._id,
+          bookingId: transaction.bookingId,
           transaction: result.transaction.toObject ? result.transaction.toObject() : result.transaction,
         });
       }
@@ -1957,6 +1969,8 @@ const checkQpayStatus = async (req, res) => {
 
       return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.BOOKING_CONFIRMED, {
         status: "PAID",
+        transactionId: transaction._id,
+        bookingId: transaction.bookingId,
         transaction: transactionObj,
         tickets: result.tickets,
       });
@@ -1965,6 +1979,7 @@ const checkQpayStatus = async (req, res) => {
     return apiSuccessRes(HTTP_STATUS.OK, res, "Payment pending", {
       status: "PENDING",
       transactionId: transaction._id,
+      bookingId: transaction.bookingId,
     });
   } catch (error) {
     logQPayEvent({
@@ -3155,6 +3170,8 @@ const getTicketDetail = async (req, res) => {
     }
 
     return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.TICKET_DETAIL_FETCHED, {
+      transactionId: transaction._id,
+      bookingId: transaction.bookingId,
       ticket: transactionObj,
       // Individual ticket records — each with their own QR code for gate scanning
       tickets: individualTickets.map ? individualTickets.map((t) => ({
@@ -4124,6 +4141,8 @@ const getRecentBookings = async (req, res) => {
 
       return {
         _id: t._id,
+        transactionId: t._id,
+        bookingId: t.bookingId,
         userName: u ? `${u.firstName} ${u.lastName}`.trim() : "Guest",
         userProfileImage: u && u.profileImage ? formatResponseUrl(u.profileImage) : null,
         totalTickets: t.qty,
@@ -4187,6 +4206,8 @@ const getPublicTicketDetail = async (req, res) => {
     }
 
     return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.PUBLIC_TICKET_DETAIL_FETCHED, {
+      transactionId: transaction._id,
+      bookingId: transaction.bookingId,
       ticket: transactionObj,
     });
   } catch (error) {
@@ -4214,6 +4235,8 @@ const generateTicketUrls = async (req, res) => {
     const downloadUrl = `${frontendUrl}/public/ticket?id=${transactionId}&download=true`;
 
     return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.TICKET_URLS_GENERATED, {
+      transactionId: transaction._id,
+      bookingId: transaction.bookingId,
       shareUrl,
       downloadUrl,
     });
