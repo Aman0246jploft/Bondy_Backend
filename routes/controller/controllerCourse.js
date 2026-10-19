@@ -1900,10 +1900,14 @@ const updateCourse = async (req, res) => {
         const reservedVal = batch.ReservedExternally !== undefined ? batch.ReservedExternally : (existingBatch ? (existingBatch.ReservedExternally || 0) : 0);
 
         if (seatsVal < enrolledCount + reservedVal) {
+          const batchName = batch.batchName || (existingBatch ? existingBatch.batchName : "Selected batch");
+          const errorMsg = reservedVal > 0
+            ? `Seats limit (${seatsVal}) cannot be less than enrolled count (${enrolledCount}) + externally reserved seats (${reservedVal}) for batch ${batchName}`
+            : `Seats limit (${seatsVal}) cannot be less than enrolled count (${enrolledCount}) for batch ${batchName}`;
           return apiErrorRes(
             HTTP_STATUS.BAD_REQUEST,
             res,
-            constantsMessage.SEATS_LIMIT_X_CANNOT_BE_LESS_THAN_ENROLL_1
+            errorMsg
           );
         }
       }

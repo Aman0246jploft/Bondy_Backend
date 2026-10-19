@@ -183,10 +183,13 @@ const createEvent = async (req, res) => {
         const bookedQty = eventBookings.length > 0 ? eventBookings[0].bookedQty : 0;
 
         if (totalSeats < bookedQty + reservedVal) {
+          const errorMsg = reservedVal > 0
+            ? `Total event seats (${totalSeats}) cannot be less than booked count (${bookedQty}) + externally reserved seats (${reservedVal})`
+            : `Total event seats (${totalSeats}) cannot be less than already booked count (${bookedQty})`;
           return apiErrorRes(
             HTTP_STATUS.BAD_REQUEST,
             res,
-            constantsMessage.TOTAL_EVENT_SEATS_X_CANNOT_BE_LESS_THAN
+            errorMsg
           );
         }
       }
@@ -257,7 +260,7 @@ const createEvent = async (req, res) => {
           return apiErrorRes(
             HTTP_STATUS.BAD_REQUEST,
             res,
-            constantsMessage.TOTAL_EVENT_SEATS_X_CANNOT_BE_LESS_THAN_1
+            `Total event seats (${totalSeats}) cannot be less than externally reserved seats (${reservedVal})`
           );
         }
       }
@@ -2981,10 +2984,13 @@ const updateEvent = async (req, res) => {
     const bookedQty = eventBookings.length > 0 ? eventBookings[0].bookedQty : 0;
 
     if (totalSeats < bookedQty + reservedVal) {
+      const errorMsg = reservedVal > 0
+        ? `Total event seats (${totalSeats}) cannot be less than booked count (${bookedQty}) + externally reserved seats (${reservedVal})`
+        : `Total event seats (${totalSeats}) cannot be less than already booked count (${bookedQty})`;
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
-        constantsMessage.TOTAL_EVENT_SEATS_X_CANNOT_BE_LESS_THAN
+        errorMsg
       );
     }
     // 8. Update fields on the mongoose document
