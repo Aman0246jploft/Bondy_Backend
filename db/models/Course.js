@@ -210,6 +210,10 @@ const courseSchema = new mongoose.Schema(
         default: [],
       },
     ],
+    ageRestriction: {
+      type: mongoose.Schema.Types.Mixed,
+      default: "ALL",
+    },
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
