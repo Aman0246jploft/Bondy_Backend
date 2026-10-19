@@ -245,14 +245,22 @@ const transactionSchema = new mongoose.Schema(
     }
 );
 
+const transformTransaction = (doc, ret) => {
+    delete ret.__v;
+    // Never expose the HMAC secret key in API responses
+    delete ret.ticketSecretKey;
+    ret.transactionId = ret._id;
+    return ret;
+};
+
 transactionSchema.set("toJSON", {
-    transform: (doc, ret) => {
-        delete ret.__v;
-        // Never expose the HMAC secret key in API responses
-        delete ret.ticketSecretKey;
-        return ret;
-    },
+    transform: transformTransaction,
 });
+
+transactionSchema.set("toObject", {
+    transform: transformTransaction,
+});
+
 
 // ── Indexes ───────────────────────────────────────────────────────────────────
 transactionSchema.index({ userId: 1, status: 1, createdAt: -1 });
