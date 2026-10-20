@@ -1,6 +1,10 @@
 const Joi = require("joi");
 
 const customerSignupSchema = Joi.object({
+  firstName: Joi.string().trim().optional().allow("", null),
+  lastName: Joi.string().trim().optional().allow("", null),
+  name: Joi.string().trim().optional().allow("", null),
+  surname: Joi.string().trim().optional().allow("", null),
   email: Joi.string().email().required(),
   countryCode: Joi.string().required(),
   contactNumber: Joi.string().required(),

@@ -165,6 +165,8 @@ const customerSignupVerify = async (req, res) => {
       // Reactivate Deleted User
       user.isDeleted = false;
       user.isDisable = false;
+      if (userData.firstName || userData.name) user.firstName = userData.firstName || userData.name;
+      if (userData.lastName || userData.surname) user.lastName = userData.lastName || userData.surname;
       user.password = userData.password;
       user.contactNumber = userData.contactNumber;
       user.countryCode = userData.countryCode;
@@ -187,6 +189,8 @@ const customerSignupVerify = async (req, res) => {
     } else {
       // Create New User
       user = new User({
+        firstName: userData.firstName || userData.name || null,
+        lastName: userData.lastName || userData.surname || null,
         email: userData.email,
         password: userData.password,
         contactNumber: userData.contactNumber,
