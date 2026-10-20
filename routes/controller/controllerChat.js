@@ -9,6 +9,8 @@ const CONSTANTS = require("../../utils/constants");
 const upload = require("../../middlewares/multer"); // Assuming multer setup exists
 const { uploadFile } = require("../services/validations/chatValidation");
 
+const { getTotalUnreadMessages } = require("../../socket/controllers/chatSocketController");
+
 // 1. Upload File (HTTP)
 router.post("/upload", upload.single("file"), async (req, res) => {
   try {
@@ -38,5 +40,29 @@ router.post("/upload", upload.single("file"), async (req, res) => {
   }
 });
 
+// 2. Get Total Unread Messages Count
+router.get("/unread-count", async (req, res) => {
+  try {
+    const userId = req.user?.userId || req.user?._id || req.user?.id;
+    if (!userId) {
+      return apiErrorRes(HTTP_STATUS.UNAUTHORIZED, res, "Unauthorized user");
+    }
+    const count = await getTotalUnreadMessages(userId);
+    return apiSuccessRes(
+      HTTP_STATUS.OK,
+      res,
+      "Unread messages count fetched successfully",
+      { count }
+    );
+  } catch (error) {
+    return apiErrorRes(
+      HTTP_STATUS.INTERNAL_SERVER_ERROR,
+      res,
+      error.message || "Failed to fetch unread messages count",
+      error,
+    );
+  }
+});
 
 module.exports = router;
+
