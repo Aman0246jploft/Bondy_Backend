@@ -220,8 +220,10 @@ const getCourses = async (req, res) => {
     const targetCategory = categoryId || category;
 
     let loginUser = null;
+    let loginUserRole = null;
     if (req.user) {
       loginUser = req.user.userId;
+      loginUserRole = req.user.roleId;
     } else {
       const authHeader = req.headers.authorization;
       if (authHeader && authHeader.startsWith("Bearer ")) {
@@ -229,15 +231,20 @@ const getCourses = async (req, res) => {
           const token = authHeader.split(" ")[1];
           const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY);
           loginUser = decoded.userId;
+          loginUserRole = decoded.roleId;
         } catch (err) { }
       }
     }
 
     let userTimeZone = req.query.timeZone || "UTC";
     if (loginUser) {
-      const u = await User.findById(loginUser).select("timeZone");
-      if (u && u.timeZone) userTimeZone = u.timeZone;
+      const u = await User.findById(loginUser).select("timeZone roleId");
+      if (u) {
+        if (u.timeZone) userTimeZone = u.timeZone;
+        if (u.roleId !== undefined && u.roleId !== null) loginUserRole = u.roleId;
+      }
     }
+    const isOrganizer = !!loginUser && (Number(loginUserRole) === roleId.ORGANIZER || Number(loginUserRole) === 2);
     const userLang = await getUserLanguage(req, loginUser);
     const mappedTz = getMappedTimeZone(userTimeZone);
 
@@ -357,7 +364,9 @@ const getCourses = async (req, res) => {
     }
 
     // CreatedBy filter
-    if (userId && mongoose.Types.ObjectId.isValid(userId)) {
+    if (isOrganizer) {
+      query.createdBy = new mongoose.Types.ObjectId(loginUser);
+    } else if (userId && mongoose.Types.ObjectId.isValid(userId)) {
       query.createdBy = new mongoose.Types.ObjectId(userId);
     } else if (shouldExcludeMyCourses && loginUser && !query.createdBy) {
       query.createdBy = { $ne: new mongoose.Types.ObjectId(loginUser) };
