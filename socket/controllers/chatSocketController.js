@@ -173,6 +173,42 @@ const addDateSeparators = (messages, nextMessageDate = null) => {
 // Helper to get socketId by userId
 const getSocketId = (userId) => onlineUsers.get(userId.toString());
 
+// Helper to calculate total unread messages for a user
+const getTotalUnreadMessages = async (userId) => {
+  try {
+    const chats = await Chat.find({ participants: userId });
+    let total = 0;
+    const uid = userId.toString();
+    for (const chat of chats) {
+      const count = chat.unreadCounts && chat.unreadCounts.get
+        ? chat.unreadCounts.get(uid)
+        : chat.unreadCounts
+          ? chat.unreadCounts[uid]
+          : 0;
+      total += (Number(count) || 0);
+    }
+    return total;
+  } catch (err) {
+    console.error("Error getting total unread messages:", err);
+    return 0;
+  }
+};
+
+const emitUnreadMessageCount = async (io, targetUserId) => {
+  if (!io || !targetUserId) return;
+  try {
+    const targetIdStr = targetUserId.toString();
+    const count = await getTotalUnreadMessages(targetIdStr);
+    io.to(targetIdStr).emit("unread_message_count", { count });
+    const targetSocketId = getSocketId(targetIdStr);
+    if (targetSocketId) {
+      io.to(targetSocketId).emit("unread_message_count", { count });
+    }
+  } catch (err) {
+    console.error("Error emitting unread message count:", err);
+  }
+};
+
 const chatSocketController = (io, socket) => {
   const userObj = socket.user;
   const userId = (userObj.userId || userObj._id || userObj.id).toString();
@@ -187,6 +223,21 @@ const chatSocketController = (io, socket) => {
   io.emit("user_online", { userId });
   // Emit current online users to the new connector
   socket.emit("online_users_list", { userIds: Array.from(onlineUsers.keys()) });
+
+  // Emit initial total unread message count on connection
+  emitUnreadMessageCount(io, userId);
+
+  // Manual request for total unread message count
+  socket.on("get_unread_message_count", async (data, ack) => {
+    try {
+      const count = await getTotalUnreadMessages(userId);
+      const payload = { status: "ok", count };
+      if (typeof ack === "function") ack(payload);
+      else socket.emit("unread_message_count", payload);
+    } catch (err) {
+      if (typeof ack === "function") ack({ status: "error", message: err.message });
+    }
+  });
 
   // 2. Disconnect
   socket.on("disconnect", async () => {
@@ -461,6 +512,7 @@ const chatSocketController = (io, socket) => {
           const formattedChat = formatChatForUser(populatedChat, pIdStr);
           io.to(pSocketId).emit("update_chat_list", formattedChat);
         }
+        emitUnreadMessageCount(io, pIdStr);
       });
 
       // Emit to Room (standard message receive)
@@ -725,6 +777,7 @@ const chatSocketController = (io, socket) => {
 
       chat.unreadCounts.set(userId.toString(), 0);
       await chat.save();
+      emitUnreadMessageCount(io, userId);
 
       const hasMore = messages.length > limit;
       const displayMessages = hasMore ? messages.slice(0, limit) : messages;
@@ -850,6 +903,7 @@ const chatSocketController = (io, socket) => {
       // Reset unread count for this user
       chat.unreadCounts.set(userId, 0);
       await chat.save();
+      emitUnreadMessageCount(io, userId);
 
       // Update messages that aren't read by this user yet
       await Message.updateMany(
@@ -867,4 +921,11 @@ const chatSocketController = (io, socket) => {
   });
 };
 
-module.exports = { chatSocketController, onlineUsers, formatUser, formatChatForUser };
+module.exports = {
+  chatSocketController,
+  onlineUsers,
+  formatUser,
+  formatChatForUser,
+  getTotalUnreadMessages,
+  emitUnreadMessageCount,
+};
