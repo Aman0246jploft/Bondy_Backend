@@ -324,7 +324,7 @@ const getOrganizerStatsSummary = async (organizerId) => {
             $sum: { $cond: [{ $eq: ["$status", "Upcoming"] }, 1, 0] },
           },
           liveEvents: { $sum: { $cond: [{ $eq: ["$status", "Live"] }, 1, 0] } },
-          pastEvents: { $sum: { $cond: [{ $eq: ["$status", "Past"] }, 1, 0] } },
+          pastEvents: { $sum: { $cond: [{ $in: ["$status", ["Past", "Cancelled"]] }, 1, 0] } },
         },
       },
     ]);
@@ -336,6 +336,7 @@ const getOrganizerStatsSummary = async (organizerId) => {
         $group: {
           _id: null,
           totalCourses: { $sum: 1 },
+          pastCourses: { $sum: { $cond: [{ $in: ["$status", ["Past", "Cancelled"]] }, 1, 0] } },
         },
       },
     ]);
@@ -466,7 +467,7 @@ const getOrganizerDashboardData = async (organizerId) => {
                 {
                   $and: [
                     { $eq: ["$isDraft", false] },
-                    { $eq: ["$status", "Past"] },
+                    { $in: ["$status", ["Past", "Cancelled"]] },
                   ],
                 },
                 1,
@@ -553,7 +554,7 @@ const getOrganizerDashboardData = async (organizerId) => {
             $sum: { $cond: [{ $eq: ["$isDraft", true] }, 1, 0] },
           },
           totalCompletedCourses: {
-            $sum: { $cond: [{ $eq: ["$status", "Past"] }, 1, 0] },
+            $sum: { $cond: [{ $in: ["$status", ["Past", "Cancelled"]] }, 1, 0] },
           },
         },
       },
