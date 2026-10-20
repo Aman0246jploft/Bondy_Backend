@@ -500,8 +500,10 @@ const formatEvent = (event, bookedEventIds = new Set(), bookedQty = 0, pendingQt
 const getEvents = async (req, res) => {
   try {
     let loginUser = null;
+    let loginUserRole = null;
     if (req.user) {
       loginUser = req.user.userId;
+      loginUserRole = req.user.roleId;
     } else {
       const authHeader = req.headers.authorization;
       if (authHeader && authHeader.startsWith("Bearer ")) {
@@ -509,15 +511,20 @@ const getEvents = async (req, res) => {
           const token = authHeader.split(" ")[1];
           const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY);
           loginUser = decoded.userId;
+          loginUserRole = decoded.roleId;
         } catch (err) { }
       }
     }
 
     let userTimeZone = req.query.timeZone || "UTC";
     if (loginUser) {
-      const u = await User.findById(loginUser).select("timeZone");
-      if (u && u.timeZone) userTimeZone = u.timeZone;
+      const u = await User.findById(loginUser).select("timeZone roleId");
+      if (u) {
+        if (u.timeZone) userTimeZone = u.timeZone;
+        if (u.roleId !== undefined && u.roleId !== null) loginUserRole = u.roleId;
+      }
     }
+    const isOrganizer = !!loginUser && (Number(loginUserRole) === roleId.ORGANIZER || Number(loginUserRole) === 2);
     const userLang = await getUserLanguage(req, loginUser);
     const mappedTz = getMappedTimeZone(userTimeZone);
 
@@ -627,6 +634,9 @@ const getEvents = async (req, res) => {
     if (isAddToSliderTrueOnlyRequest) {
       const simpleLimit = 10;
       const simpleQuery = { addToSlider: true, isDraft: false };
+      if (isOrganizer) {
+        simpleQuery.createdBy = new mongoose.Types.ObjectId(loginUser);
+      }
 
       const events = await Event.find(simpleQuery)
         .populate("eventCategory")
@@ -792,15 +802,17 @@ const getEvents = async (req, res) => {
     }
 
     // CreatedBy filter
-    if (userId && mongoose.Types.ObjectId.isValid(userId)) {
+    if (isOrganizer) {
+      query.createdBy = new mongoose.Types.ObjectId(loginUser);
+    } else if (userId && mongoose.Types.ObjectId.isValid(userId)) {
       query.createdBy = new mongoose.Types.ObjectId(userId);
     } else if (shouldExcludeMyEvents && loginUser && !query.createdBy) {
       query.createdBy = { $ne: new mongoose.Types.ObjectId(loginUser) };
     }
 
     // Visibility filter
-    // Private events are only shown if the organizer is viewing their own list (filter=organizer)
-    if (!isOrganizerList) {
+    // Private events are only shown if the organizer is viewing their own list (filter=organizer) or user is the organizer
+    if (!isOrganizerList && !isOrganizer) {
       // For all non-organizer requests: show only PUBLIC events
       // Also include events where visibility is not set (null / missing field)
       query.$and = query.$and || [];
