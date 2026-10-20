@@ -7,10 +7,11 @@ const path = require("path");
 const app = express();
 const http = require("http");
 const jwtVerification = require("./middlewares/jwtVerification");
-// require("./cron/eventStatus.cron");
-// require("./cron/courseStatus.cron");
-// require("./cron/bookingCleanup.cron");
+require("./cron/eventStatus.cron");
+require("./cron/courseStatus.cron");
+require("./cron/bookingCleanup.cron");
 require("./cron/cronReferralValidation.js");
+
 
 // const requestLogger = require('./middlewares/requestLogger');
 const server = http.createServer(app);
