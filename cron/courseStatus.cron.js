@@ -3,56 +3,64 @@ const { Course, User } = require("../db");
 const { eventStatus } = require("../utils/Role");
 const moment = require("moment-timezone");
 
-// Run every 10 minutes, similar to eventStatus.cron.js
-cron.schedule("* * * * *", async () => {
+const tzMapping = {
+  EST: "America/New_York",
+  EDT: "America/New_York",
+  CST: "America/Chicago",
+  CDT: "America/Chicago",
+  MST: "America/Denver",
+  MDT: "America/Denver",
+  PST: "America/Los_Angeles",
+  PDT: "America/Los_Angeles",
+  AST: "America/Halifax",
+  ADT: "America/Halifax",
+  HST: "Pacific/Honolulu",
+  AKST: "America/Anchorage",
+  AKDT: "America/Anchorage",
+  GMT: "Europe/London",
+  BST: "Europe/London",
+  CET: "Europe/Paris",
+  CEST: "Europe/Paris",
+  EET: "Europe/Athens",
+  EEST: "Europe/Athens",
+  JST: "Asia/Tokyo",
+  KST: "Asia/Seoul",
+  AEST: "Australia/Sydney",
+  AEDT: "Australia/Sydney",
+  AWST: "Australia/Perth",
+  ACST: "Australia/Adelaide",
+  ACDT: "Australia/Adelaide",
+};
+
+/**
+ * Synchronize course statuses (Upcoming -> Live -> Past)
+ * @param {Object} filter Additional filter (e.g. { createdBy: organizerId })
+ */
+const syncCourseStatuses = async (filter = {}) => {
   try {
     const nowUtc = moment.utc();
+    const query = {
+      status: { $nin: [eventStatus.CANCELLED, eventStatus.PAST] },
+      isDraft: false,
+      ...filter,
+    };
 
-    // Fetch all courses not cancelled
-    const courses = await Course.find({ status: { $nin: [eventStatus.CANCELLED, eventStatus.PAST] }, isDraft: false }).populate("createdBy", "timeZone");
+    const courses = await Course.find(query).populate("createdBy", "timeZone");
+    if (!courses || courses.length === 0) return 0;
 
     const bulkOps = [];
 
-    const tzMapping = {
-      EST: "America/New_York",
-      EDT: "America/New_York",
-      CST: "America/Chicago",
-      CDT: "America/Chicago",
-      MST: "America/Denver",
-      MDT: "America/Denver",
-      PST: "America/Los_Angeles",
-      PDT: "America/Los_Angeles",
-      AST: "America/Halifax",
-      ADT: "America/Halifax",
-      HST: "Pacific/Honolulu",
-      AKST: "America/Anchorage",
-      AKDT: "America/Anchorage",
-      GMT: "Europe/London",
-      BST: "Europe/London",
-      CET: "Europe/Paris",
-      CEST: "Europe/Paris",
-      EET: "Europe/Athens",
-      EEST: "Europe/Athens",
-      JST: "Asia/Tokyo",
-      KST: "Asia/Seoul",
-      AEST: "Australia/Sydney",
-      AEDT: "Australia/Sydney",
-      AWST: "Australia/Perth",
-      ACST: "Australia/Adelaide",
-      ACDT: "Australia/Adelaide",
-    };
-
     for (const course of courses) {
-      const rawTimeZone = course.timeZone || course.createdBy?.timeZone;
+      const rawTimeZone = (course.timeZone && course.timeZone !== "UTC")
+        ? course.timeZone
+        : (course.createdBy?.timeZone || (course.venueAddress?.country === "Монгол" ? "Asia/Ulaanbaatar" : "UTC"));
+
       const targetTimeZone = rawTimeZone && tzMapping[rawTimeZone] ? tzMapping[rawTimeZone] : rawTimeZone;
 
-      let courseStartUtc;
-      let courseEndUtc;
+      let courseStartUtc = null;
+      let courseEndUtc = null;
 
       if (targetTimeZone && moment.tz.zone(targetTimeZone)) {
-        courseStartUtc = null;
-        courseEndUtc = null;
-
         if (course.startDate) {
           const start = new Date(course.startDate);
           if (!isNaN(start.valueOf())) {
@@ -68,32 +76,39 @@ cron.schedule("* * * * *", async () => {
             courseEndUtc = moment.tz(`${endDateStr}T23:59:59`, targetTimeZone).utc();
           }
         }
+      }
 
-        // Fallbacks if dates are invalid
-        if (!courseStartUtc) courseStartUtc = moment.utc(course.startDate);
-        if (!courseEndUtc) courseEndUtc = course.endDate ? moment.utc(course.endDate) : null;
+      if (!courseStartUtc && course.startDate) courseStartUtc = moment.utc(course.startDate);
+      if (!courseEndUtc && course.endDate) courseEndUtc = moment.utc(course.endDate);
 
-      } else {
-        courseStartUtc = moment.utc(course.startDate);
-        courseEndUtc = course.endDate ? moment.utc(course.endDate) : null;
+      // Check batches for Ongoing courses with no explicit course.endDate
+      if (!courseEndUtc && Array.isArray(course.batches) && course.batches.length > 0) {
+        const activeBatchesWithEnd = course.batches.filter((b) => b.status !== "Cancelled" && b.endDate);
+        if (activeBatchesWithEnd.length > 0) {
+          const latestBatchEnd = Math.max(...activeBatchesWithEnd.map((b) => new Date(b.endDate).getTime()));
+          if (latestBatchEnd > 0) {
+            courseEndUtc = moment.utc(latestBatchEnd);
+          }
+        }
       }
 
       let newStatus = course.status;
 
       if (courseEndUtc && nowUtc.isAfter(courseEndUtc)) {
         newStatus = eventStatus.PAST;
-      } else if (nowUtc.isSameOrAfter(courseStartUtc) && (!courseEndUtc || nowUtc.isSameOrBefore(courseEndUtc))) {
+      } else if (courseStartUtc && nowUtc.isSameOrAfter(courseStartUtc) && (!courseEndUtc || nowUtc.isSameOrBefore(courseEndUtc))) {
         newStatus = eventStatus.LIVE;
-      } else if (nowUtc.isBefore(courseStartUtc)) {
+      } else if (courseStartUtc && nowUtc.isBefore(courseStartUtc)) {
         newStatus = eventStatus.UPCOMING;
       }
 
       if (newStatus !== course.status) {
+        course.status = newStatus;
         bulkOps.push({
           updateOne: {
             filter: { _id: course._id },
-            update: { $set: { status: newStatus } }
-          }
+            update: { $set: { status: newStatus } },
+          },
         });
       }
     }
@@ -102,8 +117,24 @@ cron.schedule("* * * * *", async () => {
       await Course.bulkWrite(bulkOps);
     }
 
-    console.log("✅ Course status cron ran successfully");
+    return bulkOps.length;
+  } catch (error) {
+    console.error("❌ Course status sync error:", error);
+    return 0;
+  }
+};
+
+// Run cron every minute
+cron.schedule("* * * * *", async () => {
+  try {
+    const updatedCount = await syncCourseStatuses();
+    if (updatedCount > 0) {
+      console.log(`✅ Course status cron updated ${updatedCount} courses`);
+    }
   } catch (error) {
     console.error("❌ Course status cron job error:", error);
   }
 });
+
+module.exports = { syncCourseStatuses, tzMapping };
+
