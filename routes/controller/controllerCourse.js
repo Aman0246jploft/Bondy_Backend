@@ -1123,6 +1123,7 @@ const getCourses = async (req, res) => {
       } catch (err) { }
     }
 
+    const courseIds = courses.map((c) => c._id);
     const cancelledCourseIds = courses
       .filter((c) => String(c.status || "").toLowerCase() === "cancelled")
       .map((c) => c._id);
@@ -1560,6 +1561,7 @@ const getCoursesAdmin = async (req, res) => {
       .sort({ createdAt: -1 }) // Newest first
       .lean();
 
+    const courseIds = courses.map((c) => c._id);
     const cancelledCourseIds = courses
       .filter((c) => String(c.status || "").toLowerCase() === "cancelled")
       .map((c) => c._id);
