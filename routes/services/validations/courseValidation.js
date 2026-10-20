@@ -20,13 +20,26 @@ const batchSchema = Joi.object({
 
 const createCourseSchema = Joi.object({
     isDraft: Joi.boolean().optional(),
-    courseTitle: Joi.string().when('isDraft', {
+    courseTitle: Joi.string().trim().min(3).when('isDraft', {
         is: true,
-        then: Joi.optional(),
+        then: Joi.optional().allow("", null),
         otherwise: Joi.required(),
+    }).messages({
+        'string.min': 'The field must contain a minimum of 3 characters.',
+        'string.empty': 'Course title is required',
+        'any.required': 'Course title is required',
     }),
     shortdesc: Joi.string().optional().allow(null, ""),
-    longdesc: Joi.string().optional().allow(null, ""),
+    longdesc: Joi.string().trim().min(40).max(800).when('isDraft', {
+        is: true,
+        then: Joi.optional().allow(null, ""),
+        otherwise: Joi.required(),
+    }).messages({
+        'string.min': 'The field must contain a minimum of 40 characters and a maximum of 800 characters.',
+        'string.max': 'The field must contain a minimum of 40 characters and a maximum of 800 characters.',
+        'string.empty': 'Detailed description is required',
+        'any.required': 'Detailed description is required',
+    }),
     whatYouWillLearn: Joi.string().optional().allow(null, ""),
     courseCategory: Joi.string().hex().length(24).when('isDraft', {
         is: true,
@@ -153,9 +166,14 @@ const updateCourseParamsSchema = Joi.object({
 
 const updateCourseSchema = Joi.object({
     isDraft: Joi.boolean().optional(),
-    courseTitle: Joi.string().optional(),
+    courseTitle: Joi.string().trim().min(3).optional().messages({
+        'string.min': 'The field must contain a minimum of 3 characters.',
+    }),
     shortdesc: Joi.string().optional().allow(null, ""),
-    longdesc: Joi.string().optional().allow(null, ""),
+    longdesc: Joi.string().trim().min(40).max(800).optional().allow(null, "").messages({
+        'string.min': 'The field must contain a minimum of 40 characters and a maximum of 800 characters.',
+        'string.max': 'The field must contain a minimum of 40 characters and a maximum of 800 characters.',
+    }),
     whatYouWillLearn: Joi.string().optional().allow(null, ""),
     courseCategory: Joi.string().hex().length(24).optional().allow(null, ""),
     posterImage: Joi.array().items(Joi.string().allow('', null)).optional(),
