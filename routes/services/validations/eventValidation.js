@@ -77,9 +77,13 @@ const ticketSchema = Joi.object({
 const createEventSchema = Joi.object({
     id: Joi.string().hex().length(24).optional(),
     isDraft: Joi.boolean().optional(),
-    eventTitle: Joi.string().when(Joi.object({ isDraft: true, id: Joi.not().exist() }).unknown(), {
-        then: Joi.optional(),
+    eventTitle: Joi.string().trim().min(3).when(Joi.object({ isDraft: true, id: Joi.not().exist() }).unknown(), {
+        then: Joi.optional().allow("", null),
         otherwise: Joi.required(),
+    }).messages({
+        'string.min': 'The field must contain a minimum of 3 characters.',
+        'string.empty': 'Event title is required',
+        'any.required': 'Event title is required',
     }),
     eventCategory: Joi.string().when(Joi.object({ isDraft: true, id: Joi.not().exist() }).unknown(), {
         then: Joi.optional(),
@@ -192,7 +196,9 @@ const getEventDetailsSchema = Joi.object({
 });
 
 const updateEventSchema = Joi.object({
-    eventTitle: Joi.string().optional(),
+    eventTitle: Joi.string().trim().min(3).optional().messages({
+        'string.min': 'The field must contain a minimum of 3 characters.',
+    }),
     eventCategory: Joi.string().hex().length(24).optional(),
     posterImage: Joi.array().items(Joi.string().allow('', null)).optional(),
     shortdesc: Joi.string().optional().allow(null, ""),

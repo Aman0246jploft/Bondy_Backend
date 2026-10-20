@@ -20,10 +20,14 @@ const batchSchema = Joi.object({
 
 const createCourseSchema = Joi.object({
     isDraft: Joi.boolean().optional(),
-    courseTitle: Joi.string().when('isDraft', {
+    courseTitle: Joi.string().trim().min(3).when('isDraft', {
         is: true,
-        then: Joi.optional(),
+        then: Joi.optional().allow("", null),
         otherwise: Joi.required(),
+    }).messages({
+        'string.min': 'The field must contain a minimum of 3 characters.',
+        'string.empty': 'Course title is required',
+        'any.required': 'Course title is required',
     }),
     shortdesc: Joi.string().optional().allow(null, ""),
     longdesc: Joi.string().optional().allow(null, ""),
@@ -153,7 +157,9 @@ const updateCourseParamsSchema = Joi.object({
 
 const updateCourseSchema = Joi.object({
     isDraft: Joi.boolean().optional(),
-    courseTitle: Joi.string().optional(),
+    courseTitle: Joi.string().trim().min(3).optional().messages({
+        'string.min': 'The field must contain a minimum of 3 characters.',
+    }),
     shortdesc: Joi.string().optional().allow(null, ""),
     longdesc: Joi.string().optional().allow(null, ""),
     whatYouWillLearn: Joi.string().optional().allow(null, ""),
