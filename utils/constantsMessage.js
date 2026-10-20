@@ -537,4 +537,9 @@ module.exports = Object.freeze({
   BANK_UPDATED_SUCCESSFULLY: "Bank updated successfully.",
   BANK_DELETED_SUCCESSFULLY: "Bank deleted successfully.",
   ACTIVE_BANKS_FETCHED_SUCCESSFULLY: "Active banks fetched successfully.",
+  NAME_ONLY_LETTERS: "Name can only contain letters",
+  FIRST_NAME_ONLY_LETTERS: "First name can only contain letters",
+  LAST_NAME_ONLY_LETTERS: "Last name can only contain letters",
+  SURNAME_ONLY_LETTERS: "Surname can only contain letters",
+  FULL_NAME_ONLY_LETTERS: "Full name can only contain letters",
 });

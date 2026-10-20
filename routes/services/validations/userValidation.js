@@ -1,10 +1,40 @@
 const Joi = require("joi");
 
+const NAME_REGEX = /^(?=.*[a-zA-Z\u0400-\u04FF])[a-zA-Z\u0400-\u04FF\s'-]+$/;
+
 const customerSignupSchema = Joi.object({
-  firstName: Joi.string().trim().optional().allow("", null),
-  lastName: Joi.string().trim().optional().allow("", null),
-  name: Joi.string().trim().optional().allow("", null),
-  surname: Joi.string().trim().optional().allow("", null),
+  firstName: Joi.string()
+    .trim()
+    .pattern(NAME_REGEX)
+    .optional()
+    .allow("", null)
+    .messages({
+      "string.pattern.base": "Name can only contain letters",
+    }),
+  lastName: Joi.string()
+    .trim()
+    .pattern(NAME_REGEX)
+    .optional()
+    .allow("", null)
+    .messages({
+      "string.pattern.base": "Surname can only contain letters",
+    }),
+  name: Joi.string()
+    .trim()
+    .pattern(NAME_REGEX)
+    .optional()
+    .allow("", null)
+    .messages({
+      "string.pattern.base": "Name can only contain letters",
+    }),
+  surname: Joi.string()
+    .trim()
+    .pattern(NAME_REGEX)
+    .optional()
+    .allow("", null)
+    .messages({
+      "string.pattern.base": "Surname can only contain letters",
+    }),
   email: Joi.string().email().required(),
   countryCode: Joi.string().required(),
   contactNumber: Joi.string().required(),
@@ -16,7 +46,13 @@ const customerSignupSchema = Joi.object({
 });
 
 const organizerSignupSchema = Joi.object({
-  fullname: Joi.string().required(),
+  fullname: Joi.string()
+    .trim()
+    .pattern(NAME_REGEX)
+    .required()
+    .messages({
+      "string.pattern.base": "Full name can only contain letters",
+    }),
   email: Joi.string().email().required(),
   countryCode: Joi.string().required(),
   contactNumber: Joi.string().required(),
@@ -84,8 +120,22 @@ const resendOtpSchema = Joi.object({
 });
 
 const updateUserSchema = Joi.object({
-  firstName: Joi.string().trim().optional().allow(null, ""),
-  lastName: Joi.string().trim().optional().allow(null, ""),
+  firstName: Joi.string()
+    .trim()
+    .pattern(NAME_REGEX)
+    .optional()
+    .allow(null, "")
+    .messages({
+      "string.pattern.base": "Name can only contain letters",
+    }),
+  lastName: Joi.string()
+    .trim()
+    .pattern(NAME_REGEX)
+    .optional()
+    .allow(null, "")
+    .messages({
+      "string.pattern.base": "Surname can only contain letters",
+    }),
   profileImage: Joi.string().optional().allow(null, ""),
   backgroundImage: Joi.string().optional().allow(null, ""),
   gender: Joi.string().optional().allow("", null),
@@ -150,14 +200,30 @@ const changePasswordSchema = Joi.object({
 });
 
 const addStaffSchema = Joi.object({
-  fullname: Joi.string().trim().min(1).max(80).required(),
+  fullname: Joi.string()
+    .trim()
+    .min(1)
+    .max(80)
+    .pattern(NAME_REGEX)
+    .required()
+    .messages({
+      "string.pattern.base": "Full name can only contain letters",
+    }),
   email: Joi.string().trim().email().max(120).required(),
   password: Joi.string().min(8).max(64).required(),
   profilePhoto: Joi.string().max(2048).optional().allow("", null),
 });
 
 const editStaffSchema = Joi.object({
-  fullname: Joi.string().trim().min(1).max(80).optional(),
+  fullname: Joi.string()
+    .trim()
+    .min(1)
+    .max(80)
+    .pattern(NAME_REGEX)
+    .optional()
+    .messages({
+      "string.pattern.base": "Full name can only contain letters",
+    }),
   email: Joi.string().trim().email().max(120).optional(),
   password: Joi.string().min(8).max(64).optional().allow("", null),
   profilePhoto: Joi.string().max(2048).optional().allow("", null),
@@ -191,4 +257,5 @@ module.exports = {
   organizerInfoSchema,
   adminVerifyOrganizerSchema,
   updateTimezoneSchema,
+  NAME_REGEX,
 };

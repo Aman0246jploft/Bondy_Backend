@@ -45,6 +45,7 @@ const {
   organizerInfoSchema,
   adminVerifyOrganizerSchema,
   updateTimezoneSchema,
+  NAME_REGEX,
 } = require("../services/validations/userValidation");
 const validateRequest = require("../../middlewares/validateRequest");
 const perApiLimiter = require("../../middlewares/rateLimiter");
@@ -68,7 +69,25 @@ const getRewardAmount = async () => {
 // Customer Signup - Step 1: Init
 const customerSignupInit = async (req, res) => {
   try {
-    const { email, contactNumber, countryCode } = req.body;
+    const { email, contactNumber, countryCode, firstName, lastName, name, surname } = req.body;
+
+    const nameToCheck = (firstName || name || "").trim();
+    if (nameToCheck && !NAME_REGEX.test(nameToCheck)) {
+      return apiErrorRes(
+        HTTP_STATUS.BAD_REQUEST,
+        res,
+        constantsMessage.NAME_ONLY_LETTERS,
+      );
+    }
+
+    const surnameToCheck = (lastName || surname || "").trim();
+    if (surnameToCheck && !NAME_REGEX.test(surnameToCheck)) {
+      return apiErrorRes(
+        HTTP_STATUS.BAD_REQUEST,
+        res,
+        constantsMessage.SURNAME_ONLY_LETTERS,
+      );
+    }
 
     // Check if email already exists
     const existingEmail = await User.findOne({ email, isDeleted: false });
@@ -281,7 +300,16 @@ const customerSignupVerify = async (req, res) => {
 // Organizer Signup - Step 1: Init
 const organizerSignupInit = async (req, res) => {
   try {
-    const { email } = req.body;
+    const { email, fullname } = req.body;
+
+    const fullnameToCheck = (fullname || "").trim();
+    if (fullnameToCheck && !NAME_REGEX.test(fullnameToCheck)) {
+      return apiErrorRes(
+        HTTP_STATUS.BAD_REQUEST,
+        res,
+        constantsMessage.FULL_NAME_ONLY_LETTERS,
+      );
+    }
 
     // Check if email already exists
     const existingEmail = await User.findOne({ email, isDeleted: false });
@@ -1525,6 +1553,22 @@ const updateUserProfile = async (req, res) => {
     }
 
     const { email, contactNumber, countryCode, location, ...updateData } = req.body;
+
+    if (updateData.firstName && !NAME_REGEX.test(String(updateData.firstName).trim())) {
+      return apiErrorRes(
+        HTTP_STATUS.BAD_REQUEST,
+        res,
+        constantsMessage.NAME_ONLY_LETTERS,
+      );
+    }
+
+    if (updateData.lastName && !NAME_REGEX.test(String(updateData.lastName).trim())) {
+      return apiErrorRes(
+        HTTP_STATUS.BAD_REQUEST,
+        res,
+        constantsMessage.SURNAME_ONLY_LETTERS,
+      );
+    }
 
     // Check if email already exists (if email is being updated)
     if (email) {
