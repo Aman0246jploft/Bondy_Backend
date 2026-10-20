@@ -129,6 +129,20 @@ const createEvent = async (req, res) => {
       eventData.accessAndPrivacy = (visibilityVal === "PUBLIC");
     }
 
+    // Normalize ageRestriction
+    if (eventData.ageRestriction !== undefined) {
+      const arStr = String(eventData.ageRestriction).toUpperCase().trim();
+      if (arStr === "ALL" || arStr === "ALL+" || arStr === "ALL AGES") {
+        eventData.ageRestriction = "ALL";
+      } else if (arStr.includes("21")) {
+        eventData.ageRestriction = "21+";
+      } else if (arStr.includes("18")) {
+        eventData.ageRestriction = "18+";
+      } else {
+        eventData.ageRestriction = "ALL";
+      }
+    }
+
     let event;
     let isDraftValue = isDraftBody === true || isDraftBody === "true";
 
@@ -2843,6 +2857,18 @@ const updateEvent = async (req, res) => {
         updateData.refundPolicy = null;
       } else {
         updateData.refundPolicy = normalizeRefundPolicyToEnglish(updateData.refundPolicy);
+      }
+    }
+    if (updateData.ageRestriction !== undefined && typeof updateData.ageRestriction === "string") {
+      const arStr = String(updateData.ageRestriction).toUpperCase().trim();
+      if (arStr === "ALL" || arStr === "ALL+" || arStr === "ALL AGES") {
+        updateData.ageRestriction = "ALL";
+      } else if (arStr.includes("21")) {
+        updateData.ageRestriction = "21+";
+      } else if (arStr.includes("18")) {
+        updateData.ageRestriction = "18+";
+      } else {
+        updateData.ageRestriction = "ALL";
       }
     }
     // 1. Check if event exists
