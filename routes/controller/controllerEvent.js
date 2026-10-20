@@ -117,6 +117,18 @@ const createEvent = async (req, res) => {
       }
     }
 
+    // Normalize visibility and accessAndPrivacy
+    let visibilityVal = undefined;
+    if (req.body.visibility !== undefined) {
+      visibilityVal = String(req.body.visibility).toUpperCase() === "PRIVATE" ? "PRIVATE" : "PUBLIC";
+    } else if (req.body.accessAndPrivacy !== undefined) {
+      visibilityVal = (req.body.accessAndPrivacy === true || req.body.accessAndPrivacy === "true") ? "PUBLIC" : "PRIVATE";
+    }
+    if (visibilityVal !== undefined) {
+      eventData.visibility = visibilityVal;
+      eventData.accessAndPrivacy = (visibilityVal === "PUBLIC");
+    }
+
     let event;
     let isDraftValue = isDraftBody === true || isDraftBody === "true";
 
@@ -376,6 +388,12 @@ const checkFewSeatsAvailable = (available, total, percent = 10) => {
   return available <= (percent / 100) * total;
 };
 const formatEvent = (event, bookedEventIds = new Set(), bookedQty = 0, pendingQty = 0, userTimeZone = null, placement = null, language = "English") => {
+  if (event.accessAndPrivacy === undefined) {
+    event.accessAndPrivacy = event.visibility !== "PRIVATE";
+  }
+  if (!event.visibility) {
+    event.visibility = event.accessAndPrivacy === false ? "PRIVATE" : "PUBLIC";
+  }
   if (event.refundPolicy) {
     event.refundPolicy = translateRefundPolicy(event.refundPolicy, language);
   }
@@ -643,6 +661,9 @@ const getEvents = async (req, res) => {
       const simpleQuery = { addToSlider: true, isDraft: false };
       if (isOrganizer) {
         simpleQuery.createdBy = new mongoose.Types.ObjectId(loginUser);
+      } else {
+        simpleQuery.visibility = { $ne: "PRIVATE" };
+        simpleQuery.accessAndPrivacy = { $ne: false };
       }
 
       const events = await Event.find(simpleQuery)
@@ -848,14 +869,10 @@ const getEvents = async (req, res) => {
     // Private events are only shown if the organizer is viewing their own list (filter=organizer) or user is the organizer
     if (!isOrganizerList && !isOrganizer) {
       // For all non-organizer requests: show only PUBLIC events
-      // Also include events where visibility is not set (null / missing field)
       query.$and = query.$and || [];
       query.$and.push({
-        $or: [
-          { visibility: "PUBLIC" },
-          { visibility: { $exists: false } },
-          { visibility: null },
-        ],
+        visibility: { $ne: "PRIVATE" },
+        accessAndPrivacy: { $ne: false },
       });
     }
 
@@ -1542,7 +1559,11 @@ const getEvents = async (req, res) => {
             events = homePageEvents.slice(parseInt(skip), parseInt(skip) + parseInt(limit));
           } else {
             // Fallback: Event collection where addToSlider === true
-            const sliderQuery = { addToSlider: true, isDraft: false };
+            const sliderQuery = {
+              addToSlider: true,
+              isDraft: false,
+              ...(!isOrganizerList && !isOrganizer ? { visibility: { $ne: "PRIVATE" }, accessAndPrivacy: { $ne: false } } : {}),
+            };
             const sliderSortOrder =
               filters.includes("latest") || filters.includes("newest")
                 ? { createdAt: -1 }
@@ -1760,6 +1781,8 @@ const getTopEvents = async (req, res) => {
     const query = {
       isFeatured: true,
       isDraft: false,
+      visibility: { $ne: "PRIVATE" },
+      accessAndPrivacy: { $ne: false },
       // endDate: { $gte: now },
     };
 
@@ -2047,6 +2070,8 @@ const getEventDetails = async (req, res) => {
             isDraft: false,
             endDate: { $gte: now },
             status: { $in: [eventStatus.LIVE, eventStatus.UPCOMING] },
+            visibility: { $ne: "PRIVATE" },
+            accessAndPrivacy: { $ne: false },
             ...(loggedInUserId ? { createdBy: { $ne: loggedInUserId } } : {}),
           })
             .populate("eventCategory")
@@ -2218,6 +2243,13 @@ const getEventDetails = async (req, res) => {
       event.refundPolicy = translateRefundPolicy(event.refundPolicy, userLang);
     }
     const similarEvents = (rawSimilarEvents || []).map(e => formatEvent(e, new Set(), 0, 0, userTimeZone, null, userLang));
+
+    if (event.accessAndPrivacy === undefined) {
+      event.accessAndPrivacy = event.visibility !== "PRIVATE";
+    }
+    if (!event.visibility) {
+      event.visibility = event.accessAndPrivacy === false ? "PRIVATE" : "PUBLIC";
+    }
 
     return apiSuccessRes(
       HTTP_STATUS.OK,
@@ -3151,6 +3183,16 @@ const updateEvent = async (req, res) => {
         existingEvent[field] = updateData[field];
       }
     });
+
+    if (updateData.visibility !== undefined) {
+      const vis = String(updateData.visibility).toUpperCase() === "PRIVATE" ? "PRIVATE" : "PUBLIC";
+      existingEvent.visibility = vis;
+      existingEvent.accessAndPrivacy = (vis === "PUBLIC");
+    } else if (updateData.accessAndPrivacy !== undefined) {
+      const isPublic = updateData.accessAndPrivacy === true || updateData.accessAndPrivacy === "true";
+      existingEvent.accessAndPrivacy = isPublic;
+      existingEvent.visibility = isPublic ? "PUBLIC" : "PRIVATE";
+    }
 
     // 9. Transform venueAddress to GeoJSON if provided
     if (updateData.venueAddress) {

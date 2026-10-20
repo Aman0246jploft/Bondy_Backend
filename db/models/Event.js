@@ -77,6 +77,11 @@ const eventSchema = new mongoose.Schema(
       default: visibility.PUBLIC,
     },
 
+    accessAndPrivacy: {
+      type: Boolean,
+      default: true,
+    },
+
     ageRestriction: {
       type: mongoose.Schema.Types.Mixed,
       default: ageRestriction.ALL,

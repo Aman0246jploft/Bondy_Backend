@@ -1103,6 +1103,7 @@ const getFormattedProfileData = async (userId, viewerId = null) => {
       status: { $in: ["Upcoming", "Live"] },
       isDraft: false,
       isDeleted: { $ne: true },
+      ...(!isMyProfile ? { visibility: { $ne: "PRIVATE" }, accessAndPrivacy: { $ne: false } } : {}),
     });
     profileData.totalUpcomingEvents = totalUpcomingEvents + totalUpcomingCourses;
 
@@ -1191,12 +1192,17 @@ const getFormattedProfileData = async (userId, viewerId = null) => {
     const now = new Date();
 
     // -- EVENTS --
+    const eventVisibilityFilter = isMyProfile
+      ? {}
+      : { visibility: { $ne: "PRIVATE" }, accessAndPrivacy: { $ne: false } };
+
     const nextEventsQuery = Event.find({
       createdBy: userId,
       endDate: { $gte: now },
       isDraft: false,
       isDeleted: { $ne: true },
       status: { $ne: "Cancelled" },
+      ...eventVisibilityFilter,
     })
       .populate("eventCategory", "name")
       .sort({ startDate: 1 }) // Soonest first
@@ -1209,6 +1215,7 @@ const getFormattedProfileData = async (userId, viewerId = null) => {
       isDraft: false,
       isDeleted: { $ne: true },
       status: { $ne: "Cancelled" },
+      ...eventVisibilityFilter,
     })
       .populate("eventCategory", "name")
       .sort({ startDate: -1 }) // Most recent past first

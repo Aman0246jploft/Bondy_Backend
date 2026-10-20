@@ -213,7 +213,9 @@ const searchExplore = async (req, res) => {
     // Build event query
     let eventQuery = {
       isDraft: false,
-      status: { $in: ["Upcoming", "Live"] }
+      status: { $in: ["Upcoming", "Live"] },
+      visibility: { $ne: "PRIVATE" },
+      accessAndPrivacy: { $ne: false },
     };
 
     if (hasCategory) {
@@ -442,6 +444,8 @@ const getTrendingSearches = async (req, res) => {
       const matchedEvents = await Event.find({
         isDraft: false,
         status: { $in: ["Upcoming", "Live"] },
+        visibility: { $ne: "PRIVATE" },
+        accessAndPrivacy: { $ne: false },
         eventTitle: { $regex: regex }
       }).select("_id eventTitle posterImage startDate endDate startTime endTime timeZone").lean();
 
@@ -532,6 +536,8 @@ const getTrendingSearches = async (req, res) => {
       const fallbackEvents = await Event.find({
         isDraft: false,
         status: { $in: ["Upcoming", "Live"] },
+        visibility: { $ne: "PRIVATE" },
+        accessAndPrivacy: { $ne: false },
         _id: { $nin: Array.from(seenItemIds).map(id => new mongoose.Types.ObjectId(id)) }
       }).select("_id eventTitle posterImage startDate endDate startTime endTime timeZone").limit(remainingCount).lean();
 
