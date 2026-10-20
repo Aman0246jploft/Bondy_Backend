@@ -566,12 +566,20 @@ const uploadDocument = async (req, res) => {
     const uploadPromises = req.files.map((file) => storeImage(file, userId));
     const filePaths = await Promise.all(uploadPromises);
 
+    // Format full URLs (e.g. https://api.bondy.mn/uploads/...)
+    const fullUrls = filePaths.map((fp) => formatResponseUrl(fp, req));
+
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
       constantsMessage.FILES_UPLOADED_SUCCESS,
       {
-        files: filePaths,
+        files: fullUrls,
+        file: fullUrls[0],
+        url: fullUrls[0],
+        fileUrl: fullUrls[0],
+        filePath: fullUrls[0],
+        relativeFiles: filePaths,
       },
     );
   } catch (error) {

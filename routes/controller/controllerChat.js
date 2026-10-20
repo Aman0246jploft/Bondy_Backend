@@ -23,7 +23,9 @@ router.post("/upload", upload.single("file"), async (req, res) => {
       );
     }
     // Construct public URL - adjust based on your set up (local vs cloudinary)
-    const baseUrl = process.env.BACKEND_URL || process.env.BASE_URL;
+    const proto = req.headers["x-forwarded-proto"] || req.protocol || "https";
+    const host = req.headers["x-forwarded-host"] || (typeof req.get === "function" ? req.get("host") : null);
+    const baseUrl = host ? `${proto}://${host}` : (process.env.BACKEND_URL || process.env.BASE_URL || "").replace(/\/+$/, "");
     const fileUrl = `${baseUrl}/uploads/${req.file.filename}`;
 
     return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.FILE_UPLOADED, {
