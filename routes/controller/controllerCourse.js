@@ -1219,7 +1219,7 @@ const getCourses = async (req, res) => {
           count: { $sum: "$qty" }
         }
       }
-    ]);
+    ]) : [];
 
     const slotBookingMap = {};
     slotBookings.forEach(sb => {
