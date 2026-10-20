@@ -244,12 +244,22 @@ const isValidUrl = (url) => {
   }
 };
 
-const formatResponseUrl = (url) => {
+const formatResponseUrl = (url, req = null) => {
   if (!url) return url;
 
   if (isValidUrl(url)) return url;
 
-  return `${process.env.BACKEND_URL}/${url.replace(/^\/+/, "")}`;
+  let base = "";
+  if (req) {
+    const proto = req.headers?.["x-forwarded-proto"] || req.protocol || "https";
+    const host = req.headers?.["x-forwarded-host"] || (typeof req.get === "function" ? req.get("host") : null);
+    if (host) base = `${proto}://${host}`;
+  }
+  if (!base) {
+    base = (process.env.BACKEND_URL || "").replace(/\/+$/, "");
+  }
+
+  return base ? `${base}/${url.replace(/^\/+/, "")}` : url;
 };
 
 /**
