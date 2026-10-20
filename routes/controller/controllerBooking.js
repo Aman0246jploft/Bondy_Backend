@@ -4252,7 +4252,12 @@ const getEventAttendeeStats = async (req, res) => {
       return apiErrorRes(HTTP_STATUS.FORBIDDEN, res, constantsMessage.YOU_DONT_HAVE_PERMISSION_TO_VIEW_THIS_EV_1);
     }
 
-    const transactions = await Transaction.find({ eventId: event._id, status: "PAID" })
+    const isCancelled = String(event.status || "").toLowerCase() === "cancelled";
+    const transactions = await Transaction.find({
+      eventId: event._id,
+      status: isCancelled ? { $in: ["PAID", "REFUNDED"] } : "PAID",
+      bookingType: "EVENT",
+    })
       .populate("userId", "firstName lastName email roleId")
       .sort({ createdAt: -1 });
 

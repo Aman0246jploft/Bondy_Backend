@@ -474,6 +474,8 @@ const formatEvent = (event, bookedEventIds = new Set(), bookedQty = 0, pendingQt
   }
   event.duration = duration;
 
+  const isCancelled = String(event.status || "").toLowerCase() === "cancelled";
+
   // Calculate ticket statistics from the tickets array
   const totalTickets = Array.isArray(event.tickets)
     ? event.tickets.reduce((acc, t) => acc + (t.qty || 0), 0)
@@ -485,7 +487,9 @@ const formatEvent = (event, bookedEventIds = new Set(), bookedQty = 0, pendingQt
   event.totalacquirewithreserver = bookedQty + (event.ReservedExternally || 0);
   event.totalPendingTicket = pendingQty;
 
-  const leftSeats = Math.max(0, totalTickets - bookedQty - (event.ReservedExternally || 0));
+  const leftSeats = isCancelled
+    ? 0
+    : Math.max(0, totalTickets - bookedQty - (event.ReservedExternally || 0));
   event.leftSeats = leftSeats;
   event.ticketQtyAvailable = leftSeats;
   event.acquiredSeats = bookedQty;
@@ -663,11 +667,36 @@ const getEvents = async (req, res) => {
       const bookedMap = new Map();
       const pendingMap = new Map();
       if (events.length > 0) {
-        const bookingsObj = await Transaction.aggregate([
-          { $match: { eventId: { $in: events.map((e) => e._id) }, status: "PAID", bookingType: "EVENT" } },
-          { $group: { _id: "$eventId", bookedQty: { $sum: "$qty" } } },
-        ]);
-        bookingsObj.forEach((b) => bookedMap.set(b._id.toString(), b.bookedQty));
+        const cancelledEventIds = events
+          .filter((e) => String(e.status || "").toLowerCase() === "cancelled")
+          .map((e) => e._id);
+        const activeEventIds = events
+          .filter((e) => String(e.status || "").toLowerCase() !== "cancelled")
+          .map((e) => e._id);
+
+        const matchCriteria = [];
+        if (activeEventIds.length > 0) {
+          matchCriteria.push({
+            eventId: { $in: activeEventIds },
+            status: "PAID",
+            bookingType: "EVENT",
+          });
+        }
+        if (cancelledEventIds.length > 0) {
+          matchCriteria.push({
+            eventId: { $in: cancelledEventIds },
+            status: { $in: ["PAID", "REFUNDED"] },
+            bookingType: "EVENT",
+          });
+        }
+
+        if (matchCriteria.length > 0) {
+          const bookingsObj = await Transaction.aggregate([
+            { $match: { $or: matchCriteria } },
+            { $group: { _id: "$eventId", bookedQty: { $sum: "$qty" } } },
+          ]);
+          bookingsObj.forEach((b) => bookedMap.set(b._id.toString(), b.bookedQty));
+        }
 
         const pendingObj = await Transaction.aggregate([
           { $match: { eventId: { $in: events.map((e) => e._id) }, status: "PENDING", bookingType: "EVENT" } },
@@ -1649,21 +1678,45 @@ const getEvents = async (req, res) => {
     const pendingMap = new Map();
     const revenueMap = new Map();
     if (events.length > 0) {
-      const bookingsObj = await Transaction.aggregate([
-        { $match: { eventId: { $in: events.map((e) => e._id) }, status: "PAID", bookingType: "EVENT" } },
-        {
-          $group: {
-            _id: "$eventId",
-            bookedQty: { $sum: "$qty" },
-            totalRevenue: { $sum: "$totalAmount" }
-          }
-        },
+      const cancelledEventIds = events
+        .filter((e) => String(e.status || "").toLowerCase() === "cancelled")
+        .map((e) => e._id);
+      const activeEventIds = events
+        .filter((e) => String(e.status || "").toLowerCase() !== "cancelled")
+        .map((e) => e._id);
 
-      ]);
-      bookingsObj.forEach((b) => {
-        bookedMap.set(b._id.toString(), b.bookedQty);
-        revenueMap.set(b._id.toString(), b.totalRevenue || 0);
-      });
+      const matchCriteria = [];
+      if (activeEventIds.length > 0) {
+        matchCriteria.push({
+          eventId: { $in: activeEventIds },
+          status: "PAID",
+          bookingType: "EVENT",
+        });
+      }
+      if (cancelledEventIds.length > 0) {
+        matchCriteria.push({
+          eventId: { $in: cancelledEventIds },
+          status: { $in: ["PAID", "REFUNDED"] },
+          bookingType: "EVENT",
+        });
+      }
+
+      if (matchCriteria.length > 0) {
+        const bookingsObj = await Transaction.aggregate([
+          { $match: { $or: matchCriteria } },
+          {
+            $group: {
+              _id: "$eventId",
+              bookedQty: { $sum: "$qty" },
+              totalRevenue: { $sum: "$totalAmount" },
+            },
+          },
+        ]);
+        bookingsObj.forEach((b) => {
+          bookedMap.set(b._id.toString(), b.bookedQty);
+          revenueMap.set(b._id.toString(), b.totalRevenue || 0);
+        });
+      }
 
       const pendingObj = await Transaction.aggregate([
         { $match: { eventId: { $in: events.map((e) => e._id) }, status: "PENDING", bookingType: "EVENT" } },
@@ -1914,6 +1967,9 @@ const getEventDetails = async (req, res) => {
     event.durationTranslation = durationTranslation;
 
     // 3. Parallel Fetch for Related Data
+    const isCancelled = String(event.status || "").toLowerCase() === "cancelled";
+    const bookingStatusFilter = isCancelled ? { $in: ["PAID", "REFUNDED"] } : "PAID";
+
     const [reviews, comments, totalAttendeesAgg, recentTransactions, ticketSalesAgg, rawSimilarEvents] =
       await Promise.all([
         // Top 5 Reviews
@@ -1930,12 +1986,12 @@ const getEventDetails = async (req, res) => {
           .populate("user", "firstName lastName profileImage isVerified")
           .lean(),
 
-        // Total Attendees Count (Sum of qty from PAID event transactions)
+        // Total Attendees Count (Sum of qty from PAID or REFUNDED if cancelled event transactions)
         Transaction.aggregate([
           {
             $match: {
               eventId: new mongoose.Types.ObjectId(eventId),
-              status: "PAID",
+              status: bookingStatusFilter,
               bookingType: "EVENT",
             },
           },
@@ -1951,7 +2007,7 @@ const getEventDetails = async (req, res) => {
         // Recent Bookers (Transactions) - fetch enough to get 5 unique users
         Transaction.find({
           eventId: eventId,
-          status: "PAID",
+          status: bookingStatusFilter,
           bookingType: "EVENT",
         })
           .sort({ createdAt: -1 })
@@ -1964,7 +2020,7 @@ const getEventDetails = async (req, res) => {
           {
             $match: {
               eventId: new mongoose.Types.ObjectId(eventId),
-              status: "PAID",
+              status: bookingStatusFilter,
               bookingType: "EVENT"
             }
           },
@@ -2043,7 +2099,7 @@ const getEventDetails = async (req, res) => {
 
     const reservedExternally = event.ReservedExternally || 0;
     // const availableSeats = Math.max(0, totalTicketCount - totalAttendees - reservedExternally);
-    const availableSeats = Math.max(0, totalTicketCount - totalAttendees);
+    const availableSeats = isCancelled ? 0 : Math.max(0, totalTicketCount - totalAttendees);
 
     event.totalTickets = totalTicketCount;
     event.totalSeats = totalTicketCount;

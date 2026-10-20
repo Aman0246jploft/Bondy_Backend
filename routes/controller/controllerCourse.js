@@ -1123,9 +1123,31 @@ const getCourses = async (req, res) => {
       } catch (err) { }
     }
 
-    const courseIds = courses.map((c) => c._id);
-    const bookingCounts = await Transaction.aggregate([
-      { $match: { courseId: { $in: courseIds }, status: "PAID", bookingType: "COURSE" } },
+    const cancelledCourseIds = courses
+      .filter((c) => String(c.status || "").toLowerCase() === "cancelled")
+      .map((c) => c._id);
+    const activeCourseIds = courses
+      .filter((c) => String(c.status || "").toLowerCase() !== "cancelled")
+      .map((c) => c._id);
+
+    const matchCriteria = [];
+    if (activeCourseIds.length > 0) {
+      matchCriteria.push({
+        courseId: { $in: activeCourseIds },
+        status: "PAID",
+        bookingType: "COURSE",
+      });
+    }
+    if (cancelledCourseIds.length > 0) {
+      matchCriteria.push({
+        courseId: { $in: cancelledCourseIds },
+        status: { $in: ["PAID", "REFUNDED"] },
+        bookingType: "COURSE",
+      });
+    }
+
+    const bookingCounts = matchCriteria.length > 0 ? await Transaction.aggregate([
+      { $match: { $or: matchCriteria } },
       {
         $project: {
           courseId: 1,
@@ -1153,7 +1175,7 @@ const getCourses = async (req, res) => {
           revenue: { $sum: "$totalAmount" },
         },
       },
-    ]);
+    ]) : [];
 
     const bookingMap = {};
     const courseBookingMap = {};
@@ -1166,12 +1188,10 @@ const getCourses = async (req, res) => {
       courseRevenueMap[courseId] = (courseRevenueMap[courseId] || 0) + (b.revenue || 0);
     });
 
-    const slotBookings = await Transaction.aggregate([
+    const slotBookings = matchCriteria.length > 0 ? await Transaction.aggregate([
       {
         $match: {
-          courseId: { $in: courseIds },
-          status: "PAID",
-          bookingType: "COURSE"
+          $or: matchCriteria,
         }
       },
       {
@@ -1199,7 +1219,7 @@ const getCourses = async (req, res) => {
           count: { $sum: "$qty" }
         }
       }
-    ]);
+    ]) : [];
 
     const slotBookingMap = {};
     slotBookings.forEach(sb => {
@@ -1540,11 +1560,33 @@ const getCoursesAdmin = async (req, res) => {
       .sort({ createdAt: -1 }) // Newest first
       .lean();
 
-    const courseIds = courses.map((c) => c._id);
-    const bookingCounts = await Transaction.aggregate([
-      { $match: { courseId: { $in: courseIds }, status: "PAID", bookingType: "COURSE" } },
+    const cancelledCourseIds = courses
+      .filter((c) => String(c.status || "").toLowerCase() === "cancelled")
+      .map((c) => c._id);
+    const activeCourseIds = courses
+      .filter((c) => String(c.status || "").toLowerCase() !== "cancelled")
+      .map((c) => c._id);
+
+    const matchCriteria = [];
+    if (activeCourseIds.length > 0) {
+      matchCriteria.push({
+        courseId: { $in: activeCourseIds },
+        status: "PAID",
+        bookingType: "COURSE",
+      });
+    }
+    if (cancelledCourseIds.length > 0) {
+      matchCriteria.push({
+        courseId: { $in: cancelledCourseIds },
+        status: { $in: ["PAID", "REFUNDED"] },
+        bookingType: "COURSE",
+      });
+    }
+
+    const bookingCounts = matchCriteria.length > 0 ? await Transaction.aggregate([
+      { $match: { $or: matchCriteria } },
       { $group: { _id: "$courseId", count: { $sum: "$qty" } } },
-    ]);
+    ]) : [];
 
     const bookingMap = {};
     bookingCounts.forEach((b) => {
@@ -2370,11 +2412,14 @@ const getCourseDetails = async (req, res) => {
     }
 
     // 2. Booking Aggregation (Per Batch for this Course)
+    const isCancelled = String(course.status || "").toLowerCase() === "cancelled";
+    const bookingStatusFilter = isCancelled ? { $in: ["PAID", "REFUNDED"] } : "PAID";
+
     const bookings = await Transaction.aggregate([
       {
         $match: {
           courseId: course._id,
-          status: "PAID",
+          status: bookingStatusFilter,
           bookingType: "COURSE",
         },
       },
@@ -2416,7 +2461,7 @@ const getCourseDetails = async (req, res) => {
       {
         $match: {
           courseId: course._id,
-          status: "PAID",
+          status: bookingStatusFilter,
           bookingType: "COURSE"
         }
       },
@@ -2526,7 +2571,7 @@ const getCourseDetails = async (req, res) => {
         const reserved = batch.ReservedExternally || 0;
         courseTotalSeats += seats;
         totalReservedExternally += reserved;
-        const available = Math.max(0, seats - acquired - reserved);
+        const available = isCancelled ? 0 : Math.max(0, seats - acquired - reserved);
 
         return {
           ...batch,
@@ -2719,7 +2764,7 @@ const getCourseDetails = async (req, res) => {
         courseTotalAcquireWithReserverVal = sumAcquired + sumReserved;
       }
     } else {
-      leftSeatsVal = Math.max(0, courseTotalSeats - totalAcquiredSeats - totalReservedExternally);
+      leftSeatsVal = isCancelled ? 0 : Math.max(0, courseTotalSeats - totalAcquiredSeats - totalReservedExternally);
     }
 
     // 8. Final Object Construction
@@ -2733,7 +2778,7 @@ const getCourseDetails = async (req, res) => {
       currentSchedule,
       weeklySchedule,
       sessionStatus,
-      isAvailable: !!currentSchedule && sessionStatus !== "PAST",
+      isAvailable: isCancelled ? false : (!!currentSchedule && sessionStatus !== "PAST"),
       duration,
       durationTranslation,
       // acquiredSeats: totalAcquiredSeats + totalReservedExternally,
