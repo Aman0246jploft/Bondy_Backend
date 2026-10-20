@@ -2,6 +2,7 @@ require("dotenv").config();
 const express = require("express");
 const mongoose = require("mongoose");
 const crypto = require("crypto");
+const moment = require("moment-timezone");
 const router = express.Router();
 const {
   User,
@@ -713,6 +714,163 @@ const formatItemMedia = (tObj, bookingType) => {
   }
 };
 
+const tzMapping = {
+  EST: "America/New_York",
+  EDT: "America/New_York",
+  CST: "America/Chicago",
+  CDT: "America/Chicago",
+  MST: "America/Denver",
+  MDT: "America/Denver",
+  PST: "America/Los_Angeles",
+  PDT: "America/Los_Angeles",
+  AST: "America/Halifax",
+  ADT: "America/Halifax",
+  HST: "Pacific/Honolulu",
+  AKST: "America/Anchorage",
+  AKDT: "America/Anchorage",
+  GMT: "Europe/London",
+  BST: "Europe/London",
+  CET: "Europe/Paris",
+  CEST: "Europe/Paris",
+  EET: "Europe/Athens",
+  EEST: "Europe/Athens",
+  JST: "Asia/Tokyo",
+  KST: "Asia/Seoul",
+  AEST: "Australia/Sydney",
+  AEDT: "Australia/Sydney",
+  AWST: "Australia/Perth",
+  ACST: "Australia/Adelaide",
+  ACDT: "Australia/Adelaide",
+};
+
+/**
+ * Check if an event has already ended or is not available for booking
+ */
+const checkIfEventEnded = (event) => {
+  if (!event) {
+    return { ended: true, message: constantsMessage.EVENT_NOT_FOUND || "Event not found" };
+  }
+  if (event.isDraft) {
+    return { ended: true, message: constantsMessage.EVENT_NOT_ACTIVE || "This event is not available for booking" };
+  }
+  if (event.status === "Cancelled") {
+    return { ended: true, message: constantsMessage.EVENT_NOT_ACTIVE || "This event has been cancelled" };
+  }
+  if (event.status === "Past") {
+    return { ended: true, message: "This event has already ended and is no longer available for booking" };
+  }
+
+  // Check event endDate and endTime
+  if (event.endDate) {
+    const rawTimeZone = event.timeZone || "UTC";
+    const targetTimeZone = rawTimeZone && tzMapping[rawTimeZone] ? tzMapping[rawTimeZone] : rawTimeZone;
+    const nowUtc = moment.utc();
+    let eventEndUtc = null;
+
+    if (targetTimeZone && moment.tz.zone(targetTimeZone)) {
+      const end = new Date(event.endDate);
+      if (!isNaN(end.valueOf())) {
+        const endDateStr = end.toISOString().split("T")[0];
+        const endTimeStr = event.endTime || "23:59:59";
+        eventEndUtc = moment.tz(`${endDateStr}T${endTimeStr}`, targetTimeZone).utc();
+      }
+    }
+
+    if (!eventEndUtc) {
+      const end = new Date(event.endDate);
+      if (event.endTime && typeof event.endTime === "string" && event.endTime.includes(":")) {
+        const [h, m] = event.endTime.split(":").map(Number);
+        end.setUTCHours(h !== undefined ? h : 23, m !== undefined ? m : 59, 59, 999);
+      }
+      eventEndUtc = moment.utc(end);
+    }
+
+    if (eventEndUtc && nowUtc.isAfter(eventEndUtc)) {
+      if (event.status !== "Past") {
+        Event.updateOne({ _id: event._id }, { $set: { status: "Past" } }).catch((err) =>
+          console.error("Error auto-updating event to Past:", err)
+        );
+      }
+      return { ended: true, message: "This event has already ended and is no longer available for booking" };
+    }
+  }
+
+  return { ended: false };
+};
+
+/**
+ * Check if a course has already ended or is not available for booking
+ */
+const checkIfCourseEnded = (course, batchId = null, selectedDay = null) => {
+  if (!course) {
+    return { ended: true, message: constantsMessage.COURSE_NOT_FOUND || "Course not found" };
+  }
+  if (course.isDraft) {
+    return { ended: true, message: constantsMessage.COURSE_NOT_ACTIVE || "This course is not available for booking" };
+  }
+  if (course.status === "Cancelled") {
+    return { ended: true, message: constantsMessage.COURSE_NOT_ACTIVE || "This course has been cancelled" };
+  }
+  if (course.status === "Past") {
+    return { ended: true, message: "This course has already ended and is no longer available for booking" };
+  }
+
+  const rawTimeZone = course.timeZone || "UTC";
+  const targetTimeZone = rawTimeZone && tzMapping[rawTimeZone] ? tzMapping[rawTimeZone] : rawTimeZone;
+  const nowUtc = moment.utc();
+
+  if (course.endDate) {
+    let courseEndUtc = null;
+    if (targetTimeZone && moment.tz.zone(targetTimeZone)) {
+      const end = new Date(course.endDate);
+      if (!isNaN(end.valueOf())) {
+        const endDateStr = end.toISOString().split("T")[0];
+        courseEndUtc = moment.tz(`${endDateStr}T23:59:59`, targetTimeZone).utc();
+      }
+    }
+    if (!courseEndUtc) {
+      courseEndUtc = moment.utc(course.endDate);
+    }
+
+    if (courseEndUtc && nowUtc.isAfter(courseEndUtc)) {
+      if (course.status !== "Past") {
+        Course.updateOne({ _id: course._id }, { $set: { status: "Past" } }).catch((err) =>
+          console.error("Error auto-updating course to Past:", err)
+        );
+      }
+      return { ended: true, message: "This course has already ended and is no longer available for booking" };
+    }
+  }
+
+  if (batchId && course.batches) {
+    const batch = course.batches.id ? course.batches.id(batchId) : course.batches.find((b) => String(b._id) === String(batchId));
+    if (batch) {
+      if (batch.status === "Cancelled") {
+        return { ended: true, message: constantsMessage.BATCH_INACTIVE || "This batch is no longer active" };
+      }
+      if (batch.endDate) {
+        let batchEndUtc = null;
+        if (targetTimeZone && moment.tz.zone(targetTimeZone)) {
+          const end = new Date(batch.endDate);
+          if (!isNaN(end.valueOf())) {
+            const endDateStr = end.toISOString().split("T")[0];
+            const endTimeStr = batch.endTime || "23:59:59";
+            batchEndUtc = moment.tz(`${endDateStr}T${endTimeStr}`, targetTimeZone).utc();
+          }
+        }
+        if (!batchEndUtc) {
+          batchEndUtc = moment.utc(batch.endDate);
+        }
+        if (batchEndUtc && nowUtc.isAfter(batchEndUtc)) {
+          return { ended: true, message: "This batch has already ended and is no longer available for booking" };
+        }
+      }
+    }
+  }
+
+  return { ended: false };
+};
+
 /**
  * Check if the course booking cut-off time has been reached
  */
@@ -827,8 +985,10 @@ const calculateBooking = async (req, res) => {
     // ── EVENT BOOKING ──
     if (eventId) {
       const event = await Event.findById(eventId);
-      if (!event) return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.EVENT_NOT_FOUND);
-      if (event.status === "Cancelled") return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.EVENT_NOT_ACTIVE);
+      const eventCheck = checkIfEventEnded(event);
+      if (eventCheck.ended) {
+        return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, eventCheck.message);
+      }
 
       if (userId) {
         const ageCheck = await validateAgeRestriction(event, "EVENT", userId);
@@ -887,8 +1047,10 @@ const calculateBooking = async (req, res) => {
     // ── COURSE BOOKING ──
     else if (courseId) {
       const course = await Course.findById(courseId);
-      if (!course) return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.COURSE_NOT_FOUND);
-      if (course.status === "Cancelled") return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.COURSE_NOT_ACTIVE);
+      const courseCheck = checkIfCourseEnded(course, batchId, selectedDay);
+      if (courseCheck.ended) {
+        return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, courseCheck.message);
+      }
 
       if (userId) {
         const ageCheck = await validateAgeRestriction(course, "COURSE", userId);
@@ -1062,8 +1224,10 @@ const initiateBooking = async (req, res) => {
     // ── EVENT BOOKING ──
     if (eventId) {
       event = await Event.findById(eventId);
-      if (!event) return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.EVENT_NOT_FOUND);
-      if (event.status === "Cancelled") return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.EVENT_NOT_ACTIVE);
+      const eventCheck = checkIfEventEnded(event);
+      if (eventCheck.ended) {
+        return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, eventCheck.message);
+      }
 
       // Validate age restriction
       const ageCheck = await validateAgeRestriction(event, "EVENT", userId);
@@ -1140,8 +1304,10 @@ const initiateBooking = async (req, res) => {
     // ── COURSE BOOKING ──
     else if (courseId) {
       course = await Course.findById(courseId);
-      if (!course) return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.COURSE_NOT_FOUND);
-      if (course.status === "Cancelled") return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.COURSE_NOT_ACTIVE);
+      const courseCheck = checkIfCourseEnded(course, batchId, selectedDay);
+      if (courseCheck.ended) {
+        return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, courseCheck.message);
+      }
 
       // Validate age restriction
       const ageCheck = await validateAgeRestriction(course, "COURSE", userId);
@@ -1594,6 +1760,17 @@ const executeBookingConfirmation = async (transactionDoc, options = {}) => {
     const event = populatedTxn.eventId;
     if (!event) throw new Error(constantsMessage.EVENT_NOT_FOUND || "Event not found");
 
+    const eventCheck = checkIfEventEnded(event);
+    if (eventCheck.ended) {
+      populatedTxn.status = "REFUND_INITIATED";
+      await populatedTxn.save();
+      return {
+        status: "REFUND_INITIATED",
+        transaction: populatedTxn,
+        message: eventCheck.message || "Event has ended. Payment refund initiated.",
+      };
+    }
+
     const ticketsToCheck = populatedTxn.tickets && populatedTxn.tickets.length > 0
       ? populatedTxn.tickets
       : [{ ticketId: populatedTxn.ticketId, qty: populatedTxn.qty, ticketName: populatedTxn.ticketName }];
@@ -1616,6 +1793,17 @@ const executeBookingConfirmation = async (transactionDoc, options = {}) => {
   } else if (populatedTxn.bookingType === "COURSE") {
     const course = populatedTxn.courseId;
     if (!course) throw new Error(constantsMessage.COURSE_NOT_FOUND || "Course not found");
+
+    const courseCheck = checkIfCourseEnded(course, populatedTxn.batchId);
+    if (courseCheck.ended) {
+      populatedTxn.status = "REFUND_INITIATED";
+      await populatedTxn.save();
+      return {
+        status: "REFUND_INITIATED",
+        transaction: populatedTxn,
+        message: courseCheck.message || "Course has ended. Payment refund initiated.",
+      };
+    }
 
     const hasSlots = populatedTxn.batchId || (populatedTxn.ongoingSlots && populatedTxn.ongoingSlots.length > 0);
     if (hasSlots) {
@@ -1828,6 +2016,18 @@ const confirmPayment = async (req, res) => {
       return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.INVALID_TRANSACTION_STATE);
     }
 
+    if (transaction.bookingType === "EVENT") {
+      const eventCheck = checkIfEventEnded(transaction.eventId);
+      if (eventCheck.ended) {
+        return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, eventCheck.message);
+      }
+    } else if (transaction.bookingType === "COURSE") {
+      const courseCheck = checkIfCourseEnded(transaction.courseId, transaction.batchId);
+      if (courseCheck.ended) {
+        return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, courseCheck.message);
+      }
+    }
+
     const devInstantPay = String(process.env.DEV_INSTANT_PAY || "").toLowerCase() === "true";
     if (transaction.totalAmount > 0 && !devInstantPay) {
       return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Complete this payment with QPay");
@@ -1915,6 +2115,20 @@ const initiateQpay = async (req, res) => {
         durationMs: Date.now() - startTime,
       });
       return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Transaction amount must be greater than zero for QPay");
+    }
+
+    if (transaction.bookingType === "EVENT" && transaction.eventId) {
+      const event = await Event.findById(transaction.eventId);
+      const eventCheck = checkIfEventEnded(event);
+      if (eventCheck.ended) {
+        return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, eventCheck.message);
+      }
+    } else if (transaction.bookingType === "COURSE" && transaction.courseId) {
+      const course = await Course.findById(transaction.courseId);
+      const courseCheck = checkIfCourseEnded(course, transaction.batchId);
+      if (courseCheck.ended) {
+        return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, courseCheck.message);
+      }
     }
 
     // Reuse existing invoice if already generated

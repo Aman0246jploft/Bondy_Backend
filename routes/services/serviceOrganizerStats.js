@@ -407,12 +407,21 @@ const getOrganizerStatsSummary = async (organizerId) => {
   }
 };
 
+const { syncEventStatuses } = require("../../cron/eventStatus.cron");
+const { syncCourseStatuses } = require("../../cron/courseStatus.cron");
+
 /**
  * Get dashboard data for a specific organizer
  */
 const getOrganizerDashboardData = async (organizerId) => {
   try {
     const organizerObjectId = new mongoose.Types.ObjectId(organizerId);
+
+    // Ensure all organizer events and courses have up-to-date status (Upcoming -> Live -> Past)
+    await Promise.allSettled([
+      syncEventStatuses({ createdBy: organizerObjectId }),
+      syncCourseStatuses({ createdBy: organizerObjectId }),
+    ]);
 
     // 1. Event Statistics (Draft, Pending, Live, Completed, Attendees)
     const eventStatsResult = await Event.aggregate([

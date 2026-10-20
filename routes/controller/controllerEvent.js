@@ -53,6 +53,7 @@ const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 const { getKey, setKeyWithTime } = require("../services/serviceRedis");
 const CONSTANTS = require("../../utils/constants");
+const { syncEventStatuses } = require("../../cron/eventStatus.cron");
 
 const normalizeEventTickets = (ticketsVal, body = {}) => {
   if (!Array.isArray(ticketsVal)) return ticketsVal;
@@ -272,6 +273,7 @@ const createEvent = async (req, res) => {
       event.isDraft = isDraftValue;
 
       await event.save();
+      await syncEventStatuses({ _id: event._id });
     } else {
       let ticketsVal = req.body.tickets || [];
 
@@ -322,6 +324,7 @@ const createEvent = async (req, res) => {
         isDraft: isDraftValue,
       });
       await event.save();
+      await syncEventStatuses({ _id: event._id });
     }
 
     const eventObj = event.toObject();
@@ -724,6 +727,8 @@ const getEvents = async (req, res) => {
         );
       }
       query.createdBy = new mongoose.Types.ObjectId(loginUser);
+      // Ensure organizer events have real-time synchronized status before querying
+      await syncEventStatuses({ createdBy: query.createdBy });
       if (isDraft === "true" || isDraft === true || filters.includes("draft")) {
         query.isDraft = true;
       } else {
@@ -3124,6 +3129,7 @@ const updateEvent = async (req, res) => {
 
     // 11. Save the Mongoose document to trigger pre-save hooks
     await existingEvent.save();
+    await syncEventStatuses({ _id: existingEvent._id });
 
     // 12. Retrieve updated and populated event
     const updatedEvent = await Event.findById(eventId)

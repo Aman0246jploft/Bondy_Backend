@@ -37,6 +37,7 @@ const { default: mongoose } = require("mongoose");
 const crypto = require("crypto");
 const { getKey, setKeyWithTime } = require("../services/serviceRedis");
 const CONSTANTS = require("../../utils/constants");
+const { syncCourseStatuses } = require("../../cron/courseStatus.cron");
 
 // Create Course
 const createCourse = async (req, res) => {
@@ -284,6 +285,8 @@ const getCourses = async (req, res) => {
         );
       }
       query.createdBy = new mongoose.Types.ObjectId(loginUser);
+      // Ensure organizer courses have real-time synchronized status before querying
+      await syncCourseStatuses({ createdBy: query.createdBy });
       if (isDraft === "true" || isDraft === true || filters.includes("draft")) {
         query.isDraft = true;
       } else {
