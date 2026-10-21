@@ -9,6 +9,24 @@ const mongoose = require("mongoose");
  * This is the canonical "individual ticket" document in the system.
  * Bookings (Transaction) reference all their individual ticket IDs via ticketIds[].
  */
+const capitalizeTitle = (str) => {
+    if (!str || typeof str !== "string") return str;
+    const trimmed = str.trim();
+    if (
+        trimmed.startsWith("http://") ||
+        trimmed.startsWith("https://") ||
+        trimmed.startsWith("/") ||
+        trimmed.startsWith("data:") ||
+        trimmed.startsWith("<") ||
+        trimmed.includes("@") ||
+        /^[0-9a-fA-F]{24}$/.test(trimmed) ||
+        /^\d{4}-\d{2}-\d{2}/.test(trimmed)
+    ) {
+        return str;
+    }
+    return str.replace(/(?:^|[\s\-\/\(\[\'\"\u2018\u201c])\S/g, (char) => char.toUpperCase());
+};
+
 const attendeeSchema = new mongoose.Schema(
     {
         transactionId: {
@@ -39,11 +57,15 @@ const attendeeSchema = new mongoose.Schema(
             type: String,
             required: true,
             trim: true,
+            set: capitalizeTitle,
+            get: capitalizeTitle,
         },
         lastName: {
             type: String,
             required: true,
             trim: true,
+            set: capitalizeTitle,
+            get: capitalizeTitle,
         },
         email: {
             type: String,
