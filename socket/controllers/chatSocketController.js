@@ -13,7 +13,8 @@ const {
   typingSchema,
 } = require("../validations/socketValidation");
 const { formatResponseUrl } = require("../../utils/globalFunction");
-const { notifyChat } = require("../../routes/services/serviceNotification");
+const Notification = require("../../db/models/Notification");
+const { notifyChat, emitUnreadCount } = require("../../routes/services/serviceNotification");
 
 const onlineUsers = new Map(); // userId -> socketId
 const chatParticipantsCache = new Map(); // chatId -> [participantIdStrings]
@@ -708,6 +709,48 @@ const chatSocketController = (io, socket) => {
       const hasMore = skip + chats.length < totalChats;
       const payload = { status: "ok", data: chatsWithCount, page, limit, hasMore };
 
+      // Sync notifications: If all messages in a chat are read (or user has 0 unread messages in total), mark corresponding CHAT notifications as read
+      try {
+        const readChatIds = chats
+          .filter((c) => {
+            const count = c.unreadCounts?.get(userId);
+            return count === undefined || count === 0;
+          })
+          .map((c) => c._id);
+
+        if (readChatIds.length > 0) {
+          const updateRes = await Notification.updateMany(
+            {
+              recipient: userId,
+              type: "CHAT",
+              relatedId: { $in: readChatIds },
+              isRead: false,
+            },
+            { $set: { isRead: true } }
+          );
+          if (updateRes.modifiedCount > 0) {
+            await emitUnreadCount(userId);
+          }
+        }
+
+        const totalUnreadMessages = await getTotalUnreadMessages(userId);
+        if (totalUnreadMessages === 0) {
+          const updateAllRes = await Notification.updateMany(
+            {
+              recipient: userId,
+              type: "CHAT",
+              isRead: false,
+            },
+            { $set: { isRead: true } }
+          );
+          if (updateAllRes.modifiedCount > 0) {
+            await emitUnreadCount(userId);
+          }
+        }
+      } catch (syncErr) {
+        console.error("Error syncing chat notifications on get_chat_list:", syncErr);
+      }
+
       if (typeof ack === "function") {
         ack(payload); // real clients
       } else {
@@ -910,6 +953,33 @@ const chatSocketController = (io, socket) => {
         { chat: chatId, readBy: { $ne: userId } },
         { $addToSet: { readBy: userId } },
       );
+
+      // Also mark all in-app notifications for this chat as read for this user
+      try {
+        const otherParticipantIds = (chat.participants || [])
+          .map((p) => p.toString())
+          .filter((id) => id !== userId);
+
+        const updateNotifRes = await Notification.updateMany(
+          {
+            recipient: userId,
+            type: "CHAT",
+            isRead: false,
+            $or: [
+              { relatedId: chatId },
+              { sender: { $in: otherParticipantIds } },
+              { webLink: { $regex: String(chatId) } },
+              { deepLink: { $regex: String(chatId) } },
+            ],
+          },
+          { $set: { isRead: true } }
+        );
+        if (updateNotifRes.modifiedCount > 0) {
+          await emitUnreadCount(userId);
+        }
+      } catch (notifErr) {
+        console.error("Error updating notifications on mark_messages_read:", notifErr);
+      }
 
       // Notify room that messages are read by this user
       io.to(chatId).emit("messages_read_update", { chatId, userId });
