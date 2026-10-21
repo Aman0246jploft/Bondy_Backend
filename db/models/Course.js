@@ -62,6 +62,7 @@ const batchSchema = new mongoose.Schema(
     },
     startDate: { type: Date },
     endDate: { type: Date },
+    salesStart: { type: Date },
     sessions: { type: Number, min: 1 },
     price: { type: Number, min: 0 },
     overrideLocation: { type: Boolean, default: false },
@@ -119,6 +120,9 @@ const courseSchema = new mongoose.Schema(
       required: function () {
         return !this.isDraft && this.enrollmentType === "fixedStart";
       },
+    },
+    salesStart: {
+      type: Date,
     },
     totalSessions: {
       type: Number,

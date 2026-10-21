@@ -1047,6 +1047,17 @@ const calculateBooking = async (req, res) => {
     // ── COURSE BOOKING ──
     else if (courseId) {
       const course = await Course.findById(courseId);
+      const now = new Date();
+      if (course.salesStart && now < new Date(course.salesStart)) {
+        return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, `Course registration has not started yet. Starts on ${new Date(course.salesStart).toLocaleDateString()}`);
+      }
+      if (batchId) {
+        const batch = course.batches.id(batchId);
+        if (batch && batch.salesStart && now < new Date(batch.salesStart)) {
+          return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, `Registration for this batch has not started yet. Starts on ${new Date(batch.salesStart).toLocaleDateString()}`);
+        }
+      }
+
       const courseCheck = checkIfCourseEnded(course, batchId, selectedDay);
       if (courseCheck.ended) {
         return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, courseCheck.message);
@@ -1304,6 +1315,17 @@ const initiateBooking = async (req, res) => {
     // ── COURSE BOOKING ──
     else if (courseId) {
       course = await Course.findById(courseId);
+      const now = new Date();
+      if (course.salesStart && now < new Date(course.salesStart)) {
+        return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, `Course registration has not started yet. Starts on ${new Date(course.salesStart).toLocaleDateString()}`);
+      }
+      if (batchId) {
+        const batch = course.batches.id(batchId);
+        if (batch && batch.salesStart && now < new Date(batch.salesStart)) {
+          return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, `Registration for this batch has not started yet. Starts on ${new Date(batch.salesStart).toLocaleDateString()}`);
+        }
+      }
+
       const courseCheck = checkIfCourseEnded(course, batchId, selectedDay);
       if (courseCheck.ended) {
         return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, courseCheck.message);
