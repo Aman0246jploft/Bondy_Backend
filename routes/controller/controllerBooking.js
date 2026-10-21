@@ -1004,16 +1004,16 @@ const calculateBooking = async (req, res) => {
 
           const now = new Date();
           if (ticket.salesStart && now < new Date(ticket.salesStart)) {
-            return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.SALES_NOT_STARTED_FOR_TICKET_TYPE_X);
+            return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, `${constantsMessage.SALES_NOT_STARTED_FOR_TICKET_TYPE_X} ${ticket.ticketName || ""}`.trim());
           }
           if (ticket.salesEnd && now > new Date(ticket.salesEnd)) {
-            return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.SALES_ENDED_FOR_TICKET_TYPE_X);
+            return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, `${constantsMessage.SALES_ENDED_FOR_TICKET_TYPE_X} ${ticket.ticketName || ""}`.trim());
           }
 
           const bookedCount = await getEventTicketBookedCount(event._id, item.ticketId);
           const available = ticket.qty - bookedCount;
           if (available < item.qty) {
-            return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.NOT_ENOUGH_TICKETS_AVAILABLE_FOR_X);
+            return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, `${constantsMessage.NOT_ENOUGH_TICKETS_AVAILABLE_FOR_X} ${ticket.ticketName || ""}`.trim());
           }
 
           basePrice += roundToTwo(ticket.price * item.qty);
@@ -1244,16 +1244,16 @@ const initiateBooking = async (req, res) => {
 
           const now = new Date();
           if (ticket.salesStart && now < new Date(ticket.salesStart)) {
-            return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.SALES_NOT_STARTED_FOR_TICKET_TYPE_X);
+            return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, `${constantsMessage.SALES_NOT_STARTED_FOR_TICKET_TYPE_X} ${ticket.ticketName || ""}`.trim());
           }
           if (ticket.salesEnd && now > new Date(ticket.salesEnd)) {
-            return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.SALES_ENDED_FOR_TICKET_TYPE_X);
+            return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, `${constantsMessage.SALES_ENDED_FOR_TICKET_TYPE_X} ${ticket.ticketName || ""}`.trim());
           }
 
           const bookedCount = await getEventTicketBookedCount(event._id, item.ticketId);
           const available = ticket.qty - bookedCount;
           if (available < item.qty) {
-            return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.NOT_ENOUGH_TICKETS_AVAILABLE_FOR_X);
+            return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, `${constantsMessage.NOT_ENOUGH_TICKETS_AVAILABLE_FOR_X} ${ticket.ticketName || ""}`.trim());
           }
 
           const base = roundToTwo(ticket.price * item.qty);
