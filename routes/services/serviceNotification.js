@@ -667,4 +667,5 @@ module.exports = {
   deleteNotification,
   deleteMultipleNotifications,
   getUnreadCount,
+  emitUnreadCount,
 };
