@@ -1883,10 +1883,10 @@ const updateCourse = async (req, res) => {
     }
 
     // 6. Time and Status Check
-    const isLive = existingCourse.status === eventStatus.LIVE || (
+    const isLive = !existingCourse.isDraft && (existingCourse.status === eventStatus.LIVE || (
       existingCourse.startDate <= now &&
       (!existingCourse.endDate || existingCourse.endDate >= now)
-    );
+    ));
     if (isLive) {
       if (updateData.startDate && new Date(updateData.startDate).getTime() !== new Date(existingCourse.startDate).getTime()) {
         return apiErrorRes(
