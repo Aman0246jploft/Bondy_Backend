@@ -3025,7 +3025,7 @@ const updateEvent = async (req, res) => {
     }
 
     // 6. Time and Status Check
-    const isLive = existingEvent.status === eventStatus.LIVE || (existingEvent.startDate <= now && existingEvent.endDate >= now);
+    const isLive = !existingEvent.isDraft && (existingEvent.status === eventStatus.LIVE || (existingEvent.startDate <= now && existingEvent.endDate >= now));
     if (isLive) {
       if (updateData.startDate && new Date(updateData.startDate).getTime() !== new Date(existingEvent.startDate).getTime()) {
         return apiErrorRes(
