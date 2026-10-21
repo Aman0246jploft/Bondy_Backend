@@ -13,6 +13,7 @@ const {
   Block,
   Report,
   Category,
+  Review,
 } = require("../../db");
 const CONSTANTS = require("../../utils/constants");
 const constantsMessage = require("../../utils/constantsMessage");
@@ -1027,6 +1028,21 @@ const getFormattedProfileData = async (userId, viewerId = null) => {
     businessRejectionReason: user.businessRejectionReason,
     businessRejectionReasonTitle: user.businessRejectionReasonTitle,
     createdAt: user.createdAt,
+    updatedAt: user.updatedAt,
+    isDisable: Boolean(user.isDisable),
+    lastLogin: user.lastLogin || null,
+    lastSeen: user.lastSeen || null,
+    language: user.language || "en",
+    timeZone: user.timeZone || "UTC",
+    socialLogin: {
+      isSocialLogin: Boolean(user.socialLogin?.isSocialLogin || user.socialLogin?.socialId),
+      socialType: user.socialLogin?.socialType || null,
+    },
+    businessRegisterNumber: user.businessRegisterNumber || null,
+    website: user.website || null,
+    bankAccounts: user.bankAccounts || [],
+    totalEarnings: user.totalEarnings || 0,
+    payoutBalance: user.payoutBalance || 0,
     verifications: {
       email: user.verifications?.email,
       phone: user.verifications?.phone ? {
@@ -1333,6 +1349,101 @@ const getFormattedProfileData = async (userId, viewerId = null) => {
       upcoming_courses: nextCoursesRaw.map(formatCourse),
       previous_courses: pastCoursesRaw.map(formatCourse),
     };
+  }
+
+  // Customer / Booking data for customer role (or any user who has bookings)
+  try {
+    const userObjectId = new mongoose.Types.ObjectId(userId);
+    const customerTransactions = await Transaction.find({ userId: userObjectId })
+      .populate("eventId", "eventTitle posterImage startDate endDate venueAddress eventCategory")
+      .populate("courseId", "courseTitle posterImage startDate endDate location courseCategory")
+      .sort({ createdAt: -1 })
+      .limit(100)
+      .lean();
+
+    const formattedBookings = customerTransactions.map((tx) => {
+      const isEvent = tx.bookingType === "EVENT";
+      const item = isEvent ? tx.eventId : tx.courseId;
+      const title = isEvent ? item?.eventTitle : item?.courseTitle;
+      const poster = Array.isArray(item?.posterImage) && item.posterImage.length > 0
+        ? formatResponseUrl(item.posterImage[0])
+        : null;
+
+      return {
+        _id: tx._id,
+        bookingId: tx.bookingId,
+        bookingType: tx.bookingType,
+        status: tx.status,
+        totalAmount: tx.totalAmount || 0,
+        qty: tx.qty || 1,
+        ticketName: tx.ticketName || null,
+        tickets: (tx.tickets || []).map((t) => ({
+          ticketId: t.ticketId,
+          ticketName: t.ticketName,
+          qty: t.qty,
+          isCheckedIn: Boolean(t.isCheckedIn),
+          checkedInAt: t.checkedInAt || null,
+        })),
+        checkedInQty: tx.checkedInQty || 0,
+        createdAt: tx.createdAt,
+        title: title || (isEvent ? "Event Booking" : "Course Booking"),
+        posterImage: poster,
+        date: item?.startDate || tx.createdAt,
+        venue: isEvent ? item?.venueAddress?.address : item?.location?.address,
+        itemId: item?._id || (isEvent ? tx.eventId : tx.courseId),
+      };
+    });
+
+    const paidTxs = customerTransactions.filter((tx) => tx.status === "PAID");
+    const totalSpent = paidTxs.reduce((sum, tx) => sum + (tx.totalAmount || 0), 0);
+    const totalTicketsBought = paidTxs.reduce((sum, tx) => sum + (tx.qty || 0), 0);
+    const totalCoursesEnrolled = await Transaction.countDocuments({
+      userId: userObjectId,
+      status: "PAID",
+      bookingType: "COURSE",
+    });
+
+    profileData.customerStats = {
+      totalBookings: customerTransactions.length,
+      paidBookings: paidTxs.length,
+      totalSpent: Math.round((totalSpent + Number.EPSILON) * 100) / 100,
+      totalTicketsBought,
+      totalCoursesEnrolled,
+      totalEventsAttended: totalAttended,
+    };
+
+    profileData.bookings = formattedBookings;
+  } catch (bookingErr) {
+    console.error("Error fetching customer bookings in profile:", bookingErr);
+    profileData.bookings = [];
+    profileData.customerStats = {
+      totalBookings: 0,
+      paidBookings: 0,
+      totalSpent: 0,
+      totalTicketsBought: 0,
+      totalCoursesEnrolled: 0,
+      totalEventsAttended: totalAttended,
+    };
+  }
+
+  // Fetch reviews created by this user
+  try {
+    const userReviews = await Review.find({ userId: new mongoose.Types.ObjectId(userId) })
+      .populate("entityId", "eventTitle courseTitle posterImage")
+      .sort({ createdAt: -1 })
+      .limit(20)
+      .lean();
+
+    profileData.userReviews = userReviews.map((r) => ({
+      _id: r._id,
+      rating: r.rating,
+      review: r.review,
+      entityModel: r.entityModel,
+      entityTitle: r.entityId?.eventTitle || r.entityId?.courseTitle || "Item",
+      createdAt: r.createdAt,
+    }));
+  } catch (revErr) {
+    profileData.userReviews = [];
   }
 
   return profileData;
@@ -2054,7 +2165,7 @@ const toggleUserDisable = async (req, res) => {
 
     const updatedUser = await User.findByIdAndUpdate(
       userId,
-      { isDisable },
+      { isDisable: Boolean(isDisable) },
       { new: true },
     );
 
@@ -2064,6 +2175,28 @@ const toggleUserDisable = async (req, res) => {
         res,
         constantsMessage.USER_NOT_FOUND,
       );
+    }
+
+    // When user is disabled by admin, trigger real-time auto logout on web
+    if (updatedUser.isDisable) {
+      try {
+        const socketIO = require("../../socket/socketIO");
+        const io = socketIO.getIO ? socketIO.getIO() : null;
+        if (io) {
+          io.to(userId.toString()).emit("force_logout", {
+            message: "Your account has been disabled. Please contact support.",
+            reason: "ACCOUNT_DISABLED",
+          });
+
+          // Disconnect all active sockets for this user
+          const sockets = await io.in(userId.toString()).fetchSockets();
+          for (const s of sockets) {
+            s.disconnect(true);
+          }
+        }
+      } catch (sockErr) {
+        console.warn("Socket broadcast error in toggleUserDisable:", sockErr);
+      }
     }
 
     return apiSuccessRes(
@@ -2115,7 +2248,7 @@ const deleteUser = async (req, res) => {
 
     const updatedUser = await User.findByIdAndUpdate(
       userId,
-      { isDeleted: true },
+      { isDeleted: true, isDisable: true },
       { new: true },
     );
 
@@ -2125,6 +2258,24 @@ const deleteUser = async (req, res) => {
         res,
         constantsMessage.USER_NOT_FOUND,
       );
+    }
+
+    // Force logout on web if account deleted
+    try {
+      const socketIO = require("../../socket/socketIO");
+      const io = socketIO.getIO ? socketIO.getIO() : null;
+      if (io) {
+        io.to(userId.toString()).emit("force_logout", {
+          message: "Your account has been deleted.",
+          reason: "ACCOUNT_DELETED",
+        });
+        const sockets = await io.in(userId.toString()).fetchSockets();
+        for (const s of sockets) {
+          s.disconnect(true);
+        }
+      }
+    } catch (sockErr) {
+      console.warn("Socket broadcast error in deleteUser:", sockErr);
     }
 
     return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.USER_DELETED_SUCCESS, {

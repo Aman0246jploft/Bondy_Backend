@@ -15,7 +15,7 @@ const p = (text) => `<p class="lg-p">${text}</p>`;
 const quote = (text) => `<p class="lg-quote">${text}</p>`;
 const h3 = (text) => `<p class="lg-h3">${text}</p>`;
 const list = (items) => `<ul class="lg-list">${items.map((item) => `<li>${item}</li>`).join("")}</ul>`;
-const defs = (items) => `<div class="lg-defs">${items.map((item) => `<span>${item}</span>`).join("")}</div>`;
+const defs = (items) => `<div class="lg-defs">${items.map((item) => `<p class="lg-def-item">${item}</p>`).join("")}</div>`;
 const page = (sections) => sections.join("");
 
 const privacyMn = page([

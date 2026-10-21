@@ -89,7 +89,7 @@ function jwtVerification() {
 
     if (authHeader && authHeader.startsWith("Bearer ")) {
       const token = authHeader.split(" ")[1];
-      jwt.verify(token, process.env.JWT_SECRET_KEY, (err, decoded) => {
+      jwt.verify(token, process.env.JWT_SECRET_KEY, async (err, decoded) => {
         if (err) {
           // If route is public, ignore error and continue as guest
           if (isPublic) {
@@ -104,6 +104,34 @@ function jwtVerification() {
             CONSTANTS.ERROR_TRUE,
           );
         }
+
+        // Validate user account status in database
+        const userId = decoded?.userId || decoded?._id || decoded?.id;
+        if (userId) {
+          try {
+            const User = require("../db/models/User");
+            const user = await User.findById(userId).select("isDisable isDeleted roleId").lean();
+
+            if (user && (user.isDisable || user.isDeleted)) {
+              if (isPublic) {
+                // For public routes, proceed as guest without authenticated user context
+                return next();
+              }
+              const { translateMessage } = require("../utils/globalFunction");
+              const message = "Your account has been disabled. Please contact support.";
+              const translatedMessage = await translateMessage(message, userId, req);
+              return res.status(HTTP_STATUS.FORBIDDEN).json({
+                status: false,
+                code: "ACCOUNT_DISABLED",
+                message: translatedMessage,
+                data: null,
+              });
+            }
+          } catch (dbErr) {
+            console.error("Error validating user status in jwtVerification:", dbErr);
+          }
+        }
+
         req.user = decoded;
         next();
       });

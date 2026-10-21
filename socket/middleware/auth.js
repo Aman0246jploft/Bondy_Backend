@@ -20,13 +20,17 @@ const socketAuthMiddleware = async (socket, next) => {
     // Verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY);
 
-    // Check if user exists (optional but recommended)
+    // Check if user exists and is active
     const user = await User.findById(
       decoded._id || decoded.userId || decoded.id,
-    ).select("_id firstName lastName profileImage");
+    ).select("_id firstName lastName profileImage isDisable isDeleted");
 
     if (!user) {
       return next(new Error("Authentication error: User not found"));
+    }
+
+    if (user.isDisable || user.isDeleted) {
+      return next(new Error("Authentication error: Account disabled or deleted"));
     }
 
     // Attach user to socket
