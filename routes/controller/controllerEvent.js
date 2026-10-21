@@ -2902,6 +2902,15 @@ const updateEvent = async (req, res) => {
       );
     }
 
+    // Prevent editing cancelled events
+    if (!existingEvent.isDraft && existingEvent.status === eventStatus.CANCELLED) {
+      return apiErrorRes(
+        HTTP_STATUS.BAD_REQUEST,
+        res,
+        constantsMessage.CANNOT_EDIT_CANCELLED_EVENT,
+      );
+    }
+
     // Prevent editing live events
     if (!existingEvent.isDraft && existingEvent.status === eventStatus.LIVE) {
       return apiErrorRes(
