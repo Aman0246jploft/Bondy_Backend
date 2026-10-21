@@ -5,15 +5,8 @@ const apiErrorRes = globalFunction.apiErrorRes;
 
 function errorHandler(err, req, res, next) {
   console.log("errerr  ", err);
-  if (err && (err.code === "LIMIT_FILE_SIZE" || err.message?.includes("File too large"))) {
-    return apiErrorRes(
-      HTTP_STATUS.BAD_REQUEST,
-      res,
-      "File size exceeds limit. Maximum allowed size is 50MB."
-    );
-  }
   if (typeof err === "string") {
-    return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Error");
+    return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Eroor");
   }
   if (err.name === "UnauthorizedError") {
     return apiErrorRes(

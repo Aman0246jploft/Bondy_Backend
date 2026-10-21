@@ -1777,15 +1777,6 @@ const updateCourse = async (req, res) => {
       );
     }
 
-    // Prevent editing live courses
-    if (!existingCourse.isDraft && (existingCourse.status === eventStatus.LIVE || (existingCourse.startDate && existingCourse.endDate && new Date(existingCourse.startDate) <= now && new Date(existingCourse.endDate) >= now))) {
-      return apiErrorRes(
-        HTTP_STATUS.BAD_REQUEST,
-        res,
-        constantsMessage.YOUR_COURSE_IS_ALREADY_LIVE,
-      );
-    }
-
     // 4. Draft check: cannot change draft false (published course cannot revert to draft)
     if (existingCourse.isDraft === false && updateData.isDraft === true) {
       return apiErrorRes(

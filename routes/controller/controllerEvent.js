@@ -2903,7 +2903,7 @@ const updateEvent = async (req, res) => {
     }
 
     // Prevent editing live events
-    if (!existingEvent.isDraft && (existingEvent.status === eventStatus.LIVE || (existingEvent.startDate && existingEvent.endDate && new Date(existingEvent.startDate) <= now && new Date(existingEvent.endDate) >= now))) {
+    if (!existingEvent.isDraft && existingEvent.status === eventStatus.LIVE) {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,

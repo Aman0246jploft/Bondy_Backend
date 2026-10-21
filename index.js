@@ -21,8 +21,9 @@ app.set("io", io);
 
 app.use(cors());
 const { PORT, API_END_POINT_V1 } = process.env;
-app.use(express.json({ limit: "100mb" }));
-app.use(express.urlencoded({ extended: true, limit: "100mb" }));
+app.use(express.json({ limit: "20mb" }));
+app.use(express.urlencoded({ extended: true, limit: "20mb" }));
+app.use(express.json());
 app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 app.use(jwtVerification());
 // app.use(requestLogger);
@@ -34,9 +35,6 @@ for (const [route, controller] of Object.entries(controllers)) {
 }
 
 app.use(errorHandler);
-server.timeout = 600000; // 10 minutes timeout for large file uploads
-server.keepAliveTimeout = 610000;
-server.headersTimeout = 620000;
 server.listen(PORT, "0.0.0.0", () => {
   console.log(`Server is up and running on port ${PORT}! 🚀`);
 });
