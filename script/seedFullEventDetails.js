@@ -118,7 +118,7 @@ Whether you are an aspiring producer, seasoned studio engineer, live performance
         salesEnd: new Date(now.getTime() + 5 * 24 * 60 * 60 * 1000)
       }
     ],
-    refundPolicy: "Flexible",
+    refundPolicy: "7 Days Before",
     addOns: "Backstage Pass, Commemorative Hoodie, Sample Pack USB",
     visibility: "PUBLIC",
     accessAndPrivacy: true,

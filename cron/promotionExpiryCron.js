@@ -37,16 +37,23 @@ cron.schedule("0 * * * *", async () => {
 
     if (expiredEvents.length > 0) {
       for (const event of expiredEvents) {
-        event.isFeatured = false;
-        event.fetcherEvent = false;
-        event.featuredExpiry = null;
-        event.activePromotionPackage = null;
-        event.addToSlider = false;
-        await event.save();
+        try {
+          await Event.findByIdAndUpdate(event._id, {
+            $set: {
+              isFeatured: false,
+              fetcherEvent: false,
+              featuredExpiry: null,
+              activePromotionPackage: null,
+              addToSlider: false,
+            },
+          });
 
-        await notifyPromotionExpiry(event.createdBy, "Event", event.eventTitle, event._id);
+          await notifyPromotionExpiry(event.createdBy, "Event", event.eventTitle, event._id);
 
-        console.log(`[${now.toISOString()}] Expired promotion/slider for Event ID: ${event._id}`);
+          console.log(`[${now.toISOString()}] Expired promotion/slider for Event ID: ${event._id}`);
+        } catch (eventErr) {
+          console.error(`Error expiring promotion for Event ID ${event._id}:`, eventErr.message);
+        }
       }
     } else {
       console.log(`[${now.toISOString()}] No expired event promotions found.`);
@@ -75,14 +82,21 @@ cron.schedule("0 * * * *", async () => {
 
     if (expiredCourses.length > 0) {
       for (const course of expiredCourses) {
-        course.isFeatured = false;
-        course.featuredExpiry = null;
-        course.activePromotionPackage = null;
-        await course.save();
+        try {
+          await Course.findByIdAndUpdate(course._id, {
+            $set: {
+              isFeatured: false,
+              featuredExpiry: null,
+              activePromotionPackage: null,
+            },
+          });
 
-        await notifyPromotionExpiry(course.createdBy, "Course", course.courseTitle, course._id);
+          await notifyPromotionExpiry(course.createdBy, "Course", course.courseTitle, course._id);
 
-        console.log(`[${now.toISOString()}] Expired promotion for Course ID: ${course._id}`);
+          console.log(`[${now.toISOString()}] Expired promotion for Course ID: ${course._id}`);
+        } catch (courseErr) {
+          console.error(`Error expiring promotion for Course ID ${course._id}:`, courseErr.message);
+        }
       }
     } else {
       console.log(`[${now.toISOString()}] No expired course promotions found.`);

@@ -58,6 +58,7 @@ const REFUND_POLICY_TO_ENGLISH = {
     "буцаан олголт байхгүй": "No Refund",
     "1 өдрийн өмнө": "1 Day Before",
     "7 өдрийн өмнө": "7 Days Before",
+    "flexible": "7 Days Before",
 };
 
 /**

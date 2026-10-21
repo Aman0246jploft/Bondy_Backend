@@ -123,7 +123,7 @@ Includes live coding labs, architecture review workshops, and 1-on-1 capstone pr
       }
     ],
     price: 380000,
-    refundPolicy: "Flexible",
+    refundPolicy: "7 Days Before",
     oneMonthPassEnabled: true,
     oneMonthPassPrice: 180000,
     threeMonthPassEnabled: true,
