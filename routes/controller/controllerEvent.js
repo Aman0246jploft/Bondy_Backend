@@ -2017,7 +2017,13 @@ const getEventDetails = async (req, res) => {
           .lean(),
 
         // Top 5 Comments
-        Comment.find({ event: eventId, parentComment: null })
+        Comment.find({
+          $or: [
+            { entityId: eventId, entityModel: "Event" },
+            { event: eventId },
+          ],
+          parentComment: null,
+        })
           .sort({ createdAt: -1 })
           .limit(5)
           .populate("user", "firstName lastName profileImage isVerified")

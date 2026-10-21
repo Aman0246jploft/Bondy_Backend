@@ -3191,7 +3191,164 @@ router.get(
   getCourses,
 );
 
+// ---------------------------------------------------------
+// Get All Course Attendees / Students
+// ---------------------------------------------------------
+const getAllCourseAttendees = async (req, res) => {
+  try {
+    const { courseId } = req.params;
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const search = req.query.search ? req.query.search.trim() : "";
+    const skip = (page - 1) * limit;
+
+    if (!mongoose.Types.ObjectId.isValid(courseId)) {
+      return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.INVALID_COURSE_ID_FORMAT || "Invalid course ID format");
+    }
+
+    const course = await Course.findById(courseId).select("courseTitle venueName batches").lean();
+    if (!course) {
+      return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.COURSE_NOT_FOUND_1 || "Course not found");
+    }
+
+    const batchMap = {};
+    if (course.batches && Array.isArray(course.batches)) {
+      course.batches.forEach((b) => {
+        if (b._id) {
+          batchMap[b._id.toString()] = b;
+        }
+      });
+    }
+
+    const pipeline = [
+      {
+        $match: {
+          courseId: new mongoose.Types.ObjectId(courseId),
+          status: "PAID",
+          bookingType: "COURSE",
+        },
+      },
+      {
+        $lookup: {
+          from: "User",
+          localField: "userId",
+          foreignField: "_id",
+          as: "user",
+        },
+      },
+      { $unwind: "$user" },
+    ];
+
+    if (search) {
+      pipeline.push({
+        $match: {
+          $or: [
+            { "user.firstName": { $regex: search, $options: "i" } },
+            { "user.lastName": { $regex: search, $options: "i" } },
+            { "user.email": { $regex: search, $options: "i" } },
+          ],
+        },
+      });
+    }
+
+    pipeline.push({
+      $group: {
+        _id: "$userId",
+        user: { $first: "$user" },
+        transactions: { $push: "$$ROOT" },
+      },
+    });
+
+    pipeline.push({ $sort: { "user.firstName": 1 } });
+
+    pipeline.push({
+      $facet: {
+        metadata: [{ $count: "total" }],
+        data: [{ $skip: skip }, { $limit: limit }],
+      },
+    });
+
+    const result = await Transaction.aggregate(pipeline);
+    const total = result[0]?.metadata[0]?.total || 0;
+    const paginatedData = result[0]?.data || [];
+
+    const uniqueUsers = [];
+    for (const item of paginatedData) {
+      const user = item.user;
+      const userTransactions = item.transactions;
+
+      const txnDetails = [];
+      let totalAmountPaid = 0;
+      let totalSeatsBooked = 0;
+      const enrolledBatches = [];
+
+      for (const tr of userTransactions) {
+        totalAmountPaid += tr.totalAmount || 0;
+        totalSeatsBooked += tr.qty || 1;
+
+        let batchInfo = null;
+        if (tr.batchId && batchMap[tr.batchId.toString()]) {
+          const b = batchMap[tr.batchId.toString()];
+          batchInfo = {
+            batchId: b._id,
+            batchName: b.batchName,
+            days: b.days,
+            startTime: b.startTime,
+            endTime: b.endTime,
+          };
+          if (!enrolledBatches.some((eb) => eb.batchId.toString() === b._id.toString())) {
+            enrolledBatches.push(batchInfo);
+          }
+        }
+
+        txnDetails.push({
+          _id: tr._id,
+          bookingId: tr.bookingId,
+          qty: tr.qty || 1,
+          totalAmount: tr.totalAmount,
+          passType: tr.passType || null,
+          batchId: tr.batchId,
+          batchName: batchInfo ? batchInfo.batchName : (tr.passType ? `${tr.passType.replace('_', ' ').toUpperCase()} PASS` : "General Enrollment"),
+          status: tr.status,
+          createdAt: tr.createdAt,
+        });
+      }
+
+      uniqueUsers.push({
+        _id: user._id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        contactNumber: user.contactNumber || null,
+        profileImage: user.profileImage ? formatResponseUrl(user.profileImage) : null,
+        totalBookings: userTransactions.length,
+        totalSeats: totalSeatsBooked,
+        totalAmountPaid,
+        enrolledBatches,
+        transactions: txnDetails,
+        latestBookingDate: userTransactions[0]?.createdAt || null,
+      });
+    }
+
+    return apiSuccessRes(HTTP_STATUS.OK, res, "Course attendees retrieved successfully", {
+      course: {
+        _id: course._id,
+        courseTitle: course.courseTitle,
+      },
+      attendees: uniqueUsers,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit) || 1,
+    });
+  } catch (error) {
+    console.error("Error in getAllCourseAttendees:", error);
+    return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
+  }
+};
+
 router.get("/details/:courseId", perApiLimiter(), getCourseDetails);
+router.get("/attendees/:courseId", perApiLimiter(), getAllCourseAttendees);
 
 // Admin List API
 router.get(
