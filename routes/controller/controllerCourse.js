@@ -367,7 +367,7 @@ const getCourses = async (req, res) => {
     }
 
     // CreatedBy filter
-    if (isOrganizer) {
+    if (isOrganizerList) {
       query.createdBy = new mongoose.Types.ObjectId(loginUser);
     } else if (userId && mongoose.Types.ObjectId.isValid(userId)) {
       query.createdBy = new mongoose.Types.ObjectId(userId);
