@@ -371,7 +371,7 @@ const getCourses = async (req, res) => {
       query.createdBy = new mongoose.Types.ObjectId(loginUser);
     } else if (userId && mongoose.Types.ObjectId.isValid(userId)) {
       query.createdBy = new mongoose.Types.ObjectId(userId);
-    } else if (shouldExcludeMyCourses && loginUser && !query.createdBy) {
+    } else if ((shouldExcludeMyCourses || isOrganizer) && loginUser && !query.createdBy) {
       query.createdBy = { $ne: new mongoose.Types.ObjectId(loginUser) };
     }
 

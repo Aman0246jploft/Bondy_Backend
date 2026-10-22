@@ -678,6 +678,9 @@ const getEvents = async (req, res) => {
         visibility: { $ne: "PRIVATE" },
         accessAndPrivacy: { $ne: false },
       };
+      if (isOrganizer && loginUser) {
+        simpleQuery.createdBy = { $ne: new mongoose.Types.ObjectId(loginUser) };
+      }
 
       const events = await Event.find(simpleQuery)
         .populate("eventCategory")
@@ -874,7 +877,7 @@ const getEvents = async (req, res) => {
       query.createdBy = new mongoose.Types.ObjectId(loginUser);
     } else if (userId && mongoose.Types.ObjectId.isValid(userId)) {
       query.createdBy = new mongoose.Types.ObjectId(userId);
-    } else if (shouldExcludeMyEvents && loginUser && !query.createdBy) {
+    } else if ((shouldExcludeMyEvents || isOrganizer) && loginUser && !query.createdBy) {
       query.createdBy = { $ne: new mongoose.Types.ObjectId(loginUser) };
     }
 
