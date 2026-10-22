@@ -27,6 +27,8 @@ const {
   BACKEND_URL,
   formatResponseUrl,
   capitalizeWords,
+  escapeRegex,
+  buildUserSearchFilter,
 } = require("../../utils/globalFunction");
 const { signToken } = require("../../utils/jwtTokenUtils");
 const jwt = require("jsonwebtoken");
@@ -1959,7 +1961,7 @@ const getPublicOrganizers = async (req, res) => {
 
     if (search && typeof search === "string" && search.trim()) {
       const trimmed = search.trim();
-      const escaped = trimmed.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const escaped = escapeRegex(trimmed);
       const searchRegex = new RegExp(escaped, "i");
 
       // Find any categories whose name matches
@@ -1972,13 +1974,15 @@ const getPublicOrganizers = async (req, res) => {
         ],
       }).distinct("_id");
 
-      const searchConditions = [
-        { businessName: searchRegex },
-        { firstName: searchRegex },
-        { lastName: searchRegex },
-        { shortDesc: searchRegex },
-        { bio: searchRegex },
-      ];
+      const userSearchFilter = buildUserSearchFilter(search, {
+        fields: ["businessName", "firstName", "lastName", "shortDesc", "bio"],
+        includeFullName: true,
+      });
+
+      const searchConditions = [];
+      if (userSearchFilter && userSearchFilter.$or) {
+        searchConditions.push(...userSearchFilter.$or);
+      }
 
       if (matchingCatIds.length > 0) {
         searchConditions.push(
@@ -1986,7 +1990,9 @@ const getPublicOrganizers = async (req, res) => {
           { categories: { $in: matchingCatIds } }
         );
       }
-      andConditions.push({ $or: searchConditions });
+      if (searchConditions.length > 0) {
+        andConditions.push({ $or: searchConditions });
+      }
     }
 
     query.$and = andConditions;
@@ -2114,15 +2120,19 @@ const userList = async (req, res) => {
 
     // Keyword search
     if (search) {
-      andConditions.push({
-        $or: [
-          { firstName: { $regex: search, $options: "i" } },
-          { lastName: { $regex: search, $options: "i" } },
-          { email: { $regex: search, $options: "i" } },
-          { contactNumber: { $regex: search, $options: "i" } },
-          { businessName: { $regex: search, $options: "i" } },
+      const searchFilter = buildUserSearchFilter(search, {
+        fields: [
+          "firstName",
+          "lastName",
+          "email",
+          "contactNumber",
+          "businessName",
         ],
+        includeFullName: true,
       });
+      if (searchFilter) {
+        andConditions.push(searchFilter);
+      }
     }
 
     if (andConditions.length > 0) {

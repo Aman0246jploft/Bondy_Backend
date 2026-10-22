@@ -479,6 +479,78 @@ const capitalizeWords = (str) => {
     .join(" ");
 };
 
+const escapeRegex = (str) => {
+  if (!str || typeof str !== "string") return "";
+  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+};
+
+const buildUserSearchFilter = (search, options = {}) => {
+  if (!search || typeof search !== "string") return null;
+  const trimmed = search.trim();
+  if (!trimmed) return null;
+
+  const fields = options.fields || [
+    "firstName",
+    "lastName",
+    "email",
+    "contactNumber",
+    "businessName",
+  ];
+  const includeFullName = options.includeFullName !== false;
+
+  const escapedFull = escapeRegex(trimmed);
+  const tokens = trimmed.split(/\s+/).filter(Boolean);
+
+  const fullNameCondition = includeFullName
+    ? {
+        $expr: {
+          $regexMatch: {
+            input: {
+              $concat: [
+                { $ifNull: ["$firstName", ""] },
+                " ",
+                { $ifNull: ["$lastName", ""] },
+              ],
+            },
+            regex: escapedFull,
+            options: "i",
+          },
+        },
+      }
+    : null;
+
+  if (tokens.length <= 1) {
+    const singleTokenOr = fields.map((f) => ({
+      [f]: { $regex: escapedFull, $options: "i" },
+    }));
+    if (fullNameCondition) {
+      singleTokenOr.push(fullNameCondition);
+    }
+    return { $or: singleTokenOr };
+  }
+
+  // Multi-token search (e.g. "James Kowalski"):
+  // Each token must match at least one of the fields
+  const tokenAndConditions = tokens.map((token) => {
+    const esc = escapeRegex(token);
+    return {
+      $or: fields.map((f) => ({
+        [f]: { $regex: esc, $options: "i" },
+      })),
+    };
+  });
+
+  const multiOr = [{ $and: tokenAndConditions }];
+  if (fullNameCondition) {
+    multiOr.unshift(fullNameCondition);
+  }
+  fields.forEach((f) => {
+    multiOr.push({ [f]: { $regex: escapedFull, $options: "i" } });
+  });
+
+  return { $or: multiOr };
+};
+
 module.exports = {
   resultDb,
   generateOTP,
@@ -495,4 +567,6 @@ module.exports = {
   generateSecureQRPayload,
   verifyQRPayload,
   capitalizeWords,
+  escapeRegex,
+  buildUserSearchFilter,
 };

@@ -8,6 +8,7 @@ const {
   formatResponseUrl,
   generateOTP,
   getUserLanguage,
+  buildUserSearchFilter,
 } = require("../../utils/globalFunction");
 
 const CONSTANTS = require("../../utils/constants");
@@ -300,28 +301,32 @@ const getVerificationRequests = async (req, res) => {
   try {
     const { status, page = 1, limit = 10, search } = req.query;
 
-    const query = {
-      roleId: roleId.ORGANIZER,
-    };
+    const andConditions = [{ roleId: roleId.ORGANIZER }];
 
     // Filter by individual verification statuses
     if (status) {
-      query.$or = [
-        { "verifications.idVerification.nationalId.status": status },
-        { "verifications.idVerification.drivingLicence.status": status },
-        { "verifications.bankVerification.status": status },
-        { "businessVerificationStatus": status }
-      ];
+      andConditions.push({
+        $or: [
+          { "verifications.idVerification.nationalId.status": status },
+          { "verifications.idVerification.drivingLicence.status": status },
+          { "verifications.bankVerification.status": status },
+          { "businessVerificationStatus": status }
+        ],
+      });
     }
 
     // Search logic
     if (search) {
-      query.$or = [
-        { firstName: { $regex: search, $options: "i" } },
-        { lastName: { $regex: search, $options: "i" } },
-        { email: { $regex: search, $options: "i" } },
-      ];
+      const searchFilter = buildUserSearchFilter(search, {
+        fields: ["firstName", "lastName", "email", "contactNumber", "businessName"],
+        includeFullName: true,
+      });
+      if (searchFilter) {
+        andConditions.push(searchFilter);
+      }
     }
+
+    const query = andConditions.length > 1 ? { $and: andConditions } : andConditions[0];
 
     const skip = (Number(page) - 1) * Number(limit);
 
