@@ -72,37 +72,6 @@ const {
 
 const roundToTwo = (num) => Math.round((num + Number.EPSILON) * 100) / 100;
 
-const getTicketSalesEndDate = (salesEndVal) => {
-  if (!salesEndVal) return null;
-  if (typeof salesEndVal === "string" && /^\d{4}-\d{2}-\d{2}$/.test(salesEndVal.trim())) {
-    const d = new Date(`${salesEndVal.trim()}T23:59:59.999`);
-    return isNaN(d.getTime()) ? new Date(salesEndVal) : d;
-  }
-  const d = new Date(salesEndVal);
-  if (isNaN(d.getTime())) return null;
-  if (
-    (d.getUTCHours() === 0 && d.getUTCMinutes() === 0 && d.getUTCSeconds() === 0 && d.getUTCMilliseconds() === 0) ||
-    (d.getHours() === 0 && d.getMinutes() === 0 && d.getSeconds() === 0 && d.getMilliseconds() === 0)
-  ) {
-    const utcEnd = new Date(d);
-    utcEnd.setUTCHours(23, 59, 59, 999);
-    const locEnd = new Date(d);
-    locEnd.setHours(23, 59, 59, 999);
-    return utcEnd > locEnd ? utcEnd : locEnd;
-  }
-  return d;
-};
-
-const getTicketSalesStartDate = (salesStartVal) => {
-  if (!salesStartVal) return null;
-  if (typeof salesStartVal === "string" && /^\d{4}-\d{2}-\d{2}$/.test(salesStartVal.trim())) {
-    const d = new Date(`${salesStartVal.trim()}T00:00:00.000`);
-    return isNaN(d.getTime()) ? new Date(salesStartVal) : d;
-  }
-  const d = new Date(salesStartVal);
-  return isNaN(d.getTime()) ? null : d;
-};
-
 /** Legacy transaction-level QR (kept for backward compat with old bookings) */
 const generateQRData = (transactionId, userId) =>
   `TICKET-${transactionId}-${userId}-${Date.now()}`;
@@ -1034,12 +1003,10 @@ const calculateBooking = async (req, res) => {
           if (!ticket) return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.TICKET_TYPE_NOT_FOUND_FOR_TICKETID_X);
 
           const now = new Date();
-          const startD = getTicketSalesStartDate(ticket.salesStart);
-          if (startD && now < startD) {
+          if (ticket.salesStart && now < new Date(ticket.salesStart)) {
             return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, `${constantsMessage.SALES_NOT_STARTED_FOR_TICKET_TYPE_X} ${ticket.ticketName || ""}`.trim());
           }
-          const endD = getTicketSalesEndDate(ticket.salesEnd);
-          if (endD && now > endD) {
+          if (ticket.salesEnd && now > new Date(ticket.salesEnd)) {
             return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, `${constantsMessage.SALES_ENDED_FOR_TICKET_TYPE_X} ${ticket.ticketName || ""}`.trim());
           }
 
@@ -1060,12 +1027,10 @@ const calculateBooking = async (req, res) => {
         if (!ticket) return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.TICKET_TYPE_NOT_FOUND);
 
         const now = new Date();
-        const startD = getTicketSalesStartDate(ticket.salesStart);
-        if (startD && now < startD) {
+        if (ticket.salesStart && now < new Date(ticket.salesStart)) {
           return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.TICKET_SALES_NOT_STARTED);
         }
-        const endD = getTicketSalesEndDate(ticket.salesEnd);
-        if (endD && now > endD) {
+        if (ticket.salesEnd && now > new Date(ticket.salesEnd)) {
           return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.TICKET_SALES_ENDED);
         }
 
@@ -1289,12 +1254,10 @@ const initiateBooking = async (req, res) => {
           if (!ticket) return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.TICKET_TYPE_NOT_FOUND_FOR_TICKETID_X);
 
           const now = new Date();
-          const startD = getTicketSalesStartDate(ticket.salesStart);
-          if (startD && now < startD) {
+          if (ticket.salesStart && now < new Date(ticket.salesStart)) {
             return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, `${constantsMessage.SALES_NOT_STARTED_FOR_TICKET_TYPE_X} ${ticket.ticketName || ""}`.trim());
           }
-          const endD = getTicketSalesEndDate(ticket.salesEnd);
-          if (endD && now > endD) {
+          if (ticket.salesEnd && now > new Date(ticket.salesEnd)) {
             return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, `${constantsMessage.SALES_ENDED_FOR_TICKET_TYPE_X} ${ticket.ticketName || ""}`.trim());
           }
 
@@ -1324,12 +1287,10 @@ const initiateBooking = async (req, res) => {
         if (!ticket) return apiErrorRes(HTTP_STATUS.NOT_FOUND, res, constantsMessage.TICKET_TYPE_NOT_FOUND);
 
         const now = new Date();
-        const startD = getTicketSalesStartDate(ticket.salesStart);
-        if (startD && now < startD) {
+        if (ticket.salesStart && now < new Date(ticket.salesStart)) {
           return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.TICKET_SALES_NOT_STARTED);
         }
-        const endD = getTicketSalesEndDate(ticket.salesEnd);
-        if (endD && now > endD) {
+        if (ticket.salesEnd && now > new Date(ticket.salesEnd)) {
           return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, constantsMessage.TICKET_SALES_ENDED);
         }
 
