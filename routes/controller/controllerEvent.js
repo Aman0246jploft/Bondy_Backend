@@ -672,12 +672,14 @@ const getEvents = async (req, res) => {
 
     if (isAddToSliderTrueOnlyRequest) {
       const simpleLimit = 10;
-      const simpleQuery = { addToSlider: true, isDraft: false };
-      if (isOrganizer) {
-        simpleQuery.createdBy = new mongoose.Types.ObjectId(loginUser);
-      } else {
-        simpleQuery.visibility = { $ne: "PRIVATE" };
-        simpleQuery.accessAndPrivacy = { $ne: false };
+      const simpleQuery = {
+        addToSlider: true,
+        isDraft: false,
+        visibility: { $ne: "PRIVATE" },
+        accessAndPrivacy: { $ne: false },
+      };
+      if (isOrganizer && loginUser) {
+        simpleQuery.createdBy = { $ne: new mongoose.Types.ObjectId(loginUser) };
       }
 
       const events = await Event.find(simpleQuery)
@@ -871,17 +873,17 @@ const getEvents = async (req, res) => {
     }
 
     // CreatedBy filter
-    if (isOrganizer) {
+    if (isOrganizerList) {
       query.createdBy = new mongoose.Types.ObjectId(loginUser);
     } else if (userId && mongoose.Types.ObjectId.isValid(userId)) {
       query.createdBy = new mongoose.Types.ObjectId(userId);
-    } else if (shouldExcludeMyEvents && loginUser && !query.createdBy) {
+    } else if ((shouldExcludeMyEvents || isOrganizer) && loginUser && !query.createdBy) {
       query.createdBy = { $ne: new mongoose.Types.ObjectId(loginUser) };
     }
 
     // Visibility filter
-    // Private events are only shown if the organizer is viewing their own list (filter=organizer) or user is the organizer
-    if (!isOrganizerList && !isOrganizer) {
+    // Private events are only shown if the organizer is viewing their own list (filter=organizer)
+    if (!isOrganizerList) {
       // For all non-organizer requests: show only PUBLIC events
       query.$and = query.$and || [];
       query.$and.push({
@@ -1576,7 +1578,7 @@ const getEvents = async (req, res) => {
             const sliderQuery = {
               addToSlider: true,
               isDraft: false,
-              ...(!isOrganizerList && !isOrganizer ? { visibility: { $ne: "PRIVATE" }, accessAndPrivacy: { $ne: false } } : {}),
+              ...(!isOrganizerList ? { visibility: { $ne: "PRIVATE" }, accessAndPrivacy: { $ne: false } } : {}),
             };
             const sliderSortOrder =
               filters.includes("latest") || filters.includes("newest")
