@@ -2108,12 +2108,20 @@ const userList = async (req, res) => {
     // Role filter
     if (roleId) {
       filter.roleId = Number(roleId);
-      if (Number(roleId) === 2) {
+    }
+
+    // Optional verification status filter
+    if (req.query.organizerVerificationStatus) {
+      if (req.query.organizerVerificationStatus === "approved") {
         andConditions.push({
           $or: [
             { organizerVerificationStatus: "approved" },
             { isAllVerified: true },
           ],
+        });
+      } else {
+        andConditions.push({
+          organizerVerificationStatus: req.query.organizerVerificationStatus,
         });
       }
     }
