@@ -494,7 +494,7 @@ module.exports = Object.freeze({
   OTP_VERIFIED_SUCCESSFULLY_USE_THE_TOKEN: "OTP verified successfully. Use the token to reset password.",
   RESET_TOKEN_REQUIRED: "Reset token required.",
   INVALID_OR_EXPIRED_RESET_TOKEN: "Invalid or expired reset token.",
-  INVALID_OLD_PASSWORD: "Invalid old password.",
+  INVALID_OLD_PASSWORD: "Invalid current password.",
   PASSWORD_UPDATED_SUCCESSFULLY: "Password updated successfully.",
   STAFF_ACCOUNT_NOT_FOUND: "Staff account not found",
   STAFF_MEMBER_ADDED_SUCCESSFULLY: "Staff member added successfully",
