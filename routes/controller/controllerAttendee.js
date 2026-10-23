@@ -160,7 +160,11 @@ const resolveSubBookingQR = async (subBookingId, scannedBy) => {
     if (!existing) {
       throw new Error(`QR not recognized (subBookingId: ${subBookingId})`);
     }
-    throw new Error("ALREADY_CHECKED_IN: This sub-booking QR has already been scanned");
+    const matched = existing.tickets && existing.tickets.find(t => t.subBookingId === subBookingId);
+    const err = new Error("ALREADY_CHECKED_IN: This sub-booking QR has already been scanned");
+    err.checkedInAt = matched ? matched.checkedInAt : null;
+    err.isDuplicateScan = true;
+    throw err;
   }
 
   // 2. Extract the matched ticket
@@ -534,7 +538,10 @@ const executeAttendeeCheckIn = async (attendee, transaction, organizerId, select
 
   if (isEvent) {
     if (attendee.isCheckedIn) {
-      throw new Error(`Attendee already checked in at ${attendee.checkedInAt}`);
+      const err = new Error(`This ticket has already been checked in`);
+      err.checkedInAt = attendee.checkedInAt;
+      err.isDuplicateScan = true;
+      throw err;
     }
 
     attendee.isCheckedIn = true;
@@ -1710,6 +1717,7 @@ const verifyTicket = async (req, res) => {
       return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.TICKET_VERIFIED_SUCCESSFULLY, {
         isValid,
         validationStatus: scanResultCode,
+        isDuplicateScan: isAlreadyCheckedIn,
         message: finalMessage,
         isExpired,
         isAlreadyCheckedIn,
@@ -2128,8 +2136,12 @@ const verifyTicket = async (req, res) => {
     if (bookingType === "EVENT") {
       isAlreadyCheckedIn = attendee ? attendee.isCheckedIn : (transaction ? transaction.isCheckedIn : false);
       checkedInAt = attendee ? attendee.checkedInAt : (transaction ? transaction.checkedInAt : null);
+      if (matchedQrEntry && matchedQrEntry.isCheckedIn) {
+        isAlreadyCheckedIn = true;
+        if (matchedQrEntry.checkedInAt) checkedInAt = matchedQrEntry.checkedInAt;
+      }
       isValid = !isExpired && !isAlreadyCheckedIn;
-      message = isValid ? "Ticket is valid for check-in" : (isExpired ? "Event has expired" : "Already checked in");
+      message = isValid ? "Ticket is valid for check-in" : (isExpired ? "Event has expired" : "This ticket has already been checked in");
     } else {
       const course = event;
       if (course.enrollmentType === "fixedStart") {
@@ -2236,12 +2248,16 @@ const verifyTicket = async (req, res) => {
       }
     }
 
+    const scanResultCode = isExpired ? "EXPIRED" : (isAlreadyCheckedIn ? "ALREADY_CHECKED_IN" : (isValid ? "SUCCESS" : "INVALID"));
+
     return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.TICKET_VERIFIED_SUCCESSFULLY, {
       isValid,
-      message: finalMessage,
+      validationStatus: scanResultCode,
+      isDuplicateScan: isAlreadyCheckedIn,
+      message: isAlreadyCheckedIn ? "This ticket has already been checked in" : finalMessage,
       isExpired,
       isAlreadyCheckedIn,
-      checkedInAt,
+      checkedInAt: checkedInAt || attendee?.checkedInAt || null,
       checkedInToday,
       todayCheckInPass,
       bookingType,
