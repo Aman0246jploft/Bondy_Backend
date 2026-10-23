@@ -29,7 +29,7 @@ module.exports = Object.freeze({
   PASSWORD_NOT_MATCH: "Password and ConfirmPassword not match",
   REGISTRATION_OTP: "OTP has been sent to your registered email",
   CREDENTIALS: "Enter valid credentials",
-  OLD_PASSWORD: "Old password is incorrect",
+  OLD_PASSWORD: "Current password is incorrect",
   SEND_OTP: "OTP sent to your email address. OTP will expire in 10 min.",
   UPDATE_STATUS: "Update Status Successfully",
   WITHDRAW_AMOUNT:
@@ -494,7 +494,7 @@ module.exports = Object.freeze({
   OTP_VERIFIED_SUCCESSFULLY_USE_THE_TOKEN: "OTP verified successfully. Use the token to reset password.",
   RESET_TOKEN_REQUIRED: "Reset token required.",
   INVALID_OR_EXPIRED_RESET_TOKEN: "Invalid or expired reset token.",
-  INVALID_OLD_PASSWORD: "Invalid old password.",
+  INVALID_OLD_PASSWORD: "Invalid current password.",
   PASSWORD_UPDATED_SUCCESSFULLY: "Password updated successfully.",
   STAFF_ACCOUNT_NOT_FOUND: "Staff account not found",
   STAFF_MEMBER_ADDED_SUCCESSFULLY: "Staff member added successfully",
