@@ -84,6 +84,18 @@ const normalizeEventTickets = (ticketsVal, body = {}) => {
 
       const ticketQty = parsedQty > 0 ? parsedQty : (isFree ? 999999 : 1);
 
+      let salesEnd = t.salesEnd;
+      if (typeof salesEnd === "string" && /^\d{4}-\d{2}-\d{2}$/.test(salesEnd.trim())) {
+        salesEnd = new Date(`${salesEnd.trim()}T23:59:59.999Z`);
+      } else if (typeof salesEnd === "string" && /T00:00:00(?:\.000)?Z?$/.test(salesEnd.trim())) {
+        salesEnd = new Date(salesEnd.trim().replace(/T00:00:00(?:\.000)?Z?$/, "T23:59:59.999Z"));
+      }
+
+      let salesStart = t.salesStart;
+      if (typeof salesStart === "string" && /^\d{4}-\d{2}-\d{2}$/.test(salesStart.trim())) {
+        salesStart = new Date(`${salesStart.trim()}T00:00:00.000Z`);
+      }
+
       return {
         ...t,
         ticketName,
@@ -91,6 +103,8 @@ const normalizeEventTickets = (ticketsVal, body = {}) => {
         price: ticketPrice,
         qty: ticketQty,
         isFreeTicket: isFree,
+        ...(salesStart !== undefined ? { salesStart } : {}),
+        ...(salesEnd !== undefined ? { salesEnd } : {}),
       };
     });
 };
