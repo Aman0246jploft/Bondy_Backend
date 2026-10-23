@@ -39,7 +39,7 @@ module.exports = Object.freeze({
   UPDATE_BANK: "Bank details updated successfully.",
   ADD_BANK: "Bank details added successfully.",
   DEVICE_ID: `dLNvpQxZRPykx96jvtjKss:APA91bE6zNwVmvz0TXTwr9Ijl-rkaurwi0WAYx42wq-G3iPSOl04DMjbVAXHDzevxeT2fWtKvmfO_73R9PQ095RPashK8BmNJ8_NTCOB49F2ZZDuw0uN_1TFgm30NgrrYEjXdkiJv4Ho`,
-  ACCOUNT_DISABLED: "Your account has been disabled. Please contact support.",
+  ACCOUNT_DISABLED: "This account has been deactivated.",
   PENDING_BANK_ACCOUNT: "You already have a pending bank account verification. Please wait for admin approval.",
   EMAIL_ALREADY_EXISTS: "Email already exists",
   CONTACT_ALREADY_EXISTS: "Contact number already exists",

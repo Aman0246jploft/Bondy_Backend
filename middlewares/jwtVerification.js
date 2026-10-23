@@ -118,7 +118,8 @@ function jwtVerification() {
                 return next();
               }
               const { translateMessage } = require("../utils/globalFunction");
-              const message = "Your account has been disabled. Please contact support.";
+              const constantsMessage = require("../utils/constantsMessage");
+              const message = constantsMessage.ACCOUNT_DISABLED || "This account has been deactivated.";
               const translatedMessage = await translateMessage(message, userId, req);
               return res.status(HTTP_STATUS.FORBIDDEN).json({
                 status: false,
