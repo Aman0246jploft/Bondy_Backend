@@ -57,6 +57,7 @@ const { syncEventStatuses } = require("../../cron/eventStatus.cron");
 
 const normalizeEventTickets = (ticketsVal, body = {}) => {
   if (!Array.isArray(ticketsVal)) return ticketsVal;
+  const eventTz = getMappedTimeZone(body.timeZone) || "Asia/Ulaanbaatar";
   return ticketsVal
     .filter(t => t && typeof t === "object" && Object.keys(t).length > 0)
     .map(t => {
@@ -84,6 +85,17 @@ const normalizeEventTickets = (ticketsVal, body = {}) => {
 
       const ticketQty = parsedQty > 0 ? parsedQty : (isFree ? 999999 : 1);
 
+      let salesStart = t.salesStart;
+      let salesEnd = t.salesEnd;
+
+      if (salesStart && salesEnd) {
+        const startStr = String(salesStart).slice(0, 10);
+        const endStr = String(salesEnd).slice(0, 10);
+        if (/^\d{4}-\d{2}-\d{2}$/.test(startStr) && startStr === endStr) {
+          salesEnd = moment.tz(`${endStr} 23:59:59.999`, eventTz).toDate();
+        }
+      }
+
       return {
         ...t,
         ticketName,
@@ -91,6 +103,8 @@ const normalizeEventTickets = (ticketsVal, body = {}) => {
         price: ticketPrice,
         qty: ticketQty,
         isFreeTicket: isFree,
+        ...(salesStart !== undefined ? { salesStart } : {}),
+        ...(salesEnd !== undefined ? { salesEnd } : {}),
       };
     });
 };
