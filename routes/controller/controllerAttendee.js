@@ -1688,8 +1688,11 @@ const verifyTicket = async (req, res) => {
         ? (secureAtt.checkInHistory || []).some(e => e.sessionDate === todayStr)
         : secureAtt.isCheckedIn;
 
-      const isValid = !isExpired && !isAlreadyCheckedIn;
-      const scanResultCode = isExpired ? "EXPIRED" : (isAlreadyCheckedIn ? "ALREADY_CHECKED_IN" : "SUCCESS");
+      const wasAlreadyCheckedIn = isAlreadyCheckedIn;
+      let wasCheckedInByThisScan = false;
+
+      const isValid = !isExpired && !wasAlreadyCheckedIn;
+      const scanResultCode = isExpired ? "EXPIRED" : (wasAlreadyCheckedIn ? "ALREADY_CHECKED_IN" : "SUCCESS");
 
       // Record scan in audit trail
       await recordScanAudit(secureAtt, userId, scanResultCode, isValid ? (req.body.autoCheckIn ? "Auto checked in via verify" : "Verify-only scan") : null);
@@ -1704,7 +1707,7 @@ const verifyTicket = async (req, res) => {
           if (resObj.attendee) Object.assign(secureAtt, resObj.attendee);
           if (secureTxn && resObj.booking) Object.assign(secureTxn, resObj.booking);
           finalMessage = resObj.message || "Checked In Successfully";
-          isAlreadyCheckedIn = true;
+          wasCheckedInByThisScan = true;
         } catch (err) {
           console.error("Auto check-in failed (Secure):", err);
           isValid = false;
@@ -1716,11 +1719,12 @@ const verifyTicket = async (req, res) => {
 
       return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.TICKET_VERIFIED_SUCCESSFULLY, {
         isValid,
-        validationStatus: scanResultCode,
-        isDuplicateScan: isAlreadyCheckedIn,
+        validationStatus: isValid ? "SUCCESS" : (isExpired ? "EXPIRED" : "ALREADY_CHECKED_IN"),
+        isDuplicateScan: wasAlreadyCheckedIn && !wasCheckedInByThisScan,
         message: finalMessage,
         isExpired,
-        isAlreadyCheckedIn,
+        isAlreadyCheckedIn: wasAlreadyCheckedIn || wasCheckedInByThisScan,
+        justCheckedIn: wasCheckedInByThisScan,
         checkedInAt: secureAtt.checkedInAt || null,
         checkedInToday: (secureAtt.checkInHistory || []).some(e => e.sessionDate === todayStr),
         bookingType: secureTxn?.bookingType || (secureAtt.eventId ? "EVENT" : "COURSE"),
@@ -2230,6 +2234,9 @@ const verifyTicket = async (req, res) => {
       : null;
 
     let finalMessage = message;
+    const wasAlreadyCheckedIn = isAlreadyCheckedIn;
+    let wasCheckedInByThisScan = false;
+
     if (isValid && req.body.autoCheckIn && attendee) {
       try {
         const checkInBatchId = req.body.batchId || (matchedQrEntry ? matchedQrEntry.batchId : null);
@@ -2238,7 +2245,7 @@ const verifyTicket = async (req, res) => {
         if (transaction && resObj.booking) Object.assign(transaction, resObj.booking);
         if (matchedQrEntry) matchedQrEntry.isCheckedIn = true;
         finalMessage = resObj.message || "Checked In Successfully";
-        isAlreadyCheckedIn = true; // Mark as checked in since we just did it
+        wasCheckedInByThisScan = true;
         checkedInAt = new Date();
         checkedInToday = true;
       } catch (err) {
@@ -2248,16 +2255,19 @@ const verifyTicket = async (req, res) => {
       }
     }
 
-    const scanResultCode = isExpired ? "EXPIRED" : (isAlreadyCheckedIn ? "ALREADY_CHECKED_IN" : (isValid ? "SUCCESS" : "INVALID"));
+    const scanResultCode = isExpired
+      ? "EXPIRED"
+      : (wasAlreadyCheckedIn ? "ALREADY_CHECKED_IN" : (isValid ? "SUCCESS" : "INVALID"));
 
     return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.TICKET_VERIFIED_SUCCESSFULLY, {
       isValid,
       validationStatus: scanResultCode,
-      isDuplicateScan: isAlreadyCheckedIn,
-      message: isAlreadyCheckedIn ? "This ticket has already been checked in" : finalMessage,
+      isDuplicateScan: wasAlreadyCheckedIn && !wasCheckedInByThisScan,
+      message: wasAlreadyCheckedIn ? "This ticket has already been checked in" : finalMessage,
       isExpired,
-      isAlreadyCheckedIn,
-      checkedInAt: checkedInAt || attendee?.checkedInAt || null,
+      isAlreadyCheckedIn: wasAlreadyCheckedIn || wasCheckedInByThisScan,
+      justCheckedIn: wasCheckedInByThisScan,
+      checkedInAt: (wasAlreadyCheckedIn ? checkedInAt : null) || attendee?.checkedInAt || null,
       checkedInToday,
       todayCheckInPass,
       bookingType,
