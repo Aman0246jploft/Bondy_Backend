@@ -466,6 +466,7 @@ module.exports = Object.freeze({
   "Invalid old password.": "Одоогийн нууц үг буруу байна.",
   "Invalid current password.": "Одоогийн нууц үг буруу байна.",
   "Current password is incorrect": "Одоогийн нууц үг буруу байна.",
+  "Invalid Current password.": "Хуучин нууц үг буруу байна.",
   "Invalid or expired reset token.": "Нууц үг сэргээх токен буруу эсвэл хугацаа дууссан байна.",
   "Only organizers can update organizer info": "Зөвхөн зохион байгуулагч өөрийн мэдээллийг шинэчлэх боломжтой.",
   "Organizer info submitted successfully. Your account is now under review.": "Зохион байгуулагчийн мэдээлэл амжилттай илгээгдлээ. Таны бүртгэл хянагдаж байна.",

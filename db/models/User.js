@@ -5,17 +5,39 @@ const { roleId, userRole } = require("../../utils/Role");
 
 const Schema = mongoose.Schema;
 
+const capitalizeTitle = (str) => {
+  if (!str || typeof str !== "string") return str;
+  const trimmed = str.trim();
+  if (
+    trimmed.startsWith("http://") ||
+    trimmed.startsWith("https://") ||
+    trimmed.startsWith("/") ||
+    trimmed.startsWith("data:") ||
+    trimmed.startsWith("<") ||
+    trimmed.includes("@") ||
+    /^[0-9a-fA-F]{24}$/.test(trimmed) ||
+    /^\d{4}-\d{2}-\d{2}/.test(trimmed)
+  ) {
+    return str;
+  }
+  return str.replace(/(?:^|[\s\-\/\(\[\'\"\u2018\u201c])\S/g, (char) => char.toUpperCase());
+};
+
 const UserSchema = new Schema(
   {
     firstName: {
       type: String,
       trim: true,
       default: null,
+      set: capitalizeTitle,
+      get: capitalizeTitle,
     },
     lastName: {
       type: String,
       trim: true,
       default: null,
+      set: capitalizeTitle,
+      get: capitalizeTitle,
     },
     socialLogin: {
       socialId: {
@@ -459,6 +481,16 @@ UserSchema.pre("save", function (next) {
 });
 
 UserSchema.pre("save", async function (next) {
+  if (this.firstName && typeof this.firstName === "string") {
+    this.firstName = capitalizeTitle(this.firstName);
+  }
+  if (this.lastName && typeof this.lastName === "string") {
+    this.lastName = capitalizeTitle(this.lastName);
+  }
+  if (this.businessName && typeof this.businessName === "string") {
+    this.businessName = capitalizeTitle(this.businessName);
+  }
+
   if (!this.isModified("password")) return next();
 
   try {
@@ -471,11 +503,51 @@ UserSchema.pre("save", async function (next) {
   }
 });
 
+function formatUpdateNames(next) {
+  const update = this.getUpdate();
+  if (update) {
+    if (update.firstName && typeof update.firstName === "string") {
+      update.firstName = capitalizeTitle(update.firstName);
+    }
+    if (update.lastName && typeof update.lastName === "string") {
+      update.lastName = capitalizeTitle(update.lastName);
+    }
+    if (update.businessName && typeof update.businessName === "string") {
+      update.businessName = capitalizeTitle(update.businessName);
+    }
+    if (update.$set) {
+      if (update.$set.firstName && typeof update.$set.firstName === "string") {
+        update.$set.firstName = capitalizeTitle(update.$set.firstName);
+      }
+      if (update.$set.lastName && typeof update.$set.lastName === "string") {
+        update.$set.lastName = capitalizeTitle(update.$set.lastName);
+      }
+      if (update.$set.businessName && typeof update.$set.businessName === "string") {
+        update.$set.businessName = capitalizeTitle(update.$set.businessName);
+      }
+    }
+  }
+  next();
+}
+
+UserSchema.pre("findOneAndUpdate", formatUpdateNames);
+UserSchema.pre("updateOne", formatUpdateNames);
+UserSchema.pre("updateMany", formatUpdateNames);
+
 UserSchema.options.toJSON = {
   transform: function (doc, ret, options) {
     delete ret.__v;
     delete ret.password; // Don't send password in JSON responses
     ret.userRole = userRole[ret.roleId] || null;
+    if (ret.firstName && typeof ret.firstName === "string") {
+      ret.firstName = capitalizeTitle(ret.firstName);
+    }
+    if (ret.lastName && typeof ret.lastName === "string") {
+      ret.lastName = capitalizeTitle(ret.lastName);
+    }
+    if (ret.businessName && typeof ret.businessName === "string") {
+      ret.businessName = capitalizeTitle(ret.businessName);
+    }
     return ret;
   },
 };
