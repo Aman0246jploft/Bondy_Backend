@@ -2202,7 +2202,7 @@ const toggleUserDisable = async (req, res) => {
         const io = socketIO.getIO ? socketIO.getIO() : null;
         if (io) {
           io.to(userId.toString()).emit("force_logout", {
-            message: "Your account has been disabled. Please contact support.",
+            message: constantsMessage.ACCOUNT_DISABLED || "This account has been deactivated.",
             reason: "ACCOUNT_DISABLED",
           });
 

@@ -12,7 +12,7 @@ const {
   clearChatSchema,
   typingSchema,
 } = require("../validations/socketValidation");
-const { formatResponseUrl } = require("../../utils/globalFunction");
+const { formatResponseUrl, toTitleCase } = require("../../utils/globalFunction");
 const Notification = require("../../db/models/Notification");
 const { notifyChat, emitUnreadCount } = require("../../routes/services/serviceNotification");
 
@@ -22,9 +22,23 @@ const chatParticipantsCache = new Map(); // chatId -> [participantIdStrings]
 // Helper to format user object
 const formatUser = (user) => {
   if (!user) return user;
-  const userObj = user.toObject ? user.toObject() : user;
+  const userObj = user.toObject ? user.toObject() : (typeof user === "object" ? { ...user } : user);
   if (userObj.profileImage) {
     userObj.profileImage = formatResponseUrl(userObj.profileImage);
+  }
+
+  // Capitalize name fields directly from backend
+  if (userObj.firstName && typeof userObj.firstName === "string") {
+    userObj.firstName = toTitleCase(userObj.firstName);
+  }
+  if (userObj.lastName && typeof userObj.lastName === "string") {
+    userObj.lastName = toTitleCase(userObj.lastName);
+  }
+  if (userObj.name && typeof userObj.name === "string") {
+    userObj.name = toTitleCase(userObj.name);
+  }
+  if (userObj.businessName && typeof userObj.businessName === "string") {
+    userObj.businessName = toTitleCase(userObj.businessName);
   }
 
   // Add role information
@@ -212,6 +226,11 @@ const emitUnreadMessageCount = async (io, targetUserId) => {
 
 const chatSocketController = (io, socket) => {
   const userObj = socket.user;
+  if (userObj) {
+    if (userObj.firstName && typeof userObj.firstName === "string") userObj.firstName = toTitleCase(userObj.firstName);
+    if (userObj.lastName && typeof userObj.lastName === "string") userObj.lastName = toTitleCase(userObj.lastName);
+    if (userObj.name && typeof userObj.name === "string") userObj.name = toTitleCase(userObj.name);
+  }
   const userId = (userObj.userId || userObj._id || userObj.id).toString();
   console.log("User Connected:", userId);
 
