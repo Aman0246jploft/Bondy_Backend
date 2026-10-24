@@ -667,14 +667,14 @@ const getFinanceStats = async (req, res) => {
       await Promise.all([
         Transaction.find({
           status: "PAID",
-          bookingType: { $in: ["EVENT", "COURSE"] },
+          bookingType: { $in: ["EVENT", "COURSE", "PROMOTION"] },
         }),
         Payout.find({ status: "PENDING" }).populate(
           "organizerId",
           "firstName lastName email",
         ),
         Payout.find({ status: "PAID" }),
-        Transaction.find({ status: "REFUND_INITIATED" }),
+        Transaction.find({ status: { $in: ["REFUNDED", "REFUND_INITIATED"] } }),
       ]);
 
     const totalRevenue = paidTxns.reduce((s, t) => s + (t.totalAmount || 0), 0);
@@ -695,14 +695,14 @@ const getFinanceStats = async (req, res) => {
       0,
     );
     const refundTotal = refundTxns.reduce(
-      (s, t) => s + (t.totalAmount || 0),
+      (s, t) => s + (t.refundAmount || t.totalAmount || 0),
       0,
     );
 
     // Recent 10 paid transactions
     const recentTransactions = await Transaction.find({
       status: "PAID",
-      bookingType: { $in: ["EVENT", "COURSE"] },
+      bookingType: { $in: ["EVENT", "COURSE", "PROMOTION"] },
     })
       .sort({ createdAt: -1 })
       .limit(10)
@@ -791,70 +791,274 @@ const getAllPayouts = async (req, res) => {
   }
 };
 
-// ─── Admin: All Transactions (paginated) ──────────────────────────────────────
+// ─── Admin: All Transactions (Unified Master Ledger) ──────────────────────────
 const getAllTransactions = async (req, res) => {
   try {
-    const { page = 1, limit = 10, search } = req.query;
-    const query = { status: "PAID", bookingType: { $in: ["EVENT", "COURSE"] } };
+    const {
+      page = 1,
+      limit = 10,
+      type = "ALL", // "ALL" | "PURCHASE" | "WALLET_DEPOSIT" | "WITHDRAWAL" | "REFUND"
+      status = "ALL", // "ALL" | "PAID" | "PENDING" | "REFUNDED" | "CANCELLED"
+      paymentMethod = "ALL", // "ALL" | "QPAY" | "WALLET" | "BANK_TRANSFER" etc.
+      startDate,
+      endDate,
+      search,
+    } = req.query;
 
-    let transactionsQuery = Transaction.find(query)
-      .sort({ createdAt: -1 })
-      .populate("userId", "firstName lastName email")
-      .populate("eventId", "eventTitle")
-      .populate("courseId", "courseTitle")
-      .lean();
+    const needTxns = !type || type === "ALL" || type === "PURCHASE" || type === "REFUND";
+    const needWallets = !type || type === "ALL" || type === "WALLET_DEPOSIT";
+    const needPayouts = !type || type === "ALL" || type === "WITHDRAWAL";
 
-    let allTransactions = await transactionsQuery;
+    const [txns, wallets, payouts] = await Promise.all([
+      needTxns
+        ? Transaction.find()
+            .sort({ createdAt: -1 })
+            .populate("userId", "firstName lastName email phone")
+            .populate({
+              path: "eventId",
+              select: "eventTitle location venue createdBy",
+              populate: { path: "createdBy", select: "firstName lastName email phone bankDetails" },
+            })
+            .populate({
+              path: "courseId",
+              select: "courseTitle location createdBy",
+              populate: { path: "createdBy", select: "firstName lastName email phone bankDetails" },
+            })
+            .lean()
+        : Promise.resolve([]),
+      needWallets
+        ? WalletHistory.find({
+            type: { $in: ["TICKET_SALE", "COURSE_SALE", "ADJUSTMENT", "REFERRAL"] },
+          })
+            .sort({ createdAt: -1 })
+            .populate("userId", "firstName lastName email phone bankDetails")
+            .lean()
+        : Promise.resolve([]),
+      needPayouts
+        ? Payout.find()
+            .sort({ createdAt: -1 })
+            .populate("organizerId", "firstName lastName email phone bankDetails bankAccounts")
+            .lean()
+        : Promise.resolve([]),
+    ]);
 
+    let allItems = [];
+
+    // 1. Map Transactions (Purchases and Refunds)
+    for (const t of txns) {
+      const isRefund = t.status === "REFUNDED" || (t.refundAmount && t.refundAmount > 0);
+      const displayId = `#${(t.bookingId ? t.bookingId.slice(-8) : String(t._id).slice(-8)).toUpperCase()}`;
+      const orgUser = t.eventId?.createdBy || t.courseId?.createdBy || null;
+
+      if (isRefund) {
+        if (!type || type === "ALL" || type === "REFUND") {
+          allItems.push({
+            _id: t._id,
+            bookingId: t.bookingId || String(t._id),
+            displayId,
+            type: "REFUND",
+            typeLabel: "Customer Refund",
+            flow: "REFUND",
+            bookingType: t.bookingType || "EVENT",
+            itemTitle: t.eventId?.eventTitle || t.courseId?.courseTitle || "Booking",
+            description: t.refundReason
+              ? `Refund: ${t.refundReason}`
+              : `Refund for ${t.eventId?.eventTitle || t.courseId?.courseTitle || "Booking"}`,
+            userId: t.userId, // Customer
+            organizer: orgUser, // Organizer
+            totalAmount: t.refundAmount || t.totalAmount || 0,
+            organizerEarning: -(t.organizerEarning || 0),
+            commissionAmount: 0,
+            refundAmount: t.refundAmount || t.totalAmount || 0,
+            refundReason: t.refundReason || "Cancelled / Refunded",
+            status: "REFUNDED",
+            paymentMethod: t.paymentMethod || "QPAY",
+            createdAt: t.refundedAt || t.updatedAt || t.createdAt,
+          });
+        }
+      } else {
+        if (!type || type === "ALL" || type === "PURCHASE") {
+          allItems.push({
+            _id: t._id,
+            bookingId: t.bookingId || String(t._id),
+            displayId,
+            type: "PURCHASE",
+            typeLabel: "User Purchase",
+            flow: "INFLOW",
+            bookingType: t.bookingType || "EVENT",
+            itemTitle:
+              t.eventId?.eventTitle ||
+              t.courseId?.courseTitle ||
+              (t.bookingType === "PROMOTION" ? "Promotion Package" : "Event/Course Booking"),
+            description: `${t.bookingType || "Event"} Ticket Purchase`,
+            userId: t.userId, // Customer
+            organizer: orgUser, // Organizer
+            totalAmount: t.totalAmount || 0,
+            organizerEarning: t.organizerEarning || 0,
+            commissionAmount: t.commissionAmount || 0,
+            status: t.status || "PAID",
+            paymentMethod: t.paymentMethod || "QPAY",
+            createdAt: t.createdAt,
+          });
+        }
+      }
+    }
+
+    // 2. Map Wallet Deposits (Organizer Wallet Earnings)
+    for (const w of wallets) {
+      if (!type || type === "ALL" || type === "WALLET_DEPOSIT") {
+        allItems.push({
+          _id: w._id,
+          bookingId: w.transactionId ? String(w.transactionId) : `W-${String(w._id).slice(-6)}`,
+          displayId: `#W-${String(w._id).slice(-6).toUpperCase()}`,
+          type: "WALLET_DEPOSIT",
+          typeLabel: "Organizer Deposit",
+          flow: "WALLET_CREDIT",
+          bookingType: "WALLET",
+          itemTitle: w.description || (w.type === "TICKET_SALE" ? "Ticket Sale Earning" : "Course Sale Earning"),
+          description: w.description || "Wallet deposit from sale",
+          userId: null,
+          organizer: w.userId, // Organizer
+          totalAmount: w.amount || 0,
+          organizerEarning: w.amount || 0,
+          commissionAmount: 0,
+          balanceAfter: w.balanceAfter,
+          status: "PAID",
+          paymentMethod: "WALLET",
+          createdAt: w.createdAt,
+        });
+      }
+    }
+
+    // 3. Map Withdrawals (Organizer Payouts)
+    for (const p of payouts) {
+      if (!type || type === "ALL" || type === "WITHDRAWAL") {
+        allItems.push({
+          _id: p._id,
+          bookingId: p.paymentReference || `PO-${String(p._id).slice(-6)}`,
+          displayId: `#PO-${String(p._id).slice(-6).toUpperCase()}`,
+          type: "WITHDRAWAL",
+          typeLabel: "Organizer Withdrawal",
+          flow: "OUTFLOW",
+          bookingType: "PAYOUT",
+          itemTitle: p.paymentReference ? `Payout: ${p.paymentReference}` : "Organizer Withdrawal",
+          description: p.adminNote || (p.paymentReference ? `Ref: ${p.paymentReference}` : "Withdrawal to bank account"),
+          userId: null,
+          organizer: p.organizerId, // Organizer
+          bankDetails: p.bankDetails || p.organizerId?.bankDetails || null,
+          totalAmount: p.amount || 0,
+          organizerEarning: -(p.amount || 0),
+          commissionAmount: 0,
+          status: p.status || "PENDING",
+          paymentMethod: "BANK_TRANSFER",
+          paymentReference: p.paymentReference,
+          adminNote: p.adminNote,
+          createdAt: p.createdAt,
+          paidAt: p.paidAt,
+        });
+      }
+    }
+
+    // Sort by createdAt descending
+    allItems.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+    // Calculate category breakdown counts before filtering by status/method/search
+    const counts = {
+      all: allItems.length,
+      purchases: allItems.filter(i => i.type === "PURCHASE").length,
+      walletDeposits: allItems.filter(i => i.type === "WALLET_DEPOSIT").length,
+      withdrawals: allItems.filter(i => i.type === "WITHDRAWAL").length,
+      refunds: allItems.filter(i => i.type === "REFUND").length,
+    };
+
+    // Filter by type
+    if (type && type !== "ALL") {
+      allItems = allItems.filter(i => i.type === type);
+    }
+
+    // Filter by status
+    if (status && status !== "ALL") {
+      const s = status.toUpperCase();
+      allItems = allItems.filter(item => {
+        if (s === "PAID") return item.status === "PAID" || item.status === "COMPLETED";
+        if (s === "PENDING") return item.status === "PENDING";
+        if (s === "REFUNDED") return item.status === "REFUNDED";
+        if (s === "CANCELLED") return item.status === "CANCELLED" || item.status === "FAILED";
+        return item.status === s;
+      });
+    }
+
+    // Filter by payment method
+    if (paymentMethod && paymentMethod !== "ALL") {
+      allItems = allItems.filter(
+        item => String(item.paymentMethod || "").toUpperCase() === paymentMethod.toUpperCase(),
+      );
+    }
+
+    // Filter by Date Range
+    if (startDate) {
+      const sDate = new Date(startDate);
+      allItems = allItems.filter(item => new Date(item.createdAt) >= sDate);
+    }
+    if (endDate) {
+      const eDate = new Date(endDate);
+      eDate.setHours(23, 59, 59, 999);
+      allItems = allItems.filter(item => new Date(item.createdAt) <= eDate);
+    }
+
+    // Search filter
     if (search) {
       const rawQ = String(search).trim().toLowerCase();
       const cleanQ = rawQ.replace(/^#/, "").trim();
 
-      allTransactions = allTransactions.filter((t) => {
-        const idStr = String(t._id || "").toLowerCase();
-        const idSlice8 = idStr.slice(-8);
+      allItems = allItems.filter(item => {
+        const idStr = String(item._id || "").toLowerCase();
+        const displayId = String(item.displayId || "").toLowerCase();
+        const bookingId = String(item.bookingId || "").toLowerCase();
+        const itemTitle = String(item.itemTitle || "").toLowerCase();
+        const desc = String(item.description || "").toLowerCase();
+        const payRef = String(item.paymentReference || "").toLowerCase();
 
-        const bookingIdStr = String(t.bookingId || "").toLowerCase();
-        const bookingIdSlice8 = bookingIdStr.slice(-8);
+        const custFirst = String(item.userId?.firstName || "").toLowerCase();
+        const custLast = String(item.userId?.lastName || "").toLowerCase();
+        const custFull = `${custFirst} ${custLast}`.trim();
+        const custRev = `${custLast} ${custFirst}`.trim();
+        const custEmail = String(item.userId?.email || "").toLowerCase();
 
-        const fName = String(t.userId?.firstName || "").toLowerCase();
-        const lName = String(t.userId?.lastName || "").toLowerCase();
-        const fullName = `${fName} ${lName}`.trim();
-        const revFullName = `${lName} ${fName}`.trim();
-        const email = String(t.userId?.email || "").toLowerCase();
-
-        const eventTitle = String(t.eventId?.eventTitle || "").toLowerCase();
-        const courseTitle = String(t.courseId?.courseTitle || "").toLowerCase();
+        const orgFirst = String(item.organizer?.firstName || "").toLowerCase();
+        const orgLast = String(item.organizer?.lastName || "").toLowerCase();
+        const orgFull = `${orgFirst} ${orgLast}`.trim();
+        const orgRev = `${orgLast} ${orgFirst}`.trim();
+        const orgEmail = String(item.organizer?.email || "").toLowerCase();
 
         return (
-          // Match Booking ID or Mongo _id (full, last 8 chars, or with #)
-          bookingIdStr.includes(rawQ) ||
-          bookingIdStr.includes(cleanQ) ||
-          bookingIdSlice8.includes(cleanQ) ||
-          `#${bookingIdSlice8}`.includes(rawQ) ||
           idStr.includes(rawQ) ||
           idStr.includes(cleanQ) ||
-          idSlice8.includes(cleanQ) ||
-          `#${idSlice8}`.includes(rawQ) ||
-          // Match Customer (first name, last name, full name, reverse full name, email)
-          fName.includes(rawQ) ||
-          lName.includes(rawQ) ||
-          fullName.includes(rawQ) ||
-          revFullName.includes(rawQ) ||
-          email.includes(rawQ) ||
-          // Match Item title
-          eventTitle.includes(rawQ) ||
-          courseTitle.includes(rawQ)
+          displayId.includes(rawQ) ||
+          displayId.includes(cleanQ) ||
+          bookingId.includes(rawQ) ||
+          bookingId.includes(cleanQ) ||
+          payRef.includes(rawQ) ||
+          payRef.includes(cleanQ) ||
+          itemTitle.includes(rawQ) ||
+          desc.includes(rawQ) ||
+          custFirst.includes(rawQ) ||
+          custLast.includes(rawQ) ||
+          custFull.includes(rawQ) ||
+          custRev.includes(rawQ) ||
+          custEmail.includes(rawQ) ||
+          orgFirst.includes(rawQ) ||
+          orgLast.includes(rawQ) ||
+          orgFull.includes(rawQ) ||
+          orgRev.includes(rawQ) ||
+          orgEmail.includes(rawQ)
         );
       });
     }
 
-    const total = allTransactions.length;
+    const total = allItems.length;
     const skip = (Number(page) - 1) * Number(limit);
-    const paginatedTransactions = allTransactions.slice(
-      skip,
-      skip + Number(limit),
-    );
+    const paginatedTransactions = allItems.slice(skip, skip + Number(limit));
 
     return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.TRANSACTIONS_FETCHED, {
       transactions: paginatedTransactions,
@@ -862,6 +1066,7 @@ const getAllTransactions = async (req, res) => {
       page: Number(page),
       limit: Number(limit),
       totalPages: Math.ceil(total / Number(limit)),
+      counts,
     });
   } catch (error) {
     console.error("Error in getAllTransactions:", error);
