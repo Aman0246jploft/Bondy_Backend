@@ -120,6 +120,14 @@ const createEvent = async (req, res) => {
     const { id, venueAddress, isDraft: isDraftBody, ...eventData } = req.body;
     const userId = req.user.userId;
 
+    // Resolve creator timezone if not provided or defaulted to UTC
+    if (!eventData.timeZone || eventData.timeZone === "UTC") {
+      const creator = await User.findById(userId).select("timeZone");
+      if (creator?.timeZone) {
+        eventData.timeZone = creator.timeZone;
+      }
+    }
+
     // Sanitize empty strings and normalize refundPolicy
     if (eventData.eventCategory === "") {
       eventData.eventCategory = null;

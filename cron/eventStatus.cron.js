@@ -96,14 +96,14 @@ function parseDateTimeUtc(dateVal, timeStr, targetTimeZone, isEnd = false) {
  */
 function resolveEventTimeZone(event) {
   let rawTimeZone = null;
-  if (event.timeZone && typeof event.timeZone === "string" && event.timeZone.trim()) {
+  if (event.timeZone && typeof event.timeZone === "string" && event.timeZone.trim() && event.timeZone !== "UTC") {
     rawTimeZone = event.timeZone.trim();
-  } else if (event.venueAddress?.country === "Монгол") {
-    rawTimeZone = "Asia/Ulaanbaatar";
   } else if (event.createdBy?.timeZone) {
     rawTimeZone = event.createdBy.timeZone;
+  } else if (event.venueAddress?.country === "Монгол") {
+    rawTimeZone = "Asia/Ulaanbaatar";
   } else {
-    rawTimeZone = "UTC";
+    rawTimeZone = event.timeZone || "UTC";
   }
 
   const targetTimeZone = rawTimeZone && tzMapping[rawTimeZone] ? tzMapping[rawTimeZone] : rawTimeZone;

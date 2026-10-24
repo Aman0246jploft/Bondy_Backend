@@ -45,6 +45,14 @@ const createCourse = async (req, res) => {
     const { venueAddress, isDraft: isDraftBody, ...courseData } = req.body;
     const userId = req.user.userId;
 
+    // Resolve creator timezone if not provided or defaulted to UTC
+    if (!courseData.timeZone || courseData.timeZone === "UTC") {
+      const creator = await User.findById(userId).select("timeZone");
+      if (creator?.timeZone) {
+        courseData.timeZone = creator.timeZone;
+      }
+    }
+
     // Sanitize empty strings and normalize refundPolicy
     if (courseData.courseCategory === "") {
       courseData.courseCategory = null;
