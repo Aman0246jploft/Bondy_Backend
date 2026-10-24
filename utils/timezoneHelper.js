@@ -48,20 +48,23 @@ const adjustEventDateTime = (dateVal, timeVal, timeZone) => {
     return { date: dateVal, time: timeVal };
   }
   try {
-    let m;
-    if (timeVal && typeof timeVal === 'string') {
-      const datePart = moment.utc(dateVal).format('YYYY-MM-DD');
-      m = moment.utc(`${datePart}T${timeVal}`);
-    } else {
-      m = moment.utc(dateVal);
-    }
-
+    const m = moment.utc(dateVal);
     if (!m.isValid()) return { date: dateVal, time: timeVal };
 
-    const tzMoment = m.tz(mappedTz);
+    // If dateVal has full UTC timestamp (non-zero time), convert UTC to target timezone
+    if (m.format('HH:mm:ss') !== '00:00:00') {
+      const tzMoment = m.tz(mappedTz);
+      return {
+        date: tzMoment.format('YYYY-MM-DDTHH:mm:ss.SSS') + 'Z',
+        time: tzMoment.format('HH:mm')
+      };
+    }
+
+    // If dateVal was stored at midnight, timeVal is already in local time
+    const datePart = m.format('YYYY-MM-DD');
     return {
-      date: tzMoment.format('YYYY-MM-DDTHH:mm:ss.SSS') + 'Z',
-      time: tzMoment.format('HH:mm')
+      date: `${datePart}T${timeVal || '00:00'}:00.000Z`,
+      time: timeVal || '00:00'
     };
   } catch(e) {
     return { date: dateVal, time: timeVal };
