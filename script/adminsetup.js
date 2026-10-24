@@ -8,8 +8,8 @@ const adminCreate = async () => {
     const data = {
       firstName: "Super",
       lastName: "Admin",
-      email: "adminbondy@gmail.com",
-      password: "Bondy@123",
+      email: "superadmin@mailinator.com",
+      password: "123456",
       roleId: roleId.SUPER_ADMIN,
 
       location: {
@@ -23,17 +23,6 @@ const adminCreate = async () => {
       isDisable: false,
       isDeleted: false,
     };
-
-    const existing = await User.findOne({ email: data.email });
-    if (existing) {
-      existing.password = data.password;
-      existing.roleId = data.roleId;
-      existing.isDisable = false;
-      existing.isDeleted = false;
-      const res = await existing.save();
-      console.log("Admin updated successfully:", res);
-      process.exit(0);
-    }
 
     const admin = new User(data);
     const res = await admin.save();
