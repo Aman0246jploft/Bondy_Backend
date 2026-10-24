@@ -2931,6 +2931,7 @@ const updateEvent = async (req, res) => {
     }
 
     // 3. Prevent editing live events (unless it is a draft)
+    const now = new Date();
     if (!existingEvent.isDraft && (
       existingEvent.status === eventStatus.LIVE ||
       Boolean(existingEvent.isLive) ||
