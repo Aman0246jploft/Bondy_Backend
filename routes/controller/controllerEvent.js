@@ -2954,7 +2954,14 @@ const updateEvent = async (req, res) => {
     }
 
     // 4. Prevent editing past events (unless it is a draft)
-    if (!existingEvent.isDraft && (existingEvent.status === eventStatus.PAST || existingEvent.endDate < now)) {
+    const targetTz = updateData.timeZone || existingEvent.timeZone || "Asia/Ulaanbaatar";
+    const startOfTodayTz = moment().tz(targetTz).startOf("day").toDate();
+    const startOfTodayUtc = moment.utc().startOf("day").toDate();
+    const startOfTodayLocal = new Date();
+    startOfTodayLocal.setHours(0, 0, 0, 0);
+    const minAllowedDate = new Date(Math.min(startOfTodayTz.getTime(), startOfTodayUtc.getTime(), startOfTodayLocal.getTime()));
+
+    if (!existingEvent.isDraft && (existingEvent.status === eventStatus.PAST || existingEvent.endDate < minAllowedDate)) {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
@@ -2969,15 +2976,6 @@ const updateEvent = async (req, res) => {
         HTTP_STATUS.BAD_REQUEST,
         res,
         constantsMessage.CANNOT_EDIT_CANCELLED_EVENT,
-      );
-    }
-
-    // Prevent editing live events
-    if (!existingEvent.isDraft && existingEvent.status === eventStatus.LIVE) {
-      return apiErrorRes(
-        HTTP_STATUS.BAD_REQUEST,
-        res,
-        constantsMessage.YOUR_EVENT_IS_ALREADY_LIVE,
       );
     }
 
@@ -3135,13 +3133,13 @@ const updateEvent = async (req, res) => {
       return new Date(year, month, day, Number.isFinite(hours) ? hours : 0, Number.isFinite(minutes) ? minutes : 0, 0, 0);
     };
 
-    // Ensure the event start moment is still ahead for upcoming events
+    // Ensure the event start moment is still ahead or today for upcoming events
     if (dateOrTimeModified && !isLive && !targetIsDraft) {
       const newStart = eventMoment(
         updateData.startDate || existingEvent.startDate,
         updateData.startTime || existingEvent.startTime || "00:00"
       );
-      if (newStart && newStart < now) {
+      if (newStart && newStart < minAllowedDate) {
         return apiErrorRes(
           HTTP_STATUS.BAD_REQUEST,
           res,
@@ -3150,13 +3148,13 @@ const updateEvent = async (req, res) => {
       }
     }
 
-    // Ensure the event end moment is still ahead
+    // Ensure the event end moment is still ahead or today
     if (dateOrTimeModified && !targetIsDraft) {
       const newEnd = eventMoment(
         updateData.endDate || existingEvent.endDate,
         updateData.endTime || existingEvent.endTime || "23:59"
       );
-      if (newEnd && newEnd < now) {
+      if (newEnd && newEnd < minAllowedDate) {
         return apiErrorRes(
           HTTP_STATUS.BAD_REQUEST,
           res,
