@@ -2930,8 +2930,21 @@ const updateEvent = async (req, res) => {
       );
     }
 
-    // 3. Prevent editing past events (unless it is a draft)
-    const now = new Date();
+    // 3. Prevent editing live events (unless it is a draft)
+    if (!existingEvent.isDraft && (
+      existingEvent.status === eventStatus.LIVE ||
+      Boolean(existingEvent.isLive) ||
+      (existingEvent.startDate && existingEvent.endDate && new Date(existingEvent.startDate) <= now && new Date(existingEvent.endDate) >= now)
+    )) {
+      return apiErrorRes(
+        HTTP_STATUS.BAD_REQUEST,
+        res,
+        constantsMessage.YOUR_EVENT_IS_ALREADY_LIVE ||
+        "Your event is already live",
+      );
+    }
+
+    // 4. Prevent editing past events (unless it is a draft)
     const targetTz = updateData.timeZone || existingEvent.timeZone || "Asia/Ulaanbaatar";
     const startOfTodayTz = moment().tz(targetTz).startOf("day").toDate();
     const startOfTodayUtc = moment.utc().startOf("day").toDate();
@@ -2954,15 +2967,6 @@ const updateEvent = async (req, res) => {
         HTTP_STATUS.BAD_REQUEST,
         res,
         constantsMessage.CANNOT_EDIT_CANCELLED_EVENT,
-      );
-    }
-
-    // Prevent editing live events
-    if (!existingEvent.isDraft && existingEvent.status === eventStatus.LIVE) {
-      return apiErrorRes(
-        HTTP_STATUS.BAD_REQUEST,
-        res,
-        constantsMessage.YOUR_EVENT_IS_ALREADY_LIVE,
       );
     }
 

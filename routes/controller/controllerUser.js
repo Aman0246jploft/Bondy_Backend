@@ -1182,6 +1182,34 @@ const getFormattedProfileData = async (userId, viewerId = null) => {
       },
     ]);
     profileData.totalTicketSold = ticketsSoldResult[0]?.totalTickets || 0;
+    profileData.totalTicketsSold = ticketsSoldResult[0]?.totalTickets || 0;
+
+    // 2b. Total Courses Sold / Enrolled
+    const courseSoldResult = await Transaction.aggregate([
+      {
+        $lookup: {
+          from: "courses",
+          localField: "courseId",
+          foreignField: "_id",
+          as: "courseInfo",
+        },
+      },
+      {
+        $match: {
+          bookingType: "COURSE",
+          status: "PAID",
+          "courseInfo.createdBy": organizerObjectId,
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          totalCourses: { $sum: "$qty" },
+        },
+      },
+    ]);
+    profileData.totalCourseSold = courseSoldResult[0]?.totalCourses || 0;
+    profileData.totalCoursesSold = courseSoldResult[0]?.totalCourses || 0;
 
     // 3. Net Earnings from Events
     const eventEarningsResult = await Transaction.aggregate([
@@ -1256,7 +1284,7 @@ const getFormattedProfileData = async (userId, viewerId = null) => {
     })
       .populate("eventCategory", "name")
       .sort({ startDate: 1 }) // Soonest first
-      .limit(4)
+      .limit(50)
       .lean();
 
     const pastEventsQuery = Event.find({
@@ -1269,7 +1297,7 @@ const getFormattedProfileData = async (userId, viewerId = null) => {
     })
       .populate("eventCategory", "name")
       .sort({ startDate: -1 }) // Most recent past first
-      .limit(4)
+      .limit(50)
       .lean();
 
     // -- COURSES --
@@ -1286,7 +1314,7 @@ const getFormattedProfileData = async (userId, viewerId = null) => {
     })
       .populate("courseCategory", "name")
       .sort({ startDate: 1 })
-      .limit(4)
+      .limit(50)
       .lean();
 
     const pastCoursesQuery = Course.find({
@@ -1299,7 +1327,7 @@ const getFormattedProfileData = async (userId, viewerId = null) => {
     })
       .populate("courseCategory", "name")
       .sort({ endDate: -1 })
-      .limit(4)
+      .limit(50)
       .lean();
 
     const [nextEventsRaw, pastEventsRaw, nextCoursesRaw, pastCoursesRaw] =
@@ -1309,6 +1337,58 @@ const getFormattedProfileData = async (userId, viewerId = null) => {
         nextCoursesQuery,
         pastCoursesQuery,
       ]);
+
+    // Calculate tickets sold per event
+    const allFetchedEventIds = [...nextEventsRaw, ...pastEventsRaw].map((e) => e._id);
+    const eventTicketSoldMap = {};
+    if (allFetchedEventIds.length > 0) {
+      const eventSoldAgg = await Transaction.aggregate([
+        {
+          $match: {
+            eventId: { $in: allFetchedEventIds },
+            status: "PAID",
+            bookingType: "EVENT",
+          },
+        },
+        {
+          $group: {
+            _id: "$eventId",
+            totalTickets: { $sum: "$qty" },
+          },
+        },
+      ]);
+      eventSoldAgg.forEach((item) => {
+        if (item._id) {
+          eventTicketSoldMap[item._id.toString()] = item.totalTickets;
+        }
+      });
+    }
+
+    // Calculate enrollments per course
+    const allFetchedCourseIds = [...nextCoursesRaw, ...pastCoursesRaw].map((c) => c._id);
+    const courseTicketSoldMap = {};
+    if (allFetchedCourseIds.length > 0) {
+      const courseSoldAgg = await Transaction.aggregate([
+        {
+          $match: {
+            courseId: { $in: allFetchedCourseIds },
+            status: "PAID",
+            bookingType: "COURSE",
+          },
+        },
+        {
+          $group: {
+            _id: "$courseId",
+            totalTickets: { $sum: "$qty" },
+          },
+        },
+      ]);
+      courseSoldAgg.forEach((item) => {
+        if (item._id) {
+          courseTicketSoldMap[item._id.toString()] = item.totalTickets;
+        }
+      });
+    }
 
     // Helper to format event
     const formatEvent = (event) => {
@@ -1328,6 +1408,20 @@ const getFormattedProfileData = async (userId, viewerId = null) => {
           formatResponseUrl(video),
         );
       }
+
+      const sold = eventTicketSoldMap[event._id.toString()] || 0;
+      const firstPoster = Array.isArray(eventObj.posterImage) && eventObj.posterImage.length > 0
+        ? eventObj.posterImage[0]
+        : (typeof eventObj.posterImage === "string" ? formatResponseUrl(eventObj.posterImage) : null);
+
+      eventObj.name = event.eventTitle || event.name || "";
+      eventObj.title = event.eventTitle || event.title || "";
+      eventObj.image = firstPoster;
+      eventObj.category = event.eventCategory?.name || (typeof event.eventCategory === "string" ? event.eventCategory : "Event");
+      eventObj.date = event.startDate;
+      eventObj.ticketSold = sold;
+      eventObj.ticketsSold = sold;
+
       return eventObj;
     };
 
@@ -1339,6 +1433,20 @@ const getFormattedProfileData = async (userId, viewerId = null) => {
           formatResponseUrl(img),
         );
       }
+
+      const sold = courseTicketSoldMap[course._id.toString()] || 0;
+      const firstPoster = Array.isArray(courseObj.posterImage) && courseObj.posterImage.length > 0
+        ? courseObj.posterImage[0]
+        : (typeof courseObj.posterImage === "string" ? formatResponseUrl(courseObj.posterImage) : null);
+
+      courseObj.name = course.courseTitle || course.name || "";
+      courseObj.title = course.courseTitle || course.title || "";
+      courseObj.image = firstPoster;
+      courseObj.category = course.courseCategory?.name || (typeof course.courseCategory === "string" ? course.courseCategory : "Course");
+      courseObj.date = course.startDate;
+      courseObj.ticketSold = sold;
+      courseObj.ticketsSold = sold;
+
       return courseObj;
     };
 
