@@ -33,7 +33,9 @@ const getTicketsSchema = Joi.object({
     page: Joi.number().integer().min(1).default(1),
     limit: Joi.number().integer().min(1).default(10),
     startDate: Joi.date().iso().optional(),
-    endDate: Joi.date().iso().optional(),
+    endDate: Joi.date().iso().min(Joi.ref("startDate")).optional().messages({
+        "date.min": "The end date must be later than the start date.",
+    }),
 });
 
 module.exports = {
