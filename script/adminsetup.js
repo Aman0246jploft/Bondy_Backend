@@ -24,18 +24,21 @@ const adminCreate = async () => {
       isDeleted: false,
     };
 
-    const existing = await User.findOne({ email: data.email });
-    if (existing) {
-      existing.password = data.password;
-      existing.roleId = data.roleId;
-      existing.isDisable = false;
-      existing.isDeleted = false;
-      const res = await existing.save();
-      console.log("Admin updated successfully:", res);
+    let admin = await User.findOne({
+      $or: [{ email: data.email }, { roleId: roleId.SUPER_ADMIN }],
+    });
+    if (admin) {
+      admin.email = data.email;
+      admin.password = data.password;
+      admin.roleId = data.roleId;
+      admin.isDisable = false;
+      admin.isDeleted = false;
+      const res = await admin.save();
+      console.log("Admin credentials updated successfully for:", res.email);
       process.exit(0);
     }
 
-    const admin = new User(data);
+    admin = new User(data);
     const res = await admin.save();
 
     console.log("Admin created successfully:", res);
