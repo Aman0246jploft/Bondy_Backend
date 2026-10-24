@@ -809,7 +809,7 @@ const getAllTransactions = async (req, res) => {
     const needWallets = !type || type === "ALL" || type === "WALLET_DEPOSIT";
     const needPayouts = !type || type === "ALL" || type === "WITHDRAWAL";
 
-    const [txns, wallets, payouts] = await Promise.all([
+    const [txns, wallets, payouts, tCounts, wCount, pCount] = await Promise.all([
       needTxns
         ? Transaction.find()
             .sort({ createdAt: -1 })
@@ -840,7 +840,31 @@ const getAllTransactions = async (req, res) => {
             .populate("organizerId", "firstName lastName email phone bankDetails bankAccounts")
             .lean()
         : Promise.resolve([]),
+      Transaction.find().select("status refundAmount").lean(),
+      WalletHistory.countDocuments({
+        type: { $in: ["TICKET_SALE", "COURSE_SALE", "ADJUSTMENT", "REFERRAL"] },
+      }),
+      Payout.countDocuments(),
     ]);
+
+    let globalPurchases = 0;
+    let globalRefunds = 0;
+    for (const t of tCounts) {
+      if (t.status === "REFUNDED" || (t.refundAmount && t.refundAmount > 0)) {
+        globalRefunds++;
+      } else {
+        globalPurchases++;
+      }
+    }
+
+    // Permanent global counts for category tabs (so badges never collapse to 0 when another tab is clicked)
+    const counts = {
+      all: globalPurchases + globalRefunds + wCount + pCount,
+      purchases: globalPurchases,
+      walletDeposits: wCount,
+      withdrawals: pCount,
+      refunds: globalRefunds,
+    };
 
     let allItems = [];
 
@@ -961,15 +985,6 @@ const getAllTransactions = async (req, res) => {
 
     // Sort by createdAt descending
     allItems.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-
-    // Calculate category breakdown counts before filtering by status/method/search
-    const counts = {
-      all: allItems.length,
-      purchases: allItems.filter(i => i.type === "PURCHASE").length,
-      walletDeposits: allItems.filter(i => i.type === "WALLET_DEPOSIT").length,
-      withdrawals: allItems.filter(i => i.type === "WITHDRAWAL").length,
-      refunds: allItems.filter(i => i.type === "REFUND").length,
-    };
 
     // Filter by type
     if (type && type !== "ALL") {
