@@ -1769,7 +1769,14 @@ const updateCourse = async (req, res) => {
 
     // 3. Prevent editing past courses (unless it is a draft)
     const now = new Date();
-    if (!existingCourse.isDraft && (existingCourse.status === eventStatus.PAST || existingCourse.endDate < now)) {
+    const targetTz = updateData.timeZone || existingCourse.timeZone || "Asia/Ulaanbaatar";
+    const startOfTodayTz = moment().tz(targetTz).startOf("day").toDate();
+    const startOfTodayUtc = moment.utc().startOf("day").toDate();
+    const startOfTodayLocal = new Date();
+    startOfTodayLocal.setHours(0, 0, 0, 0);
+    const minAllowedDate = new Date(Math.min(startOfTodayTz.getTime(), startOfTodayUtc.getTime(), startOfTodayLocal.getTime()));
+
+    if (!existingCourse.isDraft && (existingCourse.status === eventStatus.PAST || existingCourse.endDate < minAllowedDate)) {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,
         res,
@@ -1903,10 +1910,10 @@ const updateCourse = async (req, res) => {
       updateData.timeZone !== undefined ||
       updateData.batches !== undefined;
 
-    // Ensure startDate is in the future for upcoming courses
+    // Ensure startDate is in the future or today for upcoming courses
     if (dateOrTimeModified && !isLive && !targetIsDraft) {
       const newStart = updateData.startDate ? new Date(updateData.startDate) : new Date(existingCourse.startDate);
-      if (newStart < now) {
+      if (newStart < minAllowedDate) {
         return apiErrorRes(
           HTTP_STATUS.BAD_REQUEST,
           res,
@@ -1917,10 +1924,10 @@ const updateCourse = async (req, res) => {
 
     const targetEnrollmentType = updateData.enrollmentType !== undefined ? updateData.enrollmentType : existingCourse.enrollmentType;
 
-    // Ensure endDate is in the future for fixedStart courses
+    // Ensure endDate is in the future or today for fixedStart courses
     if (dateOrTimeModified && !targetIsDraft && targetEnrollmentType === "fixedStart") {
       const newEnd = updateData.endDate ? new Date(updateData.endDate) : new Date(existingCourse.endDate);
-      if (!newEnd || isNaN(newEnd.getTime()) || newEnd < now) {
+      if (!newEnd || isNaN(newEnd.getTime()) || newEnd < minAllowedDate) {
         return apiErrorRes(
           HTTP_STATUS.BAD_REQUEST,
           res,
@@ -1943,12 +1950,16 @@ const updateCourse = async (req, res) => {
         const startDateTime = new Date(`${formattedStartDate}T${newStartTime}`);
         const endDateTime = new Date(`${formattedEndDate}T${newEndTime}`);
 
-        if (!isNaN(startDateTime.getTime()) && !isNaN(endDateTime.getTime()) && startDateTime >= endDateTime) {
-          return apiErrorRes(
-            HTTP_STATUS.BAD_REQUEST,
-            res,
-            constantsMessage.START_DATE_MUST_BE_BEFORE_END_DATE
-          );
+        if (!isNaN(startDateTime.getTime()) && !isNaN(endDateTime.getTime())) {
+          if (formattedStartDate === formattedEndDate && newStartTime === "00:00" && newEndTime === "00:00") {
+            // Same day course without distinct time window is allowed
+          } else if (startDateTime >= endDateTime) {
+            return apiErrorRes(
+              HTTP_STATUS.BAD_REQUEST,
+              res,
+              constantsMessage.START_DATE_MUST_BE_BEFORE_END_DATE
+            );
+          }
         }
       }
     }
