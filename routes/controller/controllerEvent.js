@@ -92,7 +92,8 @@ const normalizeEventTickets = (ticketsVal, body = {}) => {
         const startStr = String(salesStart).slice(0, 10);
         const endStr = String(salesEnd).slice(0, 10);
         if (/^\d{4}-\d{2}-\d{2}$/.test(startStr) && startStr === endStr) {
-          salesEnd = moment.tz(`${endStr} 23:59:59.999`, eventTz).toDate();
+          salesStart = new Date(`${startStr}T00:00:00.000Z`);
+          salesEnd = new Date(`${endStr}T23:59:59.999Z`);
         }
       }
 
@@ -469,8 +470,16 @@ const formatEvent = (event, bookedEventIds = new Set(), bookedQty = 0, pendingQt
 
     if (Array.isArray(event.tickets)) {
       event.tickets = event.tickets.map(t => {
+        const startStr = t.salesStart ? (t.salesStart instanceof Date ? t.salesStart.toISOString().slice(0, 10) : String(t.salesStart).slice(0, 10)) : "";
+        const endStr = t.salesEnd ? (t.salesEnd instanceof Date ? t.salesEnd.toISOString().slice(0, 10) : String(t.salesEnd).slice(0, 10)) : "";
         if (t.salesStart) t.salesStart = formatDateTimeByTimezone(t.salesStart, displayTimeZone);
-        if (t.salesEnd) t.salesEnd = formatDateTimeByTimezone(t.salesEnd, displayTimeZone);
+        if (t.salesEnd) {
+          if (startStr && endStr && startStr === endStr) {
+            t.salesEnd = `${endStr}T23:59:59.999`;
+          } else {
+            t.salesEnd = formatDateTimeByTimezone(t.salesEnd, displayTimeZone);
+          }
+        }
         return t;
       });
     }
@@ -2267,8 +2276,16 @@ const getEventDetails = async (req, res) => {
       event.timeZone = displayTimeZone;
       if (Array.isArray(event.tickets)) {
         event.tickets = event.tickets.map(t => {
+          const startStr = t.salesStart ? (t.salesStart instanceof Date ? t.salesStart.toISOString().slice(0, 10) : String(t.salesStart).slice(0, 10)) : "";
+          const endStr = t.salesEnd ? (t.salesEnd instanceof Date ? t.salesEnd.toISOString().slice(0, 10) : String(t.salesEnd).slice(0, 10)) : "";
           if (t.salesStart) t.salesStart = formatDateTimeByTimezone(t.salesStart, displayTimeZone);
-          if (t.salesEnd) t.salesEnd = formatDateTimeByTimezone(t.salesEnd, displayTimeZone);
+          if (t.salesEnd) {
+            if (startStr && endStr && startStr === endStr) {
+              t.salesEnd = `${endStr}T23:59:59.999`;
+            } else {
+              t.salesEnd = formatDateTimeByTimezone(t.salesEnd, displayTimeZone);
+            }
+          }
           return t;
         });
       }
