@@ -923,6 +923,10 @@ const getEvents = async (req, res) => {
       });
     }
 
+    if (String(addToSliderInput).toLowerCase() === "true") {
+      query.addToSlider = true;
+    }
+
     // Multiple Categories filter
     if (targetCategory && targetCategory !== "") {
       const catIds = targetCategory
