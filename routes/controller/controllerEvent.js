@@ -2913,8 +2913,22 @@ const updateEvent = async (req, res) => {
       );
     }
 
-    // 3. Prevent editing past events (unless it is a draft)
+    // 3. Prevent editing live events (unless it is a draft)
     const now = new Date();
+    if (!existingEvent.isDraft && (
+      existingEvent.status === eventStatus.LIVE ||
+      Boolean(existingEvent.isLive) ||
+      (existingEvent.startDate && existingEvent.endDate && new Date(existingEvent.startDate) <= now && new Date(existingEvent.endDate) >= now)
+    )) {
+      return apiErrorRes(
+        HTTP_STATUS.BAD_REQUEST,
+        res,
+        constantsMessage.YOUR_EVENT_IS_ALREADY_LIVE ||
+        "Your event is already live",
+      );
+    }
+
+    // 4. Prevent editing past events (unless it is a draft)
     if (!existingEvent.isDraft && (existingEvent.status === eventStatus.PAST || existingEvent.endDate < now)) {
       return apiErrorRes(
         HTTP_STATUS.BAD_REQUEST,

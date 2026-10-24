@@ -72,12 +72,11 @@ function parseDateTimeUtc(dateVal, timeStr, targetTimeZone, isEnd = false) {
     if (typeof dateVal === "string" && /^\d{4}-\d{2}-\d{2}$/.test(dateVal.trim())) {
       datePart = dateVal.trim();
     } else {
-      const mDate = moment(dateVal);
+      const mDate = moment.utc(dateVal);
       if (!mDate.isValid()) {
-        const fb = moment.utc(dateVal);
-        return fb.isValid() ? fb : null;
+        return null;
       }
-      datePart = mDate.tz(tz).format("YYYY-MM-DD");
+      datePart = mDate.format("YYYY-MM-DD");
     }
 
     const combined = moment.tz(`${datePart}T${normTime}`, tz);
@@ -97,8 +96,8 @@ function parseDateTimeUtc(dateVal, timeStr, targetTimeZone, isEnd = false) {
  */
 function resolveEventTimeZone(event) {
   let rawTimeZone = null;
-  if (event.timeZone && event.timeZone !== "UTC") {
-    rawTimeZone = event.timeZone;
+  if (event.timeZone && typeof event.timeZone === "string" && event.timeZone.trim()) {
+    rawTimeZone = event.timeZone.trim();
   } else if (event.venueAddress?.country === "Монгол") {
     rawTimeZone = "Asia/Ulaanbaatar";
   } else if (event.createdBy?.timeZone) {
