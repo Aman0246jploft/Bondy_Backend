@@ -736,33 +736,50 @@ const getAllPayouts = async (req, res) => {
     const query = {};
     if (status && status !== "ALL") query.status = status;
 
-    const skip = (Number(page) - 1) * Number(limit);
-
     let payouts = await Payout.find(query)
       .populate(
         "organizerId",
         "firstName lastName email bankDetails payoutBalance",
       )
       .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(Number(limit))
       .lean();
 
     if (search) {
-      const q = search.toLowerCase();
-      payouts = payouts.filter(
-        (p) =>
-          p.organizerId?.firstName?.toLowerCase().includes(q) ||
-          p.organizerId?.lastName?.toLowerCase().includes(q) ||
-          p.organizerId?.email?.toLowerCase().includes(q) ||
-          String(p._id).includes(q),
-      );
+      const rawQ = String(search).trim().toLowerCase();
+      const cleanQ = rawQ.replace(/^#/, "").trim();
+
+      payouts = payouts.filter((p) => {
+        const idStr = String(p._id || "").toLowerCase();
+        const shortId = idStr.slice(-6);
+        const fName = String(p.organizerId?.firstName || "").toLowerCase();
+        const lName = String(p.organizerId?.lastName || "").toLowerCase();
+        const fullName = `${fName} ${lName}`.trim();
+        const revFullName = `${lName} ${fName}`.trim();
+        const email = String(p.organizerId?.email || "").toLowerCase();
+        const payRef = String(p.paymentReference || "").toLowerCase();
+
+        return (
+          idStr.includes(rawQ) ||
+          idStr.includes(cleanQ) ||
+          shortId.includes(cleanQ) ||
+          `#${shortId}`.includes(rawQ) ||
+          fName.includes(rawQ) ||
+          lName.includes(rawQ) ||
+          fullName.includes(rawQ) ||
+          revFullName.includes(rawQ) ||
+          email.includes(rawQ) ||
+          payRef.includes(rawQ) ||
+          payRef.includes(cleanQ)
+        );
+      });
     }
 
-    const total = await Payout.countDocuments(query);
+    const total = payouts.length;
+    const skip = (Number(page) - 1) * Number(limit);
+    const paginatedPayouts = payouts.slice(skip, skip + Number(limit));
 
     return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.PAYOUTS_FETCHED, {
-      payouts,
+      payouts: paginatedPayouts,
       total,
       page: Number(page),
       limit: Number(limit),
@@ -790,16 +807,46 @@ const getAllTransactions = async (req, res) => {
     let allTransactions = await transactionsQuery;
 
     if (search) {
-      const q = search.toLowerCase();
-      allTransactions = allTransactions.filter(
-        (t) =>
-          String(t._id).toLowerCase().includes(q) ||
-          t.userId?.firstName?.toLowerCase().includes(q) ||
-          t.userId?.lastName?.toLowerCase().includes(q) ||
-          t.userId?.email?.toLowerCase().includes(q) ||
-          t.eventId?.eventTitle?.toLowerCase().includes(q) ||
-          t.courseId?.courseTitle?.toLowerCase().includes(q),
-      );
+      const rawQ = String(search).trim().toLowerCase();
+      const cleanQ = rawQ.replace(/^#/, "").trim();
+
+      allTransactions = allTransactions.filter((t) => {
+        const idStr = String(t._id || "").toLowerCase();
+        const idSlice8 = idStr.slice(-8);
+
+        const bookingIdStr = String(t.bookingId || "").toLowerCase();
+        const bookingIdSlice8 = bookingIdStr.slice(-8);
+
+        const fName = String(t.userId?.firstName || "").toLowerCase();
+        const lName = String(t.userId?.lastName || "").toLowerCase();
+        const fullName = `${fName} ${lName}`.trim();
+        const revFullName = `${lName} ${fName}`.trim();
+        const email = String(t.userId?.email || "").toLowerCase();
+
+        const eventTitle = String(t.eventId?.eventTitle || "").toLowerCase();
+        const courseTitle = String(t.courseId?.courseTitle || "").toLowerCase();
+
+        return (
+          // Match Booking ID or Mongo _id (full, last 8 chars, or with #)
+          bookingIdStr.includes(rawQ) ||
+          bookingIdStr.includes(cleanQ) ||
+          bookingIdSlice8.includes(cleanQ) ||
+          `#${bookingIdSlice8}`.includes(rawQ) ||
+          idStr.includes(rawQ) ||
+          idStr.includes(cleanQ) ||
+          idSlice8.includes(cleanQ) ||
+          `#${idSlice8}`.includes(rawQ) ||
+          // Match Customer (first name, last name, full name, reverse full name, email)
+          fName.includes(rawQ) ||
+          lName.includes(rawQ) ||
+          fullName.includes(rawQ) ||
+          revFullName.includes(rawQ) ||
+          email.includes(rawQ) ||
+          // Match Item title
+          eventTitle.includes(rawQ) ||
+          courseTitle.includes(rawQ)
+        );
+      });
     }
 
     const total = allTransactions.length;
