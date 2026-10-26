@@ -69,6 +69,8 @@ const getOrganizerEarnings = async (req, res) => {
     });
 
     const walletHistory = await WalletHistory.find(walletHistoryQuery)
+      .populate("payoutId", "status amount paidAt paymentReference adminNote")
+      .populate("transactionId", "status paymentStatus")
       .sort({ createdAt: -1 })
       .limit(50); // Limit to last 50 transactions
 
@@ -103,6 +105,12 @@ const getOrganizerEarnings = async (req, res) => {
     });
     const minPayout = minPayoutSetting ? Number(minPayoutSetting.value) : 1000;
 
+    // Build quick lookup for linked payouts
+    const payoutMap = new Map();
+    payoutHistory.forEach((p) => {
+      if (p?._id) payoutMap.set(p._id.toString(), p);
+    });
+
     // Format types and round amounts to 2 decimal places in walletHistory
     const formattedWalletHistory = combinedHistory.map((item) => {
       const doc = item.toObject ? item.toObject() : { ...item };
@@ -112,6 +120,26 @@ const getOrganizerEarnings = async (req, res) => {
       }
       if (typeof doc.balanceAfter === "number") {
         doc.balanceAfter = Number(doc.balanceAfter.toFixed(2));
+      }
+
+      // Resolve real status and payout details
+      const pIdStr = doc.payoutId?._id
+        ? doc.payoutId._id.toString()
+        : doc.payoutId
+        ? doc.payoutId.toString()
+        : null;
+      const linkedPayout =
+        (pIdStr && payoutMap.get(pIdStr)) ||
+        (doc.payoutId && typeof doc.payoutId === "object" ? doc.payoutId : null);
+
+      if (linkedPayout) {
+        doc.status = linkedPayout.status;
+        doc.payoutStatus = linkedPayout.status;
+        doc.paidAt = linkedPayout.paidAt || null;
+        doc.paymentReference = linkedPayout.paymentReference || null;
+        doc.adminNote = linkedPayout.adminNote || null;
+      } else if (!doc.status) {
+        doc.status = "PAID";
       }
 
       if (doc.type) {
