@@ -1500,7 +1500,13 @@ const getFormattedProfileData = async (userId, viewerId = null) => {
         posterImage: poster,
         date: item?.startDate || tx.createdAt,
         venue: isEvent ? item?.venueAddress?.address : item?.location?.address,
-        itemId: item?._id || (isEvent ? tx.eventId : tx.courseId),
+        basePrice: tx.basePrice || 0,
+        taxAmount: tx.taxAmount || 0,
+        discountAmount: tx.discountAmount || 0,
+        discountCode: tx.discountCode || null,
+        itemId: (item?._id || (isEvent ? tx.eventId : tx.courseId))?.toString?.() || (item?._id || (isEvent ? tx.eventId : tx.courseId)),
+        eventId: isEvent ? ((item?._id || tx.eventId)?._id || item?._id || tx.eventId)?.toString?.() : undefined,
+        courseId: !isEvent ? ((item?._id || tx.courseId)?._id || item?._id || tx.courseId)?.toString?.() : undefined,
       };
     });
 
