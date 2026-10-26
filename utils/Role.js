@@ -172,6 +172,8 @@ const WALLET_TYPE_TRANSLATIONS = {
         "Adjustment": "Зохицуулалт",
         "Referral": "Урилгын шагнал",
         "Referral Reward": "Урилгын шагнал",
+        "PROMOTION": "Сурталчилгаа",
+        "Promotion": "Сурталчилгаа",
     },
     English: {
         "TICKET_SALE": "Ticket Sale",
@@ -183,6 +185,8 @@ const WALLET_TYPE_TRANSLATIONS = {
         "CANCELLATION_DEDUCTION": "Cancellation Deduction",
         "ADJUSTMENT": "Adjustment",
         "REFERRAL": "Referral Reward",
+        "PROMOTION": "Promotion",
+        "Promotion": "Promotion",
         "Ticket Sale": "Ticket Sale",
         "Course Sale": "Course Sale",
         "Purchase": "Purchase",

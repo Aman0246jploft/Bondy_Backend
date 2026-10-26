@@ -85,10 +85,12 @@ const getOrganizerEarnings = async (req, res) => {
     const mappedTransactions = userTransactions.map((t) => ({
       _id: t._id,
       amount: -t.totalAmount, // Negative to show expenditure
-      type: "PURCHASE",
+      type: t.bookingType === "PROMOTION" ? "PROMOTION" : "PURCHASE",
       description:
         t.bookingType === "EVENT"
           ? `Event: ${t.eventId?.eventTitle || "Unknown Event"}`
+          : t.bookingType === "PROMOTION"
+          ? `Promotion Package`
           : `Course: ${t.courseId?.courseTitle || "Unknown Course"}`,
       createdAt: t.createdAt,
       bookingId: t.bookingId,
