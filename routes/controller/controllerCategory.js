@@ -28,7 +28,7 @@ const canSetFeatured = async (excludeCategoryId = null) => {
     isDeleted: false,
     featured: true,
   };
-
+  1122
   if (excludeCategoryId) {
     query._id = { $ne: excludeCategoryId };
     query.type = "event";
