@@ -8,7 +8,7 @@ const validateRequest = require("../../middlewares/validateRequest");
 const notificationValidation = require("../services/validations/notificationValidation");
 const checkRole = require("../../middlewares/checkRole");
 const CONSTANTS = require("../../utils/constants");
-const { User, Notification, AdminNotificationLog } = require("../../db");
+const { User, Notification, AdminNotificationLog, UserSetting } = require("../../db");
 const { roleId } = require("../../utils/Role");
 const { sendFirebaseNotification } = require("../../utils/firebasePushNotification");
 const socketIO = require("../../socket/socketIO");
@@ -219,25 +219,39 @@ router.post(
 
       const adminSenderId = req.user?.userId || null;
 
-      // 1. Bulk insert in-app notifications
-      const notificationDocs = recipients.map((r) => ({
-        recipient: r._id,
-        sender: adminSenderId,
-        type: "SYSTEM",
-        title: title.trim(),
-        message: message.trim(),
-        deepLink: deepLink ? deepLink.trim() : null,
-        webLink: webLink ? webLink.trim() : null,
-        metadata: {
-          targetGroup: target,
-          isBroadcast: "true",
-          sentAt: new Date().toISOString(),
-        },
-        isRead: false,
-        isDeleted: false,
-      }));
+      // Fetch user settings to respect inAppNotification and pushNotification preferences (by default allowed)
+      const recipientIds = recipients.map((r) => r._id);
+      const settingsDocs = await UserSetting.find({ userId: { $in: recipientIds } }).lean();
+      const settingsMap = new Map();
+      settingsDocs.forEach((s) => settingsMap.set(s.userId.toString(), s));
 
-      await Notification.insertMany(notificationDocs, { ordered: false });
+      // Filter recipients for in-app delivery (default allowed: s.inAppNotification !== false)
+      const inAppRecipients = recipients.filter((r) => {
+        const s = settingsMap.get(r._id.toString());
+        return s ? s.inAppNotification !== false : true;
+      });
+
+      // 1. Bulk insert in-app notifications
+      if (inAppRecipients.length > 0) {
+        const notificationDocs = inAppRecipients.map((r) => ({
+          recipient: r._id,
+          sender: adminSenderId,
+          type: "SYSTEM",
+          title: title.trim(),
+          message: message.trim(),
+          deepLink: deepLink ? deepLink.trim() : null,
+          webLink: webLink ? webLink.trim() : null,
+          metadata: {
+            targetGroup: target,
+            isBroadcast: "true",
+            sentAt: new Date().toISOString(),
+          },
+          isRead: false,
+          isDeleted: false,
+        }));
+
+        await Notification.insertMany(notificationDocs, { ordered: false });
+      }
 
       // 2. Record log in AdminNotificationLog
       const logEntry = await AdminNotificationLog.create({
@@ -251,8 +265,13 @@ router.post(
         status: "SENT",
       });
 
-      // 3. Dispatch Firebase push notifications (background, non-blocking)
-      const tokenRecipients = recipients.filter((r) => r.fmcToken);
+      // 3. Dispatch Firebase push notifications (gated by pushNotification !== false; by default allowed)
+      const tokenRecipients = recipients.filter((r) => {
+        if (!r.fmcToken) return false;
+        const s = settingsMap.get(r._id.toString());
+        return s ? s.pushNotification !== false : true;
+      });
+
       if (tokenRecipients.length > 0) {
         Promise.allSettled(
           tokenRecipients.map((r) =>

@@ -22,6 +22,82 @@ const socketIO = require("../../socket/socketIO");
 const notificationQueue = createQueue("notificationQueue");
 
 // ─────────────────────────────────────────────
+// Helpers for Preference & Category Classification
+// ─────────────────────────────────────────────
+const getEffectiveSettings = (rawSettings) => {
+  return {
+    inAppNotification: rawSettings?.inAppNotification !== false,
+    pushNotification: rawSettings?.pushNotification !== false,
+    bookingNotification: rawSettings?.bookingNotification !== false,
+    reminderNotification: rawSettings?.reminderNotification !== false,
+    organizerUpdateNotification: rawSettings?.organizerUpdateNotification !== false,
+    messageNotification: rawSettings?.messageNotification !== false,
+    emailNotification: rawSettings?.emailNotification !== false,
+    whatsappNotification: rawSettings?.whatsappNotification !== false,
+    smsNotification: rawSettings?.smsNotification !== false,
+  };
+};
+
+const getNotificationCategory = ({ type, title = "", message = "", metadata = {} }) => {
+  // 1. Messages / Chat
+  if (type === "CHAT") {
+    return "MESSAGES";
+  }
+
+  // 2. Reminders
+  if (
+    metadata?.isReminder === "true" ||
+    metadata?.isReminder === true ||
+    /reminder/i.test(title) ||
+    /reminder/i.test(message)
+  ) {
+    return "REMINDERS";
+  }
+
+  // 3. Organizer Updates (events/courses updates from organizer, profile updates)
+  if (
+    metadata?.isOrganizerUpdate === "true" ||
+    metadata?.isOrganizerUpdate === true ||
+    /^Update on\s+/i.test(title) ||
+    /organizer update/i.test(title) ||
+    /organizer update/i.test(message)
+  ) {
+    return "ORGANIZER_UPDATES";
+  }
+
+  // 4. Bookings
+  if (
+    metadata?.isBooking === "true" ||
+    metadata?.isBooking === true ||
+    metadata?.transactionId ||
+    /booking/i.test(title) ||
+    /booked your/i.test(message) ||
+    ((type === "EVENT" || type === "COURSE") && !/comment|reply/i.test(title))
+  ) {
+    return "BOOKINGS";
+  }
+
+  // 5. Other / System
+  return "OTHER";
+};
+
+const isCategoryAllowed = (category, effectiveSettings) => {
+  switch (category) {
+    case "MESSAGES":
+      return effectiveSettings.messageNotification;
+    case "REMINDERS":
+      return effectiveSettings.reminderNotification;
+    case "ORGANIZER_UPDATES":
+      return effectiveSettings.organizerUpdateNotification;
+    case "BOOKINGS":
+      return effectiveSettings.bookingNotification;
+    case "OTHER":
+    default:
+      return true;
+  }
+};
+
+// ─────────────────────────────────────────────
 // BullMQ Processor
 // ─────────────────────────────────────────────
 const notificationProcessor = async (job) => {
@@ -40,17 +116,22 @@ const notificationProcessor = async (job) => {
 
   try {
     // 1. Fetch recipient's UserSetting (create with defaults if missing)
-    let settings = await UserSetting.findOne({ userId: recipient });
-    if (!settings) {
-      settings = await UserSetting.create({ userId: recipient });
+    let rawSettings = await UserSetting.findOne({ userId: recipient });
+    if (!rawSettings) {
+      rawSettings = await UserSetting.create({ userId: recipient });
     }
+    const settings = getEffectiveSettings(rawSettings);
 
     const user = await User.findById(recipient).select("fmcToken");
     const hasFmcToken = !!(user && user.fmcToken);
 
-    // 2. Save in-app notification (always save directly in DB if fmcToken is not present)
+    // 2. Determine Notification Category
+    const category = getNotificationCategory({ type, title, message, metadata });
+    const categoryAllowed = isCategoryAllowed(category, settings);
+
+    // 3. Save in-app notification (respects inAppNotification and category preferences; by default allowed)
     let savedNotification = null;
-    if (settings.inAppNotification !== false || !hasFmcToken) {
+    if (settings.inAppNotification && categoryAllowed) {
       savedNotification = await Notification.create({
         recipient,
         sender: sender || null,
@@ -65,66 +146,48 @@ const notificationProcessor = async (job) => {
       });
     }
 
-    // 3. Send push notification (gated by pushNotification preference and sub-preferences)
-    if (hasFmcToken) {
-      let shouldSendPush = false;
-
-      // Only allow push if the global master switch is enabled
-      if (settings.pushNotification !== false) {
-        if (type === "CHAT") {
-          shouldSendPush = settings.messageNotification !== false;
-        } else if (metadata?.isReminder === "true") {
-          shouldSendPush = settings.reminderNotification !== false;
-        } else if (metadata?.isOrganizerUpdate === "true") {
-          shouldSendPush = settings.organizerUpdateNotification !== false;
-        } else if (type === "EVENT" || type === "COURSE") {
-          shouldSendPush = settings.bookingNotification !== false;
-        } else {
-          // Default fallback for other notification types (e.g. FOLLOW, SYSTEM, PAYOUT)
-          shouldSendPush = true;
+    // 4. Send push notification (gated by pushNotification master and category preference; by default allowed)
+    if (hasFmcToken && settings.pushNotification && categoryAllowed) {
+      await sendFirebaseNotification({
+        token: user.fmcToken,
+        title,
+        body: message,
+        imageUrl: metadata?.imageUrl || null,
+        data: {
+          type: type || "SYSTEM",
+          deepLink: deepLink || "",
+          webLink: webLink || "",
+          relatedId: relatedId ? relatedId.toString() : "",
         }
-      }
-
-      if (shouldSendPush) {
-        await sendFirebaseNotification({
-          token: user.fmcToken,
-          title,
-          body: message,
-          imageUrl: metadata?.imageUrl || null,
-          data: {
-            type,
-            deepLink: deepLink || "",
-            webLink: webLink || "",
-            relatedId: relatedId ? relatedId.toString() : "",
-          }
-        });
-      }
+      });
     }
 
-    // 4. Handle Email (gated by emailNotification preference)
-    if (settings.emailNotification) {
+    // 5. Handle Email (gated by emailNotification preference)
+    if (settings.emailNotification && categoryAllowed) {
       // TODO: Integrate Email Service (e.g. SendGrid / Nodemailer)
       console.log(`[Notification] Email queued for ${recipient} (Placeholder)`);
     }
 
-    // 5. Handle WhatsApp (gated by whatsappNotification preference)
-    if (settings.whatsappNotification) {
+    // 6. Handle WhatsApp (gated by whatsappNotification preference)
+    if (settings.whatsappNotification && categoryAllowed) {
       // TODO: Integrate WhatsApp Service (e.g. Twilio)
       console.log(`[Notification] WhatsApp queued for ${recipient} (Placeholder)`);
     }
 
-    // 6. Handle SMS (gated by smsNotification preference)
-    if (settings.smsNotification) {
+    // 7. Handle SMS (gated by smsNotification preference)
+    if (settings.smsNotification && categoryAllowed) {
       // TODO: Integrate SMS Service (e.g. Twilio / Vonage)
       console.log(`[Notification] SMS queued for ${recipient} (Placeholder)`);
     }
 
     console.log(
-      `[Notification] Processed for user: ${recipient} | type: ${type} | channels: [In-App: ${!!settings.inAppNotification}, Push: ${!!settings.pushNotification}, Email: ${!!settings.emailNotification}]`
+      `[Notification] Processed for user: ${recipient} | type: ${type} | category: ${category} | allowed: ${categoryAllowed} | channels: [In-App: ${!!savedNotification}, Push: ${hasFmcToken && settings.pushNotification && categoryAllowed}]`
     );
 
-    // 7. Emit live update via socket for unread count
-    await emitUnreadCount(recipient);
+    // 8. Emit live update via socket for unread count only if notification was saved
+    if (savedNotification) {
+      await emitUnreadCount(recipient);
+    }
   } catch (error) {
     console.error("[Notification] Processor error:", error);
     throw error; // Let BullMQ retry the job
@@ -202,6 +265,10 @@ const notifyBookingConfirmed = (recipient, bookingType, itemTitle, transactionId
     relatedId: transactionId,
     deepLink: `/tickets/${transactionId}`,
     webLink: `/bookings`,
+    metadata: {
+      isBooking: "true",
+      transactionId: transactionId ? transactionId.toString() : "",
+    },
   });
 };
 
@@ -218,6 +285,10 @@ const notifyBookingCreated = (recipient, bookingType, itemTitle, transactionId) 
     relatedId: transactionId,
     deepLink: `/tickets/${transactionId}`,
     webLink: `/bookings`,
+    metadata: {
+      isBooking: "true",
+      transactionId: transactionId ? transactionId.toString() : "",
+    },
   });
 };
 
@@ -253,6 +324,9 @@ const notifyOrganizerNewBooking = (organizerId, buyerName, bookingType, itemTitl
     onModel: bookingType === "EVENT" ? "Event" : "Course",
     deepLink: `/${bookingType === "EVENT" ? "events" : "courses"}/${itemId}`,
     webLink: `/${bookingType === "EVENT" ? "events" : "courses"}/${itemId}`,
+    metadata: {
+      isBooking: "true",
+    },
   });
 };
 
@@ -461,6 +535,9 @@ const notifyEventChange = (attendeeId, eventTitle, eventId, changeDetail) => {
     onModel: "Event",
     deepLink: `/events/${eventId}`,
     webLink: `/events/${eventId}`,
+    metadata: {
+      isOrganizerUpdate: "true",
+    },
   });
 };
 
@@ -477,6 +554,9 @@ const notifyCourseChange = (attendeeId, courseTitle, courseId, changeDetail) => 
     onModel: "Course",
     deepLink: `/courses/${courseId}`,
     webLink: `/courses/${courseId}`,
+    metadata: {
+      isOrganizerUpdate: "true",
+    },
   });
 };
 

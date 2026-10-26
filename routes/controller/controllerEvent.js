@@ -87,13 +87,20 @@ const normalizeEventTickets = (ticketsVal, body = {}) => {
 
       let salesStart = t.salesStart;
       let salesEnd = t.salesEnd;
+      const salesEndDateStr = salesEnd
+        ? (salesEnd instanceof Date
+          ? salesEnd.toISOString().slice(0, 10)
+          : String(salesEnd).slice(0, 10))
+        : "";
+
+      if (/^\d{4}-\d{2}-\d{2}$/.test(salesEndDateStr)) {
+        salesEnd = moment.tz(salesEndDateStr, "YYYY-MM-DD", true, eventTz).endOf("day").toDate();
+      }
 
       if (salesStart && salesEnd) {
         const startStr = String(salesStart).slice(0, 10);
-        const endStr = String(salesEnd).slice(0, 10);
-        if (/^\d{4}-\d{2}-\d{2}$/.test(startStr) && startStr === endStr) {
+        if (/^\d{4}-\d{2}-\d{2}$/.test(startStr) && startStr === salesEndDateStr) {
           salesStart = new Date(`${startStr}T00:00:00.000Z`);
-          salesEnd = new Date(`${endStr}T23:59:59.999Z`);
         }
       }
 
@@ -921,6 +928,10 @@ const getEvents = async (req, res) => {
         visibility: { $ne: "PRIVATE" },
         accessAndPrivacy: { $ne: false },
       });
+    }
+
+    if (String(addToSliderInput).toLowerCase() === "true") {
+      query.addToSlider = true;
     }
 
     // Multiple Categories filter

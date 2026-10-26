@@ -1756,11 +1756,12 @@ const updateUserProfile = async (req, res) => {
   try {
     const userId = req.user.userId;
 
-    if (req.user.roleId === roleId.SUPER_ADMIN) {
+    // Super admin is not allowed to change email
+    if (req.user.roleId === roleId.SUPER_ADMIN && req.body.email) {
       return apiErrorRes(
-        HTTP_STATUS.FORBIDDEN,
+        HTTP_STATUS.BAD_REQUEST,
         res,
-        constantsMessage.SUPER_ADMIN_UPDATE_NOT_ALLOWED,
+        "Super Admin cannot change email address.",
       );
     }
 

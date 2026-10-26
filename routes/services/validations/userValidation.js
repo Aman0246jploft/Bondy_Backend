@@ -192,11 +192,23 @@ const resetPasswordSchema = Joi.object({
 
 const changePasswordSchema = Joi.object({
   oldPassword: Joi.string().required(),
-  newPassword: Joi.string().min(6).required(),
+  newPassword: Joi.string()
+    .min(8)
+    .max(15)
+    .pattern(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?`~])[^\s]{8,15}$/)
+    .required()
+    .messages({
+      "string.min": "New password must be at least 8 characters long",
+      "string.max": "New password must not exceed 15 characters",
+      "string.pattern.base": "New password must contain at least one uppercase letter, one lowercase letter, one number, one special character, and cannot contain spaces",
+    }),
   confirmPassword: Joi.string()
     .valid(Joi.ref("newPassword"))
     .required()
-    .strict(),
+    .strict()
+    .messages({
+      "any.only": "Confirm password must match new password",
+    }),
 });
 
 const addStaffSchema = Joi.object({
