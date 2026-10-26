@@ -5,6 +5,28 @@ const HTTP_STATUS = require("../../utils/statusCode");
 const { apiErrorRes, apiSuccessRes } = require("../../utils/globalFunction");
 const constantsMessage = require("../../utils/constantsMessage");
 
+const ensureSettingDefaults = (settingDoc) => {
+    if (!settingDoc) return settingDoc;
+    const obj = settingDoc.toObject ? settingDoc.toObject() : { ...settingDoc };
+    const boolFields = [
+        "inAppNotification",
+        "pushNotification",
+        "bookingNotification",
+        "reminderNotification",
+        "organizerUpdateNotification",
+        "messageNotification",
+        "emailNotification",
+        "whatsappNotification",
+        "smsNotification"
+    ];
+    boolFields.forEach((field) => {
+        if (obj[field] === undefined || obj[field] === null) {
+            obj[field] = true;
+        }
+    });
+    return obj;
+};
+
 // 1. Get User Setting
 const getUserSetting = async (req, res) => {
     try {
@@ -13,12 +35,9 @@ const getUserSetting = async (req, res) => {
         let setting = await UserSetting.findOne({ userId })
             .populate("userId", "firstName lastName email profileImage");
 
-
         // If no setting found, create default one
         if (!setting) {
             setting = await UserSetting.create({ userId });
-
-            // Populate after creation
             setting = await setting.populate("userId", "firstName lastName email profileImage");
         }
 
@@ -26,7 +45,7 @@ const getUserSetting = async (req, res) => {
             HTTP_STATUS.OK,
             res,
             constantsMessage.USER_SETTING_FETCHED,
-            setting
+            ensureSettingDefaults(setting)
         );
     } catch (error) {
         return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
@@ -83,12 +102,18 @@ const updateUserSetting = async (req, res) => {
         if (appTheme !== undefined) payload.appTheme = appTheme;
         if (language !== undefined) payload.language = language;
 
+        const currentPush = currentSetting.pushNotification !== false;
+        const currentBooking = currentSetting.bookingNotification !== false;
+        const currentReminder = currentSetting.reminderNotification !== false;
+        const currentOrganizer = currentSetting.organizerUpdateNotification !== false;
+        const currentMessage = currentSetting.messageNotification !== false;
+
         // Toggle logic:
         if (pushNotification !== undefined) {
             payload.pushNotification = pushNotification;
 
             // "when main is toggle then all will toggle"
-            if (currentSetting.pushNotification !== pushNotification) {
+            if (currentPush !== pushNotification) {
                 payload.bookingNotification = pushNotification;
                 payload.reminderNotification = pushNotification;
                 payload.organizerUpdateNotification = pushNotification;
@@ -96,10 +121,10 @@ const updateUserSetting = async (req, res) => {
             }
         }
 
-        const isMainToggled = (pushNotification !== undefined && currentSetting.pushNotification !== pushNotification);
+        const isMainToggled = (pushNotification !== undefined && currentPush !== pushNotification);
 
         if (!isMainToggled) {
-            const activePush = pushNotification !== undefined ? pushNotification : currentSetting.pushNotification;
+            const activePush = pushNotification !== undefined ? pushNotification : currentPush;
 
             if (bookingNotification !== undefined) {
                 payload.bookingNotification = bookingNotification;
@@ -114,10 +139,10 @@ const updateUserSetting = async (req, res) => {
                 payload.messageNotification = messageNotification;
             }
 
-            const newBooking = bookingNotification !== undefined ? bookingNotification : currentSetting.bookingNotification;
-            const newReminder = reminderNotification !== undefined ? reminderNotification : currentSetting.reminderNotification;
-            const newOrganizer = organizerUpdateNotification !== undefined ? organizerUpdateNotification : currentSetting.organizerUpdateNotification;
-            const newMessage = messageNotification !== undefined ? messageNotification : currentSetting.messageNotification;
+            const newBooking = bookingNotification !== undefined ? bookingNotification : currentBooking;
+            const newReminder = reminderNotification !== undefined ? reminderNotification : currentReminder;
+            const newOrganizer = organizerUpdateNotification !== undefined ? organizerUpdateNotification : currentOrganizer;
+            const newMessage = messageNotification !== undefined ? messageNotification : currentMessage;
 
             const hasAnyActiveSub = newBooking || newReminder || newOrganizer || newMessage;
 
@@ -140,7 +165,7 @@ const updateUserSetting = async (req, res) => {
             HTTP_STATUS.OK,
             res,
             constantsMessage.USER_SETTING_UPDATED,
-            setting
+            ensureSettingDefaults(setting)
         );
     } catch (error) {
         return apiErrorRes(HTTP_STATUS.SERVER_ERROR, res, error.message);
