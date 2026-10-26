@@ -875,6 +875,10 @@ const getFormattedProfileData = async (userId, viewerId = null) => {
       select: "name type image name_thi isDeleted",
       match: { isDeleted: false }
     })
+    .populate({
+      path: "businessCategory",
+      select: "name type image name_thi isDeleted",
+    })
     .lean();
 
   if (!user || user.isDeleted) {
@@ -1022,7 +1026,15 @@ const getFormattedProfileData = async (userId, viewerId = null) => {
     isVerifiedOnce: user.verifications?.phone?.isVerifiedOnce || false,
     isMyProfile: isMyProfile,
     businessName: user.businessName,
-    businessCategory: user.businessCategory,
+    businessCategory: user.businessCategory && typeof user.businessCategory === "object"
+      ? {
+          _id: user.businessCategory._id,
+          name: capitalizeWords(user.businessCategory.name),
+          name_thi: user.businessCategory.name_thi ? capitalizeWords(user.businessCategory.name_thi) : user.businessCategory.name_thi,
+          type: user.businessCategory.type,
+          image: user.businessCategory.image ? formatResponseUrl(user.businessCategory.image) : null,
+        }
+      : null,
     shortDesc: user.shortDesc,
     isPromoted: Boolean(user.isPromoted),
     socialMediaLink: user.socialMediaLink,

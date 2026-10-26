@@ -908,7 +908,7 @@ const getAllTransactions = async (req, res) => {
         if (!type || type === "ALL" || type === "REFUND") {
           allItems.push({
             _id: t._id,
-            bookingId: t.bookingId || String(t._id),
+            bookingId: t.bookingId || `BK-${String(t._id).slice(-6).toUpperCase()}`,
             displayId,
             type: "REFUND",
             typeLabel: "Customer Refund",
@@ -934,7 +934,7 @@ const getAllTransactions = async (req, res) => {
         if (!type || type === "ALL" || type === "PURCHASE") {
           allItems.push({
             _id: t._id,
-            bookingId: t.bookingId || String(t._id),
+            bookingId: t.bookingId || `BK-${String(t._id).slice(-6).toUpperCase()}`,
             displayId,
             type: "PURCHASE",
             typeLabel: "User Purchase",
@@ -963,7 +963,9 @@ const getAllTransactions = async (req, res) => {
       if (!type || type === "ALL" || type === "WALLET_DEPOSIT") {
         allItems.push({
           _id: w._id,
-          bookingId: w.transactionId ? String(w.transactionId) : `W-${String(w._id).slice(-6)}`,
+          bookingId: (w.transactionId && !/^[0-9a-fA-F]{24}$/.test(String(w.transactionId)))
+            ? String(w.transactionId)
+            : `W-${String(w._id).slice(-6).toUpperCase()}`,
           displayId: `#W-${String(w._id).slice(-6).toUpperCase()}`,
           type: "WALLET_DEPOSIT",
           typeLabel: "Organizer Deposit",
