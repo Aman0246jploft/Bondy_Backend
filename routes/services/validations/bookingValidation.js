@@ -54,7 +54,14 @@ const confirmPaymentSchema = Joi.object({
     "string.empty": "Transaction ID is required",
     "any.required": "Transaction ID is required",
   }),
-});
+  isMobile: Joi.any().optional(),
+  platform: Joi.string().optional(),
+  deviceType: Joi.string().optional(),
+  device: Joi.string().optional(),
+  clientType: Joi.string().optional(),
+  source: Joi.string().optional(),
+  isApp: Joi.any().optional(),
+}).unknown(true);
 
 const cancelBookingSchema = Joi.object({
   transactionId: Joi.string().required().messages({

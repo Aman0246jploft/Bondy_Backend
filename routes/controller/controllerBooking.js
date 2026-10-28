@@ -2008,6 +2008,108 @@ const executeBookingConfirmation = async (transactionDoc, options = {}) => {
   };
 };
 
+/**
+ * Temporary helper to detect if a request originates from a mobile client
+ * (native app, mobile browser, custom headers, or mobile test params).
+ * Bypasses the "Complete this payment with QPay" rejection for testing.
+ */
+const isMobileRequest = (req) => {
+  if (!req) return false;
+
+  const headers = req.headers || {};
+  const body = req.body || {};
+  const query = req.query || {};
+
+  // 1. Explicit headers: x-platform, platform, x-device-type, device-type, etc.
+  const platformHeader = (
+    headers["x-platform"] ||
+    headers["platform"] ||
+    headers["x-device-type"] ||
+    headers["device-type"] ||
+    headers["x-client-type"] ||
+    headers["client-type"] ||
+    headers["x-client"] ||
+    headers["client"] ||
+    headers["x-app-platform"] ||
+    headers["app-platform"] ||
+    headers["device"] ||
+    ""
+  ).toString().toLowerCase().trim();
+
+  const mobileKeywords = ["mobile", "ios", "android", "app", "flutter", "react-native", "reactnative", "bondy-mobile", "bondy_mobile"];
+  if (mobileKeywords.includes(platformHeader)) {
+    return true;
+  }
+
+  const isMobileHeader = (
+    headers["x-is-mobile"] ||
+    headers["is-mobile"] ||
+    headers["x-mobile"] ||
+    ""
+  ).toString().toLowerCase().trim();
+
+  if (isMobileHeader === "true" || isMobileHeader === "1") {
+    return true;
+  }
+
+  // 2. Client hints (sec-ch-ua-mobile)
+  if (headers["sec-ch-ua-mobile"] === "?1") {
+    return true;
+  }
+
+  // 3. Request body parameters
+  if (body.isMobile === true || body.isMobile === "true" || body.isMobile === 1 || body.isMobile === "1" || body.isApp === true || body.isApp === "true") {
+    return true;
+  }
+
+  const bodyPlatform = (
+    body.platform ||
+    body.deviceType ||
+    body.device ||
+    body.clientType ||
+    body.source ||
+    ""
+  ).toString().toLowerCase().trim();
+
+  if (mobileKeywords.includes(bodyPlatform)) {
+    return true;
+  }
+
+  // 4. Query string parameters
+  if (query.isMobile === true || query.isMobile === "true" || query.isMobile === 1 || query.isMobile === "1" || query.isApp === true || query.isApp === "true") {
+    return true;
+  }
+
+  const queryPlatform = (
+    query.platform ||
+    query.deviceType ||
+    query.device ||
+    query.clientType ||
+    query.source ||
+    ""
+  ).toString().toLowerCase().trim();
+
+  if (mobileKeywords.includes(queryPlatform)) {
+    return true;
+  }
+
+  // 5. User-Agent header (mobile apps, WebViews, mobile browsers, HTTP clients used by mobile SDKs)
+  const userAgent = (
+    headers["user-agent"] ||
+    (typeof req.get === "function" ? req.get("user-agent") : "") ||
+    ""
+  ).toLowerCase();
+
+  if (userAgent) {
+    const mobileUaRegex = /mobile|android|iphone|ipad|ipod|cfnetwork|darwin|dart|okhttp|react-native|reactnative|flutter|expo|wv|dalvik|bondy/i;
+    if (mobileUaRegex.test(userAgent)) {
+      return true;
+    }
+  }
+
+  return false;
+};
+
 const confirmPayment = async (req, res) => {
   try {
     const { transactionId } = req.body;
@@ -2051,13 +2153,18 @@ const confirmPayment = async (req, res) => {
     }
 
     const devInstantPay = String(process.env.DEV_INSTANT_PAY || "").toLowerCase() === "true";
-    if (transaction.totalAmount > 0 && !devInstantPay) {
+    const isMobile = isMobileRequest(req);
+
+    // Temporary bypass for mobile testing: do not reject if devInstantPay is active OR request is from mobile
+    if (transaction.totalAmount > 0 && !devInstantPay && !isMobile) {
       return apiErrorRes(HTTP_STATUS.BAD_REQUEST, res, "Complete this payment with QPay");
     }
 
     const result = await executeBookingConfirmation(transaction, {
       paymentMethod: transaction.totalAmount === 0 ? "FREE" : (transaction.paymentMethod || "QPAY"),
-      paymentId: transaction.totalAmount === 0 ? `FREE_BOOKING_${Date.now()}` : `DEV_INSTANT_${Date.now()}`,
+      paymentId: transaction.totalAmount === 0
+        ? `FREE_BOOKING_${Date.now()}`
+        : (isMobile ? `MOBILE_TEST_${Date.now()}` : `DEV_INSTANT_${Date.now()}`),
     });
 
     if (result.status === "REFUND_INITIATED") {
