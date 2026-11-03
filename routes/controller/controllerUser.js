@@ -866,14 +866,12 @@ const resendLoginOtp = async (req, res) => {
   }
 };
 
-// Helper to get formatted profile data
-const getFormattedProfileData = async (userId, viewerId = null) => {
-  // Find user with populated categories (excluding deleted ones)
-  const user = await User.findById(userId)
+const getProfileUser = (userId) =>
+  User.findById(userId)
     .populate({
       path: "categories",
       select: "name type image name_thi isDeleted",
-      match: { isDeleted: false }
+      match: { isDeleted: false },
     })
     .populate({
       path: "businessCategory",
@@ -881,16 +879,68 @@ const getFormattedProfileData = async (userId, viewerId = null) => {
     })
     .lean();
 
+// Helper to get formatted profile data
+const getFormattedProfileData = async (
+  userId,
+  viewerId = null,
+  preloadedUser = null,
+) => {
+  const user = preloadedUser || (await getProfileUser(userId));
+
   if (!user || user.isDeleted) {
     return null;
   }
 
-  // Calculate totalAttended (unique events where user has checked in)
-  const attendedEvents = await Transaction.distinct("eventId", {
-    userId: userId,
-    status: "PAID",
-    checkedInQty: { $gt: 0 },
-  });
+  const userObjectId = new mongoose.Types.ObjectId(userId);
+  const [
+    attendedEvents,
+    followRecord,
+    blockRecord,
+    reportRecord,
+    followersCountResult,
+    followingCountResult,
+  ] = await Promise.all([
+    Transaction.distinct("eventId", {
+      userId,
+      status: "PAID",
+      checkedInQty: { $gt: 0 },
+    }),
+    viewerId
+      ? Follow.findOne({ fromUser: viewerId, toUser: userId })
+      : Promise.resolve(null),
+    viewerId
+      ? Block.findOne({ fromUser: viewerId, toUser: userId })
+      : Promise.resolve(null),
+    viewerId
+      ? Report.findOne({ fromUser: viewerId, toUser: userId })
+      : Promise.resolve(null),
+    Follow.aggregate([
+      { $match: { toUser: userObjectId } },
+      {
+        $lookup: {
+          from: "users",
+          localField: "fromUser",
+          foreignField: "_id",
+          as: "followerInfo",
+        },
+      },
+      { $match: { "followerInfo.isDeleted": { $ne: true } } },
+      { $count: "count" },
+    ]),
+    Follow.aggregate([
+      { $match: { fromUser: userObjectId } },
+      {
+        $lookup: {
+          from: "users",
+          localField: "toUser",
+          foreignField: "_id",
+          as: "followingInfo",
+        },
+      },
+      { $match: { "followingInfo.isDeleted": { $ne: true } } },
+      { $count: "count" },
+    ]),
+  ]);
   const totalAttended = attendedEvents.length;
 
   const activeCategories = (user.categories || []).filter(Boolean);
@@ -915,43 +965,9 @@ const getFormattedProfileData = async (userId, viewerId = null) => {
     ? formatResponseUrl(user.backgroundImage)
     : null;
 
-  // Check if viewer follows this user
-  let isFollowed = false;
-
-  if (viewerId) {
-    const followRecord = await Follow.findOne({
-      fromUser: viewerId,
-      toUser: userId,
-    });
-
-    if (followRecord) {
-      isFollowed = true;
-    }
-  }
-
-  // Check if viewer blocked this user
-  let isBlocked = false;
-  if (viewerId) {
-    const blockRecord = await Block.findOne({
-      fromUser: viewerId,
-      toUser: userId,
-    });
-    if (blockRecord) {
-      isBlocked = true;
-    }
-  }
-
-  // Check if viewer reported this user
-  let isReported = false;
-  if (viewerId) {
-    const reportRecord = await Report.findOne({
-      fromUser: viewerId,
-      toUser: userId,
-    });
-    if (reportRecord) {
-      isReported = true;
-    }
-  }
+  const isFollowed = Boolean(followRecord);
+  const isBlocked = Boolean(blockRecord);
+  const isReported = Boolean(reportRecord);
 
   // Check if it is my profile
   let isMyProfile = false;
@@ -1083,37 +1099,9 @@ const getFormattedProfileData = async (userId, viewerId = null) => {
     totalFollowing: 0,
   };
 
-  // Calculate totalFollowers (excluding deleted users)
-  const followersCountResult = await Follow.aggregate([
-    { $match: { toUser: new mongoose.Types.ObjectId(userId) } },
-    {
-      $lookup: {
-        from: "users",
-        localField: "fromUser",
-        foreignField: "_id",
-        as: "followerInfo"
-      }
-    },
-    { $match: { "followerInfo.isDeleted": { $ne: true } } },
-    { $count: "count" }
-  ]);
   const totalFollowers = followersCountResult[0]?.count || 0;
   profileData.totalFollowers = totalFollowers;
 
-  // Calculate totalFollowing (excluding deleted users)
-  const followingCountResult = await Follow.aggregate([
-    { $match: { fromUser: new mongoose.Types.ObjectId(userId) } },
-    {
-      $lookup: {
-        from: "users",
-        localField: "toUser",
-        foreignField: "_id",
-        as: "followingInfo"
-      }
-    },
-    { $match: { "followingInfo.isDeleted": { $ne: true } } },
-    { $count: "count" }
-  ]);
   const totalFollowing = followingCountResult[0]?.count || 0;
   profileData.totalFollowing = totalFollowing;
 
@@ -1128,160 +1116,10 @@ const getFormattedProfileData = async (userId, viewerId = null) => {
       file: doc.file ? formatResponseUrl(doc.file) : null,
     }));
 
-    // Calculate totalCourses count (added)
-    const totalCourses = await Course.countDocuments({
-      createdBy: userId,
-      isDraft: false,
-      isDeleted: { $ne: true },
-      status: { $ne: "Cancelled" },
-    });
-    profileData.totalCoursesAdded = totalCourses; // "total course he added"
-
-    // Calculate totalEventsHosted  
-    const totalEventsHosted = await Event.countDocuments({
-      createdBy: userId,
-      isDraft: false,
-      isDeleted: { $ne: true },
-      status: { $ne: "Cancelled" },
-    });
-    profileData.totalEventsHosted = totalEventsHosted + totalCourses;
-
     const organizerObjectId = new mongoose.Types.ObjectId(userId);
     const roundToTwo = (num) =>
       Math.round((num + Number.EPSILON) * 100) / 100;
-
-    // 1b. Total Upcoming Courses
-    const totalUpcomingCourses = await Course.countDocuments({
-      createdBy: userId,
-      status: { $in: ["Upcoming", "Live"] },
-      isDraft: false,
-      isDeleted: { $ne: true },
-    });
-    profileData.totalUpcomingCourses = totalUpcomingCourses;
-
-    // 1. Total Upcoming Events
-    const totalUpcomingEvents = await Event.countDocuments({
-      createdBy: userId,
-      status: { $in: ["Upcoming", "Live"] },
-      isDraft: false,
-      isDeleted: { $ne: true },
-      ...(!isMyProfile ? { visibility: { $ne: "PRIVATE" }, accessAndPrivacy: { $ne: false } } : {}),
-    });
-    profileData.totalUpcomingEvents = totalUpcomingEvents + totalUpcomingCourses;
-
-    // 2. Total Tickets Sold
-    const ticketsSoldResult = await Transaction.aggregate([
-      {
-        $lookup: {
-          from: "events",
-          localField: "eventId",
-          foreignField: "_id",
-          as: "eventInfo",
-        },
-      },
-      {
-        $match: {
-          bookingType: "EVENT",
-          status: "PAID",
-          "eventInfo.createdBy": organizerObjectId,
-        },
-      },
-      {
-        $group: {
-          _id: null,
-          totalTickets: { $sum: "$qty" },
-        },
-      },
-    ]);
-    profileData.totalTicketSold = ticketsSoldResult[0]?.totalTickets || 0;
-    profileData.totalTicketsSold = ticketsSoldResult[0]?.totalTickets || 0;
-
-    // 2b. Total Courses Sold / Enrolled
-    const courseSoldResult = await Transaction.aggregate([
-      {
-        $lookup: {
-          from: "courses",
-          localField: "courseId",
-          foreignField: "_id",
-          as: "courseInfo",
-        },
-      },
-      {
-        $match: {
-          bookingType: "COURSE",
-          status: "PAID",
-          "courseInfo.createdBy": organizerObjectId,
-        },
-      },
-      {
-        $group: {
-          _id: null,
-          totalCourses: { $sum: "$qty" },
-        },
-      },
-    ]);
-    profileData.totalCourseSold = courseSoldResult[0]?.totalCourses || 0;
-    profileData.totalCoursesSold = courseSoldResult[0]?.totalCourses || 0;
-
-    // 3. Net Earnings from Events
-    const eventEarningsResult = await Transaction.aggregate([
-      {
-        $lookup: {
-          from: "events",
-          localField: "eventId",
-          foreignField: "_id",
-          as: "eventInfo",
-        },
-      },
-      {
-        $match: {
-          bookingType: "EVENT",
-          status: "PAID",
-          "eventInfo.createdBy": organizerObjectId,
-        },
-      },
-      {
-        $group: {
-          _id: null,
-          totalEarnings: { $sum: "$organizerEarning" },
-        },
-      },
-    ]);
-    profileData.netEarningEvents = roundToTwo(
-      eventEarningsResult[0]?.totalEarnings || 0,
-    );
-
-    // 4. Net Earnings from Courses
-    const courseEarningsResult = await Transaction.aggregate([
-      {
-        $lookup: {
-          from: "courses",
-          localField: "courseId",
-          foreignField: "_id",
-          as: "courseInfo",
-        },
-      },
-      {
-        $match: {
-          bookingType: "COURSE",
-          status: "PAID",
-          "courseInfo.createdBy": organizerObjectId,
-        },
-      },
-      {
-        $group: {
-          _id: null,
-          totalEarnings: { $sum: "$organizerEarning" },
-        },
-      },
-    ]);
-    profileData.netEarningCourses = roundToTwo(
-      courseEarningsResult[0]?.totalEarnings || 0,
-    );
-
     const now = new Date();
-
-    // -- EVENTS --
     const eventVisibilityFilter = isMyProfile
       ? {}
       : { visibility: { $ne: "PRIVATE" }, accessAndPrivacy: { $ne: false } };
@@ -1295,7 +1133,7 @@ const getFormattedProfileData = async (userId, viewerId = null) => {
       ...eventVisibilityFilter,
     })
       .populate("eventCategory", "name")
-      .sort({ startDate: 1 }) // Soonest first
+      .sort({ startDate: 1 })
       .limit(50)
       .lean();
 
@@ -1308,11 +1146,10 @@ const getFormattedProfileData = async (userId, viewerId = null) => {
       ...eventVisibilityFilter,
     })
       .populate("eventCategory", "name")
-      .sort({ startDate: -1 }) // Most recent past first
+      .sort({ startDate: -1 })
       .limit(50)
       .lean();
 
-    // -- COURSES --
     const nextCoursesQuery = Course.find({
       createdBy: userId,
       isDraft: false,
@@ -1321,8 +1158,8 @@ const getFormattedProfileData = async (userId, viewerId = null) => {
       $or: [
         { enrollmentType: "Ongoing" },
         { endDate: { $gte: now } },
-        { endDate: null }
-      ]
+        { endDate: null },
+      ],
     })
       .populate("courseCategory", "name")
       .sort({ startDate: 1 })
@@ -1342,65 +1179,180 @@ const getFormattedProfileData = async (userId, viewerId = null) => {
       .limit(50)
       .lean();
 
-    const [nextEventsRaw, pastEventsRaw, nextCoursesRaw, pastCoursesRaw] =
-      await Promise.all([
-        nextEventsQuery,
-        pastEventsQuery,
-        nextCoursesQuery,
-        pastCoursesQuery,
-      ]);
+    const [
+      totalCourses,
+      totalEventsHosted,
+      totalUpcomingCourses,
+      totalUpcomingEvents,
+      eventSalesResult,
+      courseSalesResult,
+      nextEventsRaw,
+      pastEventsRaw,
+      nextCoursesRaw,
+      pastCoursesRaw,
+    ] = await Promise.all([
+      Course.countDocuments({
+        createdBy: userId,
+        isDraft: false,
+        isDeleted: { $ne: true },
+        status: { $ne: "Cancelled" },
+      }),
+      Event.countDocuments({
+        createdBy: userId,
+        isDraft: false,
+        isDeleted: { $ne: true },
+        status: { $ne: "Cancelled" },
+      }),
+      Course.countDocuments({
+        createdBy: userId,
+        status: { $in: ["Upcoming", "Live"] },
+        isDraft: false,
+        isDeleted: { $ne: true },
+      }),
+      Event.countDocuments({
+        createdBy: userId,
+        status: { $in: ["Upcoming", "Live"] },
+        isDraft: false,
+        isDeleted: { $ne: true },
+        ...(!isMyProfile
+          ? { visibility: { $ne: "PRIVATE" }, accessAndPrivacy: { $ne: false } }
+          : {}),
+      }),
+      Transaction.aggregate([
+        {
+          $match: {
+            bookingType: "EVENT",
+            status: "PAID",
+          },
+        },
+        {
+          $lookup: {
+            from: "events",
+            localField: "eventId",
+            foreignField: "_id",
+            as: "eventInfo",
+          },
+        },
+        {
+          $match: {
+            "eventInfo.createdBy": organizerObjectId,
+          },
+        },
+        {
+          $group: {
+            _id: null,
+            totalTickets: { $sum: "$qty" },
+            totalEarnings: { $sum: "$organizerEarning" },
+          },
+        },
+      ]),
+      Transaction.aggregate([
+        {
+          $match: {
+            bookingType: "COURSE",
+            status: "PAID",
+          },
+        },
+        {
+          $lookup: {
+            from: "courses",
+            localField: "courseId",
+            foreignField: "_id",
+            as: "courseInfo",
+          },
+        },
+        {
+          $match: {
+            "courseInfo.createdBy": organizerObjectId,
+          },
+        },
+        {
+          $group: {
+            _id: null,
+            totalCourses: { $sum: "$qty" },
+            totalEarnings: { $sum: "$organizerEarning" },
+          },
+        },
+      ]),
+      nextEventsQuery,
+      pastEventsQuery,
+      nextCoursesQuery,
+      pastCoursesQuery,
+    ]);
+
+    profileData.totalCoursesAdded = totalCourses;
+    profileData.totalEventsHosted = totalEventsHosted + totalCourses;
+    profileData.totalUpcomingCourses = totalUpcomingCourses;
+    profileData.totalUpcomingEvents =
+      totalUpcomingEvents + totalUpcomingCourses;
+
+    profileData.totalTicketSold = eventSalesResult[0]?.totalTickets || 0;
+    profileData.totalTicketsSold = eventSalesResult[0]?.totalTickets || 0;
+
+    profileData.totalCourseSold = courseSalesResult[0]?.totalCourses || 0;
+    profileData.totalCoursesSold = courseSalesResult[0]?.totalCourses || 0;
+
+    profileData.netEarningEvents = roundToTwo(
+      eventSalesResult[0]?.totalEarnings || 0,
+    );
+
+    profileData.netEarningCourses = roundToTwo(
+      courseSalesResult[0]?.totalEarnings || 0,
+    );
 
     // Calculate tickets sold per event
     const allFetchedEventIds = [...nextEventsRaw, ...pastEventsRaw].map((e) => e._id);
-    const eventTicketSoldMap = {};
-    if (allFetchedEventIds.length > 0) {
-      const eventSoldAgg = await Transaction.aggregate([
-        {
-          $match: {
-            eventId: { $in: allFetchedEventIds },
-            status: "PAID",
-            bookingType: "EVENT",
-          },
-        },
-        {
-          $group: {
-            _id: "$eventId",
-            totalTickets: { $sum: "$qty" },
-          },
-        },
-      ]);
-      eventSoldAgg.forEach((item) => {
-        if (item._id) {
-          eventTicketSoldMap[item._id.toString()] = item.totalTickets;
-        }
-      });
-    }
-
-    // Calculate enrollments per course
     const allFetchedCourseIds = [...nextCoursesRaw, ...pastCoursesRaw].map((c) => c._id);
+    const [eventSoldAgg, courseSoldAgg] = await Promise.all([
+      allFetchedEventIds.length > 0
+        ? Transaction.aggregate([
+            {
+              $match: {
+                eventId: { $in: allFetchedEventIds },
+                status: "PAID",
+                bookingType: "EVENT",
+              },
+            },
+            {
+              $group: {
+                _id: "$eventId",
+                totalTickets: { $sum: "$qty" },
+              },
+            },
+          ])
+        : Promise.resolve([]),
+      allFetchedCourseIds.length > 0
+        ? Transaction.aggregate([
+            {
+              $match: {
+                courseId: { $in: allFetchedCourseIds },
+                status: "PAID",
+                bookingType: "COURSE",
+              },
+            },
+            {
+              $group: {
+                _id: "$courseId",
+                totalTickets: { $sum: "$qty" },
+              },
+            },
+          ])
+        : Promise.resolve([]),
+    ]);
+
+    const eventTicketSoldMap = {};
+    eventSoldAgg.forEach((item) => {
+      if (item._id) {
+        eventTicketSoldMap[item._id.toString()] = item.totalTickets;
+      }
+    });
+
     const courseTicketSoldMap = {};
-    if (allFetchedCourseIds.length > 0) {
-      const courseSoldAgg = await Transaction.aggregate([
-        {
-          $match: {
-            courseId: { $in: allFetchedCourseIds },
-            status: "PAID",
-            bookingType: "COURSE",
-          },
-        },
-        {
-          $group: {
-            _id: "$courseId",
-            totalTickets: { $sum: "$qty" },
-          },
-        },
-      ]);
-      courseSoldAgg.forEach((item) => {
-        if (item._id) {
-          courseTicketSoldMap[item._id.toString()] = item.totalTickets;
-        }
-      });
-    }
+    courseSoldAgg.forEach((item) => {
+      if (item._id) {
+        courseTicketSoldMap[item._id.toString()] = item.totalTickets;
+      }
+    });
 
     // Helper to format event
     const formatEvent = (event) => {
@@ -1989,7 +1941,7 @@ const updateTimezone = async (req, res) => {
 const selfProfile = async (req, res) => {
   try {
     let userId = req.user.userId;
-    const user = await User.findById(userId).lean();
+    const user = await getProfileUser(userId);
     if (!user || user.isDeleted) {
       return apiErrorRes(
         HTTP_STATUS.NOT_FOUND,
@@ -2005,14 +1957,14 @@ const selfProfile = async (req, res) => {
       );
     }
     req.params.userId = userId;
-    await getUserProfileById(req, res);
+    await getUserProfileById(req, res, user);
   } catch (error) {
     console.error("Error in selfProfile:", error);
     return apiErrorRes(HTTP_STATUS.INTERNAL_SERVER_ERROR, res, error.message);
   }
 };
 
-const getUserProfileById = async (req, res) => {
+const getUserProfileById = async (req, res, preloadedUser = null) => {
   try {
     const { userId } = req.params;
 
@@ -2031,7 +1983,11 @@ const getUserProfileById = async (req, res) => {
       }
     }
 
-    const profileData = await getFormattedProfileData(userId, viewerId);
+    const profileData = await getFormattedProfileData(
+      userId,
+      viewerId,
+      preloadedUser,
+    );
 
     if (!profileData) {
       return apiErrorRes(
