@@ -925,7 +925,14 @@ const getFormattedProfileData = async (
   viewerId = null,
   preloadedUser = null,
 ) => {
-  const user = preloadedUser || (await getProfileUser(userId));
+  const validUser =
+    preloadedUser &&
+    typeof preloadedUser === "object" &&
+    typeof preloadedUser !== "function" &&
+    preloadedUser._id
+      ? preloadedUser
+      : null;
+  const user = validUser || (await getProfileUser(userId));
 
   if (!user || user.isDeleted) {
     return null;
@@ -2008,6 +2015,14 @@ const getUserProfileById = async (req, res, preloadedUser = null) => {
   try {
     const { userId } = req.params;
 
+    if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+      return apiErrorRes(
+        HTTP_STATUS.NOT_FOUND,
+        res,
+        constantsMessage.USER_NOT_FOUND,
+      );
+    }
+
     // Check for logged-in user to determine isFollowed status
     let viewerId = null;
     const authHeader = req.headers.authorization;
@@ -2023,10 +2038,18 @@ const getUserProfileById = async (req, res, preloadedUser = null) => {
       }
     }
 
+    const validPreloadedUser =
+      preloadedUser &&
+      typeof preloadedUser === "object" &&
+      typeof preloadedUser !== "function" &&
+      preloadedUser._id
+        ? preloadedUser
+        : null;
+
     const profileData = await getFormattedProfileData(
       userId,
       viewerId,
-      preloadedUser,
+      validPreloadedUser,
     );
 
     if (!profileData) {
