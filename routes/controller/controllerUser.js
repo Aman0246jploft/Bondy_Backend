@@ -60,6 +60,7 @@ const {
 const { roleId, userRole } = require("../../utils/Role");
 const { upload, storeImage } = require("../../utils/cloudinary");
 const checkRole = require("../../middlewares/checkRole");
+const { sendOtpEmail } = require("../../utils/emailService");
 
 const DEFAULT_REWARD = 0;
 const getRewardAmount = async () => {
@@ -131,6 +132,14 @@ const customerSignupInit = async (req, res) => {
     // Key for OTP: signup_otp:{email}
     await setKeyWithTime(`signup_data:${email}`, JSON.stringify(dataToStore), 10); // 10 mins
     await setKeyWithTime(`signup_otp:${email}`, otp, 10); // 10 mins
+
+    // Send real OTP verification email
+    sendOtpEmail({
+      to: email,
+      otp,
+      type: "signup",
+      userName: req.body.name || req.body.firstName || "",
+    }).catch((err) => console.error("[EmailService] Failed to send customer signup OTP email:", err));
 
     return apiSuccessRes(
       HTTP_STATUS.OK,
@@ -341,6 +350,14 @@ const organizerSignupInit = async (req, res) => {
       10,
     );
     await setKeyWithTime(`signup_otp:${email}`, otp, 10);
+
+    // Send real OTP verification email
+    sendOtpEmail({
+      to: email,
+      otp,
+      type: "signup",
+      userName: req.body.name || req.body.businessName || "",
+    }).catch((err) => console.error("[EmailService] Failed to send organizer signup OTP email:", err));
 
     return apiSuccessRes(
       HTTP_STATUS.OK,
@@ -568,6 +585,13 @@ const resendOtp = async (req, res) => {
     // Update OTP in Redis (reset timer to 10 mins)
     await setKeyWithTime(`signup_otp:${email}`, otp, 10);
 
+    // Send real OTP email
+    sendOtpEmail({
+      to: email,
+      otp,
+      type: "signup",
+    }).catch((err) => console.error("[EmailService] Failed to send resend signup OTP email:", err));
+
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
@@ -675,6 +699,14 @@ const loginInit = async (req, res) => {
 
     // Store OTP in Redis (Login OTP key)
     await setKeyWithTime(`login_otp:${email}`, otp, 10); // 10 mins
+
+    // Send real login OTP email
+    sendOtpEmail({
+      to: email,
+      otp,
+      type: "login",
+      userName: user.firstName || user.name || "",
+    }).catch((err) => console.error("[EmailService] Failed to send login OTP email:", err));
 
     // Store fmcToken if provided
     if (req.body.fmcToken) {
@@ -851,6 +883,14 @@ const resendLoginOtp = async (req, res) => {
 
     // Store OTP in Redis (Login OTP key)
     await setKeyWithTime(`login_otp:${email}`, otp, 10); // 10 mins
+
+    // Send real login OTP email
+    sendOtpEmail({
+      to: email,
+      otp,
+      type: "login",
+      userName: user.firstName || user.name || "",
+    }).catch((err) => console.error("[EmailService] Failed to send resend login OTP email:", err));
 
     return apiSuccessRes(
       HTTP_STATUS.OK,
@@ -2502,6 +2542,14 @@ const forgotPasswordInit = async (req, res) => {
     // Store in Redis
     await setKeyWithTime(`forgot_otp:${email}`, otp, 10); // 10 mins
 
+    // Send real forgot password OTP email
+    sendOtpEmail({
+      to: email,
+      otp,
+      type: "forgot_password",
+      userName: user.firstName || user.name || "",
+    }).catch((err) => console.error("[EmailService] Failed to send forgot password OTP email:", err));
+
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
@@ -2578,6 +2626,14 @@ const resendForgotPasswordOtp = async (req, res) => {
 
     // Store in Redis
     await setKeyWithTime(`forgot_otp:${email}`, otp, 10); // 10 mins
+
+    // Send real forgot password OTP email
+    sendOtpEmail({
+      to: email,
+      otp,
+      type: "forgot_password",
+      userName: user.firstName || user.name || "",
+    }).catch((err) => console.error("[EmailService] Failed to send resend forgot password OTP email:", err));
 
     return apiSuccessRes(
       HTTP_STATUS.OK,
@@ -2913,6 +2969,14 @@ const staffForgotPasswordInit = async (req, res) => {
 
     await setKeyWithTime(`staff_forgot_otp:${email}`, otp, 10);
 
+    // Send real staff forgot password OTP email
+    sendOtpEmail({
+      to: email,
+      otp,
+      type: "staff_forgot_password",
+      userName: user.firstName || user.name || "",
+    }).catch((err) => console.error("[EmailService] Failed to send staff forgot password OTP email:", err));
+
     return apiSuccessRes(
       HTTP_STATUS.OK,
       res,
@@ -2981,6 +3045,14 @@ const staffResendForgotPasswordOtp = async (req, res) => {
     const otp = process.env.NODE_ENV === "development" ? "12345" : generateOTP();
 
     await setKeyWithTime(`staff_forgot_otp:${email}`, otp, 10);
+
+    // Send real staff forgot password OTP email
+    sendOtpEmail({
+      to: email,
+      otp,
+      type: "staff_forgot_password",
+      userName: user.firstName || user.name || "",
+    }).catch((err) => console.error("[EmailService] Failed to send staff resend forgot password OTP email:", err));
 
     return apiSuccessRes(
       HTTP_STATUS.OK,

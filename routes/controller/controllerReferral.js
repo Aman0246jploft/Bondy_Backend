@@ -7,6 +7,7 @@ const { apiErrorRes, apiSuccessRes } = require("../../utils/globalFunction");
 const constantsMessage = require("../../utils/constantsMessage");
 const perApiLimiter = require("../../middlewares/rateLimiter");
 const { roleId } = require("../../utils/Role");
+const { sendReferralInviteEmail } = require("../../utils/emailService");
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -167,10 +168,21 @@ router.post("/invite", perApiLimiter(), async (req, res) => {
       status: "PENDING_REFERRAL",
     });
 
-    // In a real system, send an email here via nodemailer/sendgrid
-    // For now we return the referral link
-    const baseUrl = process.env.FRONTEND_URL;
+    // Send Real Referral Email via nodemailer
+    const baseUrl = process.env.FRONTEND_URL || "https://bondy.mn";
     const referralLink = `${baseUrl}/register?ref=${inviteCode}`;
+
+    const referrer = await User.findById(userId).select("firstName lastName businessName").lean();
+    const referrerName = referrer
+      ? (referrer.businessName || `${referrer.firstName || ""} ${referrer.lastName || ""}`.trim() || "Your friend")
+      : "Your friend";
+
+    sendReferralInviteEmail({
+      to: newReferral.refereeEmail,
+      referrerName,
+      referralLink,
+      referralCode: inviteCode,
+    }).catch((err) => console.error("[EmailService] Failed to send referral invite email:", err));
 
     return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.INVITE_SENT, {
       referralLink,

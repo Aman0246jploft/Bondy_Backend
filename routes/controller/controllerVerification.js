@@ -25,6 +25,7 @@ const constantsMessage = require("../../utils/constantsMessage");
 const { roleId } = require("../../utils/Role");
 const checkRole = require("../../middlewares/checkRole");
 const { notifyVerificationResult } = require("../services/serviceNotification");
+const { sendOtpEmail } = require("../../utils/emailService");
 
 const OTP_EXPIRY_MINUTES = process.env.OTP_EXPIRY_MINUTES ? parseInt(process.env.OTP_EXPIRY_MINUTES, 10) : 10;
 
@@ -673,6 +674,14 @@ const sendEmailOTP = async (req, res) => {
     await setKeyWithTime(`email_verify_otp:${userId}`, otp, OTP_EXPIRY_MINUTES);
     await setKeyWithTime(`email_verify_data:${userId}`, email.toLowerCase(), OTP_EXPIRY_MINUTES);
 
+    // Send real email verification OTP email
+    sendOtpEmail({
+      to: email,
+      otp,
+      type: "email_verification",
+      userName: user.firstName || user.name || "",
+    }).catch((err) => console.error("[EmailService] Failed to send email verification OTP:", err));
+
     return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.OTP_SENT_SUCCESSFULLY_TO_YOUR_EMAIL_ADDR, { otp });
   } catch (error) {
     console.error("Error in sendEmailOTP:", error);
@@ -706,6 +715,14 @@ const resendEmailOTP = async (req, res) => {
 
     await setKeyWithTime(`email_verify_otp:${userId}`, otp, OTP_EXPIRY_MINUTES);
     await setKeyWithTime(`email_verify_data:${userId}`, email.toLowerCase(), OTP_EXPIRY_MINUTES);
+
+    // Send real email verification OTP email
+    sendOtpEmail({
+      to: email,
+      otp,
+      type: "email_verification",
+      userName: user.firstName || user.name || "",
+    }).catch((err) => console.error("[EmailService] Failed to send resend email verification OTP:", err));
 
     return apiSuccessRes(HTTP_STATUS.OK, res, constantsMessage.OTP_RESENT_SUCCESSFULLY_TO_YOUR_EMAIL_AD, { otp });
   } catch (error) {
