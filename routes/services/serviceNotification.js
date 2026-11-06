@@ -1,4 +1,4 @@
-const { Notification, User, UserSetting } = require("../../db");
+const { Notification, User, UserSetting, Transaction } = require("../../db");
 const {
   SUCCESS,
   SERVER_ERROR_CODE,
@@ -15,6 +15,7 @@ const {
   addJob,
 } = require("./serviceBullMQ");
 const socketIO = require("../../socket/socketIO");
+const { sendNotificationEmail, sendBookingConfirmationEmail } = require("../../utils/emailService");
 
 // ─────────────────────────────────────────────
 // Queue Initialisation
@@ -164,8 +165,57 @@ const notificationProcessor = async (job) => {
 
     // 5. Handle Email (gated by emailNotification preference)
     if (settings.emailNotification && categoryAllowed) {
-      // TODO: Integrate Email Service (e.g. SendGrid / Nodemailer)
-      console.log(`[Notification] Email queued for ${recipient} (Placeholder)`);
+      if (user?.email) {
+        const userName = user.firstName || user.name || "";
+        const actionUrl = webLink
+          ? `${process.env.FRONTEND_URL || "https://bondy.mn"}${webLink.startsWith("/") ? "" : "/"}${webLink}`
+          : (deepLink ? `${process.env.FRONTEND_URL || "https://bondy.mn"}${deepLink.startsWith("/") ? "" : "/"}${deepLink}` : null);
+
+        if (metadata?.isBooking === "true" || metadata?.isBooking === true) {
+          let bookingDetails = null;
+          if (relatedId) {
+            try {
+              const txn = await Transaction.findById(relatedId)
+                .populate("eventId", "eventTitle startDate venueAddress")
+                .populate("courseId", "courseTitle startDate location")
+                .lean();
+              if (txn) {
+                const isEvent = txn.bookingType === "EVENT";
+                const item = isEvent ? txn.eventId : txn.courseId;
+                bookingDetails = {
+                  bookingId: txn.bookingId || txn._id?.toString(),
+                  totalAmount: txn.totalAmount,
+                  date: item?.startDate || txn.createdAt,
+                  venue: isEvent ? item?.venueAddress?.address : item?.location?.address,
+                  title: isEvent ? item?.eventTitle : item?.courseTitle,
+                };
+              }
+            } catch (e) {
+              console.error("[EmailService] Error fetching txn details for booking email:", e);
+            }
+          }
+
+          sendBookingConfirmationEmail({
+            to: user.email,
+            userName: userName || "Valued Customer",
+            bookingType: type || "EVENT",
+            itemTitle: bookingDetails?.title || title || "Your Booking",
+            bookingId: bookingDetails?.bookingId || metadata?.transactionId || "",
+            totalAmount: bookingDetails?.totalAmount,
+            date: bookingDetails?.date,
+            venue: bookingDetails?.venue,
+            actionUrl,
+          }).catch((err) => console.error("[EmailService] Failed to send booking notification email:", err));
+        } else {
+          sendNotificationEmail({
+            to: user.email,
+            userName,
+            title,
+            message,
+            actionUrl,
+          }).catch((err) => console.error("[EmailService] Failed to send notification email:", err));
+        }
+      }
     }
 
     // 6. Handle WhatsApp (gated by whatsappNotification preference)
