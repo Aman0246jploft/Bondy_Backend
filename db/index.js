@@ -284,6 +284,50 @@ mongoose
         }
       }
       console.log("✅ Default FAQs seeded successfully");
+
+      // Seed default Support Ticket categories in EN and MN
+      const CategoryModel = require("./models/Category");
+      const SupportTicketModel = require("./models/SupportTicket");
+      const defaultSupportTicketCategories = [
+        { name: "Events & Courses", name_thi: "Эвент ба сургалт", type: "support_ticket" },
+        { name: "Bookings & Registrations", name_thi: "Захиалга ба бүртгэл", type: "support_ticket" },
+        { name: "Payments & Payouts", name_thi: "Төлбөр ба татан авалт", type: "support_ticket" },
+        { name: "Staff & QR", name_thi: "Ажилтнууд ба QR", type: "support_ticket" },
+        { name: "Verification", name_thi: "Баталгаажуулалт", type: "support_ticket" },
+        { name: "Account & Settings", name_thi: "Бүртгэл ба тохиргоо", type: "support_ticket" },
+        { name: "Other", name_thi: "Бусад", type: "support_ticket" },
+      ];
+      for (const item of defaultSupportTicketCategories) {
+        const existing = await CategoryModel.findOne({
+          name: { $regex: new RegExp(`^${item.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i") },
+          type: "support_ticket",
+          isDeleted: false,
+        });
+        if (!existing) {
+          await CategoryModel.create({
+            name: item.name,
+            name_thi: item.name_thi,
+            type: "support_ticket",
+            isDeleted: false,
+            isDisable: false,
+          });
+        } else if (!existing.name_thi || existing.name_thi !== item.name_thi) {
+          existing.name_thi = item.name_thi;
+          await existing.save();
+        }
+      }
+      // Backfill categoryId for existing support tickets missing it
+      const allSTCategories = await CategoryModel.find({ type: "support_ticket", isDeleted: false });
+      for (const stCat of allSTCategories) {
+        await SupportTicketModel.updateMany(
+          {
+            $or: [{ categoryId: { $exists: false } }, { categoryId: null }],
+            category: { $regex: new RegExp(`^${stCat.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i") },
+          },
+          { $set: { categoryId: stCat._id, category: stCat.name } }
+        );
+      }
+      console.log("✅ Support ticket categories seeded successfully");
     } catch (seedErr) {
       console.error("Seed error:", seedErr.message);
     }

@@ -33,15 +33,45 @@ const generateTicketId = () => {
 // Create Ticket
 const createTicket = async (req, res) => {
   try {
-    const { category, subject, description, images, referenceNumber } = req.body;
+    const { category, categoryId, subject, description, images, referenceNumber } = req.body;
     const userId = req.user.userId;
+
+    const Category = require("../../db/models/Category");
+    const mongoose = require("mongoose");
+    let resolvedCategoryId = null;
+    let resolvedCategoryName = category;
+
+    if (categoryId && mongoose.Types.ObjectId.isValid(categoryId)) {
+      resolvedCategoryId = categoryId;
+      const catDoc = await Category.findById(categoryId);
+      if (catDoc) {
+        resolvedCategoryName = catDoc.name;
+      }
+    } else if (category && mongoose.Types.ObjectId.isValid(category)) {
+      const catDoc = await Category.findById(category);
+      if (catDoc) {
+        resolvedCategoryId = catDoc._id;
+        resolvedCategoryName = catDoc.name;
+      }
+    } else if (category) {
+      const catDoc = await Category.findOne({
+        name: { $regex: new RegExp(`^${category.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i") },
+        type: "support_ticket",
+        isDeleted: false,
+      });
+      if (catDoc) {
+        resolvedCategoryId = catDoc._id;
+        resolvedCategoryName = catDoc.name;
+      }
+    }
 
     const ticketId = generateTicketId();
 
     const newTicket = new SupportTicket({
       ticketId,
       user: userId,
-      category,
+      category: resolvedCategoryName || category,
+      categoryId: resolvedCategoryId,
       subject,
       description,
       referenceNumber: referenceNumber || "",
@@ -74,6 +104,7 @@ const getMyTickets = async (req, res) => {
     if (category) query.category = category;
 
     const tickets = await SupportTicket.find(query)
+      .populate("categoryId", "name name_thi type")
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(parseInt(limit))
@@ -103,6 +134,7 @@ const getAllTickets = async (req, res) => {
     const {
       status,
       category,
+      categoryId,
       ticketId,
       referenceNumber,
       userId,
@@ -117,7 +149,29 @@ const getAllTickets = async (req, res) => {
     const query = {};
 
     if (status) query.status = status;
-    if (category) query.category = category;
+    if (categoryId) {
+      query.categoryId = categoryId;
+    } else if (category) {
+      const mongoose = require("mongoose");
+      if (mongoose.Types.ObjectId.isValid(category)) {
+        query.$or = [{ categoryId: category }, { category: category }];
+      } else {
+        const Category = require("../../db/models/Category");
+        const matchedCat = await Category.findOne({
+          name: { $regex: new RegExp(`^${category.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i") },
+          type: "support_ticket",
+          isDeleted: false,
+        });
+        if (matchedCat) {
+          query.$or = [
+            { category: { $regex: new RegExp(`^${category.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i") } },
+            { categoryId: matchedCat._id },
+          ];
+        } else {
+          query.category = { $regex: new RegExp(`^${category.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i") };
+        }
+      }
+    }
     if (ticketId) query.ticketId = { $regex: ticketId, $options: "i" };
     if (referenceNumber)
       query.referenceNumber = { $regex: referenceNumber, $options: "i" };
@@ -144,6 +198,7 @@ const getAllTickets = async (req, res) => {
 
     const tickets = await SupportTicket.find(query)
       .populate("user", "firstName lastName email profileImage contactNumber")
+      .populate("categoryId", "name name_thi type")
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(parseInt(limit))
@@ -229,6 +284,7 @@ const getTicketDetails = async (req, res) => {
 
     const ticket = await SupportTicket.findOne(query)
       .populate("user", "firstName lastName email profileImage")
+      .populate("categoryId", "name name_thi type")
       .populate("adminComments.adminId", "firstName lastName")
       .lean();
 

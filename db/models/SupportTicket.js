@@ -17,6 +17,12 @@ const supportTicketSchema = new mongoose.Schema(
             type: String, // e.g., 'Technical', 'Billing', 'Account', 'Other'
             required: true,
         },
+        categoryId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Category",
+            default: null,
+            index: true,
+        },
         subject: {
             type: String,
             required: true,
