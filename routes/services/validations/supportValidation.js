@@ -2,6 +2,7 @@ const Joi = require("joi");
 
 const createTicketSchema = Joi.object({
     category: Joi.string().required().trim(),
+    categoryId: Joi.string().hex().length(24).optional().allow(null, ""),
     subject: Joi.string().required().trim().min(5).max(100),
     description: Joi.string().required().min(10).max(1000),
     referenceNumber: Joi.string().trim().max(50).optional().allow(""),
@@ -26,6 +27,7 @@ const getTicketsSchema = Joi.object({
         .valid("Pending", "Open", "Resolved", "Cancelled", "Reopen", "closed")
         .optional(),
     category: Joi.string().optional(),
+    categoryId: Joi.string().hex().length(24).optional().allow(null, ""),
     ticketId: Joi.string().optional(),
     referenceNumber: Joi.string().optional(),
     search: Joi.string().optional(),
