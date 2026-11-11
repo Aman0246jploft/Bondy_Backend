@@ -108,10 +108,17 @@ const getCategoryList = async (req, res) => {
 
     const query = { isDeleted: false };
 
-    // Filter by type if provided, otherwise default to "event" and "course"
-    if (type) {
-      query.type = type.toLowerCase();
+    // Filter by type if provided:
+    // If type is "all", or if admin requests without a specific type, return all categories (including support_ticket)
+    const isAdmin = req.user && req.user.roleId === roleId.SUPER_ADMIN;
+    const lowerType = type ? type.toLowerCase() : "";
+
+    if (lowerType === "all" || (isAdmin && !lowerType)) {
+      // Return all categories without type restriction
+    } else if (lowerType) {
+      query.type = lowerType;
     } else {
+      // Default for public user app without type specified
       query.type = { $in: ["event", "course"] };
     }
 
